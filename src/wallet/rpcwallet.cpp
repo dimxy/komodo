@@ -5532,25 +5532,17 @@ UniValue gatewaysaddress(const UniValue& params, bool fHelp)
 
 UniValue heiraddress(const UniValue& params, bool fHelp)
 {
-    struct CCcontract_info *cp,C; std::vector<unsigned char> destPubkey;
+    struct CCcontract_info *cp,C; std::vector<unsigned char> pubkey;
 
     cp = CCinit(&C,EVAL_HEIR);
     if ( fHelp || (params.size() != 4 && params.size() != 3))
-        throw runtime_error("heiraddress func txid amount [destpubkey]\n");
+        throw runtime_error("heiraddress [pubkey]\n");
     if ( ensure_CCrequirements() < 0 )
         throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
-    //if ( params.size() == 1 )
-    //    pubkey = ParseHex(params[0].get_str().c_str());
+    if ( params.size() == 1 )
+        pubkey = ParseHex(params[0].get_str().c_str());
 
-	char funcid = ((char *)params[0].get_str().c_str())[0];
-	uint256 assetid = Parseuint256((char *)params[1].get_str().c_str());
-	int64_t funds = atof(params[2].get_str().c_str()) * COIN ;
-	if(params.size() == 4)
-		destPubkey = ParseHex(params[3].get_str().c_str());
-
-	return HeirFundBad(funcid, assetid, funds, destPubkey);
-
-    //return(CCaddress(cp,(char *)"Heir",pubkey));
+    return(CCaddress(cp,(char *)"Heir",pubkey));
 }
 
 UniValue lottoaddress(const UniValue& params, bool fHelp)
