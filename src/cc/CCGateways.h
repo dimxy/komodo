@@ -30,7 +30,8 @@ std::string GatewaysCompleteSigning(uint64_t txfee,uint256 txidaddr,std::string 
 std::string GatewaysMarkDone(uint64_t txfee,uint256 withdrawtxid,std::string refcoin);
 UniValue GatewaysPendingWithdraws(uint256 bindtxid,std::string refcoin);
 UniValue GatewaysProcessedWithdraws(uint256 bindtxid,std::string refcoin);
-UniValue GatewaysMultisig(char *txidaddr);
+UniValue GatewaysMultisig(char *cctxidaddr);
+bool GatewaysExactAmounts(bool compareTotals, struct CCcontract_info *cpGateways, Eval* eval, uint256 assetid, const CTransaction &tx);
 
 
 // CCcustom

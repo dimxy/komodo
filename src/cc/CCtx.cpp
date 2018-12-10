@@ -279,12 +279,20 @@ int64_t CCtoken_balance(char *coinaddr,uint256 tokenid)
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
         txid = it->first.txhash;
-        if ( GetTransaction(txid,tx,hashBlock,false) != 0 && (numvouts= tx.vout.size()) > 0 )
+        if ( GetTransaction(txid,tx,hashBlock,false) != 0 && (numvouts= tx.vout.size()) > 0)
         {
-            char str[65]; fprintf(stderr,"check %s %.8f\n",uint256_str(str,txid),(double)it->second.satoshis/COIN);
+            char str[65]; fprintf(stderr,"CCtoken_balance() check %s %.8f\n",uint256_str(str,txid),(double)it->second.satoshis/COIN);
             if ( DecodeAssetOpRet(tx.vout[numvouts-1].scriptPubKey,assetid,assetid2,price,origpubkey) != 0 && assetid == tokenid )
             {
-                sum += it->second.satoshis;
+				struct CCcontract_info *cp, C;
+				int64_t dummyInputs, dummyOutputs;
+
+				cp = CCinit(&C, EVAL_ASSETS);
+				// check that the tx outputs are fed only from cc inputs or the creation tx, otherwise it is a fake tx (dimxy):
+				if (AssetExactAmounts(1, cp, dummyInputs, 0, dummyOutputs, NULL, tx, assetid))
+					sum += it->second.satoshis;
+				else
+					std::cerr << "CCtoken_balance() possible 'fake' token tx found, skipping this tx=" << tx.GetHash().GetHex() << std::endl;
             }
         }
     }

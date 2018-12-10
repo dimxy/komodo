@@ -14,6 +14,7 @@
  ******************************************************************************/
 
 #include "CCGateways.h"
+#include "CCassets.h"
 
 /*
  prevent duplicate bindtxid via mempool scan
@@ -211,6 +212,13 @@ CScript EncodeGatewaysClaimOpRet(uint8_t funcid,uint256 assetid,std::string refc
     return(opret);
 }
 
+CScript EncodeGatewaysClaimOpRetV2(uint8_t funcid, uint256 assetid, CPubKey destpub)
+{
+	CScript opret; uint8_t evalcode = EVAL_ASSETS;
+	opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << assetid << zeroid << 0 << destpub);
+	return(opret);
+}
+
 uint8_t DecodeGatewaysClaimOpRet(const CScript &scriptPubKey,uint256 &assetid,std::string &refcoin,uint256 &bindtxid,uint256 &deposittxid,CPubKey &destpub,int64_t &amount)
 {
     std::vector<uint8_t> vopret; uint8_t *script,e,f;
@@ -312,53 +320,144 @@ uint8_t DecodeGatewaysOpRet(const CScript &scriptPubKey)
     return(0);
 }
 
-int64_t IsGatewaysvout(struct CCcontract_info *cp,const CTransaction& tx,int32_t v)
+// this is for indentation of debug log messages (in recursive calls):
+extern thread_local uint32_t assetValIndentSize;
+
+// check if vout is cc addr and also check sum(inputs) == sum(outputs) for the passed tx, if requested
+int64_t IsGatewaysvout(bool compareTotals, struct CCcontract_info *cpGateways, Eval* eval, uint256 assetid, const CTransaction& tx, int32_t v)
 {
-    char destaddr[64];
-    if ( tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0 )
+	std::string indentStr = std::string().append(assetValIndentSize, '.');
+
+	//std::cerr << indentStr << "IsGatewaysvout() entered for txid=" << tx.GetHash().GetHex() << " v=" << v << std::boolalpha << " compareTotals=" << compareTotals  << std::endl;
+    if( tx.vout[v].scriptPubKey.IsPayToCryptoCondition() )
     {
-        if ( Getscriptaddress(destaddr,tx.vout[v].scriptPubKey) > 0 && strcmp(destaddr,cp->unspendableCCaddr) == 0 )
-            return(tx.vout[v].nValue);
-    }
+		//std::cerr << indentStr << "IsGatewaysvout() IsPayToCryptoCondition=true for txid=" << tx.GetHash().GetHex() << std::endl;
+		if (compareTotals) {  // totally there are only 2 levels actually
+
+			// call recursively GatewaysExactAmounts and compare ccinputs = ccoutputs for this tx:
+			assetValIndentSize++;
+			const bool isEqual = GatewaysExactAmounts(false, cpGateways, eval, assetid, tx);
+			assetValIndentSize--;
+
+			if (!isEqual) {  // ccInputs != ccOutputs means a problem
+				//std::cerr << indentStr << "IsGatewaysvout() warning: detected suspicious tx=" << tx.GetHash().GetHex() << ": cc inputs != cc outputs, checking further if it is the tokenbase tx" << std::endl;
+				// if ccInputs != ccOutputs and it is not the 'tokenbase' tx means it is possibly fake tx (dimxy):
+				if (assetid != zeroid && assetid != tx.GetHash()) {			
+					std::cerr << indentStr << "IsGatewaysvout() warning: detected bad tx=" << tx.GetHash().GetHex() << ": cc inputs != cc outputs and not the 'tokenbase' tx, skipping this tx" << std::endl;
+					return 0;
+				}
+			}
+		}
+
+		// NOTE: I turned off this check because if we get here from validation we don't know,
+		// if this is the vout to Gateway CC unspendable addr or to CC mypubkey addr 
+		// and this check validates only for the unspendable addr (dimxy):
+		//char destaddr[64] = "";
+		//std::cerr << indentStr << "IsGatewaysvout() Getscriptaddress=" << std::boolalpha << Getscriptaddress(destaddr, tx.vout[v].scriptPubKey) << " destaddr=" << destaddr << " CCaddr=" << cpGateways->unspendableCCaddr << " for txid=" << tx.GetHash().GetHex() << std::endl;
+		//if (Getscriptaddress(destaddr, tx.vout[v].scriptPubKey) && strcmp(destaddr, cpGateways->unspendableCCaddr) == 0) {
+		//	std::cerr << indentStr << "IsGatewaysvout() isAssetsTx=false, return value=" << tx.vout[v].nValue << std::endl;
+		//	return(tx.vout[v].nValue);
+		//}
+
+		// lets check asset opreturn for this gateways or assets tx (dimxy):
+		int64_t dummyPrice; std::vector<uint8_t> dummyOrigpubkey;
+
+		const bool valOpret = ValidateAssetOpret(tx, v, assetid, dummyPrice, dummyOrigpubkey);
+		//std::cerr << indentStr << "IsGatewaysvout() ValidateAssetOpret returned=" << std::boolalpha << valOpret << " for txid=" << tx.GetHash().GetHex() << std::endl;
+		if (valOpret) {
+			std::cerr << indentStr << "IsGatewaysvout() opret is okay, return value=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << std::endl;
+			return(tx.vout[v].nValue);
+		}
+		
+    }  
+	//std::cerr << indentStr << "IsGatewaysvout() return value=0" << std::endl;
     return(0);
 }
 
-bool GatewaysExactAmounts(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx,int32_t minage,uint64_t txfee)
+// this function validates that tx cc outputs == cc inputs,
+// that is there is no fake token supply from normal inputs (except the initial tokenbase tx)
+// the cc inputs are allowed only from the Assets or Gateways contracts
+// the function also checks for this for 1-st level of ancestor tx's by the recusion call of itself from IsGatewaysVout()
+// this recursive validation is depicted here: https://drive.google.com/open?id=1O9PGpuSfllOxhzxJdHUDtTPAQhDXpLsE
+// additional assetid param is passed to check if there is the tokenbase tx in inputs
+bool GatewaysExactAmounts(bool compareTotals, struct CCcontract_info *cpGateways, Eval* eval, uint256 assetid, const CTransaction &tx)
 {
     static uint256 zerohash;
-    CTransaction vinTx; uint256 hashBlock,activehash; int32_t i,numvins,numvouts; int64_t inputs=0,outputs=0,assetoshis;
-    numvins = tx.vin.size();
-    numvouts = tx.vout.size();
-    for (i=0; i<numvins; i++)
+    CTransaction vinTx; 
+	uint256 hashBlock,activehash; 
+	int64_t inputs=0,outputs=0,assetoshis;
+
+	struct CCcontract_info *cpAssets, cAssets; 
+	cpAssets = CCinit(&cAssets, EVAL_ASSETS);		// init also tokens CC contract to check its cc addresses too
+
+	std::string indentStr = std::string().append(assetValIndentSize, '.');
+
+	int32_t numvins = tx.vin.size();
+	int32_t numvouts = tx.vout.size();
+    for (int32_t i=0; i < numvins; i++)
     {
-        //fprintf(stderr,"vini.%d\n",i);
-        if ( (*cp->ismyvin)(tx.vin[i].scriptSig) != 0 )
+        //std::cerr << indentStr; fprintf(stderr,"vini.%d\n",i);
+		//std::cerr << indentStr << "GatewaysExactAmounts() vin i=" << i << " cpGateways->ismyvin()=" << std::boolalpha << (*cpGateways->ismyvin)(tx.vin[i].scriptSig) << " cpAssets->ismyvin()=" << (*cpAssets->ismyvin)(tx.vin[i].scriptSig) << std::endl;
+
+		// checking that vin is either from gateway or assets:
+		if( (*cpGateways->ismyvin)(tx.vin[i].scriptSig) || (*cpAssets->ismyvin)(tx.vin[i].scriptSig) )
         {
-            //fprintf(stderr,"vini.%d check mempool\n",i);
-            if ( eval->GetTxUnconfirmed(tx.vin[i].prevout.hash,vinTx,hashBlock) == 0 )
-                return eval->Invalid("cant find vinTx");
+            //std::cerr << indentStr; fprintf(stderr,"vini.%d check mempool\n",i);
+			if ((eval && !eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock)) || !myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock)) {
+				std::cerr << indentStr << "GatewaysExactAmounts(): can't get vintx transaction txid=" << tx.vin[i].prevout.hash.GetHex() << std::endl;
+				return (eval) ? eval->Invalid("cant find vinTx") : false;
+			}
             else
             {
-                //fprintf(stderr,"vini.%d check hash and vout\n",i);
-                if ( hashBlock == zerohash )
-                    return eval->Invalid("cant Gateways from mempool");
-                if ( (assetoshis= IsGatewaysvout(cp,vinTx,tx.vin[i].prevout.n)) != 0 )
+                //std::cerr << indentStr; fprintf(stderr,"vini.%d check hash and vout\n",i);
+				if (hashBlock == zerohash) {
+					std::cerr << indentStr << "GatewaysExactAmounts(): can't get vintx from mempool, txid=" << tx.vin[i].prevout.hash.GetHex() << std::endl;
+					return (eval) ? eval->Invalid("cant Gateways from mempool") : false;
+				}
+
+				std::string dummyRefcoin; uint256 dummyBindtxid, dummyDeposittxid; CPubKey dummyDestpub; int64_t dummyAmount;  
+				uint256 dummyAssetid2;  
+				std::vector<uint8_t> dummyOrigpubkey; 
+
+				// Note: if assetid is zeroid, it may mean we are on the first level and just called from GatewaysValidate, validating claim 't' tx, 
+				// then let's find the assetid ourselves:
+				if (assetid == zeroid && DecodeAssetOpRet(tx.vout[numvouts - 1].scriptPubKey, assetid, dummyAssetid2, dummyAmount, dummyOrigpubkey) == 't') {
+					//std::cerr << indentStr << "GatewaysExactAmounts() will check if this vinx is the tokenbase assetid=" << assetid.GetHex() << std::endl;
+				}
+
+				// checking that the vout of the vintx (that is, referenced by this vin), in its turn, is fed by either from gateways' or assets' cryptocondition address:
+				//std::cerr << indentStr << "GatewaysExactAmounts() calling IsGatewaysvout for vintx i=" << i << " prevout.n=" << tx.vin[i].prevout.n << std::endl;
+				
+				assetValIndentSize++;
+				assetoshis = IsGatewaysvout(compareTotals, cpGateways, eval, assetid, vinTx, tx.vin[i].prevout.n);
+				assetValIndentSize--;
+                if( assetoshis > 0 ) 
                     inputs += assetoshis;
             }
         }
     }
-    for (i=0; i<numvouts; i++)
+    for (int32_t i=0; i<numvouts; i++)
     {
         //fprintf(stderr,"i.%d of numvouts.%d\n",i,numvouts);
-        if ( (assetoshis= IsGatewaysvout(cp,tx,i)) != 0 )
+
+		//std::cerr << indentStr << "GatewaysExactAmounts() calling IsGatewaysvout for this tx, vout i=" << i << std::endl;
+		assetValIndentSize++;
+		// Note: we pass in here compareTotals = false because we don't need to call GatewaysExactAmounts() recursively from isGatewaysvout
+		// indeed, in this case we'll be checking this tx again
+		assetoshis = IsGatewaysvout(false, cpGateways, eval, assetid, tx, i);
+		assetValIndentSize--;
+        if( assetoshis > 0)
             outputs += assetoshis;
     }
-    if ( inputs != outputs+txfee )
-    {
-        fprintf(stderr,"inputs %llu vs outputs %llu\n",(long long)inputs,(long long)outputs);
-        return eval->Invalid("mismatched inputs != outputs + txfee");
+
+    if ( inputs != outputs )    {
+		std::cerr << indentStr << "GatewaysExactAmounts() inputs=" << inputs << " vs outputs=" << outputs << " return false" << std::endl;
+        return (eval) ? eval->Invalid("mismatched inputs != outputs + txfee") : false;
     }
-    else return(true);
+	else {
+		//std::cerr << indentStr << "GatewaysExactAmounts() inputs=" << inputs << " vs outputs=" << outputs << " return true" << std::endl;
+		return(true);
+	}
 }
 
 static int32_t myIs_coinaddr_inmempoolvout(char *coinaddr)
@@ -497,12 +596,18 @@ int64_t GatewaysDepositval(CTransaction tx,CPubKey mypk)
     int32_t numvouts,claimvout,height; int64_t amount; std::string coin,deposithex; std::vector<CPubKey> publishers; std::vector<uint256>txids; uint256 bindtxid,cointxid; std::vector<uint8_t> proof; CPubKey claimpubkey;
     if ( (numvouts= tx.vout.size()) > 0 )
     {
-        if ( DecodeGatewaysDepositOpRet(tx.vout[numvouts-1].scriptPubKey,coin,bindtxid,publishers,txids,height,cointxid,claimvout,deposithex,proof,claimpubkey,amount) == 'D' && claimpubkey == mypk )
+        if ( DecodeGatewaysDepositOpRet(tx.vout[numvouts-1].scriptPubKey,coin,bindtxid,publishers,txids,height,cointxid,claimvout,deposithex,proof,claimpubkey,amount) == 'D' )
         {
-            // coin, bindtxid, publishers
-            fprintf(stderr,"need to validate deposittxid more\n");
-            return(amount);
+			if (claimpubkey == mypk) {
+				// coin, bindtxid, publishers
+				fprintf(stderr, "need to validate deposittxid more\n");
+				return(amount);
+			}
+			else
+				fprintf(stderr, "incorrect pubkey to claim\n");		//dimxy
         }
+		else
+			fprintf(stderr, "cannot decode deposit tx opreturn\n");  //dimxy
     }
     return(0);
 }
@@ -532,11 +637,10 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
         //     }
         // }
         //fprintf(stderr,"check amounts\n");
-        // if ( GatewaysExactAmounts(cp,eval,tx,1,10000) == false )
-        // {
-        //     fprintf(stderr,"Gatewaysget invalid amount\n");
-        //     return false;
-        // }
+        if( !GatewaysExactAmounts(true, cp,eval,zeroid, tx) )    {
+             fprintf(stderr,"GatewaysValidate() this tx or some of its vin tx has invalid cc amounts\n");
+             return false;
+        }
         // else
         // {        
             txid = tx.GetHash();
@@ -544,6 +648,9 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
             
             if ( (funcid = DecodeGatewaysOpRet(tx.vout[numvouts-1].scriptPubKey)) != 0)
             {
+				uint256 dummyAssetid2;  //dimxy
+				std::vector<uint8_t> dummyOrigpubkey; //dimxy
+
                 switch ( funcid )
                 {
                     case 'B':
@@ -566,7 +673,9 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                         //vout.0: CC vout of total tokens from deposit amount to asset eval code 
                         //(vout.1): CC vout if there is change of unused tokens back to owner of tokens (deposit amount less than available tokens)                        
                         //vout.n-1: opreturn - 't' assetid zeroid 0 mypubkey (NOTE: opreturn is with asset eval code)
-                        if ((numvouts=tx.vout.size()) > 0 && DecodeGatewaysClaimOpRet(tx.vout[numvouts-1].scriptPubKey,assetid,refcoin,bindtxid,deposittxid,destpub,amount)==0)
+                        
+					////if ((numvouts=tx.vout.size()) > 0 && DecodeGatewaysClaimOpRet(tx.vout[numvouts-1].scriptPubKey,assetid,refcoin,bindtxid,deposittxid,destpub,amount)==0)
+						if ((numvouts = tx.vout.size()) > 0 && DecodeAssetOpRet(tx.vout[numvouts - 1].scriptPubKey, assetid, dummyAssetid2, amount, dummyOrigpubkey) == 0)
                             return eval->Invalid("invalid gatewaysclaim OP_RETURN data!"); 
                         else if ( IsCCInput(tx.vin[0].scriptSig) != 0 )
                             return eval->Invalid("vin.0 is normal for gatewaysClaim!");
@@ -675,10 +784,16 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
 
 // helper functions for rpc calls in rpcwallet.cpp
 
+// this func adds tokens either from gateway cc address itself (to sendthem to asset user cc addr, to claim tokens) - tokens fed from asset cc user addr
+// or from gateway user's cc address (to send them to gateway cc addr itself, to withraw deposited coins) - tokens also fed from asset cc user addr
 int64_t AddGatewaysInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey pk,uint256 refassetid,int64_t total,int32_t maxinputs)
 {
     char coinaddr[64],destaddr[64]; int64_t threshold,nValue,price,totalinputs = 0; uint256 assetid,txid,hashBlock; std::vector<uint8_t> origpubkey; std::vector<uint8_t> vopret; CTransaction vintx; int32_t j,vout,n = 0; uint8_t evalcode,funcid;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+
+	struct CCcontract_info *cpAssets, cAssets;
+	cpAssets = CCinit(&cAssets, EVAL_ASSETS);    // init also tokens CC contract to check its cc addresses too
+
     GetCCaddress(cp,coinaddr,pk);
     SetCCunspents(unspentOutputs,coinaddr);
     threshold = total/(maxinputs+1);
@@ -697,15 +812,29 @@ int64_t AddGatewaysInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CP
         if ( GetTransaction(txid,vintx,hashBlock,false) != 0 )
         {
             Getscriptaddress(destaddr,vintx.vout[vout].scriptPubKey);
-            //fprintf(stderr,"check %s vout.%d %.8f %.8f\n",destaddr,vout,(double)vintx.vout[vout].nValue/COIN,(double)it->second.satoshis/COIN);
+            //fprintf(stderr,"check %s vout.%d %.8f %.8f\n",destaddr,vout,(double)vintx.vout[vout].nValue/COIN,(double)it->second.satoshis/COIN); 
+			//std::cerr << "AddGatewaysInputs() coinaddr=" << coinaddr << " unspendableCCaddr=" << cp->unspendableCCaddr << " unspendableCCaddr2=" << cp->unspendableaddr2 << std::endl;  //dimxy
+																							// NOTE: it seems cp->unspendableaddr2 may be not initialized! (dimxy)
             if ( strcmp(destaddr,coinaddr) != 0 && strcmp(destaddr,cp->unspendableCCaddr) != 0 && strcmp(destaddr,cp->unspendableaddr2) != 0 )
                 continue;
-            GetOpReturnData(vintx.vout[vintx.vout.size()-1].scriptPubKey, vopret);
-            if ( E_UNMARSHAL(vopret,ss >> evalcode; ss >> funcid; ss >> assetid) != 0 )
+
+			uint256 dummyAssetid2;
+			int64_t dummyAmount;
+			std::vector<uint8_t> dummyOrigpubkey;
+
+			//GetOpReturnData(vintx.vout[vintx.vout.size()-1].scriptPubKey, vopret);
+			//if ( E_UNMARSHAL(vopret,ss >> evalcode; ss >> funcid; ss >> assetid) != 0 )
+			// dimxy proposed change: use ready Assets contract  function because this is a Assets opret:
+			if( (funcid = DecodeAssetOpRet(vintx.vout[vintx.vout.size() - 1].scriptPubKey, assetid, dummyAssetid2, dummyAmount, dummyOrigpubkey)) != 0 )
             {
-                assetid = revuint256(assetid);
-                char str[65],str2[65]; fprintf(stderr,"vout.%d %d:%d (%c) check for refassetid.%s vs %s %.8f\n",vout,evalcode,cp->evalcode,funcid,uint256_str(str,refassetid),uint256_str(str2,assetid),(double)vintx.vout[vout].nValue/COIN);
-                if ( assetid == refassetid && funcid == 't' && (nValue= vintx.vout[vout].nValue) > 0 && myIsutxo_spentinmempool(txid,vout) == 0 )
+				evalcode = EVAL_ASSETS;  // if DecodeAssetOpRet returned not 0, it is definitely EVAL_ASSETS
+                // assetid = revuint256(assetid); <-- we dont need this: now DecodeAssetOpRet does this (dimxy) 
+                char str[65],str2[65]; 
+				fprintf(stderr,"vout.%d %d:%d (%c) check for refassetid.%s vs %s %.8f\n",vout,evalcode,cp->evalcode,funcid,uint256_str(str,refassetid),uint256_str(str2,assetid),(double)vintx.vout[vout].nValue/COIN);											
+                if ( assetid == refassetid && funcid == 't' && (nValue = vintx.vout[vout].nValue) > 0 && !myIsutxo_spentinmempool(txid,vout) &&
+					// check vintx for bad inputs (dimxy):
+					IsGatewaysvout(true, cp, NULL, assetid, vintx, vout) > 0 )	    
+					//            'true' means to check ancestor tx's (dimxy)
                 {
                     //fprintf(stderr,"total %llu maxinputs.%d %.8f\n",(long long)total,maxinputs,(double)it->second.satoshis/COIN);
                     if ( total != 0 && maxinputs != 0 )
@@ -844,7 +973,7 @@ std::string GatewaysDeposit(uint64_t txfee,uint256 bindtxid,int32_t height,std::
         txfee = 10000;
     mypk = pubkey2pk(Mypubkey());
     gatewayspk = GetUnspendable(cp,0);
-    //fprintf(stderr,"GatewaysDeposit ht.%d %s %.8f numpks.%d\n",height,refcoin.c_str(),(double)amount/COIN,(int32_t)pubkeys.size());
+    //fprintf(stderr,"GatewaysDeposit ht.%d %s %.8f numpks.%d\n",height,refcoin.c_str(),(double)amount/COIN,(int32_t)pubkeys.size());  
     if ( GetTransaction(bindtxid,bindtx,hashBlock,false) == 0 || (numvouts= bindtx.vout.size()) <= 0 )
     {
         fprintf(stderr,"cant find bindtxid %s\n",uint256_str(str,bindtxid));
@@ -927,7 +1056,7 @@ std::string GatewaysClaim(uint64_t txfee,uint256 bindtxid,std::string refcoin,ui
         fprintf(stderr,"cant find deposittxid %s\n",uint256_str(str,bindtxid));
         return("");
     }
-    if (DecodeGatewaysDepositOpRet(tx.vout[numvouts-1].scriptPubKey,coin,tmptxid,publishers,txids,height,cointxid,claimvout,deposithex,proof,tmpdestpub,tmpamount) != 'D' || coin != refcoin)
+	if ( DecodeGatewaysDepositOpRet(tx.vout[numvouts-1].scriptPubKey,coin,tmptxid,publishers,txids,height,cointxid,claimvout,deposithex,proof,tmpdestpub,tmpamount) != 'D' || coin != refcoin)
     {
         fprintf(stderr,"invalid coin - deposittxid %s coin.%s\n",uint256_str(str,bindtxid),coin.c_str());
         return("");
@@ -955,7 +1084,11 @@ std::string GatewaysClaim(uint64_t txfee,uint256 bindtxid,std::string refcoin,ui
             mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,amount,mypk)); // transfer back to normal token
             if ( CCchange != 0 )
                 mtx.vout.push_back(MakeCC1vout(EVAL_GATEWAYS,CCchange,gatewayspk));            
-            return(FinalizeCCTx(0,cp,mtx,mypk,txfee,EncodeGatewaysClaimOpRet('t',assetid,refcoin,bindtxid,deposittxid,destpub,amount)));
+
+			// dimxy: I believe this is not quite correct and from this I could not do more than one claim:
+            //return(FinalizeCCTx(0,cp,mtx,mypk,txfee,EncodeGatewaysClaimOpRet('t',assetid,refcoin,bindtxid,deposittxid,destpub,amount))); 
+			// the proposed change is use a function fromAssets contract:
+			return(FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeAssetOpRet('t', assetid, zeroid, 0, Mypubkey())));  // TODO: or destpub? they should be equeal. it is checked in GatewaysDepositVal()
         }
     }
     CCerror = strprintf("cant find enough inputs or mismatched total");
