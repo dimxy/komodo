@@ -135,6 +135,8 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey,uint256 &assetid,uint256 &a
 uint8_t DecodeOraclesData(const CScript &scriptPubKey,uint256 &oracletxid,uint256 &batontxid,CPubKey &pk,std::vector <uint8_t>&data);
 int32_t oracle_format(uint256 *hashp,int64_t *valp,char *str,uint8_t fmt,uint8_t *data,int32_t offset,int32_t datalen);
 CScript EncodeAssetOpRet(uint8_t funcid,uint256 assetid,uint256 assetid2,int64_t price,std::vector<uint8_t> origpubkey);
+bool AssetExactAmounts(bool compareTotals, struct CCcontract_info *cpAssets, int64_t &inputs, int32_t starti, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 assetid);
+
 
 // CCcustom
 CPubKey GetUnspendable(struct CCcontract_info *cp,uint8_t *unspendablepriv);

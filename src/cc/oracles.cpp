@@ -673,12 +673,12 @@ int64_t AddOracleInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,uint
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs; CPubKey tmppk; int64_t tmpnum;
     GetCCaddress(cp,coinaddr,pk);
     SetCCunspents(unspentOutputs,coinaddr);
-    //fprintf(stderr,"addoracleinputs from (%s)\n",coinaddr);
+    fprintf(stderr,"addoracleinputs from (%s)\n",coinaddr);
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
         txid = it->first.txhash;
         vout = (int32_t)it->first.index;
-        //char str[65]; fprintf(stderr,"oracle check %s/v%d\n",uint256_str(str,txid),vout);
+        char str[65]; fprintf(stderr,"oracle check %s/v%d\n",uint256_str(str,txid),vout);
         if ( GetTransaction(txid,vintx,hashBlock,false) != 0 && (numvouts=vintx.vout.size()-1)>0)
         {
             if ((funcid=DecodeOraclesOpRet(vintx.vout[numvouts].scriptPubKey,tmporacletxid,tmppk,tmpnum))!=0 && (funcid=='S' || funcid=='D'))
@@ -697,7 +697,9 @@ int64_t AddOracleInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,uint
                         n++;
                         if ( (total > 0 && totalinputs >= total) || (maxinputs > 0 && n >= maxinputs) )
                             break;
-                    } //else fprintf(stderr,"nValue %.8f or utxo memspent\n",(double)nValue/COIN);
+                    } 
+					else 
+						fprintf(stderr,"nValue %.8f or utxo memspent\n",(double)nValue/COIN);
                 }            
             }
         } else fprintf(stderr,"couldnt find transaction\n");

@@ -277,6 +277,11 @@ bool DecodeAssetCreateOpRet(const CScript &scriptPubKey,std::vector<uint8_t> &or
 uint8_t DecodeAssetOpRet(const CScript &scriptPubKey,uint256 &assetid,uint256 &assetid2,int64_t &price,std::vector<uint8_t> &origpubkey)
 {
     std::vector<uint8_t> vopret; uint8_t funcid=0,*script,e,f;
+
+	// this is for dealing with the remainder in opreturn which may be attached by other contracts:
+	bool isEof = false;
+	bool unmarshalReturn = false;
+
     GetOpReturnData(scriptPubKey, vopret);
     script = (uint8_t *)vopret.data();
     memset(&assetid,0,sizeof(assetid));
@@ -291,7 +296,8 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey,uint256 &assetid,uint256 &a
             case 'c': return(funcid);
                 break;
             case 't':  case 'x': case 'o':
-                if ( E_UNMARSHAL(vopret,ss >> e; ss >> f; ss >> assetid) != 0 )
+				unmarshalReturn = E_UNMARSHAL(vopret, ss >> e; ss >> f; ss >> assetid; isEof = ss.eof());
+                if (unmarshalReturn || !isEof)
                 {
                     assetid = revuint256(assetid);
                     return(funcid);
@@ -342,215 +348,275 @@ bool GetAssetorigaddrs(struct CCcontract_info *cp,char *CCaddr,char *destaddr,co
     else return(false);
 }
 
+// this is just for log messages indentation fur debugging recursive calls:
+thread_local uint32_t assetValIndentSize = 0;
+
+// validates opret for token tx:
+bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &price, std::vector<uint8_t> &origpubkey) {
+
+	uint256 assetidOpret, assetidOpret2;
+	uint8_t funcid;
+
+	// this is just for log messages indentation fur debugging recursive calls:
+	std::string indentStr = std::string().append(assetValIndentSize, '.');
+
+	int32_t n = tx.vout.size();
+
+	if ((funcid = DecodeAssetOpRet(tx.vout[n - 1].scriptPubKey, assetidOpret, assetidOpret2, price, origpubkey)) == 0)
+	{
+		std::cerr << indentStr << "ValidateAssetOpret() DecodeOpret returned null for n-1=" << n-1 << " txid=" << tx.GetHash().GetHex() << std::endl;
+		return(false);
+	}
+	else if (funcid == 'c')
+	{
+		if (assetid != zeroid && assetid == tx.GetHash() && v == 0) {
+			//std::cerr << indentStr << "ValidateAssetOpret() this is the tokenbase 'c' tx, txid=" << tx.GetHash().GetHex() << " vout=" << v << " returning true" << std::endl;
+			return(true);
+		}
+	}
+	else if (funcid == 't')  // TODO: check if this new block does not influence IsAssetVout 
+	{
+		//std::cerr << indentStr << "ValidateAssetOpret() assetid=" << assetid.GetHex() << " assetIdOpret=" << assetidOpret.GetHex() << " txid=" << tx.GetHash().GetHex()  << std::endl;
+		if (assetid != zeroid && assetid == assetidOpret) {
+			//std::cerr << indentStr << "ValidateAssetOpret() this is a transfer 't' tx, txid=" << tx.GetHash().GetHex() << " vout=" << v << " returning true" << std::endl;
+			return(true);
+		}
+	}
+	else if ((funcid == 'b' || funcid == 'B') && v == 0) // critical! 'b'/'B' vout0 is NOT asset
+		return(false);
+	else if (funcid != 'E')
+	{
+		if (assetid != zeroid && assetidOpret == assetid)
+		{
+			//std::cerr << indentStr << "ValidateAssetOpret() returns true for !'E'" << std::endl;
+			return(true);
+		}
+	}
+	else if (funcid == 'E')
+	{
+		if (v < 2 && assetid != zeroid && assetidOpret == assetid)
+			return(true);
+		else if (v == 2 && assetid != zeroid && assetidOpret2 == assetid)
+			return(true);
+	}
+	return false;
+}
+
 
 // Checks if the vout is a really Asset CC vout
-// if maxAssetExactAmountDepth > 0, it also validates the vin transaction itself: 
+// compareTotals == true, the func also validates the passed transaction itself: 
 // it should be either sum(cc vins) == sum(cc vouts) or the transaction is the 'tokenbase' ('c') tx
-int64_t IsAssetvout(int32_t maxAssetExactAmountDepth, struct CCcontract_info *cp, Eval* eval, int64_t &price,std::vector<uint8_t> &origpubkey,const CTransaction& tx,int32_t v,uint256 refassetid)
+int64_t IsAssetvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval, int64_t &price,std::vector<uint8_t> &origpubkey,const CTransaction& tx,int32_t v,uint256 refassetid)
 {
-    uint256 assetid,assetid2; int64_t nValue=0; int32_t n; uint8_t funcid;
 
-    if ( tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0 ) // maybe check address too?
+	// this is just for log messages indentation fur debugging recursive calls:
+	std::string indentStr = std::string().append(assetValIndentSize, '.');
+	//std::cerr << indentStr << "IsAssetvout() entered for txid=" << tx.GetHash().GetHex() << " v=" << v << std::endl;
+
+    if ( tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0 ) // maybe check address too? dimxy: possibly no, because there are too many cases with different addresses here
     {
+		int32_t n = tx.vout.size();
+		// just check boundaries:
+		if (v >= n - 1) {  // just moved this up (dimxy)
+			std::cerr << indentStr << "isAssetVout() internal err: (v >= n - 1), returning 0" << std::endl;
+			return(0);
+		}
 
-		if (maxAssetExactAmountDepth > 0) {
+		if (compareTotals) {
+			//std::cerr << indentStr << "IsAssetvout() maxAssetExactAmountDepth=" << maxAssetExactAmountDepth << std::endl;
 			//validate all tx
 			int64_t myCCVinsAmount = 0, myCCVoutsAmount = 0;
 			std::vector<CTransaction> ccVinsTxs;
-			
-			//std::cerr << "IsAssetvout() validate=yes" << std::endl;
-			const bool validateVinTxs = false;
-			bool isEqualAmounts = AssetExactAmounts(maxAssetExactAmountDepth, cp, myCCVinsAmount, 0, myCCVoutsAmount, eval, tx, refassetid);
-			
-			// if ccInputs != ccOutputs and it is not the tokenbase tx means it is possibly fake tx (dimxy):
-			if (!isEqualAmounts && refassetid != tx.GetHash()) {	// checking that this is the true tokenbase tx, by verifying that funcid=c, is done further in this function (dimxy)
-				std::cerr << "IsAssetvout() detected bad tx=" << tx.GetHash().GetHex() << ": cc inputs != cc outputs and not the 'tokenbase' tx" << std::endl;
-				return 0;
+
+			assetValIndentSize++;
+										  // false --> because we already at the 1-st level ancestor tx and do not need to dereference ancestors of next levels
+			bool isEqual = AssetExactAmounts(false, cp, myCCVinsAmount, 0, myCCVoutsAmount, eval, tx, refassetid);
+			assetValIndentSize--;
+
+			if (!isEqual) {
+				// if ccInputs != ccOutputs and it is not the tokenbase tx 
+				// this means it is possibly a fake tx (dimxy):
+				if (refassetid != tx.GetHash()) {	// checking that this is the true tokenbase tx, by verifying that funcid=c, is done further in this function (dimxy)
+					std::cerr << indentStr << "IsAssetvout() warning: detected bad tx=" << tx.GetHash().GetHex() << ": cc inputs != cc outputs and not the 'tokenbase' tx, skipping this tx" << std::endl;
+					return 0;
+				}
 			}
 		}
 
-
-		n = tx.vout.size();
-		if (v >= n - 1) {  // just moved this up (dimxy)
-			std::cerr << "isAssetVout() internal err: (v >= n - 1), returning 0" << std::endl;
-			return(0);
+		// moved opret checking to this new reusable func (dimxy):
+		const bool valOpret = ValidateAssetOpret(tx, v, refassetid, price, origpubkey);
+		//std::cerr << indentStr << "IsAssetvout() ValidateAssetOpret returned=" << std::boolalpha << valOpret << " for txid=" << tx.GetHash().GetHex() << std::endl;
+		if (valOpret) {
+			//std::cerr << indentStr << "IsAssetvout() ValidateAssetOpret returned true, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << std::endl;
+			return tx.vout[v].nValue;
 		}
-        nValue = tx.vout[v].nValue;
 
-        // fprintf(stderr,"IsAssetvout() CC vout v.%d of n=%d amount=%.8f\n",v,n,(double)nValue/COIN);
-
-        if ( (funcid= DecodeAssetOpRet(tx.vout[n-1].scriptPubKey,assetid,assetid2,price,origpubkey)) == 0 )
-        {
-            fprintf(stderr,"IsAssetvout() null decodeopret v.%d\n",v);
-            return(0);
-        }
-        else if ( funcid == 'c' )
-        {
-			if (refassetid == tx.GetHash() && v == 0) {
-				std::cerr << "isAssetVout() this is the tokenbase 'c' tx, txid=" << tx.GetHash().GetHex() << " returning nValue=" << nValue << std::endl;
-				return(nValue);
-			}
-        }
-        else if ( (funcid == 'b' || funcid == 'B') && v == 0 ) // critical! 'b'/'B' vout0 is NOT asset
-            return(0);
-        else if ( funcid != 'E' )
-        {
-            if ( assetid == refassetid )
-            {
-                fprintf(stderr,"IsAssetvout() returning %.8f\n",(double)nValue/COIN);
-                return(nValue);
-            }
-        }
-        else if ( funcid == 'E' )
-        {
-            if ( v < 2 && assetid == refassetid )
-                return(nValue);
-            else if ( v == 2 && assetid2 == refassetid )
-                return(nValue);
-        }
-    }
-    //fprintf(stderr,"Isassetvout: normal output v.%d %.8f\n",v,(double)tx.vout[v].nValue/COIN);
-    return(0);
+		std::cerr << indentStr; fprintf(stderr,"IsAssetvout() CC vout v.%d of n=%d amount=%.8f txid=%s\n",v,n,(double)0/COIN, tx.GetHash().GetHex().c_str());
+	}
+	//std::cerr << indentStr; fprintf(stderr,"IsAssetvout() normal output v.%d %.8f\n",v,(double)tx.vout[v].nValue/COIN);
+	return(0);
 }
 
-int64_t AssetValidateCCvin(struct CCcontract_info *cp,Eval* eval,char *CCaddr,char *origaddr,const CTransaction &tx,int32_t vini,CTransaction &vinTx)
+int64_t AssetValidateCCvin(struct CCcontract_info *cp, Eval* eval, char *CCaddr, char *origaddr, const CTransaction &tx, int32_t vini, CTransaction &vinTx)
 {
-    uint256 hashBlock; char destaddr[64];
-    origaddr[0] = destaddr[0] = CCaddr[0] = 0;
-    if ( tx.vin.size() < 2 )
-        return eval->Invalid("not enough for CC vins");
-    else if ( tx.vin[vini].prevout.n != 0 )
-        return eval->Invalid("vin1 needs to be buyvin.vout[0]");
-    else if ( eval->GetTxUnconfirmed(tx.vin[vini].prevout.hash,vinTx,hashBlock) == 0 )
-    {
-        int32_t z;
-        for (z=31; z>=0; z--)
-            fprintf(stderr,"%02x",((uint8_t *)&tx.vin[vini].prevout.hash)[z]);
-        fprintf(stderr," vini.%d\n",vini);
-        return eval->Invalid("always should find CCvin, but didnt");
-    }
-    else if ( Getscriptaddress(destaddr,vinTx.vout[tx.vin[vini].prevout.n].scriptPubKey) == 0 || strcmp(destaddr,(char *)cp->unspendableCCaddr) != 0 )
-    {
-        fprintf(stderr,"%s vs %s\n",destaddr,(char *)cp->unspendableCCaddr);
-        return eval->Invalid("invalid vin AssetsCCaddr");
-    }
-    //else if ( vinTx.vout[0].nValue < 10000 )
-    //    return eval->Invalid("invalid dust for buyvin");
-    else if ( GetAssetorigaddrs(cp,CCaddr,origaddr,vinTx) == 0 )
-        return eval->Invalid("couldnt get origaddr for buyvin");
-    fprintf(stderr,"Got %.8f to origaddr.(%s)\n",(double)vinTx.vout[tx.vin[vini].prevout.n].nValue/COIN,origaddr);
-    if ( vinTx.vout[0].nValue == 0 )
-        return eval->Invalid("null value CCvin");
-    return(vinTx.vout[0].nValue);
+	uint256 hashBlock; char destaddr[64];
+	origaddr[0] = destaddr[0] = CCaddr[0] = 0;
+	if (tx.vin.size() < 2)
+		return eval->Invalid("not enough for CC vins");
+	else if (tx.vin[vini].prevout.n != 0)
+		return eval->Invalid("vin1 needs to be buyvin.vout[0]");
+	else if (eval->GetTxUnconfirmed(tx.vin[vini].prevout.hash, vinTx, hashBlock) == 0)
+	{
+		int32_t z;
+		for (z = 31; z >= 0; z--)
+			fprintf(stderr, "%02x", ((uint8_t *)&tx.vin[vini].prevout.hash)[z]);
+		fprintf(stderr, " vini.%d\n", vini);
+		return eval->Invalid("always should find CCvin, but didnt");
+	}
+	else if (Getscriptaddress(destaddr, vinTx.vout[tx.vin[vini].prevout.n].scriptPubKey) == 0 || strcmp(destaddr, (char *)cp->unspendableCCaddr) != 0)
+	{
+		fprintf(stderr, "%s vs %s\n", destaddr, (char *)cp->unspendableCCaddr);
+		return eval->Invalid("invalid vin AssetsCCaddr");
+	}
+	//else if ( vinTx.vout[0].nValue < 10000 )
+	//    return eval->Invalid("invalid dust for buyvin");
+	else if (GetAssetorigaddrs(cp, CCaddr, origaddr, vinTx) == 0)
+		return eval->Invalid("couldnt get origaddr for buyvin");
+	fprintf(stderr, "Got %.8f to origaddr.(%s)\n", (double)vinTx.vout[tx.vin[vini].prevout.n].nValue / COIN, origaddr);
+	if (vinTx.vout[0].nValue == 0)
+		return eval->Invalid("null value CCvin");
+	return(vinTx.vout[0].nValue);
 }
 
-int64_t AssetValidateBuyvin(struct CCcontract_info *cp,Eval* eval,int64_t &tmpprice,std::vector<uint8_t> &tmporigpubkey,char *CCaddr,char *origaddr,const CTransaction &tx,uint256 refassetid)
+int64_t AssetValidateBuyvin(struct CCcontract_info *cp, Eval* eval, int64_t &tmpprice, std::vector<uint8_t> &tmporigpubkey, char *CCaddr, char *origaddr, const CTransaction &tx, uint256 refassetid)
 {
-    CTransaction vinTx; int64_t nValue; uint256 assetid,assetid2; uint8_t funcid;
-    CCaddr[0] = origaddr[0] = 0;
-    if ( (nValue= AssetValidateCCvin(cp,eval,CCaddr,origaddr,tx,1,vinTx)) == 0 )
-        return(0);
-    else if ( vinTx.vout[0].scriptPubKey.IsPayToCryptoCondition() == 0 )
-        return eval->Invalid("invalid normal vout0 for buyvin");
-    else
-    {
-        //fprintf(stderr,"have %.8f checking assetid origaddr.(%s)\n",(double)nValue/COIN,origaddr);
-        if ( vinTx.vout.size() > 0 && (funcid= DecodeAssetOpRet(vinTx.vout[vinTx.vout.size()-1].scriptPubKey,assetid,assetid2,tmpprice,tmporigpubkey)) != 'b' && funcid != 'B' )
-            return eval->Invalid("invalid opreturn for buyvin");
-        else if ( refassetid != assetid )
-            return eval->Invalid("invalid assetid for buyvin");
-        //int32_t i; for (i=31; i>=0; i--)
-        //    fprintf(stderr,"%02x",((uint8_t *)&assetid)[i]);
-        //fprintf(stderr," AssetValidateBuyvin assetid for %s\n",origaddr);
-    }
-    return(nValue);
+	CTransaction vinTx; int64_t nValue; uint256 assetid, assetid2; uint8_t funcid;
+	CCaddr[0] = origaddr[0] = 0;
+	if ((nValue = AssetValidateCCvin(cp, eval, CCaddr, origaddr, tx, 1, vinTx)) == 0)
+		return(0);
+	else if (vinTx.vout[0].scriptPubKey.IsPayToCryptoCondition() == 0)
+		return eval->Invalid("invalid normal vout0 for buyvin");
+	else
+	{
+		//fprintf(stderr,"have %.8f checking assetid origaddr.(%s)\n",(double)nValue/COIN,origaddr);
+		if (vinTx.vout.size() > 0 && (funcid = DecodeAssetOpRet(vinTx.vout[vinTx.vout.size() - 1].scriptPubKey, assetid, assetid2, tmpprice, tmporigpubkey)) != 'b' && funcid != 'B')
+			return eval->Invalid("invalid opreturn for buyvin");
+		else if (refassetid != assetid)
+			return eval->Invalid("invalid assetid for buyvin");
+		//int32_t i; for (i=31; i>=0; i--)
+		//    fprintf(stderr,"%02x",((uint8_t *)&assetid)[i]);
+		//fprintf(stderr," AssetValidateBuyvin assetid for %s\n",origaddr);
+	}
+	return(nValue);
 }
 
-int64_t AssetValidateSellvin(struct CCcontract_info *cp,Eval* eval,int64_t &tmpprice,std::vector<uint8_t> &tmporigpubkey,char *CCaddr,char *origaddr,const CTransaction &tx,uint256 assetid)
+int64_t AssetValidateSellvin(struct CCcontract_info *cp, Eval* eval, int64_t &tmpprice, std::vector<uint8_t> &tmporigpubkey, char *CCaddr, char *origaddr, const CTransaction &tx, uint256 assetid)
 {
-    CTransaction vinTx; int64_t nValue,assetoshis;
-    fprintf(stderr,"AssetValidateSellvin\n");
-    if ( (nValue= AssetValidateCCvin(cp,eval,CCaddr,origaddr,tx,1,vinTx)) == 0 )
-        return(0);
-    if ( (assetoshis= IsAssetvout(1, cp, NULL, tmpprice,tmporigpubkey,vinTx,0,assetid)) == 0 )
-        return eval->Invalid("invalid missing CC vout0 for sellvin");
-    else return(assetoshis);
+	CTransaction vinTx; int64_t nValue, assetoshis;
+	fprintf(stderr, "AssetValidateSellvin\n");
+	if ((nValue = AssetValidateCCvin(cp, eval, CCaddr, origaddr, tx, 1, vinTx)) == 0)
+		return(0);
+	if ((assetoshis = IsAssetvout(1, cp, NULL, tmpprice, tmporigpubkey, vinTx, 0, assetid)) == 0)
+		return eval->Invalid("invalid missing CC vout0 for sellvin");
+	else return(assetoshis);
 }
 
+// checks if vin is from 'allowed' contracts, that is, from those contracts which may accept and return tokens 
+uint8_t IsVinAllowed(CScript scriptSig) {
 
-// overload with additional params for deep tx validation (dimxy)
-bool AssetExactAmounts(int maxDepth, struct CCcontract_info *cp, int64_t &inputs, int32_t starti, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 assetid)
+	static uint8_t allowedEvals[] = { EVAL_GATEWAYS, EVAL_HEIR };  // add here eval codes of additional allowed contracts
+
+	for (int32_t i = 0; i < sizeof (allowedEvals) / sizeof(allowedEvals[0]); i++) {
+		struct CCcontract_info *cp, C;
+		cp = CCinit(&C, allowedEvals[i]);
+		if ((*cp->ismyvin)(scriptSig)) {
+			return allowedEvals[i];
+		}
+	}
+	return (uint8_t)0;
+}
+
+// compares cc inputs vs cc outputs (to prevent feeding vouts from normal inputs)
+// now it allows cc inputs from Gateways and Heir contracts @see IsVinAllowed()
+bool AssetExactAmounts(bool compareTotals, struct CCcontract_info *cpAssets, int64_t &inputs, int32_t starti, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 assetid)
 {
-    CTransaction vinTx; uint256 hashBlock,id,id2; int32_t i,flag,numvins,numvouts; int64_t assetoshis; std::vector<uint8_t> tmporigpubkey; int64_t tmpprice;
-    numvins = tx.vin.size();
-    numvouts = tx.vout.size();
+    CTransaction vinTx; uint256 hashBlock,id,id2; int32_t flag; int64_t assetoshis; std::vector<uint8_t> tmporigpubkey; int64_t tmpprice;
+	int32_t numvins = tx.vin.size();
+	int32_t numvouts = tx.vout.size();
     inputs = outputs = 0;
 
-	maxDepth--;
+	// this is just for log messages indentation for debugging recursive calls:
+	std::string indentStr = std::string().append(assetValIndentSize, '.');
 
-    for (i=starti; i<numvins; i++)
-    {
-        if ( (*cp->ismyvin)(tx.vin[i].scriptSig) != 0 )
-        {		
-			//std::cerr << "AssetExactAmounts() eval is true=" << (eval != NULL) << " ismyvin=ok for_i=" << i << std::endl;
-																				                // we are really not inside validation! -- dimxy
-            if ( (eval && eval->GetTxUnconfirmed(tx.vin[i].prevout.hash,vinTx,hashBlock) == 0) || (!eval && !myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock)) )
-            {
-                fprintf(stderr,"AssetExactAmounts() cannot read vintx i.%d starti.%d numvins.%d\n", i,starti,numvins);
-                return (!eval) ? false : eval->Invalid("always should find vin, but didnt");
+    for (int32_t i=starti; i<numvins; i++)
+    {												  // check for additional contracts which may send tokens to the Assets contract
+		if ((*cpAssets->ismyvin)(tx.vin[i].scriptSig) || IsVinAllowed(tx.vin[i].scriptSig) != 0)
+		{
+			//std::cerr << indentStr << "AssetExactAmounts() eval is true=" << (eval != NULL) << " ismyvin=ok for_i=" << i << std::endl;
+																								// we are not inside the validation code -- dimxy
+			if ((eval && eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock) == 0) || (!eval && !myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock)))
+			{
+				//std::cerr << indentStr << "AssetExactAmounts() cannot read vintx for i." << i << " starti." << starti << " numvins." << numvins << std::endl;
+				return (!eval) ? false : eval->Invalid("always should find vin tx, but didnt");
 
-            }								// false means 'don't go deeper' -- dimxy  
-            else if ( (assetoshis= IsAssetvout( maxDepth, cp, eval, tmpprice,tmporigpubkey,vinTx,tx.vin[i].prevout.n,assetid)) != 0 )
-            {
-                fprintf(stderr,"AssetExactAmounts() vin%d %llu, ",i,(long long)assetoshis);
-                inputs += assetoshis;
-            }
-            else
-            {
-                if ( vinTx.vout[i].scriptPubKey.IsPayToCryptoCondition() != 0 && DecodeAssetOpRet(vinTx.vout[vinTx.vout.size()-1].scriptPubKey,id,id2,tmpprice,tmporigpubkey) == 't' && id == assetid )
-                {
-                    assetoshis = vinTx.vout[i].nValue;
-                    fprintf(stderr,"AssetExactAmounts() vin%d assetoshis=%llu special case, ",i,(long long)assetoshis);
-                    inputs += assetoshis;
-                }
-            }
+			}
+			else {
+				assetValIndentSize++;
+				// validate vouts of vintx  
+				assetoshis = IsAssetvout(compareTotals, cpAssets, eval, tmpprice, tmporigpubkey, vinTx, tx.vin[i].prevout.n, assetid);
+				assetValIndentSize--;
+				if (assetoshis != 0)
+				{
+					std::cerr << indentStr << "AssetExactAmounts() vin i=" << i << " assetoshis=" << assetoshis << std::endl;
+					inputs += assetoshis;
+				}
+				// NOTE: this code does not make sense now as I added checking for 't' opret in ValidateAssetOpret (dimxy):
+				/*else if (vinTx.vout[i].scriptPubKey.IsPayToCryptoCondition() != 0 && DecodeAssetOpRet(vinTx.vout[vinTx.vout.size() - 1].scriptPubKey, id, id2, tmpprice, tmporigpubkey) == 't' && id == assetid)
+				{
+					assetoshis = vinTx.vout[i].nValue;
+					std::cerr << indentStr << "AssetExactAmounts() vin i=" << i << " assetoshis=" << assetoshis << " special case ('t')" << std::endl;
+					inputs += assetoshis;
+				}*/
+			}
         }
     }
 
 
-    if ( DecodeAssetOpRet(tx.vout[tx.vout.size()-1].scriptPubKey,id,id2,tmpprice,tmporigpubkey) == 't' && id == assetid )
+    /* we do not use this flag anymore
+	if ( DecodeAssetOpRet(tx.vout[tx.vout.size()-1].scriptPubKey,id,id2,tmpprice,tmporigpubkey) == 't' && id == assetid )
         flag = 1;
-    else flag = 0;
+    else 
+		flag = 0;*/
 
-    for (i=0; i<numvouts; i++)
-    {					     	  // 'false' means 'dont go deep' -- dimxy
-        if ( (assetoshis= IsAssetvout(maxDepth, cp, eval, tmpprice,tmporigpubkey,tx,i,assetid)) != 0 )
+    for (int32_t i=0; i<numvouts; i++)
+    {					     	  
+		assetValIndentSize++;
+		// Note: we pass in here 'false' because we don't need to call AssetExactAmounts() recursively from IsAssetvout
+		// indeed, in this case we'll be checking this tx again
+		assetoshis = IsAssetvout(false, cpAssets, eval, tmpprice, tmporigpubkey, tx, i, assetid);
+		assetValIndentSize--;
+
+        if (assetoshis != 0 )
         {
-            fprintf(stderr,"AssetExactAmounts() vout%d assetoshis=%llu, ",i,(long long)assetoshis);
+            std::cerr << indentStr << "AssetExactAmounts() vout i=" << i << " assetoshis=" << assetoshis << std::endl;
             outputs += assetoshis;
         }
-		// Note: account it only if this is 'transfer' tx  -- dimxy
-        else if ( flag != 0 && tx.vout[i].scriptPubKey.IsPayToCryptoCondition() != 0 )
+		// NOTE: this code does not make sense now as I added checking for 't' opret in ValidateAssetOpret (dimxy):
+		// take it into account only if this is 'transfer' tx  -- dimxy
+        /* else if ( flag != 0 && tx.vout[i].scriptPubKey.IsPayToCryptoCondition() != 0 )
         {
             assetoshis = tx.vout[i].nValue;
-            fprintf(stderr,"AssetExactAmounts() vout%d assetoshis=%llu special case, ",i,(long long)assetoshis);
+			std::cerr << indentStr << "AssetExactAmounts() vout i=" << i << " assetoshis=" << assetoshis  << " special case ('t')" << std::endl;
             outputs += assetoshis;
-        }
+        } */
     }
 
-	//std::cerr << "AssetExactAmounts() inputs=" << inputs << " outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
+	//std::cerr << indentStr << "AssetExactAmounts() inputs=" << inputs << " outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
 
-    if ( inputs != outputs )
-    {
-        std::cerr << "AssetExactAmounts() incorrect inputs=" << (double)inputs / COIN << " vs outputs=" << (double)outputs/COIN << " for txid=" << tx.GetHash().GetHex() << std::endl;
+    if ( inputs != outputs )    {
+        //std::cerr << indentStr << "AssetExactAmounts() incorrect inputs=" << (double)inputs / COIN << " vs outputs=" << (double)outputs/COIN << " for txid=" << tx.GetHash().GetHex() << std::endl;
         return(false);
     }
-    else return(true);
+    else 
+		return(true);
 }
-
-// overload for existing calls of this function (dimxy)
-/*bool AssetExactAmounts(struct CCcontract_info *cp, int64_t &inputs, int32_t starti, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 assetid) {
-	std::vector<CTransaction> ccVinsTxs;
-
-	return AssetExactAmounts(true, cp, inputs, starti, outputs, eval, tx, assetid);
-}*/

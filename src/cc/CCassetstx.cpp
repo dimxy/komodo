@@ -26,6 +26,7 @@ int64_t AddAssetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPubK
     {
         txid = it->first.txhash;
         vout = (int32_t)it->first.index;
+
         if ( it->second.satoshis < threshold )
             continue;
         for (j=0; j<mtx.vin.size(); j++)
@@ -36,10 +37,10 @@ int64_t AddAssetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPubK
         if ( GetTransaction(txid,vintx,hashBlock,false) != 0 )
         {
             Getscriptaddress(destaddr,vintx.vout[vout].scriptPubKey);
-            if ( strcmp(destaddr,coinaddr) != 0 && strcmp(destaddr,cp->unspendableCCaddr) != 0 && strcmp(destaddr,cp->unspendableaddr2) != 0 )
+            if ( strcmp(destaddr,coinaddr) != 0 && strcmp(destaddr,cp->unspendableCCaddr) != 0 && strcmp(destaddr,cp->unspendableaddr2) != 0 )  // TODO: cp->unspendableaddr2 may be not initialized?
                 continue;
             fprintf(stderr,"AddAssetInputs() check destaddress=%s vout amount=%.8f\n",destaddr,(double)vintx.vout[vout].nValue/COIN);
-            if ( (nValue= IsAssetvout(1, cp, NULL, price,origpubkey,vintx,vout,assetid)) > 0 && myIsutxo_spentinmempool(txid,vout) == 0 )
+            if ( (nValue= IsAssetvout(true, cp, NULL, price,origpubkey,vintx,vout,assetid)) > 0 && myIsutxo_spentinmempool(txid,vout) == 0 )
             {
                 if ( total != 0 && maxinputs != 0 )
                     mtx.vin.push_back(CTxIn(txid,vout,CScript()));
@@ -275,6 +276,8 @@ std::string AssetConvert(int64_t txfee,uint256 assetid,std::vector<uint8_t> dest
         {
             if ( inputs > total )
                 CCchange = (inputs - total);
+
+			//std::cerr << "AssetConvert() inputs=" << inputs << " total=" << total << " CCchange=" << CCchange << " evalcode=" << evalcode << std::endl;
             mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,CCchange,mypk));
             mtx.vout.push_back(MakeCC1vout(evalcode,total,pubkey2pk(destpubkey)));
             return(FinalizeCCTx(0,cp,mtx,mypk,txfee,EncodeAssetOpRet('t',assetid,zeroid,0,Mypubkey())));
