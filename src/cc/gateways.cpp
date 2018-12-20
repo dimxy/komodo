@@ -1033,7 +1033,7 @@ std::string GatewaysDeposit(uint64_t txfee,uint256 bindtxid,int32_t height,std::
         fprintf(stderr,"deposittxid didnt validate\n");
         return("");
     }
-    if ( AddNormalinputs(mtx,mypk,2*txfee,4) > 0 )	// dimxy changed 3*txfee to 2*txfee
+    if ( AddNormalinputs(mtx,mypk,2*txfee,4) > 0 )	// dimxy changed 3*txfee to 2*txfee to balance tokens
     {
 		int64_t inputs;
 		if ((inputs = AddGatewaysInputs(cp, mtx, gatewayspk, tokenid, txfee, 4)) > 0)  //dimxy added - this borrows token value for ensure balance of total token issue amount does not change
@@ -1133,15 +1133,15 @@ std::string GatewaysWithdraw(uint64_t txfee,uint256 bindtxid,std::string refcoin
         fprintf(stderr,"invalid bindtxid %s coin.%s\n",uint256_str(str,bindtxid),coin.c_str());
         return("");
     }
-    if ( AddNormalinputs(mtx,mypk,3*txfee,4) > 0 )
+    if ( AddNormalinputs(mtx,mypk,2*txfee,4) > 0 )   //dimxy changed from 2 to 3 to balance tokens
     {
-        if ( (inputs= AddGatewaysInputs(cp,mtx,mypk,assetid,amount,60)) > 0 )
+        if ( (inputs= AddGatewaysInputs(cp,mtx,mypk,assetid,txfee+amount,60)) > 0 )  // dimxy added to balance tokens
         {
             if ( inputs > amount )
                 CCchange = (inputs - amount);
             mtx.vout.push_back(MakeCC1vout(EVAL_GATEWAYS,amount,gatewayspk));
             mtx.vout.push_back(CTxOut(txfee,CScript() << ParseHex(HexStr(withdrawpub)) << OP_CHECKSIG));
-            mtx.vout.push_back(MakeCC1vout(EVAL_GATEWAYS,txfee,gatewayspk));		// this is the injection into the tokens 
+            mtx.vout.push_back(MakeCC1vout(EVAL_GATEWAYS,txfee,gatewayspk));		// this was the injection into the tokens, now it is balanced 
             if ( CCchange != 0 )
                 mtx.vout.push_back(MakeCC1vout(EVAL_GATEWAYS,CCchange,mypk));            
             return(FinalizeCCTx(0,cp,mtx,mypk,txfee,EncodeGatewaysWithdrawOpRet('W',assetid,refcoin,withdrawpub,amount)));
