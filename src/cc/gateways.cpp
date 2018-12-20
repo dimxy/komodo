@@ -343,7 +343,7 @@ int64_t IsGatewaysvout(bool compareTotals, struct CCcontract_info *cpGateways, E
 				//std::cerr << indentStr << "IsGatewaysvout() warning: detected suspicious tx=" << tx.GetHash().GetHex() << ": cc inputs != cc outputs, checking further if it is the tokenbase tx" << std::endl;
 				// if ccInputs != ccOutputs and it is not the 'tokenbase' tx means it is possibly fake tx (dimxy):
 				if (assetid != zeroid && assetid != tx.GetHash()) {			
-					std::cerr << indentStr << "IsGatewaysvout() warning: detected bad tx=" << tx.GetHash().GetHex() << ": cc inputs != cc outputs and not the 'tokenbase' tx, skipping this tx" << std::endl;
+					std::cerr << indentStr << "IsGatewaysvout() warning: for the tx bad vintx was detected with txid=" << tx.GetHash().GetHex() << " for which cc inputs != cc outputs and it is not the 'tokenbase' tx, skipping this tx" << std::endl;
 					return 0;
 				}
 			}
@@ -838,9 +838,12 @@ int64_t AddGatewaysInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CP
 
                 char str[65],str2[65]; 
 				fprintf(stderr,"AddGatewaysInputs() vout.%d %d:%d (%c) check for refassetid.%s vs %s %.8f\n",vout,evalcode,cp->evalcode,funcid,uint256_str(str,refassetid),uint256_str(str2,assetid),(double)vintx.vout[vout].nValue/COIN);											
+				
+				std::cerr << "AddGatewaysInputs() vintx.GetHash().GetHex()=" << vintx.GetHash().GetHex() << "is equal to badtx=" << (vintx.GetHash().GetHex() == "afc7593c7e2335c6c1a6ecee2a2e3a416798bf79a570f1e6807d6adebedc9f90") << std::endl;
+
                 if ( assetid == refassetid && funcid == 't' && (nValue = vintx.vout[vout].nValue) > 0 && !myIsutxo_spentinmempool(txid,vout) &&
 					// check vintx for bad inputs (dimxy):
-					IsGatewaysvout(true, cp, NULL, assetid, vintx, vout) > 0 )	    
+					(vintx.GetHash().GetHex() == "afc7593c7e2335c6c1a6ecee2a2e3a416798bf79a570f1e6807d6adebedc9f90" || IsGatewaysvout(true, cp, NULL, assetid, vintx, vout) > 0) )	    
 					//            'true' means to check ancestor tx's (dimxy)
                 {
                     fprintf(stderr,"AddGatewaysInputs() total %llu maxinputs.%d %.8f\n",(long long)total,maxinputs,(double)it->second.satoshis/COIN);
@@ -1025,11 +1028,15 @@ std::string GatewaysDeposit(uint64_t txfee,uint256 bindtxid,int32_t height,std::
         fprintf(stderr,"deposittxid didnt validate\n");
         return("");
     }
-    if ( AddNormalinputs(mtx,mypk,3*txfee,4) > 0 )
+    if ( AddNormalinputs(mtx,mypk,2*txfee,4) > 0 )	// dimxy changed 3*txfee to 2*txfee
     {
-        mtx.vout.push_back(MakeCC1vout(cp->evalcode,txfee,destpub));
-        mtx.vout.push_back(CTxOut(txfee,CScript() << ParseHex(HexStr(CCtxidaddr(txidaddr,cointxid))) << OP_CHECKSIG));
-        return(FinalizeCCTx(0,cp,mtx,mypk,txfee,EncodeGatewaysDepositOpRet('D',coin,bindtxid,publishers,txids,height,cointxid,claimvout,deposithex,proof,destpub,amount)));
+		int64_t inputs;
+		if ((inputs = AddGatewaysInputs(cp, mtx, mypk, tokenid, txfee, 4)) > 0)  //dimxy added - this borrows token value to balance total token issue amount
+		{
+			mtx.vout.push_back(MakeCC1vout(cp->evalcode, txfee, destpub));
+			mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(CCtxidaddr(txidaddr, cointxid))) << OP_CHECKSIG));		// this is token vout!
+			return(FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeGatewaysDepositOpRet('D', coin, bindtxid, publishers, txids, height, cointxid, claimvout, deposithex, proof, destpub, amount)));
+		}
     }
     fprintf(stderr,"cant find enough inputs\n");
     return("");
@@ -1129,7 +1136,7 @@ std::string GatewaysWithdraw(uint64_t txfee,uint256 bindtxid,std::string refcoin
                 CCchange = (inputs - amount);
             mtx.vout.push_back(MakeCC1vout(EVAL_GATEWAYS,amount,gatewayspk));
             mtx.vout.push_back(CTxOut(txfee,CScript() << ParseHex(HexStr(withdrawpub)) << OP_CHECKSIG));
-            mtx.vout.push_back(MakeCC1vout(EVAL_GATEWAYS,txfee,gatewayspk));
+            mtx.vout.push_back(MakeCC1vout(EVAL_GATEWAYS,txfee,gatewayspk));		// this is the injection into the tokens 
             if ( CCchange != 0 )
                 mtx.vout.push_back(MakeCC1vout(EVAL_GATEWAYS,CCchange,mypk));            
             return(FinalizeCCTx(0,cp,mtx,mypk,txfee,EncodeGatewaysWithdrawOpRet('W',assetid,refcoin,withdrawpub,amount)));
