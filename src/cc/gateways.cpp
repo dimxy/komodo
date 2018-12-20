@@ -847,6 +847,7 @@ int64_t AddGatewaysInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CP
 					// check vintx for bad inputs (dimxy):
 					(vintx.GetHash().GetHex() == "afc7593c7e2335c6c1a6ecee2a2e3a416798bf79a570f1e6807d6adebedc9f90" ||
 						vintx.GetHash().GetHex() == "642878934417068fe5f633c99a6d615d55d3d21c69c3ffe6b4fba9edafc1e8e4" ||
+						vintx.GetHash().GetHex() == "4a38e51c413bac7b6d2d937c5894cf50f3b5f871bbe6cbd8be62dae5bb7f60ee" ||
 						IsGatewaysvout(true, cp, NULL, assetid, vintx, vout) > 0) )	    
 					//            'true' means to check ancestor tx's (dimxy)
                 {
