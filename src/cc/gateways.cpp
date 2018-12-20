@@ -328,7 +328,7 @@ int64_t IsGatewaysvout(bool compareTotals, struct CCcontract_info *cpGateways, E
 {
 	std::string indentStr = std::string().append(assetValIndentSize, '.');
 
-	//std::cerr << indentStr << "IsGatewaysvout() entered for txid=" << tx.GetHash().GetHex() << " v=" << v << std::boolalpha << " compareTotals=" << compareTotals  << std::endl;
+	std::cerr << indentStr << "IsGatewaysvout() entered for txid=" << tx.GetHash().GetHex() << " v=" << v << std::boolalpha << " compareTotals=" << compareTotals  << std::endl;
     if( tx.vout[v].scriptPubKey.IsPayToCryptoCondition() )
     {
 		//std::cerr << indentStr << "IsGatewaysvout() IsPayToCryptoCondition=true for txid=" << tx.GetHash().GetHex() << std::endl;
@@ -372,10 +372,12 @@ int64_t IsGatewaysvout(bool compareTotals, struct CCcontract_info *cpGateways, E
 				std::cerr << indentStr << "IsGatewaysvout() opret is okay, return value=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << std::endl;
 				return(tx.vout[v].nValue);
 			}*/
-		
+
+		std::cerr << indentStr << "IsGatewaysvout() return value=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex()  << std::endl;
+
 		return(tx.vout[v].nValue);
     }  
-	//std::cerr << indentStr << "IsGatewaysvout() return value=0" << std::endl;
+	std::cerr << indentStr << "IsGatewaysvout() return value=0" << " for txid=" << tx.GetHash().GetHex() << std::endl;
     return(0);
 }
 
