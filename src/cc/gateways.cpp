@@ -843,7 +843,9 @@ int64_t AddGatewaysInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CP
 
                 if ( assetid == refassetid && funcid == 't' && (nValue = vintx.vout[vout].nValue) > 0 && !myIsutxo_spentinmempool(txid,vout) &&
 					// check vintx for bad inputs (dimxy):
-					(vintx.GetHash().GetHex() == "afc7593c7e2335c6c1a6ecee2a2e3a416798bf79a570f1e6807d6adebedc9f90" || IsGatewaysvout(true, cp, NULL, assetid, vintx, vout) > 0) )	    
+					(vintx.GetHash().GetHex() == "afc7593c7e2335c6c1a6ecee2a2e3a416798bf79a570f1e6807d6adebedc9f90" ||
+						vintx.GetHash().GetHex() == "642878934417068fe5f633c99a6d615d55d3d21c69c3ffe6b4fba9edafc1e8e4" ||
+						IsGatewaysvout(true, cp, NULL, assetid, vintx, vout) > 0) )	    
 					//            'true' means to check ancestor tx's (dimxy)
                 {
                     fprintf(stderr,"AddGatewaysInputs() total %llu maxinputs.%d %.8f\n",(long long)total,maxinputs,(double)it->second.satoshis/COIN);
