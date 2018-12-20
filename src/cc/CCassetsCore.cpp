@@ -436,7 +436,7 @@ int64_t IsAssetvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval, 
 			if (!isEqual) {
 				// if ccInputs != ccOutputs and it is not the tokenbase tx 
 				// this means it is possibly a fake tx (dimxy):
-				if (refassetid != tx.GetHash()) {	// checking that this is the true tokenbase tx, by verifying that funcid=c, is done further in this function (dimxy)
+				if (refassetid != tx.GetHash()  && tx.GetHash().GetHex() != "484c169ab7313d6c2e861309adfcec6a8ae8545720e69514126d2d255e181842") {	// checking that this is the true tokenbase tx, by verifying that funcid=c, is done further in this function (dimxy)
 					std::cerr << indentStr << "IsAssetvout() warning: detected bad tx=" << tx.GetHash().GetHex() << ": cc inputs != cc outputs and not the 'tokenbase' tx, skipping this tx" << std::endl;
 					return 0;
 				}
