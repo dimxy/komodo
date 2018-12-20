@@ -843,7 +843,7 @@ int64_t AddGatewaysInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CP
 				
 				std::cerr << "AddGatewaysInputs() vintx.GetHash().GetHex()=" << vintx.GetHash().GetHex() << "is equal to badtx=" << (vintx.GetHash().GetHex() == "afc7593c7e2335c6c1a6ecee2a2e3a416798bf79a570f1e6807d6adebedc9f90") << std::endl;
 
-                if ( assetid == refassetid && funcid == 't' && (nValue = vintx.vout[vout].nValue) > 0 && !myIsutxo_spentinmempool(txid,vout) &&
+                if ( assetid == refassetid && (true || funcid == 't') && (nValue = vintx.vout[vout].nValue) > 0 && !myIsutxo_spentinmempool(txid,vout) &&
 					// check vintx for bad inputs (dimxy):
 					(vintx.GetHash().GetHex() == "afc7593c7e2335c6c1a6ecee2a2e3a416798bf79a570f1e6807d6adebedc9f90" ||
 						vintx.GetHash().GetHex() == "642878934417068fe5f633c99a6d615d55d3d21c69c3ffe6b4fba9edafc1e8e4" ||
