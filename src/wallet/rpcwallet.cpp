@@ -5334,7 +5334,7 @@ UniValue heiraddress(const UniValue& params, bool fHelp)
 	struct CCcontract_info *cp, C;
 
 	if (fHelp || (params.size() < 1))
-		throw runtime_error("heiraddress A|G|H|R assetid|destpubkey amountcoins [heirpubkey] [fundingtxid]\n");
+		throw runtime_error("heiraddress A|G|H|T|R assetid|destpubkey amountcoins [heirpubkey] [fundingtxid]\n");
 	if (ensure_CCrequirements() < 0)
 		throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
 
@@ -5411,6 +5411,7 @@ UniValue heiraddress(const UniValue& params, bool fHelp)
 		// note: it sets eval=EVAL_ASSETS in opreturn  both for tokens and gateways cc addr
 		//script = EncodeAssetOpRet('t', assetid, zeroid, 0, (badKind == 'A' ? Mypubkey() : destPubkey));  // dimxy: are we sure about destPubkey here? it may be just pubkey of the author... 
 		CScript opret;
+		assetid = revuint256(assetid);
 		if (badKind == 'T') 
 			opret << OP_RETURN << E_MARSHAL(ss << (uint8_t)evalCodeInOpret << (uint8_t)'t' << assetid );
 		else if (badKind == 'H') 
