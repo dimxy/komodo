@@ -586,13 +586,18 @@ template <class Helper> uint256 FindLatestFundingTx(uint256 fundingtxid, uint8_t
         uint256 txidInOpret;
 
 		//NOTE: maybe called from validation code:
-        if (myGetTransaction(txid, regtx, hash)) {
-            std::cerr << "FindLatestFundingTx() found tx for txid=" << txid.GetHex() << " blockHeight=" << blockHeight << " maxBlockHeight=" << maxBlockHeight << '\n';
+		if (myGetTransaction(txid, regtx, hash)) {
+			std::cerr << "FindLatestFundingTx() found tx for txid=" << txid.GetHex() << " blockHeight=" << blockHeight << " maxBlockHeight=" << maxBlockHeight << '\n';
+
+			{
+				uint256 debAssetid;
+				uint8_t debfuncid = DecodeHeirOpRet<Helper>(regtx.vout[regtx.vout.size() - 1].scriptPubKey, debAssetid, txidInOpret, true);
+				std::cerr << "FindLatestFundingTx() regtx.vout.size()=" << regtx.vout.size() << " funcId=" << (char)(debfuncid ? debfuncid : ' ') << " assetid=" << debAssetid.GetHex() << " fundingtxidInOpret=" << txidInOpret.GetHex() << std::endl;
+			}
 
 			uint256 dummyAssetid;  // not to contaminate the assetid from the params!
-			uint8_t tmpFuncId;
+			uint8_t tmpFuncId;			
 
-            std::cerr << "FindLatestFundingTx() regtx.vout.size()=" << regtx.vout.size() << " funcId=" << (char)(funcId ? funcId : ' ') << " fundingtxidInOpret=" << txidInOpret.GetHex() << '\n';
             if (regtx.vout.size() > 0 && 
 				(tmpFuncId = DecodeHeirOpRet<Helper>(regtx.vout[regtx.vout.size() - 1].scriptPubKey, dummyAssetid, txidInOpret, true)) != 0 &&
 				fundingtxid == txidInOpret) {
