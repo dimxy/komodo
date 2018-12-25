@@ -804,8 +804,8 @@ template <class Helper> int64_t LifetimeHeirContractFunds(struct CCcontract_info
  */
 template <typename Helper> std::string HeirFund(uint64_t txfee, int64_t amount, std::string heirName, CPubKey heirPubkey, int64_t inactivityTimeSec, uint256 assetid)
 {
-    CMutableTransaction mtx;
-    struct CCcontract_info *cp, C;
+	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+	struct CCcontract_info *cp, C;
 
     cp = CCinit(&C, Helper::getMyEval());
     if (txfee == 0)
@@ -872,7 +872,7 @@ std::string HeirFundTokenCaller(uint64_t txfee, int64_t funds, std::string heirN
 template <class Helper> UniValue HeirAdd(uint256 fundingtxid, uint64_t txfee, int64_t amount)
 {
     UniValue result(UniValue::VOBJ); //, a(UniValue::VARR);
-    CMutableTransaction mtx;
+	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey ownerPubkey, heirPubkey;
     int64_t inputs, CCchange = 0;
     int64_t inactivityTimeSec;
@@ -972,8 +972,8 @@ UniValue HeirAddTokenCaller(uint256 fundingtxid, uint64_t txfee, int64_t amount)
 template <typename Helper>UniValue HeirClaim(uint256 fundingtxid, uint64_t txfee, int64_t amount)
 {
     UniValue result(UniValue::VOBJ); //, a(UniValue::VARR);
-    CMutableTransaction mtx;
-    CPubKey myPubkey, ownerPubkey, heirPubkey;
+	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+	CPubKey myPubkey, ownerPubkey, heirPubkey;
     int64_t inputs, change = 0;
     int64_t inactivityTimeSec;
     struct CCcontract_info *cp, C;
@@ -1110,8 +1110,8 @@ UniValue HeirInfo(uint256 fundingtxid)
 {
     UniValue result(UniValue::VOBJ);
 
-    CMutableTransaction mtx;
-    CPubKey ownerPubkey, heirPubkey;
+	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+	CPubKey ownerPubkey, heirPubkey;
     uint256 latesttxid;
 	uint256 assetid;
 
