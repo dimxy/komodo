@@ -5334,7 +5334,7 @@ UniValue heiraddress(const UniValue& params, bool fHelp)
 	struct CCcontract_info *cp, C;
 
 	if (fHelp || (params.size() < 1))
-		throw runtime_error("heiraddress A|G|H|R assetid|destpubkey amountcoins [heirpubkey]\n");
+		throw runtime_error("heiraddress A|G|H|R assetid|destpubkey amountcoins [heirpubkey] [fundingtxid]\n");
 	if (ensure_CCrequirements() < 0)
 		throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
 
@@ -5358,35 +5358,46 @@ UniValue heiraddress(const UniValue& params, bool fHelp)
 
 		if (badKind == 'G' && params.size() != 3)
 			return std::string("incorrect params for G");
-		if (badKind == 'H' && params.size() != 4)
-			return std::string("incorrect params for H");
+		if (badKind == 'H' && params.size() != 5)
+			return std::string("incorrect params for H, = 5");
+		if (badKind == 'T' && params.size() != 3)
+			return std::string("incorrect params for T, = 3");
+
 
 		uint256 assetid = Parseuint256((char *)params[1].get_str().c_str());
 		int64_t amount = atof(params[2].get_str().c_str()) * COIN;
 
-		std::vector<unsigned char> heirPubkeyStr;
+		uint256 fundingtxid;
+		CPubKey heirPubkey;
+
 		if (badKind == 'H') {
-			heirPubkeyStr = ParseHex(params[3].get_str().c_str());
+
+			std::vector<unsigned char> heirPubkeyStr = ParseHex(params[3].get_str().c_str());
+			heirPubkey = pubkey2pk(heirPubkeyStr);
+
+			fundingtxid = Parseuint256((char *)params[4].get_str().c_str());
 		}
 
+		
 
 		int64_t txfee = 10000;
 
-		uint8_t evalCode = (badKind == 'H') ? EVAL_HEIR : EVAL_GATEWAYS;
-		cp = CCinit(&C, evalCode);
+		uint8_t evalCodeInOpret = (badKind == 'H') ? EVAL_HEIR : EVAL_GATEWAYS;
+		cp = CCinit(&C, EVAL_ASSETS);
 
 		int64_t normalInputs = AddNormalinputs(mtx, myPubkey, txfee + amount, 60);
 		//	int64_t ccInputs = 0;
 
 
-		if (badKind == 'H') {
-			CPubKey heirPubkey = pubkey2pk(heirPubkeyStr);
-
-			//mtx.vout.push_back(MakeCC1vout(evalCode, amount, (evalCode == EVAL_ASSETS) ? myPubkey : pubkey2pk(destPubkey)));  //note you need destPubkey for sending to gateways
-			mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey)); // add cryptocondition to spend amount for either pk
-
+		if (badKind == 'T') {
+			// just empty fake token
+			mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, amount, myPubkey));  //note you need destPubkey for sending to gateways
 		}
-		else if (badKind == 'G') {
+		else if (badKind == 'H') {
+			// heir add funding tx
+			mtx.vout.push_back(MakeCC1of2vout(EVAL_ASSETS, amount, myPubkey, heirPubkey)); // add cryptocondition to spend amount for either pk
+		}
+		else { // if (badKind == 'G') 
 			CPubKey gatewayContractPubKey = GetUnspendable(cp, 0);
 			mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(gatewayContractPubKey)) << OP_CHECKSIG));
 		}
@@ -5397,11 +5408,17 @@ UniValue heiraddress(const UniValue& params, bool fHelp)
 		}
 		std::cerr << "make fake token for contract=" << badKind << " added normalInputs=" << normalInputs << " change=" << change << std::endl;
 
-		CScript script;
 		// note: it sets eval=EVAL_ASSETS in opreturn  both for tokens and gateways cc addr
 		//script = EncodeAssetOpRet('t', assetid, zeroid, 0, (badKind == 'A' ? Mypubkey() : destPubkey));  // dimxy: are we sure about destPubkey here? it may be just pubkey of the author... 
-		script = EncodeAssetOpRet('t', assetid, zeroid, 0, Mypubkey());
-		return(FinalizeCCTx(0, cp, mtx, myPubkey, txfee, script));  // normal change added here
+		CScript opret;
+		if (badKind == 'T') 
+			opret << OP_RETURN << E_MARSHAL(ss << (uint8_t)evalCodeInOpret << (uint8_t)'t' << assetid );
+		else if (badKind == 'H') 
+			opret << OP_RETURN << E_MARSHAL(ss << (uint8_t)evalCodeInOpret << (uint8_t)'t' << assetid << (uint8_t)'A' << myPubkey << heirPubkey << (int64_t)120 << fundingtxid);
+		else 
+			opret << OP_RETURN << E_MARSHAL(ss << (uint8_t)evalCodeInOpret << (uint8_t)'t' << assetid); // EVAL_GATEWAYS
+	
+		return(FinalizeCCTx(0, cp, mtx, myPubkey, txfee, opret));  // normal change added here
 	}
 	else
 	{
