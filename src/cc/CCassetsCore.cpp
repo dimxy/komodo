@@ -445,7 +445,7 @@ bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &pr
 	else if (funcid == 'c')
 	{
 		if (assetid != zeroid && assetid == tx.GetHash() && v == 0) {
-			std::cerr << indentStr << "ValidateAssetOpret() this is the tokenbase 'c' tx, txid=" << tx.GetHash().GetHex() << " vout=" << v << " returning true" << std::endl;
+			//std::cerr << indentStr << "ValidateAssetOpret() this is the tokenbase 'c' tx, txid=" << tx.GetHash().GetHex() << " vout=" << v << " returning true" << std::endl;
 			return(true);
 		}
 	}
@@ -453,7 +453,7 @@ bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &pr
 	{
 		std::cerr << indentStr << "ValidateAssetOpret() assetid=" << assetid.GetHex() << " assetIdOpret=" << assetidOpret.GetHex() << " txid=" << tx.GetHash().GetHex() << std::endl;
 		if (assetid != zeroid && assetid == assetidOpret) {
-			std::cerr << indentStr << "ValidateAssetOpret() this is a transfer 't' tx, txid=" << tx.GetHash().GetHex() << " vout=" << v << " returning true" << std::endl;
+			//std::cerr << indentStr << "ValidateAssetOpret() this is a transfer 't' tx, txid=" << tx.GetHash().GetHex() << " vout=" << v << " returning true" << std::endl;
 			return(true);
 		}
 	}
@@ -522,9 +522,9 @@ int64_t IsAssetvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval, 
 
 		// moved opret checking to this new reusable func (dimxy):
 		const bool valOpret = ValidateAssetOpret(tx, v, refassetid, price, origpubkey);
-		std::cerr << indentStr << "IsAssetvout() ValidateAssetOpret returned=" << std::boolalpha << valOpret << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
+		//std::cerr << indentStr << "IsAssetvout() ValidateAssetOpret returned=" << std::boolalpha << valOpret << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
 		if (valOpret) {
-			std::cerr << indentStr << "IsAssetvout() ValidateAssetOpret returned true, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
+			//std::cerr << indentStr << "IsAssetvout() ValidateAssetOpret returned true, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
 			return tx.vout[v].nValue;
 		}
 
@@ -560,7 +560,7 @@ bool AssetExactAmounts(bool compareTotals, struct CCcontract_info *cpAssets, int
 			else {
 				assetValIndentSize++;
 				// validate vouts of vintx  
-				std::cerr << indentStr << "AssetExactAmounts() check vin i=" << i << " nValue=" << vinTx.vout[tx.vin[i].prevout.n].nValue << std::endl;
+				//std::cerr << indentStr << "AssetExactAmounts() check vin i=" << i << " nValue=" << vinTx.vout[tx.vin[i].prevout.n].nValue << std::endl;
 				assetoshis = IsAssetvout(compareTotals, cpAssets, eval, tmpprice, tmporigpubkey, vinTx, tx.vin[i].prevout.n, assetid);
 				assetValIndentSize--;
 				if (assetoshis != 0)
@@ -612,7 +612,7 @@ bool AssetExactAmounts(bool compareTotals, struct CCcontract_info *cpAssets, int
 	//std::cerr << indentStr << "AssetExactAmounts() inputs=" << inputs << " outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
 
 	if (inputs != outputs) {
-		std::cerr << indentStr << "AssetExactAmounts() incorrect inputs=" << (double)inputs / COIN << " vs outputs=" << (double)outputs / COIN << " for txid=" << tx.GetHash().GetHex() << std::endl;
+		std::cerr << indentStr << "AssetExactAmounts() incorrect inputs=" << inputs << " vs outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
 		return(false);
 	}
 	else
