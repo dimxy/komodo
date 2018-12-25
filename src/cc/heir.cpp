@@ -1266,7 +1266,7 @@ UniValue HeirInfo(uint256 fundingtxid)
  * @return list of heir plan handles (fundingtxid)
  */
 
-template <typename Helper>void _HeirList(struct CCcontract_info *cp, UniValue result)
+template <typename Helper>void _HeirList(struct CCcontract_info *cp, UniValue &result)
 {
 	std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
 	char coinaddr[64];
