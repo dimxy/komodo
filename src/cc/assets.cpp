@@ -139,14 +139,14 @@ bool AssetsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx
     CTxDestination address; CTransaction vinTx,createTx; uint256 hashBlock,assetid,assetid2; 
 	int32_t i,starti,numvins,numvouts,preventCCvins,preventCCvouts; 
 	int64_t remaining_price,nValue,assetoshis,outputs,inputs,tmpprice,totalunits,ignore; std::vector<uint8_t> origpubkey,tmporigpubkey,ignorepubkey; 
-	uint8_t funcid, evalCode; 
+	uint8_t funcid, evalCodeInOpret; 
 	char destaddr[64],origaddr[64],CCaddr[64];
 
     numvins = tx.vin.size();
     numvouts = tx.vout.size();
     outputs = inputs = 0;
     preventCCvins = preventCCvouts = -1;
-    if ((funcid= DecodeAssetOpRet(tx.vout[numvouts-1].scriptPubKey, evalCode,assetid,assetid2,remaining_price,origpubkey)) == 0 )
+    if ((funcid= DecodeAssetOpRet(tx.vout[numvouts-1].scriptPubKey, evalCodeInOpret,assetid,assetid2,remaining_price,origpubkey)) == 0 )
         return eval->Invalid("Invalid opreturn payload");
     fprintf(stderr,"AssetValidate (%c)\n",funcid);
     if ( funcid != 'o' && funcid != 'x' && eval->GetTxUnconfirmed(assetid,createTx,hashBlock) == 0 )
@@ -168,6 +168,10 @@ bool AssetsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx
             return eval->Invalid("asset inputs != outputs");
     }
 
+	// for forwarding validation call
+	struct CCcontract_info *cpOther = NULL, C;
+	if (evalCodeInOpret != EVAL_ASSETS)
+		cpOther = CCinit(&C, evalCodeInOpret);
 
     switch ( funcid )
     {
@@ -176,7 +180,9 @@ bool AssetsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx
             //vout.0: issuance assetoshis to CC
             //vout.1: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['c'] [{"<assetname>":"<description>"}]
-            return eval->Invalid("unexpected AssetValidate for createasset");
+			if (evalCodeInOpret == EVAL_ASSETS)
+				return eval->Invalid("unexpected AssetValidate for createasset");
+			//	return 
             break;
         case 't': // transfer
             //vin.0: normal input
@@ -184,9 +190,9 @@ bool AssetsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx
             //vout.0 to n-2: assetoshis output to CC
             //vout.n-2: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['t'] [assetid]
-            if ( inputs == 0 )
+            if (inputs == 0)
                 return eval->Invalid("no asset inputs for transfer");
-            fprintf(stderr,"transfer validated %.8f -> %.8f (%d %d)\n",(double)inputs/COIN,(double)outputs/COIN,preventCCvins,preventCCvouts);
+            fprintf(stderr,"transfer preliminarily validated %.8f -> %.8f (%d %d)\n",(double)inputs/COIN,(double)outputs/COIN,preventCCvins,preventCCvouts);
             break;
             
         case 'b': // buyoffer
@@ -210,7 +216,7 @@ bool AssetsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx
             //vout.1: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['o']
             if ( (nValue= AssetValidateBuyvin(cp,eval,tmpprice,tmporigpubkey,CCaddr,origaddr,tx,assetid)) == 0 )
-                return(false);
+                return(false);		// TODO: dangerous: return false without calling invalid() -> assert()!
             else if ( ConstrainVout(tx.vout[0],0,origaddr,nValue) == 0 )
                 return eval->Invalid("invalid refund for cancelbuy");
             preventCCvins = 2;
@@ -388,7 +394,15 @@ bool AssetsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx
             return eval->Invalid("unexpected assets funcid");
             break;
     }
-    return(PreventCC(eval,tx,preventCCvins,numvins,preventCCvouts,numvouts));
+
+	// forward validation if evalcode in opret is not EVAL_ASSETS
+	if (cpOther)
+		return cpOther->validate(cp, eval, tx, nIn);
+	else
+		return eval->Invalid("unsupported evalcode in opret");
+
+    // what does this do?
+	// return(PreventCC(eval,tx,preventCCvins,numvins,preventCCvouts,numvouts));
 }
 
 
