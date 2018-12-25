@@ -5412,6 +5412,7 @@ UniValue heiraddress(const UniValue& params, bool fHelp)
 		//script = EncodeAssetOpRet('t', assetid, zeroid, 0, (badKind == 'A' ? Mypubkey() : destPubkey));  // dimxy: are we sure about destPubkey here? it may be just pubkey of the author... 
 		CScript opret;
 		assetid = revuint256(assetid);
+		fundingtxid = revuint256(fundingtxid);
 		if (badKind == 'T') 
 			opret << OP_RETURN << E_MARSHAL(ss << (uint8_t)evalCodeInOpret << (uint8_t)'t' << assetid );
 		else if (badKind == 'H') 
