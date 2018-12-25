@@ -451,7 +451,7 @@ bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &pr
 	}
 	else if (funcid == 't')  // TODO: check if this new block does not influence IsAssetVout 
 	{
-		std::cerr << indentStr << "ValidateAssetOpret() assetid=" << assetid.GetHex() << " assetIdOpret=" << assetidOpret.GetHex() << " txid=" << tx.GetHash().GetHex() << std::endl;
+		//std::cerr << indentStr << "ValidateAssetOpret() assetid=" << assetid.GetHex() << " assetIdOpret=" << assetidOpret.GetHex() << " txid=" << tx.GetHash().GetHex() << std::endl;
 		if (assetid != zeroid && assetid == assetidOpret) {
 			//std::cerr << indentStr << "ValidateAssetOpret() this is a transfer 't' tx, txid=" << tx.GetHash().GetHex() << " vout=" << v << " returning true" << std::endl;
 			return(true);
@@ -464,7 +464,7 @@ bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &pr
 	{
 		if (assetid != zeroid && assetidOpret == assetid)
 		{
-			std::cerr << indentStr << "ValidateAssetOpret() returns true for not 'E', funcid=" << (char)funcid << std::endl;
+			//std::cerr << indentStr << "ValidateAssetOpret() returns true for not 'E', funcid=" << (char)funcid << std::endl;
 			return(true);
 		}
 	}
@@ -476,7 +476,7 @@ bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &pr
 			return(true);
 	}
 
-	std::cerr << indentStr << "ValidateAssetOpret() return false funcid=" << (char)funcid << " assetid=" << assetid.GetHex() << " assetIdOpret=" << assetidOpret.GetHex() << " txid=" << tx.GetHash().GetHex() << std::endl;
+	//std::cerr << indentStr << "ValidateAssetOpret() return false funcid=" << (char)funcid << " assetid=" << assetid.GetHex() << " assetIdOpret=" << assetidOpret.GetHex() << " txid=" << tx.GetHash().GetHex() << std::endl;
 	return false;
 }
 
