@@ -494,7 +494,7 @@ template <class Helper> uint8_t DecodeHeirOpRet(CScript scriptPubKey, uint256 &a
 		}
 		else
 		{
-			if(!noLogging) std::cerr << "DecodeHeirOpRet() warning unexpected OP_RETURN eval=" << (int)opretEval << " or field type=" << (char)funcId << '\n';
+			if(!noLogging) std::cerr << "DecodeHeirOpRet() warning unexpected OP_RETURN eval=" << (int)opretEval << " or field type=" << (char)(funcId ? funcId : ' ') << '\n';
 		}
 	}
 	else {
@@ -1133,13 +1133,13 @@ UniValue HeirInfo(uint256 fundingtxid)
 		int32_t heirType = HEIR_NOTFOUND;
 		if (DecodeHeirOpRet<CoinHelper>(fundingtx.vout[fundingtx.vout.size() - 1].scriptPubKey, assetid, ownerPubkey, heirPubkey, inactivityTimeSec, heirName, true) == 'F')
 			heirType = HEIR_COINS;
-		else if (DecodeHeirOpRet<TokenHelper>(fundingtx.vout[fundingtx.vout.size() - 1].scriptPubKey, assetid, ownerPubkey, heirPubkey, inactivityTimeSec, heirName) == 'G')
+		else if (DecodeHeirOpRet<TokenHelper>(fundingtx.vout[fundingtx.vout.size() - 1].scriptPubKey, assetid, ownerPubkey, heirPubkey, inactivityTimeSec, heirName) == 'F')
 			heirType = HEIR_TOKENS;
 		else
 		{
-			std::cerr << "HeirInfo() initial tx F or G not found for this txid" <<  std::endl;
+			std::cerr << "HeirInfo() initial tx F not found for this fundingtx" <<  std::endl;
 			result.push_back(Pair("result", "error"));
-			result.push_back(Pair("error", "initial tx F or G not found"));
+			result.push_back(Pair("error", "initial tx F not found"));
 			return result;
 		}
 

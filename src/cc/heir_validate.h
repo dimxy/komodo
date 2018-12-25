@@ -24,7 +24,7 @@ template <class Helper> uint8_t DecodeHeirOpRet(CScript scriptPubKey, uint256 &a
 template <class Helper> uint8_t DecodeHeirOpRet(CScript scriptPubKey, uint256 &assetid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, bool noLogging = false);
 template <class Helper> uint8_t DecodeHeirOpRet(CScript scriptPubKey, uint256 &assetid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, uint256& txidInOpret, bool noLogging = false);
 
-int64_t AddHeirTokenInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 refassetid, int64_t total, int32_t maxinputs);
+//int64_t AddHeirTokenInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 refassetid, int64_t total, int32_t maxinputs);
 
 
 // helper class to allow polymorphic behaviour for HeirXXX() functions in case of coins
@@ -84,7 +84,7 @@ public:
 	static void UnmarshalOpret(std::vector<uint8_t> vopret, uint8_t &e, uint8_t &funcId, uint256 &assetid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, uint256& txidInOpret) {
 		uint8_t assetFuncId = '\0';
 		bool result = E_UNMARSHAL(vopret, { ss >> e; ss >> assetFuncId; ss >> assetid; ss >> funcId; ss >> ownerPubkey; ss >> heirPubkey; ss >> inactivityTime; if (IS_CHARINSTR(funcId, "F")) { ss >> heirName; } if (IS_CHARINSTR(funcId, "AC")) { ss >> txidInOpret; } });
-		if (!result || assetFuncId != 't') 
+		if (!result /*|| assetFuncId != 't' -- any tx is ok*/) 
 			funcId = 0;
 	}
 	static bool isSpendingTx(uint8_t funcid) { return (funcid == 'C'); }
