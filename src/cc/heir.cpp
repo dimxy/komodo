@@ -587,12 +587,12 @@ template <class Helper> uint256 FindLatestFundingTx(uint256 fundingtxid, uint8_t
 
 		//NOTE: maybe called from validation code:
         if (myGetTransaction(txid, regtx, hash)) {
-            //std::cerr << "FindLatestFundingTx() found tx for txid=" << txid.GetHex() << " blockHeight=" << blockHeight << " dblockHeight=" << dblockHeight << '\n';
+            std::cerr << "FindLatestFundingTx() found tx for txid=" << txid.GetHex() << " blockHeight=" << blockHeight << " maxBlockHeight=" << maxBlockHeight << '\n';
 
 			uint256 dummyAssetid;  // not to contaminate the assetid from the params!
 			uint8_t tmpFuncId;
 
-            //std::cerr << "FindLatestFundingTx() regtx.vout.size()=" << regtx.vout.size() << " isDecoded=" << isDecoded << " funcId=" << funcId << " txidInOpret=" << txidInOpret.GetHex() << '\n';
+            std::cerr << "FindLatestFundingTx() regtx.vout.size()=" << regtx.vout.size() << " funcId=" << (char)(funcId ? funcId : ' ') << " fundingtxidInOpret=" << txidInOpret.GetHex() << '\n';
             if (regtx.vout.size() > 0 && 
 				(tmpFuncId = DecodeHeirOpRet<Helper>(regtx.vout[regtx.vout.size() - 1].scriptPubKey, dummyAssetid, txidInOpret, true)) != 0 &&
 				fundingtxid == txidInOpret) {
@@ -612,7 +612,7 @@ template <class Helper> uint256 FindLatestFundingTx(uint256 fundingtxid, uint8_t
                     latesttxid = txid;
                     opRetScript = regtx.vout[regtx.vout.size() - 1].scriptPubKey;
 					funcId = tmpFuncId;
-                    std::cerr << "FindLatestFundingTx() txid=" << latesttxid.GetHex() << " at blockHeight=" << maxBlockHeight << " opreturn type=" << (char)funcId << " set as current lasttxid" << '\n';
+                    std::cerr << "FindLatestFundingTx() txid=" << latesttxid.GetHex() << " at blockHeight=" << maxBlockHeight << " opreturn type=" << (char)(funcId ? funcId : ' ') << " set as current lasttxid" << '\n';
                 }
             }
         }
