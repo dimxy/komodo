@@ -282,7 +282,7 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey,uint8_t &evalCode, uint256 
     memset(&assetid,0,sizeof(assetid));
     memset(&assetid2,0,sizeof(assetid2));
     price = 0;
-    if ( script != 0 && script[0] == EVAL_ASSETS )
+    if ( script != 0 /*enable all evals: && script[0] == EVAL_ASSETS*/ )
     {
 		bool isEof = false;
 		evalCode = script[0];
