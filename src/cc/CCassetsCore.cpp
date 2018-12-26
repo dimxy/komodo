@@ -612,7 +612,8 @@ bool AssetExactAmounts(bool compareTotals, struct CCcontract_info *cpAssets, int
 	//std::cerr << indentStr << "AssetExactAmounts() inputs=" << inputs << " outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
 
 	if (inputs != outputs) {
-		std::cerr << indentStr << "AssetExactAmounts() incorrect inputs=" << inputs << " vs outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
+		if (tx.GetHash() != assetid)
+			std::cerr << indentStr << "AssetExactAmounts() unequal inputs=" << inputs << " vs outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
 		return(false);
 	}
 	else

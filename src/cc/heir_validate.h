@@ -4,7 +4,7 @@
 #include "CCinclude.h"
 #include "CCHeir.h"
 
-#define HEIR_NOTFOUND (-1)
+#define NOT_HEIR (-1)
 #define HEIR_COINS 1
 #define HEIR_TOKENS 2
 #define IS_CHARINSTR(c, str) (std::string(str).find((char)(c)) != std::string::npos)

@@ -258,7 +258,7 @@ bool HeirValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction& tx
 	CScript fundingTxOpRetScript;
 	bool isHeirSpendingBegan = false;
 
-	int32_t heirType = HEIR_NOTFOUND;
+	int32_t heirType = NOT_HEIR;
 	funcId = DecodeHeirOpRet<CoinHelper>(tx.vout[numvouts - 1].scriptPubKey, tokenid, fundingTxidInOpret, true);
 	if(funcId != 0)
 		heirType = HEIR_COINS;
@@ -268,7 +268,7 @@ bool HeirValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction& tx
 			heirType = HEIR_TOKENS;
 	}
 		
-	if (heirType == HEIR_NOTFOUND)
+	if (heirType == NOT_HEIR)
         return eval->Invalid("invalid opreturn format");
 
     if (funcId != 'F') {
@@ -283,7 +283,10 @@ bool HeirValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction& tx
 		if (latestTxid == zeroid) {
             return eval->Invalid("invalid heir transaction: no funding tx found");
         }
-    } 
+	}
+	else {
+		fundingTxOpRetScript = tx.vout[numvouts - 1].scriptPubKey;
+	}
 
 	// validate prev tx cc inputs = outputs:
 	/* if (heirType == HEIR_TOKENS && funcId == 't' && !HeirExactTokenAmounts(true, cp, eval, zeroid, tx)) {
@@ -523,7 +526,7 @@ template <class Helper> uint8_t DecodeHeirOpRet(CScript scriptPubKey, uint256 &t
  * find the latest funding tx: it may be the first F tx or one of A or C tx's 
  * Note: this function is also called from validation code (use non-locking calls) 
  */
-template <class Helper> uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_t& funcId, uint256 &tokenid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, CScript& opRetScript, bool &isHeirSpendingBegan)
+template <class Helper> uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_t& funcId, uint256 &tokenid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, CScript& fundingOpretScript, bool &isHeirSpendingBegan)
 {
 	CTransaction fundingtx;
 	uint256 hashBlock;
@@ -544,7 +547,7 @@ template <class Helper> uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_
         if ((funcId = DecodeHeirOpRet<Helper>(fundingtx.vout[fundingtx.vout.size() - 1].scriptPubKey, tokenid, ownerPubkey, heirPubkey, inactivityTime, heirName)) != 0) {
             // found at least funding tx!
             std::cerr << "FindLatestFundingTx() lasttx currently is fundingtx, txid=" << fundingtxid.GetHex() << " opreturn type=" << (char)funcId << '\n';
-            opRetScript = fundingtx.vout[fundingtx.vout.size() - 1].scriptPubKey;
+            fundingOpretScript = fundingtx.vout[fundingtx.vout.size() - 1].scriptPubKey;
         } else {
             std::cerr << "FindLatestFundingTx() could not decode opreturn for fundingtxid=" << fundingtxid.GetHex() << '\n';
             return zeroid;
@@ -607,7 +610,7 @@ template <class Helper> uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_
                 if (blockHeight > maxBlockHeight) {
                     maxBlockHeight = blockHeight;
                     latesttxid = txid;
-                    opRetScript = regtx.vout[regtx.vout.size() - 1].scriptPubKey;
+                    ///// fundingOpretScript = regtx.vout[regtx.vout.size() - 1].scriptPubKey;
 					funcId = tmpFuncId;
                     std::cerr << "FindLatestFundingTx() txid=" << latesttxid.GetHex() << " at blockHeight=" << maxBlockHeight << " opreturn type=" << (char)(funcId ? funcId : ' ') << " set as current lasttxid" << '\n';
                 }
@@ -1127,7 +1130,7 @@ UniValue HeirInfo(uint256 fundingtxid)
 	// get initial funding tx and set it as initial lasttx:
 	if (myGetTransaction(fundingtxid, fundingtx, hashBlock) && fundingtx.vout.size()) {
 
-		int32_t heirType = HEIR_NOTFOUND;
+		int32_t heirType = NOT_HEIR;
 		if (DecodeHeirOpRet<CoinHelper>(fundingtx.vout[fundingtx.vout.size() - 1].scriptPubKey, dummyTokenid, ownerPubkey, heirPubkey, inactivityTimeSec, heirName, true) == 'F')
 			heirType = HEIR_COINS;
 		else if (DecodeHeirOpRet<TokenHelper>(fundingtx.vout[fundingtx.vout.size() - 1].scriptPubKey, tokenid, ownerPubkey, heirPubkey, inactivityTimeSec, heirName, true) == 'F')
