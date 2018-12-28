@@ -5536,10 +5536,23 @@ UniValue rewardsaddress(const UniValue& params, bool fHelp)
     return(CCaddress(cp,(char *)"Rewards",pubkey));
 }
 
+UniValue assetsaddress(const UniValue& params, bool fHelp)
+{
+	struct CCcontract_info *cp, C; std::vector<unsigned char> pubkey;
+	cp = CCinit(&C, EVAL_ASSETS);
+	if (fHelp || params.size() > 1)
+		throw runtime_error("assetsaddress [pubkey]\n");
+	if (ensure_CCrequirements() < 0)
+		throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
+	if (params.size() == 1)
+		pubkey = ParseHex(params[0].get_str().c_str());
+	return(CCaddress(cp, (char *)"Assets", pubkey));
+}
+
 UniValue tokenaddress(const UniValue& params, bool fHelp)
 {
     struct CCcontract_info *cp,C; std::vector<unsigned char> pubkey;
-    cp = CCinit(&C,EVAL_ASSETS);
+    cp = CCinit(&C,EVAL_TOKENS);
     if ( fHelp || params.size() > 1 )
         throw runtime_error("tokenaddress [pubkey]\n");
     if ( ensure_CCrequirements() < 0 )

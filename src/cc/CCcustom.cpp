@@ -30,6 +30,7 @@
 #include "CCTriggers.h"
 #include "CCPayments.h"
 #include "CCGateways.h"
+#include "CCtokens.h"
 
 /*
  CCcustom has most of the functions that need to be extended to create a new CC contract.
@@ -222,6 +223,18 @@ uint8_t GatewaysCCpriv[32] = { 0xf7, 0x4b, 0x5b, 0xa2, 0x7a, 0x5e, 0x9c, 0xda, 0
 #undef FUNCNAME
 #undef EVALCODE
 
+// Tokens
+#define FUNCNAME IsTokensInput
+#define EVALCODE EVAL_TOKENS
+const char *TokensCCaddr = "";
+const char *TokensNormaladdr = "RCNgAngYAdrfzujYyPgfbjCGNVQZzCgTad"; 
+char TokensCChexstr[67] = { "03e6191c70c9c9a28f9fd87089b9488d0e6c02fb629df64979c9cdb6b2b4a68d95" };
+uint8_t TokensCCpriv[32] = { 0xf7, 0x4b, 0x5b, 0xa2, 0x7a, 0x5e, 0x9c, 0xda, 0x89, 0xb1, 0xcb, 0xb9, 0xe6, 0x9c, 0x2c, 0x70, 0x85, 0x37, 0xdd, 0x00, 0x7a, 0x67, 0xff, 0x7c, 0x62, 0x1b, 0xe2, 0xfb, 0x04, 0x8f, 0x85, 0xbf };
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
+
 struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
 {
     cp->evalcode = evalcode;
@@ -347,6 +360,15 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
             cp->validate = GatewaysValidate;
             cp->ismyvin = IsGatewaysInput;
             break;
+
+		case EVAL_TOKENS:
+			strcpy(cp->unspendableCCaddr, TokensCCaddr);
+			strcpy(cp->normaladdr, TokensNormaladdr);
+			strcpy(cp->CChexstr, TokensCChexstr);
+			memcpy(cp->CCpriv, TokensCCpriv, 32);
+			cp->validate = TokensValidate;
+			cp->ismyvin = IsTokensInput;
+			break;
     }
     return(cp);
 }

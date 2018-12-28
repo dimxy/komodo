@@ -18,6 +18,7 @@
 #define CC_HEIR_H
 
 #include "CCinclude.h"
+#include "CCtokens.h"
 
 //#define EVAL_HEIR 0xea
 
@@ -44,6 +45,6 @@ UniValue HeirInfo(uint256 fundingtxid);
 UniValue HeirList();
 //std::string Heir_MakeBadTx(uint256 fundingtxid, uint8_t funcId, int64_t amount, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTime, uint32_t errMask);
 
-bool HeirExactTokenAmounts(bool compareTotals, struct CCcontract_info *cpHeir, Eval* eval, uint256 assetid, const CTransaction &tx);
+//bool HeirExactTokenAmounts(bool compareTotals, struct CCcontract_info *cpHeir, Eval* eval, uint256 assetid, const CTransaction &tx);
 
 #endif

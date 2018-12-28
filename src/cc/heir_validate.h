@@ -66,9 +66,9 @@ class TokenHelper {
 public:
 
 	static bool isMyFuncId(uint8_t funcid) { return IS_CHARINSTR(funcid, "FAC"); }   
-	static uint8_t getMyEval() { return EVAL_ASSETS; }
+	static uint8_t getMyEval() { return EVAL_TOKENS; }
 	static int64_t addOwnerInputs(struct CCcontract_info* cp, uint256 tokenid, CMutableTransaction& mtx, CPubKey ownerPubkey, int64_t total, int32_t maxinputs) {
-		return AddAssetInputs(cp, mtx, ownerPubkey, tokenid, total, maxinputs);
+		return AddTokenInputs(cp, mtx, ownerPubkey, tokenid, total, maxinputs);
 	}
 
 	static CScript makeCreateOpRet(uint256 tokenid, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string heirName) {
@@ -90,10 +90,10 @@ public:
 	static bool isSpendingTx(uint8_t funcid) { return (funcid == 'C'); }
 
 	static CTxOut makeUserVout(int64_t amount, CPubKey myPubkey) {
-		return MakeCC1vout(EVAL_ASSETS, amount, myPubkey);
+		return MakeCC1vout(EVAL_TOKENS, amount, myPubkey);
 	}
 	static CTxOut makeClaimerVout(int64_t amount, CPubKey myPubkey) {
-		return MakeCC1vout(EVAL_ASSETS, amount, myPubkey);
+		return MakeCC1vout(EVAL_TOKENS, amount, myPubkey);
 	}
 };
 

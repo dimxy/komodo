@@ -1316,7 +1316,7 @@ UniValue HeirList()
     struct CCcontract_info *cpHeir, *cpTokens, C;
     
 	cpHeir = CCinit(&C, EVAL_HEIR);
-	cpTokens = CCinit(&C, EVAL_ASSETS);
+	cpTokens = CCinit(&C, EVAL_TOKENS);
 
 	_HeirList<CoinHelper>(cpHeir, result);
 	_HeirList<TokenHelper>(cpTokens, result);

@@ -14,7 +14,9 @@
  ******************************************************************************/
 
 #include "CCassets.h"
+#include "CCtokens.h"
 
+/*
 int64_t AddAssetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey pk,uint256 assetid,int64_t total,int32_t maxinputs)
 {
     char coinaddr[64],destaddr[64]; int64_t threshold,nValue,price,totalinputs = 0; uint256 txid,hashBlock; std::vector<uint8_t> origpubkey; CTransaction vintx; int32_t j,vout,n = 0;
@@ -56,13 +58,14 @@ int64_t AddAssetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPubK
 	//std::cerr << "AddAssetInputs() found totalinputs=" << totalinputs << std::endl;
     return(totalinputs);
 }
+*/
 
 int64_t GetAssetBalance(CPubKey pk,uint256 tokenid)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     struct CCcontract_info *cp,C;
-    cp = CCinit(&C,EVAL_ASSETS);
-    return(AddAssetInputs(cp,mtx,pk,tokenid,0,0));
+    cp = CCinit(&C,EVAL_TOKENS);
+    return(AddTokenInputs(cp,mtx,pk,tokenid,0,0));
 }
 
 UniValue AssetInfo(uint256 assetid)
@@ -75,11 +78,11 @@ UniValue AssetInfo(uint256 assetid)
         result.push_back(Pair("error","cant find assetid"));
         return(result);
     }
-    if ( vintx.vout.size() > 0 && DecodeAssetCreateOpRet(vintx.vout[vintx.vout.size()-1].scriptPubKey,origpubkey,name,description) == 0 )
+    if ( vintx.vout.size() > 0 && DecodeTokenCreateOpRet(vintx.vout[vintx.vout.size()-1].scriptPubKey,origpubkey,name,description) == 0 )
     {
-        fprintf(stderr,"assetid isnt assetcreation txid\n");
+        fprintf(stderr,"assetid isnt token creation txid\n");
         result.push_back(Pair("result","error"));
-        result.push_back(Pair("error","assetid isnt assetcreation txid"));
+        result.push_back(Pair("error","assetid isnt token creation txid"));
     }
     result.push_back(Pair("result","success"));
     result.push_back(Pair("tokenid",uint256_str(str,assetid)));
@@ -190,7 +193,8 @@ UniValue AssetOrders(uint256 refassetid)
     return(result);
 }
 
-std::string CreateAsset(int64_t txfee,int64_t assetsupply,std::string name,std::string description)
+// not used (use TokenCreate instead)
+/* std::string CreateAsset(int64_t txfee,int64_t assetsupply,std::string name,std::string description)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey mypk; struct CCcontract_info *cp,C;
@@ -215,9 +219,10 @@ std::string CreateAsset(int64_t txfee,int64_t assetsupply,std::string name,std::
         return(FinalizeCCTx(0,cp,mtx,mypk,txfee,EncodeAssetCreateOpRet('c',Mypubkey(),name,description)));
     }
     return("");
-}
-               
-std::string AssetTransfer(int64_t txfee,uint256 assetid,std::vector<uint8_t> destpubkey,int64_t total)
+} */
+  
+// not used (use TokenTransfer instead)
+/* std::string AssetTransfer(int64_t txfee,uint256 assetid,std::vector<uint8_t> destpubkey,int64_t total)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey mypk; uint64_t mask; int64_t CCchange=0,inputs=0;  struct CCcontract_info *cp,C;
@@ -232,11 +237,11 @@ std::string AssetTransfer(int64_t txfee,uint256 assetid,std::vector<uint8_t> des
     mypk = pubkey2pk(Mypubkey());
     if ( AddNormalinputs(mtx,mypk,txfee,3) > 0 )
     {
-        /*n = outputs.size();
-        if ( n == amounts.size() )
-        {
-            for (i=0; i<n; i++)
-                total += amounts[i];*/
+        //n = outputs.size();
+        //if ( n == amounts.size() )
+        //{
+        //    for (i=0; i<n; i++)
+        //        total += amounts[i];
         mask = ~((1LL << mtx.vin.size()) - 1);
         if ( (inputs= AddAssetInputs(cp,mtx,mypk,assetid,total,60)) > 0 )
         {
@@ -256,9 +261,10 @@ std::string AssetTransfer(int64_t txfee,uint256 assetid,std::vector<uint8_t> des
         //} else fprintf(stderr,"numoutputs.%d != numamounts.%d\n",n,(int32_t)amounts.size());
     }
     return("");
-}
+} */
 
-std::string AssetConvert(int64_t txfee,uint256 assetid,std::vector<uint8_t> destpubkey,int64_t total,int32_t evalcode)
+// deprecated
+/* std::string AssetConvert(int64_t txfee,uint256 assetid,std::vector<uint8_t> destpubkey,int64_t total,int32_t evalcode)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey mypk; int64_t CCchange=0,inputs=0;  struct CCcontract_info *cp,C;
@@ -283,8 +289,9 @@ std::string AssetConvert(int64_t txfee,uint256 assetid,std::vector<uint8_t> dest
         } else fprintf(stderr,"not enough CC asset inputs for %.8f\n",(double)total/COIN);
     }
     return("");
-}
+} */
 
+// rpc tokenbid implementation, locks 'bidamount' coins for the 'pricetotal' of tokens
 std::string CreateBuyOffer(int64_t txfee,int64_t bidamount,uint256 assetid,int64_t pricetotal)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -304,7 +311,7 @@ std::string CreateBuyOffer(int64_t txfee,int64_t bidamount,uint256 assetid,int64
         fprintf(stderr,"assetid isnt assetcreation txid\n");
         return("");
     }
-    cp = CCinit(&C,EVAL_ASSETS);
+    cp = CCinit(&C,EVAL_ASSETS);   // NOTE: assets!
     if ( txfee == 0 )
         txfee = 10000;
     mypk = pubkey2pk(Mypubkey());
@@ -316,6 +323,7 @@ std::string CreateBuyOffer(int64_t txfee,int64_t bidamount,uint256 assetid,int64
     return("");
 }
 
+// rpc tokenask implementation, locks 'askamount' tokens for the 'pricetotal' 
 std::string CreateSell(int64_t txfee,int64_t askamount,uint256 assetid,int64_t pricetotal)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -328,14 +336,14 @@ std::string CreateSell(int64_t txfee,int64_t askamount,uint256 assetid,int64_t p
         fprintf(stderr,"negative askamount %lld, askamount %lld\n",(long long)pricetotal,(long long)askamount);
         return("");
     }
-    cp = CCinit(&C,EVAL_ASSETS);
+    cp = CCinit(&C,EVAL_TOKENS);  // NOTE: tokens
     if ( txfee == 0 )
         txfee = 10000;
     mypk = pubkey2pk(Mypubkey());
     if ( AddNormalinputs(mtx,mypk,txfee,3) > 0 )
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if ( (inputs= AddAssetInputs(cp,mtx,mypk,assetid,askamount,60)) > 0 )
+        if ( (inputs= AddTokenInputs(cp,mtx,mypk,assetid,askamount,60)) > 0 )
         {
 			if (inputs < askamount) {
 				//askamount = inputs;
@@ -343,16 +351,16 @@ std::string CreateSell(int64_t txfee,int64_t askamount,uint256 assetid,int64_t p
 				return ("");
 			}
 
-            mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,askamount,GetUnspendable(cp,0)));
+            mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,askamount,GetUnspendable(cp,0)));
             if ( inputs > askamount )
                 CCchange = (inputs - askamount);
             if ( CCchange != 0 )
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,CCchange,mypk));
+                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,CCchange,mypk));
             opret = EncodeAssetOpRet('s',assetid,zeroid,pricetotal,Mypubkey());
             return(FinalizeCCTx(mask,cp,mtx,mypk,txfee,opret));
 		}
 		else {
-			fprintf(stderr, "need some assets to place ask\n");
+			fprintf(stderr, "need some tokens to place ask\n");
 		}
     }
 	else {  // dimxy added 'else', because it was misleading message before
@@ -407,10 +415,13 @@ std::string CreateSwap(int64_t txfee,int64_t askamount,uint256 assetid,uint256 a
     return("");
 }
 
+// unlocks coins
 std::string CancelBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CTransaction vintx; uint64_t mask; uint256 hashBlock; int64_t bidamount; CPubKey mypk; struct CCcontract_info *cp,C;
+    CTransaction vintx; uint64_t mask; uint256 hashBlock; int64_t bidamount; CPubKey mypk; 
+	struct CCcontract_info *cp,C;
+
     cp = CCinit(&C,EVAL_ASSETS);
     if ( txfee == 0 )
         txfee = 10000;
@@ -429,11 +440,14 @@ std::string CancelBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid)
     return("");
 }
 
+//unlocks tokens
 std::string CancelSell(int64_t txfee,uint256 assetid,uint256 asktxid)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CTransaction vintx; uint64_t mask; uint256 hashBlock; int64_t askamount; CPubKey mypk; struct CCcontract_info *cp,C;
-    cp = CCinit(&C,EVAL_ASSETS);
+    CTransaction vintx; uint64_t mask; uint256 hashBlock; int64_t askamount; CPubKey mypk; 
+	struct CCcontract_info *cp,C;
+
+    cp = CCinit(&C,EVAL_TOKENS);
     if ( txfee == 0 )
         txfee = 10000;
     mypk = pubkey2pk(Mypubkey());
@@ -444,7 +458,7 @@ std::string CancelSell(int64_t txfee,uint256 assetid,uint256 asktxid)
         {
             askamount = vintx.vout[0].nValue;
             mtx.vin.push_back(CTxIn(asktxid,0,CScript()));
-            mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,askamount,mypk));
+            mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,askamount,mypk));
             return(FinalizeCCTx(mask,cp,mtx,mypk,txfee,EncodeAssetOpRet('x',assetid,zeroid,0,Mypubkey())));
         }
     }
