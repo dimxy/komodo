@@ -98,7 +98,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 				return DecodeTokenCreateOpRet(scriptPubKey, dummyPubkey, dummyName, dummyDescription);
 				//break;
             case 't':  
-			case 'l':
+			//not used yet: case 'l':
 				if (E_UNMARSHAL(vopret, ss >> e; ss >> dummyFuncId; ss >> tokenid; vopretExtra = std::vector<uint8_t>(ss.begin(), ss.end())))
 				{
 					tokenid = revuint256(tokenid);
@@ -133,7 +133,7 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 	preventCCvins = preventCCvouts = -1;
 
 	if ((funcid = DecodeTokenOpRet(tx.vout[numvouts - 1].scriptPubKey, evalCodeInOpret, tokenid, origpubkey)) == 0)
-		return eval->Invalid("Invalid opreturn payload");
+		return eval->Invalid("TokenValidate: invalid opreturn payload");
 
 	fprintf(stderr, "TokensValidate (%c)\n", funcid);
 

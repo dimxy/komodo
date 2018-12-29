@@ -147,13 +147,14 @@ bool AssetsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx
     outputs = inputs = 0;
     preventCCvins = preventCCvouts = -1;
 
-    if ((funcid= DecodeAssetOpRet(tx.vout[numvouts-1].scriptPubKey, evalCodeInOpret,assetid,assetid2,remaining_price,origpubkey)) == 0 )
-        return eval->Invalid("Invalid opreturn payload");
+    if ((funcid= DecodeAssetOpRet(tx.vout[numvouts-1].scriptPubKey, evalCodeInOpret, assetid, assetid2, remaining_price, origpubkey)) == 0 )
+        return eval->Invalid("AssetValidate: invalid opreturn payload");
+
     fprintf(stderr,"AssetValidate (%c)\n",funcid);
 
-    if ( funcid != 'o' && funcid != 'x' && eval->GetTxUnconfirmed(assetid,createTx,hashBlock) == 0 )
+    if ( funcid != 'o' && funcid != 'x' && eval->GetTxUnconfirmed(assetid, createTx, hashBlock) == 0 )
         return eval->Invalid("cant find asset create txid");
-    else if ( funcid != 'o' && funcid != 'x' && assetid2 != zero && eval->GetTxUnconfirmed(assetid2,createTx,hashBlock) == 0 )
+    else if ( funcid != 'o' && funcid != 'x' && assetid2 != zero && eval->GetTxUnconfirmed(assetid2, createTx, hashBlock) == 0 )
         return eval->Invalid("cant find asset2 create txid");
     else if ( IsCCInput(tx.vin[0].scriptSig) != 0 )
         return eval->Invalid("illegal asset vin0");
