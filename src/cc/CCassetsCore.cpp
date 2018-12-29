@@ -230,7 +230,7 @@ bool ValidateSwapRemainder(int64_t remaining_price,int64_t remaining_nValue,int6
     return(true);
 }
 
-/*
+/* use EncodeTokenCreateOpRet instead:
 CScript EncodeAssetCreateOpRet(uint8_t funcid,std::vector<uint8_t> origpubkey,std::string name,std::string description)
 {
     CScript opret; uint8_t evalcode = EVAL_ASSETS;
@@ -239,11 +239,11 @@ CScript EncodeAssetCreateOpRet(uint8_t funcid,std::vector<uint8_t> origpubkey,st
 }
 */
 
-CScript EncodeAssetOpRet(uint8_t assetFuncId,uint256 tokenid,uint256 assetid2,int64_t price,std::vector<uint8_t> origpubkey)
+CScript EncodeAssetOpRet(uint8_t assetFuncId, uint256 tokenid, uint256 assetid2, int64_t price, std::vector<uint8_t> origpubkey)
 {
     CScript opret; 
 	uint8_t evalcode = EVAL_ASSETS;
-	uint8_t funcId = (uint8_t)'t';
+	uint8_t funcId = (uint8_t)'t';  
 
     tokenid = revuint256(tokenid);
     switch ( assetFuncId )
@@ -257,10 +257,10 @@ CScript EncodeAssetOpRet(uint8_t assetFuncId,uint256 tokenid,uint256 assetid2,in
             break;
         case 'E': case 'e':
             assetid2 = revuint256(assetid2);
-            opret << OP_RETURN << E_MARSHAL(ss << evalcode  << funcId << tokenid << assetFuncId << assetid2 << price << origpubkey);
+            opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcId << tokenid << assetFuncId << assetid2 << price << origpubkey);
             break;
         default:
-            fprintf(stderr,"EncodeOpRet: illegal funcid.%02x\n",assetFuncId);
+            fprintf(stderr,"EncodeAssetOpRet: illegal funcid.%02x\n",assetFuncId);
             opret << OP_RETURN;
             break;
     }
@@ -281,9 +281,9 @@ CScript EncodeAssetOpRet(uint8_t assetFuncId,uint256 tokenid,uint256 assetid2,in
     return(0);
 }*/
 
-uint8_t DecodeAssetOpRet(const CScript &scriptPubKey,uint8_t &evalCodeInOpret, uint256 &tokenid,uint256 &assetid2,int64_t &price,std::vector<uint8_t> &origpubkey)
+uint8_t DecodeAssetOpRet(const CScript &scriptPubKey,uint8_t &evalCodeInOpret, uint256 &tokenid, uint256 &assetid2,int64_t &price,std::vector<uint8_t> &origpubkey)
 {
-    std::vector<uint8_t> vopret; 
+    std::vector<uint8_t> vopret, extra; 
 	uint8_t funcid=0,*script, funcId, assetFuncId;
 
 	GetOpReturnData(scriptPubKey, vopret);

@@ -29,10 +29,10 @@
 bool TokensValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn);
 bool TokensExactAmounts(bool compareTotals, struct CCcontract_info *cpTokens, int64_t &inputs, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 tokenid);
 int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval, std::vector<uint8_t> &origpubkey, const CTransaction& tx, int32_t v, uint256 reftokenid);
-int64_t AddTokenInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs);
+//this is in CCinclude.h int64_t AddTokenInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs);
 
-uint8_t DecodeTokenCreateOpRet(const CScript &scriptPubKey, std::vector<uint8_t> &origpubkey, std::string &name, std::string &description);
-uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 &tokenid, std::vector<uint8_t> &origpubkey);
+//this is in CCinclude.h uint8_t DecodeTokenCreateOpRet(const CScript &scriptPubKey,std::vector<uint8_t> &origpubkey,std::string &name,std::string &description);
+uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 &tokenid, std::vector<uint8_t>  &vopretExtra);
 
 
 

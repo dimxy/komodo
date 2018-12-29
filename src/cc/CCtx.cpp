@@ -263,7 +263,7 @@ int64_t CCfullsupply(uint256 tokenid)
     uint256 hashBlock; int32_t numvouts; CTransaction tx; std::vector<uint8_t> origpubkey; std::string name,description;
     if ( GetTransaction(tokenid,tx,hashBlock,false) != 0 && (numvouts= tx.vout.size()) > 0 )
     {
-        if ( DecodeAssetCreateOpRet(tx.vout[numvouts-1].scriptPubKey,origpubkey,name,description) > 0 )
+        if (DecodeTokenCreateOpRet(tx.vout[numvouts-1].scriptPubKey,origpubkey,name,description))
         {
             return(tx.vout[0].nValue);
         }
