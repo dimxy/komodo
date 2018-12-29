@@ -283,7 +283,7 @@ bool DecodeAssetCreateOpRet(const CScript &scriptPubKey, std::vector<uint8_t> &o
 
 uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, uint256 &tokenid, uint256 &assetid2, int64_t &price, std::vector<uint8_t> &origpubkey)
 {
-    std::vector<uint8_t> vopret, extra; 
+    std::vector<uint8_t> vopret; 
 	uint8_t funcid=0,*script, funcId, assetFuncId;
 
 	GetOpReturnData(scriptPubKey, vopret);

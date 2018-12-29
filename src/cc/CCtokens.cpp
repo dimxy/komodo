@@ -99,7 +99,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 				//break;
             case 't':  
 			//not used yet: case 'l':
-				if (E_UNMARSHAL(vopret, ss >> e; ss >> dummyFuncId; ss >> tokenid; isEof = ss.eof(); vopretExtra = std::vector<uint8_t>(ss.begin(), ss.end())))
+				if (E_UNMARSHAL(vopret, ss >> e; ss >> dummyFuncId; ss >> tokenid; isEof = ss.eof(); vopretExtra = std::vector<uint8_t>(ss.begin(), ss.end())) || !isEof)
 				{
 					tokenid = revuint256(tokenid);
 					return(funcid);
