@@ -88,7 +88,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 
     if (script != 0 /*enable all evals: && script[0] == EVAL_TOKENS*/)
     {
-		//bool isEof = true;
+		bool isEof = true;
 		evalCode = script[0];
         funcid = script[1];
         //fprintf(stderr,"decode.[%c]\n",funcid);
@@ -99,16 +99,17 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 				//break;
             case 't':  
 			//not used yet: case 'l':
-				if (E_UNMARSHAL(vopret, ss >> e; ss >> dummyFuncId; ss >> tokenid; vopretExtra = std::vector<uint8_t>(ss.begin(), ss.end())))
+				if (E_UNMARSHAL(vopret, ss >> e; ss >> dummyFuncId; ss >> tokenid; isEof = ss.eof(); vopretExtra = std::vector<uint8_t>(ss.begin(), ss.end())))
 				{
 					tokenid = revuint256(tokenid);
 					return(funcid);
 				}
-				//fprintf(stderr, "DecodeTokenOpRet: bad opret format\n");  // this may be just check, no error logging
+				std::cerr << "DecodeTokenOpRet() isEof=" << isEof << std::endl;
+				fprintf(stderr, "DecodeTokenOpRet() bad opret format\n");  // this may be just check, no error logging
 				return (uint8_t)0;
 
             default:
-                fprintf(stderr,"DecodeTokenOpRet: illegal funcid.%02x\n", funcid);
+                fprintf(stderr, "DecodeTokenOpRet() illegal funcid.%02x\n", funcid);
 				return (uint8_t)0;
         }
     }
