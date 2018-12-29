@@ -95,8 +95,13 @@ UniValue AssetInfo(uint256 assetid)
 
 UniValue AssetList()
 {
-    UniValue result(UniValue::VARR); std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex; struct CCcontract_info *cp,C; uint256 txid,hashBlock; CTransaction vintx; std::vector<uint8_t> origpubkey; std::string name,description; char str[65];
-    cp = CCinit(&C,EVAL_ASSETS);
+    UniValue result(UniValue::VARR); 
+	std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex; 
+	struct CCcontract_info *cp,C; uint256 txid,hashBlock; 
+	CTransaction vintx; std::vector<uint8_t> origpubkey; 
+	std::string name,description; char str[65];
+
+    cp = CCinit(&C,EVAL_TOKENS);
     SetCCtxids(addressIndex,cp->normaladdr);
     for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); it++)
     {
@@ -115,19 +120,37 @@ UniValue AssetList()
 UniValue AssetOrders(uint256 refassetid)
 {
     static uint256 zero;
-    int64_t price; uint256 txid,hashBlock,assetid,assetid2; std::vector<uint8_t> origpubkey; CTransaction vintx; UniValue result(UniValue::VARR);  std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs; 
-	uint8_t funcid, evalCode; char numstr[32],funcidstr[16],origaddr[64],assetidstr[65]; struct CCcontract_info *cp,C;
+    int64_t price; 
+	uint256 txid,hashBlock,assetid,assetid2; 
+	std::vector<uint8_t> origpubkey; 
+	CTransaction vintx; 
+	UniValue result(UniValue::VARR);  
+	std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputsTokens, unspentOutputsAssets;
+	uint8_t funcid, evalCode; 
+	char numstr[32],funcidstr[16],origaddr[64],assetidstr[65]; 
+	
+	struct CCcontract_info *cpTokens, tokensC;
+	struct CCcontract_info *cpAssets, assetsC;
 
-    cp = CCinit(&C,EVAL_ASSETS);
-    SetCCunspents(unspentOutputs,(char *)cp->unspendableCCaddr);
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
+    cpTokens = CCinit(&tokensC, EVAL_TOKENS);
+	cpAssets = CCinit(&assetsC, EVAL_ASSETS);
+
+    SetCCunspents(unspentOutputsTokens, (char *)cpTokens->unspendableCCaddr);
+	SetCCunspents(unspentOutputsAssets, (char *)cpAssets->unspendableCCaddr);
+
+
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputsTokens.begin(); 
+		it!=unspentOutputsAssets.end(); 
+		// switch iterator to assets unspents:
+		(it == unspentOutputsTokens.end()) ? (it = unspentOutputsAssets.begin()) : (++it)  )  // sic!
     {
+
         txid = it->first.txhash;
-        if ( GetTransaction(txid,vintx,hashBlock,false) != 0 )
+        if ( GetTransaction(txid,vintx,hashBlock,false) != 0 ) 
         {
-            if ( vintx.vout.size() > 0 && (funcid= DecodeAssetOpRet(vintx.vout[vintx.vout.size()-1].scriptPubKey, evalCode,assetid,assetid2,price,origpubkey)) != 0 )
+            if (vintx.vout.size() > 0 && (funcid = DecodeAssetOpRet(vintx.vout[vintx.vout.size()-1].scriptPubKey, evalCode, assetid, assetid2, price, origpubkey)) != 0)
             {
-                if ( refassetid != zero && assetid != refassetid )
+                if (refassetid != zero && assetid != refassetid)
                 {
                     //int32_t z;
                     //for (z=31; z>=0; z--) fprintf(stderr,"%02x",((uint8_t *)&txid)[z]);
@@ -138,9 +161,11 @@ UniValue AssetOrders(uint256 refassetid)
                     //fprintf(stderr," refassetid\n");
                     continue;
                 }
-                if ( vintx.vout[it->first.index].nValue == 0 )
+                if (vintx.vout[it->first.index].nValue == 0)
                     continue;
+
                 UniValue item(UniValue::VOBJ);
+
                 funcidstr[0] = funcid;
                 funcidstr[1] = 0;
                 item.push_back(Pair("funcid", funcidstr));
@@ -162,8 +187,8 @@ UniValue AssetOrders(uint256 refassetid)
                 }
                 if ( origpubkey.size() == 33 )
                 {
-                    GetCCaddress(cp,origaddr,pubkey2pk(origpubkey));
-                    item.push_back(Pair("origaddress",origaddr));
+                    GetCCaddress(cpTokens, origaddr, pubkey2pk(origpubkey));  // TODO: what is this? is it asset or token??
+                    item.push_back(Pair("origaddress", origaddr));
                 }
                 if ( assetid != zeroid )
                     item.push_back(Pair("tokenid",uint256_str(assetidstr,assetid)));
@@ -292,33 +317,49 @@ UniValue AssetOrders(uint256 refassetid)
 } */
 
 // rpc tokenbid implementation, locks 'bidamount' coins for the 'pricetotal' of tokens
-std::string CreateBuyOffer(int64_t txfee,int64_t bidamount,uint256 assetid,int64_t pricetotal)
+std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, int64_t pricetotal)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk; struct CCcontract_info *cp,C; uint256 hashBlock; CTransaction vintx; std::vector<uint8_t> origpubkey; std::string name,description;
-    if ( bidamount < 0 || pricetotal < 0 )
+    CPubKey mypk; 
+	struct CCcontract_info *cp, C; 
+	uint256 hashBlock; 
+	CTransaction vintx; 
+	std::vector<uint8_t> origpubkey; 
+	std::string name,description;
+	int64_t inputs;
+
+    if (bidamount < 0 || pricetotal < 0)
     {
-        fprintf(stderr,"negative bidamount %lld, pricetotal %lld\n",(long long)bidamount,(long long)pricetotal);
+        fprintf(stderr,"negative bidamount %lld, pricetotal %lld\n", (long long)bidamount, (long long)pricetotal);
         return("");
     }
-    if ( GetTransaction(assetid,vintx,hashBlock,false) == 0 )
+    if (GetTransaction(assetid, vintx, hashBlock, false) == 0)
     {
         fprintf(stderr,"cant find assetid\n");
         return("");
     }
-    if ( vintx.vout.size() > 0 && DecodeTokenCreateOpRet(vintx.vout[vintx.vout.size()-1].scriptPubKey,origpubkey,name,description) == 0 )
+    if (vintx.vout.size() > 0 && DecodeTokenCreateOpRet(vintx.vout[vintx.vout.size()-1].scriptPubKey, origpubkey, name, description) == 0)
     {
         fprintf(stderr,"assetid isnt assetcreation txid\n");
         return("");
     }
+
     cp = CCinit(&C,EVAL_ASSETS);   // NOTE: assets here!
-    if ( txfee == 0 )
+    if (txfee == 0)
         txfee = 10000;
+
     mypk = pubkey2pk(Mypubkey());
-    if ( AddNormalinputs(mtx,mypk,bidamount+txfee,64) > 0 )
+
+    if (inputs= AddNormalinputs(mtx, mypk, bidamount+txfee, 64) > 0)
     {
-        mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,bidamount,GetUnspendable(cp,0)));
-        return(FinalizeCCTx(0,cp,mtx,mypk,txfee,EncodeAssetOpRet('b',assetid,zeroid,pricetotal,Mypubkey())));
+		if (inputs < bidamount+txfee) {
+			std::cerr << "CreateBuyOffer(): insufficient coins to make but offer" << std::endl;
+			CCerror = strprintf("insufficient coins to make buy offer");
+			return ("");
+		}
+
+        mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, bidamount, GetUnspendable(cp,0)));
+        return(FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeAssetOpRet('b', assetid, zeroid, pricetotal, Mypubkey())));
     }
     return("");
 }
@@ -327,35 +368,43 @@ std::string CreateBuyOffer(int64_t txfee,int64_t bidamount,uint256 assetid,int64
 std::string CreateSell(int64_t txfee,int64_t askamount,uint256 assetid,int64_t pricetotal)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk; uint64_t mask; int64_t inputs,CCchange; CScript opret; struct CCcontract_info *cp,C;
+    CPubKey mypk; 
+	uint64_t mask; 
+	int64_t inputs, CCchange; 
+	CScript opret; 
+	struct CCcontract_info *cp,C;
 
 	//std::cerr << "CreateSell() askamount=" << askamount << " pricetotal=" << pricetotal << std::endl;
 
-    if ( askamount < 0 || pricetotal < 0 )
-    {
+    if (askamount < 0 || pricetotal < 0)    {
         fprintf(stderr,"negative askamount %lld, askamount %lld\n",(long long)pricetotal,(long long)askamount);
         return("");
     }
-    cp = CCinit(&C,EVAL_TOKENS);  // NOTE: tokens
+
+    cp = CCinit(&C, EVAL_TOKENS);  // NOTE: tokens is here
+
     if ( txfee == 0 )
         txfee = 10000;
+
     mypk = pubkey2pk(Mypubkey());
-    if ( AddNormalinputs(mtx,mypk,txfee,3) > 0 )
+    if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if ( (inputs= AddTokenCCInputs(cp,mtx,mypk,assetid,askamount,60)) > 0 )
+        if ((inputs = AddTokenCCInputs(cp, mtx, mypk, assetid, askamount, 60)) > 0)
         {
 			if (inputs < askamount) {
-				//askamount = inputs;
+				//was: askamount = inputs;
 				std::cerr << "CreateSell(): insufficient tokens for ask" << std::endl;
+				CCerror = strprintf("insufficient tokens for ask");
 				return ("");
 			}
 
-            mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,askamount,GetUnspendable(cp,0)));
-            if ( inputs > askamount )
+            mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,askamount, GetUnspendable(cp,0)));
+            if (inputs > askamount)
                 CCchange = (inputs - askamount);
-            if ( CCchange != 0 )
-                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,CCchange,mypk));
+            if (CCchange != 0)
+                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, CCchange, mypk));
+
             opret = EncodeAssetOpRet('s',assetid, zeroid, pricetotal, Mypubkey());
             return(FinalizeCCTx(mask,cp,mtx,mypk,txfee,opret));
 		}
@@ -373,34 +422,48 @@ std::string CreateSwap(int64_t txfee,int64_t askamount,uint256 assetid,uint256 a
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey mypk; uint64_t mask; int64_t inputs,CCchange; CScript opret; struct CCcontract_info *cp,C;
+
+	//////////////////////////////////////////
     fprintf(stderr,"asset swaps disabled\n");
     return("");
+	//////////////////////////////////////////
+
     if ( askamount < 0 || pricetotal < 0 )
     {
         fprintf(stderr,"negative askamount %lld, askamount %lld\n",(long long)pricetotal,(long long)askamount);
         return("");
     }
-    cp = CCinit(&C,EVAL_ASSETS);
+    cp = CCinit(&C, EVAL_ASSETS);
+
     if ( txfee == 0 )
         txfee = 10000;
+
     mypk = pubkey2pk(Mypubkey());
-    if ( AddNormalinputs(mtx,mypk,txfee,3) > 0 )
+
+    if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if ( (inputs= AddAssetInputs(cp,mtx,mypk,assetid,askamount,60)) > 0 )
+        if ((inputs = AddAssetInputs(cp, mtx, mypk, assetid, askamount, 60)) > 0)
         {
-            if ( inputs < askamount )
-                askamount = inputs;
-            mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,askamount,GetUnspendable(cp,0)));
-            if ( inputs > askamount )
+			if (inputs < askamount) {
+				//was: askamount = inputs;
+				std::cerr << "CreateSwap(): insufficient tokens for ask" << std::endl;
+				CCerror = strprintf("insufficient tokens for ask");
+				return ("");
+			}
+
+            mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, askamount, GetUnspendable(cp, 0)));			
+
+            if (inputs > askamount)
                 CCchange = (inputs - askamount);
-            if ( CCchange != 0 )
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,CCchange,mypk));
-            if ( assetid2 == zeroid )
-                opret = EncodeAssetOpRet('s',assetid,zeroid,pricetotal,Mypubkey());
+            if (CCchange != 0)
+                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, CCchange, mypk));
+
+            if (assetid2 == zeroid)
+                opret = EncodeAssetOpRet('s', assetid, zeroid, pricetotal, Mypubkey());
             else
             {
-                opret = EncodeAssetOpRet('e',assetid,assetid2,pricetotal,Mypubkey());
+                opret = EncodeAssetOpRet('e', assetid, assetid2, pricetotal, Mypubkey());
             }
             return(FinalizeCCTx(mask,cp,mtx,mypk,txfee,opret));
         } 
@@ -419,22 +482,29 @@ std::string CreateSwap(int64_t txfee,int64_t askamount,uint256 assetid,uint256 a
 std::string CancelBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CTransaction vintx; uint64_t mask; uint256 hashBlock; int64_t bidamount; CPubKey mypk; 
+    CTransaction vintx; 
+	uint64_t mask; 
+	uint256 hashBlock; 
+	int64_t bidamount; 
+	CPubKey mypk; 
 	struct CCcontract_info *cp,C;
 
-    cp = CCinit(&C,EVAL_ASSETS);
+    cp = CCinit(&C, EVAL_ASSETS);
+
     if ( txfee == 0 )
         txfee = 10000;
+
     mypk = pubkey2pk(Mypubkey());
-    if ( AddNormalinputs(mtx,mypk,txfee,3) > 0 )
+
+    if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if ( GetTransaction(bidtxid,vintx,hashBlock,false) != 0 )
+        if (GetTransaction(bidtxid, vintx, hashBlock, false) != 0)
         {
             bidamount = vintx.vout[0].nValue;
-            mtx.vin.push_back(CTxIn(bidtxid,0,CScript()));
+            mtx.vin.push_back(CTxIn(bidtxid, 0, CScript()));
             mtx.vout.push_back(CTxOut(bidamount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
-            return(FinalizeCCTx(mask,cp,mtx,mypk,txfee,EncodeAssetOpRet('o',assetid,zeroid,0,Mypubkey())));
+            return(FinalizeCCTx(mask, cp, mtx, mypk, txfee, EncodeAssetOpRet('o', assetid, zeroid, 0, Mypubkey())));
         }
     }
     return("");
@@ -447,120 +517,172 @@ std::string CancelSell(int64_t txfee,uint256 assetid,uint256 asktxid)
     CTransaction vintx; uint64_t mask; uint256 hashBlock; int64_t askamount; CPubKey mypk; 
 	struct CCcontract_info *cp,C;
 
-    cp = CCinit(&C,EVAL_TOKENS);
+    cp = CCinit(&C, EVAL_TOKENS);
+
     if ( txfee == 0 )
         txfee = 10000;
+
     mypk = pubkey2pk(Mypubkey());
-    if ( AddNormalinputs(mtx,mypk,txfee,3) > 0 )
+
+    if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if ( GetTransaction(asktxid,vintx,hashBlock,false) != 0 )
+        if (GetTransaction(asktxid, vintx, hashBlock, false) != 0)
         {
             askamount = vintx.vout[0].nValue;
-            mtx.vin.push_back(CTxIn(asktxid,0,CScript()));
-            mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,askamount,mypk));
-            return(FinalizeCCTx(mask,cp,mtx,mypk,txfee,EncodeAssetOpRet('x',assetid,zeroid,0,Mypubkey())));
+            mtx.vin.push_back(CTxIn(asktxid, 0, CScript()));
+            mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, askamount, mypk));
+            return(FinalizeCCTx(mask, cp, mtx, mypk, txfee, EncodeAssetOpRet('x', assetid, zeroid, 0, Mypubkey())));
         }
     }
     return("");
 }
 
+//send tokens, receive coins:
 std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t fillamount)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CTransaction vintx; uint256 hashBlock; CPubKey mypk; std::vector<uint8_t> origpubkey; int32_t bidvout=0; uint64_t mask; int64_t origprice,bidamount,paid_amount,remaining_required,inputs,CCchange=0; struct CCcontract_info *cp,C;
-    if ( fillamount < 0 )
+    CTransaction vintx; 
+	uint256 hashBlock; 
+	CPubKey mypk; 
+	std::vector<uint8_t> origpubkey; 
+	int32_t bidvout=0; 
+	uint64_t mask; 
+	int64_t origprice, bidamount, paid_amount, remaining_required, inputs, CCchange=0; 
+	struct CCcontract_info *cp,C;
+
+    if (fillamount < 0)
     {
-        fprintf(stderr,"negative fillamount %lld\n",(long long)fillamount);
+        fprintf(stderr,"negative fillamount %lld\n", (long long)fillamount);
         return("");
     }
-    cp = CCinit(&C,EVAL_ASSETS);
-    if ( txfee == 0 )
+    cp = CCinit(&C, EVAL_TOKENS);
+    
+	if ( txfee == 0 )
         txfee = 10000;
+
     mypk = pubkey2pk(Mypubkey());
-    if ( AddNormalinputs(mtx,mypk,txfee,3) > 0 )
+
+    if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if ( GetTransaction(bidtxid,vintx,hashBlock,false) != 0 )
+        if (GetTransaction(bidtxid, vintx, hashBlock, false) != 0)
         {
             bidamount = vintx.vout[bidvout].nValue;
-            SetAssetOrigpubkey(origpubkey,origprice,vintx);
-            mtx.vin.push_back(CTxIn(bidtxid,bidvout,CScript()));
-            if ( (inputs= AddAssetInputs(cp,mtx,mypk,assetid,fillamount,60)) > 0 )
+            SetAssetOrigpubkey(origpubkey, origprice, vintx);
+          
+			mtx.vin.push_back(CTxIn(bidtxid, bidvout, CScript()));
+
+            if ((inputs = AddTokenCCInputs(cp, mtx, mypk, assetid, fillamount, 60)) > 0)
             {
-                if ( inputs < fillamount )
-                    fillamount = inputs;
-                SetBidFillamounts(paid_amount,remaining_required,bidamount,fillamount,origprice);
-                if ( inputs > fillamount )
+				if (inputs < fillamount) {
+					std::cerr << "FillBuyOffer(): insufficient tokens to fill buy offer" << std::endl;
+					CCerror = strprintf("insufficient tokens to fill buy offer");
+					return ("");
+				}
+                
+				SetBidFillamounts(paid_amount, remaining_required, bidamount, fillamount, origprice);
+                
+				if (inputs > fillamount)
                     CCchange = (inputs - fillamount);
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,bidamount - paid_amount,GetUnspendable(cp,0)));
+                
+				mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, bidamount - paid_amount, GetUnspendable(cp,0)));    // tokens
                 mtx.vout.push_back(CTxOut(paid_amount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,fillamount,pubkey2pk(origpubkey)));
-                if ( CCchange != 0 )
-                    mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,CCchange,mypk));
-                fprintf(stderr,"remaining %llu -> origpubkey\n",(long long)remaining_required);
-                return(FinalizeCCTx(mask,cp,mtx,mypk,txfee,EncodeAssetOpRet('B',assetid,zeroid,remaining_required,origpubkey)));
+                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, fillamount, pubkey2pk(origpubkey)));				// coins
+                
+				if (CCchange != 0)
+                    mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, CCchange, mypk));								// coins
+
+                fprintf(stderr,"remaining %llu -> origpubkey\n", (long long)remaining_required);
+
+                return(FinalizeCCTx(mask,cp,mtx,mypk,txfee, EncodeAssetOpRet('B', assetid, zeroid, remaining_required, origpubkey)));
             } else return("dont have any assets to fill bid\n");
         }
     }
     return("no normal coins left");
 }
 
+
+// send coins, receive tokens 
 std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 asktxid,int64_t fillunits)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CTransaction vintx,filltx; uint256 hashBlock; CPubKey mypk; std::vector<uint8_t> origpubkey; double dprice; uint64_t mask; int32_t askvout=0; int64_t received_assetoshis,total_nValue,orig_assetoshis,paid_nValue,remaining_nValue,inputs,CCchange=0; struct CCcontract_info *cp,C;
-    if ( fillunits < 0 )
+    CTransaction vintx,filltx; 
+	uint256 hashBlock; 
+	CPubKey mypk; 
+	std::vector<uint8_t> origpubkey; 
+	double dprice; 
+	uint64_t mask; 
+	int32_t askvout=0; 
+	int64_t received_assetoshis, total_nValue, orig_assetoshis, paid_nValue, remaining_nValue, inputs, CCchange=0; 
+	struct CCcontract_info *cp,C;
+
+    if (fillunits < 0)
     {
         CCerror = strprintf("negative fillunits %lld\n",(long long)fillunits);
         fprintf(stderr,"%s\n",CCerror.c_str());
         return("");
     }
-    if ( assetid2 != zeroid )
+    if (assetid2 != zeroid)
     {
         CCerror = "asset swaps disabled";
         fprintf(stderr,"%s\n",CCerror.c_str());
         return("");
     }
 
-    cp = CCinit(&C,EVAL_ASSETS);
-    if ( txfee == 0 )
+    cp = CCinit(&C, EVAL_ASSETS);
+
+    if (txfee == 0)
         txfee = 10000;
+
     mypk = pubkey2pk(Mypubkey());
-    if ( AddNormalinputs(mtx,mypk,txfee,3) > 0 )
+    if (AddNormalinputs(mtx,mypk,txfee,3) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
-        if ( GetTransaction(asktxid,vintx,hashBlock,false) != 0 )
+        if (GetTransaction(asktxid, vintx, hashBlock, false) != 0)
         {
             orig_assetoshis = vintx.vout[askvout].nValue;
-            SetAssetOrigpubkey(origpubkey,total_nValue,vintx);
+            SetAssetOrigpubkey(origpubkey, total_nValue, vintx);
             dprice = (double)total_nValue / orig_assetoshis;
             paid_nValue = dprice * fillunits;
-            mtx.vin.push_back(CTxIn(asktxid,askvout,CScript()));
-            if ( assetid2 != zeroid )
-                inputs = AddAssetInputs(cp,mtx,mypk,assetid2,paid_nValue,60);
+
+            mtx.vin.push_back(CTxIn(asktxid, askvout, CScript()));
+
+            if (assetid2 != zeroid)
+                inputs = AddAssetInputs(cp, mtx, mypk, assetid2, paid_nValue, 60);
             else
             {
-                inputs = AddNormalinputs(mtx,mypk,paid_nValue,60);
+                inputs = AddNormalinputs(mtx, mypk, paid_nValue, 60);
                 mask = ~((1LL << mtx.vin.size()) - 1);
             }
-            if ( inputs > 0 )
+            if (inputs > 0)
             {
-                if ( inputs < paid_nValue )
-                    paid_nValue = inputs;
-                if ( assetid2 != zeroid )
-                    SetSwapFillamounts(received_assetoshis,remaining_nValue,orig_assetoshis,paid_nValue,total_nValue);
-                else SetAskFillamounts(received_assetoshis,remaining_nValue,orig_assetoshis,paid_nValue,total_nValue);
-                if ( assetid2 != zeroid && inputs > paid_nValue )
+				if (inputs < paid_nValue) {
+					std::cerr << "FillSell(): insufficient coins to fill sell" << std::endl;
+					CCerror = strprintf("insufficient coins to fill sell");
+					return ("");
+				}
+                
+				if (assetid2 != zeroid)
+                    SetSwapFillamounts(received_assetoshis, remaining_nValue, orig_assetoshis, paid_nValue, total_nValue);
+                else 
+					SetAskFillamounts(received_assetoshis, remaining_nValue, orig_assetoshis, paid_nValue, total_nValue);
+
+                if (assetid2 != zeroid && inputs > paid_nValue)
                     CCchange = (inputs - paid_nValue);
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,orig_assetoshis - received_assetoshis,GetUnspendable(cp,0)));
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,received_assetoshis,mypk));
-                if ( assetid2 != zeroid )
-                    mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,paid_nValue,origpubkey));
-                else mtx.vout.push_back(CTxOut(paid_nValue,CScript() << origpubkey << OP_CHECKSIG));
-                if ( CCchange != 0 )
-                    mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS,CCchange,mypk));
-                return(FinalizeCCTx(mask,cp,mtx,mypk,txfee,EncodeAssetOpRet(assetid2!=zeroid?'E':'S',assetid,assetid2,remaining_nValue,origpubkey)));
+
+                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, orig_assetoshis - received_assetoshis, GetUnspendable(cp,0)));   // coins
+                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, received_assetoshis, mypk));					// tokens
+                
+				if (assetid2 != zeroid)
+                    mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, paid_nValue, origpubkey));					// tokens (not implemented correctly)
+                else 
+					mtx.vout.push_back(CTxOut(paid_nValue, CScript() << origpubkey << OP_CHECKSIG));		// coins
+                
+				if (CCchange != 0)
+                    mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, CCchange, mypk));							// coins
+
+                return(FinalizeCCTx(mask,cp,mtx,mypk,txfee,EncodeAssetOpRet(assetid2 != zeroid ? 'E' : 'S', assetid, assetid2, remaining_nValue, origpubkey)));
             } else {
                 CCerror = strprintf("filltx not enough utxos");
                 fprintf(stderr,"%s\n", CCerror.c_str());

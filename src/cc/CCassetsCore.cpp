@@ -260,7 +260,7 @@ CScript EncodeAssetOpRet(uint8_t assetFuncId, uint256 tokenid, uint256 assetid2,
             opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcId << tokenid << assetFuncId << assetid2 << price << origpubkey);
             break;
         default:
-            fprintf(stderr,"EncodeAssetOpRet: illegal funcid.%02x\n",assetFuncId);
+            fprintf(stderr,"EncodeAssetOpRet: illegal funcid.%02x\n", assetFuncId);
             opret << OP_RETURN;
             break;
     }
@@ -268,7 +268,7 @@ CScript EncodeAssetOpRet(uint8_t assetFuncId, uint256 tokenid, uint256 assetid2,
 }
 
 // it is for compatibility, do not use this for new contracts (use DecodeTokenCreateOpRet)
-bool DecodeAssetCreateOpRet(const CScript &scriptPubKey,std::vector<uint8_t> &origpubkey,std::string &name,std::string &description)
+bool DecodeAssetCreateOpRet(const CScript &scriptPubKey, std::vector<uint8_t> &origpubkey, std::string &name, std::string &description)
 {
     std::vector<uint8_t> vopret; uint8_t evalcode,funcid,*script;
     GetOpReturnData(scriptPubKey, vopret);
@@ -298,7 +298,7 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey,uint8_t &evalCodeInOpret, u
 	assetid2 = zeroid;
 	price = 0;
 
-	bool isEof = true;  // if parse error occures, parse might not be able to set error. It is safer to treat that it has been eof too.
+	bool isEof = true;  // NOTE: if parse error occures, parse might not be able to set error. It is safer to treat that it was eof if it is not set!
 	bool result = E_UNMARSHAL(vopret, ss >> evalCodeInOpret; ss >> funcId; ss >> tokenid; ss >> assetFuncId; isEof = ss.eof());
 
 	if (!result && isEof) { // NOTE: 'result==false' means 'parse error' OR 'not eof state'. Consequently, 'result==false' but 'isEof==true' means just 'parse error' 
