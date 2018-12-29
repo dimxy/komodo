@@ -78,7 +78,7 @@ uint8_t DecodeTokenCreateOpRet(const CScript &scriptPubKey,std::vector<uint8_t> 
 
 uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 &tokenid, std::vector<uint8_t>  &vopretExtra)
 {
-    std::vector<uint8_t> vopret, extra; 
+    std::vector<uint8_t> vopret, extra, dummyPubkey; 
 	uint8_t funcid=0, *script, e, dummyFuncId;
 	std::string dummyName; std::string dummyDescription;
 
@@ -95,7 +95,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
         switch ( funcid )
         {
             case 'c': 
-				//return DecodeTokenCreateOpRet(scriptPubKey, origpubkey, dummyName, dummyDescription);
+				return DecodeTokenCreateOpRet(scriptPubKey, dummyPubkey, dummyName, dummyDescription);
 				//break;
             case 't':  
 			case 'l':
