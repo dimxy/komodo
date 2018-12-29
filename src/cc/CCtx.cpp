@@ -273,7 +273,8 @@ int64_t CCfullsupply(uint256 tokenid)
 
 int64_t CCtoken_balance(char *coinaddr,uint256 tokenid)
 {
-    int64_t price,sum = 0; int32_t numvouts; CTransaction tx; uint256 assetid,assetid2,txid,hashBlock; std::vector<uint8_t> origpubkey;
+    int64_t price,sum = 0; int32_t numvouts; CTransaction tx; uint256 assetid,assetid2,txid,hashBlock; 
+	std::vector<uint8_t>  vopretExtra;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
 	uint8_t evalCode;
 
@@ -284,7 +285,7 @@ int64_t CCtoken_balance(char *coinaddr,uint256 tokenid)
         if ( GetTransaction(txid,tx,hashBlock,false) != 0 && (numvouts= tx.vout.size()) > 0 )
         {
             char str[65]; fprintf(stderr,"check %s %.8f\n",uint256_str(str,txid),(double)it->second.satoshis/COIN);
-            if ( DecodeAssetOpRet(tx.vout[numvouts-1].scriptPubKey, evalCode, assetid,assetid2,price,origpubkey) != 0 && assetid == tokenid )
+            if ( DecodeTokenOpRet(tx.vout[numvouts-1].scriptPubKey, evalCode, assetid, vopretExtra) != 0 && assetid == tokenid )
             {
                 sum += it->second.satoshis;
             }
