@@ -284,7 +284,8 @@ bool DecodeAssetCreateOpRet(const CScript &scriptPubKey, std::vector<uint8_t> &o
 uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, uint256 &tokenid, uint256 &assetid2, int64_t &price, std::vector<uint8_t> &origpubkey)
 {
     std::vector<uint8_t> vopret; 
-	uint8_t *script, funcId = 0, assetFuncId = 0;
+	uint8_t *script, funcId = 0, assetFuncId = 0, dummyEvalCode, dummyFuncId;
+	uint256 dummyTokenid;
 
 	GetOpReturnData(scriptPubKey, vopret);
 
@@ -308,7 +309,7 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, 
 
 	tokenid = revuint256(tokenid);
 
-	std::cerr << "DecodeAssetOpRet() evalCodeInOpret=" << evalCodeInOpret <<  " funcId=" << (char)(funcId ? funcId : ' ') << " assetFuncId=" << (char)(assetFuncId ? assetFuncId : ' ') << std::endl;
+	std::cerr << "DecodeAssetOpRet() evalCodeInOpret=" << (int)evalCodeInOpret <<  " funcId=" << (char)(funcId ? funcId : ' ') << " assetFuncId=" << (char)(assetFuncId ? assetFuncId : ' ') << std::endl;
 
 	if(evalCodeInOpret == EVAL_ASSETS)
 	{
@@ -333,14 +334,14 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, 
                 }
                 break;
             case 's': case 'b': case 'S': case 'B':
-				if (E_UNMARSHAL(vopret, ss >> evalCodeInOpret; ss >> funcId; ss >> tokenid; ss >> assetFuncId; ss >> price; ss >> origpubkey) != 0)
+				if (E_UNMARSHAL(vopret, ss >> dummyEvalCode; ss >> dummyFuncId; ss >> dummyTokenid; ss >> dummyFuncId; ss >> price; ss >> origpubkey) != 0)
                 {
                     //fprintf(stderr,"got price %llu\n",(long long)price);
                     return(assetFuncId);
                 }
                 break;
             case 'E': case 'e':
-                if ( E_UNMARSHAL(vopret,ss >> evalCodeInOpret; ss >> funcId; ss >> tokenid; ss >> assetFuncId; ss >> assetid2; ss >> price; ss >> origpubkey) != 0 )
+                if ( E_UNMARSHAL(vopret,ss >> dummyEvalCode; ss >> dummyFuncId; ss >> dummyTokenid; ss >> dummyFuncId; ss >> assetid2; ss >> price; ss >> origpubkey) != 0 )
                 {
                     //fprintf(stderr,"got price %llu\n",(long long)price);
                     assetid2 = revuint256(assetid2);
@@ -348,7 +349,7 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, 
                 }
                 break;
             default:
-                fprintf(stderr,"DecodeAssetOpRet: illegal funcid.%02x\n",funcId);
+                fprintf(stderr,"DecodeAssetOpRet: illegal funcid.%02x\n", funcId);
                 funcId = 0;
                 break;
         }
