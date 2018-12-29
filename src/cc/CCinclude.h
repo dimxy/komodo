@@ -133,7 +133,9 @@ uint256 OraclesBatontxid(uint256 oracletxid,CPubKey pk);
 int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs);
 
 bool DecodeHexTx(CTransaction& tx, const std::string& strHexTx);
-//bool DecodeAssetCreateOpRet(const CScript &scriptPubKey,std::vector<uint8_t> &origpubkey,std::string &name,std::string &description);
+CScript EncodeAssetOpRet(uint8_t assetFuncId, uint256 tokenid, uint256 assetid2, int64_t price, std::vector<uint8_t> origpubkey);
+bool DecodeAssetCreateOpRet(const CScript &scriptPubKey, std::vector<uint8_t> &origpubkey, std::string &name, std::string &description);
+uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, uint256 &tokenid, uint256 &assetid2, int64_t &price, std::vector<uint8_t> &origpubkey);
 uint8_t DecodeTokenCreateOpRet(const CScript &scriptPubKey, std::vector<uint8_t> &origpubkey, std::string &name, std::string &description);
 uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 &tokenid, std::vector<uint8_t>  &vopretExtra);
 

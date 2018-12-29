@@ -267,8 +267,8 @@ CScript EncodeAssetOpRet(uint8_t assetFuncId, uint256 tokenid, uint256 assetid2,
     return(opret);
 }
 
-// not used (use DecodeTokenCreateOpRet)
-/* bool DecodeAssetCreateOpRet(const CScript &scriptPubKey,std::vector<uint8_t> &origpubkey,std::string &name,std::string &description)
+// it is for compatibility, do not use this for new contracts (use DecodeTokenCreateOpRet)
+bool DecodeAssetCreateOpRet(const CScript &scriptPubKey,std::vector<uint8_t> &origpubkey,std::string &name,std::string &description)
 {
     std::vector<uint8_t> vopret; uint8_t evalcode,funcid,*script;
     GetOpReturnData(scriptPubKey, vopret);
@@ -279,7 +279,7 @@ CScript EncodeAssetOpRet(uint8_t assetFuncId, uint256 tokenid, uint256 assetid2,
             return(true);
     }
     return(0);
-}*/
+}
 
 uint8_t DecodeAssetOpRet(const CScript &scriptPubKey,uint8_t &evalCodeInOpret, uint256 &tokenid, uint256 &assetid2,int64_t &price,std::vector<uint8_t> &origpubkey)
 {
