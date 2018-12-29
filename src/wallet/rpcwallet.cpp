@@ -6793,7 +6793,7 @@ UniValue tokencreate(const UniValue& params, bool fHelp)
             return(result);
         }
     }
-    hex = CreateAsset(0,supply,name,description);
+    hex = CreateToken(0,supply,name,description);
     if ( hex.size() > 0 )
     {
         result.push_back(Pair("result", "success"));
@@ -6825,7 +6825,7 @@ UniValue tokentransfer(const UniValue& params, bool fHelp)
         ERR_RESULT("amount must be positive");
         return(result);
     }
-    hex = AssetTransfer(0,tokenid,pubkey,amount);
+    hex = TokenTransfer(0,tokenid,pubkey,amount);
     if (amount > 0) {
         if ( hex.size() > 0 )
         {

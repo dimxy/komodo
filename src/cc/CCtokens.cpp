@@ -408,6 +408,36 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 }
 
 
+std::string CreateToken(int64_t txfee, int64_t assetsupply, std::string name, std::string description)
+{
+	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+	CPubKey mypk; struct CCcontract_info *cp, C;
+	if (assetsupply < 0)
+	{
+		fprintf(stderr, "negative assetsupply %lld\n", (long long)assetsupply);
+		return("");
+	}
+	
+	cp = CCinit(&C, EVAL_TOKENS);
+	if (name.size() > 32 || description.size() > 4096)
+	{
+		fprintf(stderr, "name.%d or description.%d is too big\n", (int32_t)name.size(), (int32_t)description.size());
+		return("");
+	}
+	if (txfee == 0)
+		txfee = 10000;
+	mypk = pubkey2pk(Mypubkey());
+
+	if (AddNormalinputs(mtx, mypk, assetsupply + 2 * txfee, 64) > 0)
+	{
+		mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, assetsupply, mypk));
+		mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(cp->CChexstr) << OP_CHECKSIG));
+		return(FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', Mypubkey(), name, description)));
+	}
+	return("");
+}
+
+
 std::string TokenTransfer(int64_t txfee, uint256 assetid, std::vector<uint8_t> destpubkey, int64_t total)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());

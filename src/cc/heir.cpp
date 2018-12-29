@@ -29,12 +29,12 @@ class TokenHelper;
 // tx validation code
 
 // this is for indentation of debug log messages (in recursive calls):
-extern thread_local uint32_t assetValIndentSize;
+//extern thread_local uint32_t assetValIndentSize;
 
 // check if vout is cc addr and also check sum(inputs) == sum(outputs) for the passed tx, if requested
 int64_t IsHeirvout(bool compareTotals, struct CCcontract_info *cpHeir, Eval* eval, uint256 tokenid, const CTransaction& tx, int32_t v)
 {
-	std::string indentStr = std::string().append(assetValIndentSize, '.');
+	//std::string indentStr = std::string().append(assetValIndentSize, '.');
 
 	//std::cerr << indentStr << "IsHeirvout() entered for txid=" << tx.GetHash().GetHex() << " v=" << v << std::boolalpha << " compareTotals=" << compareTotals  << std::endl;
 	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition())
@@ -56,6 +56,8 @@ int64_t IsHeirvout(bool compareTotals, struct CCcontract_info *cpHeir, Eval* eva
 				}
 			}
 		}*/
+
+		// TODO: add some validation here
 
 		// lets check asset opreturn for this heir or assets tx (dimxy):
 		/*
