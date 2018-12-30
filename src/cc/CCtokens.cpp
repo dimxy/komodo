@@ -148,8 +148,12 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 	{
 		if (tokenid == zeroid)
 			return eval->Invalid("illegal tokenid");
-		else if (!TokensExactAmounts(true, cp, inputs, outputs, eval, tx, tokenid))
-			return false;  //TokenExactAmounts must call eval->Invalid()!
+		else if (!TokensExactAmounts(true, cp, inputs, outputs, eval, tx, tokenid)) {
+			if (!eval->Valid())
+				return false;  //TokenExactAmounts must call eval->Invalid()!
+			else
+				return eval->Invalid("tokens cc inputs != cc outputs");
+		}
 	}
 
 	// init for forwarding validation call
@@ -343,18 +347,17 @@ bool TokensExactAmounts(bool compareTotals, struct CCcontract_info *cpTokens, in
 			std::cerr << indentStr << "TokensExactAmounts() vout i=" << i << " tokenoshis=" << tokenoshis << std::endl;
 			outputs += tokenoshis;
 		}
-
 	}
 
 	//std::cerr << indentStr << "TokensExactAmounts() inputs=" << inputs << " outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
 
 	if (inputs != outputs) {
 		if (tx.GetHash() != tokenid)
-			std::cerr << indentStr << "TokenExactAmounts() unequal inputs=" << inputs << " vs outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
-		return (!eval) ? false : eval->Invalid("unequal token inputs outputs");
+			std::cerr << indentStr << "TokenExactAmounts() found unequal inputs=" << inputs << " vs outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << " and this is not create tx" << std::endl;
+		return false;  // do not call eval->Invalid() here!
 	}
 	else
-		return(true);
+		return true;
 }
 
 // add inputs from token cc addr

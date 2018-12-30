@@ -445,8 +445,6 @@ int64_t AssetValidateSellvin(struct CCcontract_info *cp,Eval* eval,int64_t &tmpp
 }
 
 
-
-
 // validates opret for asset tx:
 bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &price, std::vector<uint8_t> &origpubkey) {
 
@@ -553,7 +551,6 @@ bool AssetExactAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_
 			{
 				std::cerr << "AssetExactAmounts() cannot read vintx for i." << i << " numvins." << numvins << std::endl;
 				return (!eval) ? false : eval->Invalid("always should find vin tx, but didnt");
-
 			}
 			else {
 				// validate vouts of vintx  
@@ -590,11 +587,11 @@ bool AssetExactAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_
 
 	//std::cerr << "AssetExactAmounts() inputs=" << inputs << " outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
 
-	if (inputs != outputs) {
+	/*	if (inputs != outputs) {
 		if (tx.GetHash() != assetid) {
 			std::cerr << "AssetExactAmounts() unequal inputs=" << inputs << " vs outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
-			return (!eval) ? false : eval->Invalid("always cc inputs != cc outputs");
+			return (!eval) ? false : eval->Invalid("assets cc inputs != cc outputs");
 		}
-	}
+	}  */
 	return(true);
 }
