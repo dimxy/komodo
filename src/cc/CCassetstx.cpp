@@ -366,7 +366,7 @@ std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, in
 
     mypk = pubkey2pk(Mypubkey());
 
-    if (inputs= AddNormalinputs(mtx, mypk, bidamount+txfee, 64) > 0)
+    if ((inputs = AddNormalinputs(mtx, mypk, bidamount+txfee, 64)) > 0)
     {
 		std::cerr << "CreateBuyOffer() inputs=" << inputs << std::endl;
 		if (inputs < bidamount+txfee) {
