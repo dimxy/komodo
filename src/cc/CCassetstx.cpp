@@ -359,7 +359,7 @@ std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, in
     if (inputs= AddNormalinputs(mtx, mypk, bidamount+txfee, 64) > 0)
     {
 		if (inputs < bidamount+txfee) {
-			std::cerr << "CreateBuyOffer(): insufficient coins to make but offer" << std::endl;
+			std::cerr << "CreateBuyOffer(): insufficient coins to make buy offer" << std::endl;
 			CCerror = strprintf("insufficient coins to make buy offer");
 			return ("");
 		}

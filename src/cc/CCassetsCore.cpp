@@ -33,7 +33,7 @@
  
  Yes, this is quite confusing...
  
- In ValudateAssetRemainder the naming convention is nValue is the coin/asset with the offer on the books and "units" is what it is being paid in. The high level check is to make sure we didnt lose any coins or assets, the harder to validate is the actual price paid as the "orderbook" is in terms of the combined nValue for the combined totalunits.
+ In ValidateAssetRemainder the naming convention is nValue is the coin/asset with the offer on the books and "units" is what it is being paid in. The high level check is to make sure we didnt lose any coins or assets, the harder to validate is the actual price paid as the "orderbook" is in terms of the combined nValue for the combined totalunits.
  
  We assume that the effective unit cost in the orderbook is valid and that that amount was paid and also that any remainder will be close enough in effective unit cost to not matter. At the edge cases, this will probably be not true and maybe some orders wont be practically fillable when reduced to fractional state. However, the original pubkey that created the offer can always reclaim it.
 */
@@ -248,7 +248,7 @@ CScript EncodeAssetOpRet(uint8_t assetFuncId, uint256 tokenid, uint256 assetid2,
     tokenid = revuint256(tokenid);
     switch ( assetFuncId )
     {
-        //case 't':  cannot be here
+        //case 't': this cannot be here
 		case 'x': case 'o':
             opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcId << tokenid << assetFuncId);
             break;
@@ -486,7 +486,7 @@ bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &pr
 			return(true);
 		}
 	}
-	else if (funcid == 'E')  // never get here? (dimxy)
+	else if (funcid == 'E')  // NOTE: not implemented yet!
 	{
 		if (v < 2 && assetid != zeroid && assetidOpret == assetid)
 			return(true);
@@ -516,7 +516,7 @@ int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &price, std::vector<uint
 		}
 
 		// moved opret checking to this new reusable func (dimxy):
-		const bool valOpret = true; // TODO: ValidateAssetOpret(tx, v, refassetid, price, origpubkey);
+		const bool valOpret = ValidateAssetOpret(tx, v, refassetid, price, origpubkey);
 		//std::cerr << "IsAssetvout() ValidateAssetOpret returned=" << std::boolalpha << valOpret << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
 		if (valOpret) {
 			//std::cerr  << "IsAssetvout() ValidateAssetOpret returned true, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
