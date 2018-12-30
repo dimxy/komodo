@@ -621,7 +621,8 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
 	uint64_t mask; 
 	int32_t askvout=0; 
 	int64_t received_assetoshis, total_nValue, orig_assetoshis, paid_nValue, remaining_nValue, inputs, CCchange=0; 
-	struct CCcontract_info *cpTokens, C;
+	struct CCcontract_info *cpTokens, tokensC;
+	struct CCcontract_info *cpAssets, assetsC;
 
     if (fillunits < 0)
     {
@@ -636,7 +637,8 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
         return("");
     }
 
-    cpTokens = CCinit(&C, EVAL_TOKENS);
+    cpTokens = CCinit(&tokensC, EVAL_TOKENS);
+	cpAssets = CCinit(&assetsC, EVAL_ASSETS);
 
     if (txfee == 0)
         txfee = 10000;
@@ -652,7 +654,7 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
             dprice = (double)total_nValue / orig_assetoshis;
             paid_nValue = dprice * fillunits;
 
-            mtx.vin.push_back(CTxIn(asktxid, askvout, CScript()));		// NOTE: this is the reference to tokens!
+            mtx.vin.push_back(CTxIn(asktxid, askvout, CScript()));		// NOTE: this is the reference to tokens -> send cpTokens for signing into FinalizeCCTx!
 
             if (assetid2 != zeroid)
                 inputs = AddAssetInputs(cpTokens, mtx, mypk, assetid2, paid_nValue, 60);
@@ -677,7 +679,7 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
                 if (assetid2 != zeroid && inputs > paid_nValue)
                     CCchange = (inputs - paid_nValue);
 
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, orig_assetoshis - received_assetoshis, GetUnspendable(cpTokens,0)));   // coins
+                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, orig_assetoshis - received_assetoshis, GetUnspendable(cpAssets, NULL)));   // coins
                 mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, received_assetoshis, mypk));					// tokens
                 
 				if (assetid2 != zeroid)
