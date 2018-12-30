@@ -168,8 +168,8 @@ bool AssetsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx
 
         if ( assetid == zero )
             return eval->Invalid("illegal assetid");
-        //else if ( AssetExactAmounts(true, cp,inputs,outputs,eval,tx,assetid) == false )
-        //    return eval->Invalid("asset inputs != outputs");
+        else if (!AssetExactAmounts(cp, inputs, outputs, eval, tx, assetid))  // set inputs and outputs, ensure they are equal
+            return eval->Invalid("asset inputs != outputs");
     }
 
     switch ( funcid )
