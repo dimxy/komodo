@@ -439,7 +439,7 @@ int64_t AssetValidateSellvin(struct CCcontract_info *cp,Eval* eval,int64_t &tmpp
     fprintf(stderr,"AssetValidateSellvin\n");
     if ( (nValue= AssetValidateCCvin(cp,eval,CCaddr,origaddr,tx,1,vinTx)) == 0 )
         return(0);
-    if ( (assetoshis= IsAssetvout(cp, NULL, tmpprice,tmporigpubkey,vinTx,0,assetid)) == 0 )
+    if ( (assetoshis= IsAssetvout(cp, tmpprice, tmporigpubkey,vinTx,0,assetid)) == 0 )
         return eval->Invalid("invalid missing CC vout0 for sellvin");
     else return(assetoshis);
 }
@@ -503,7 +503,7 @@ bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &pr
 // Checks if the vout is a really Asset CC vout
 // compareTotals == true, the func also validates the passed transaction itself: 
 // it should be either sum(cc vins) == sum(cc vouts) or the transaction is the 'tokenbase' ('c') tx
-int64_t IsAssetvout(struct CCcontract_info *cp, Eval* eval, int64_t &price, std::vector<uint8_t> &origpubkey, const CTransaction& tx, int32_t v, uint256 refassetid)
+int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &price, std::vector<uint8_t> &origpubkey, const CTransaction& tx, int32_t v, uint256 refassetid)
 {
 
 	//std::cerr  << "IsAssetvout() entered for txid=" << tx.GetHash().GetHex() << " v=" << v << " for assetid=" << refassetid.GetHex() <<  std::endl;
@@ -558,7 +558,7 @@ bool AssetExactAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_
 			else {
 				// validate vouts of vintx  
 				//std::cerr << indentStr << "AssetExactAmounts() check vin i=" << i << " nValue=" << vinTx.vout[tx.vin[i].prevout.n].nValue << std::endl;
-				assetoshis = IsAssetvout(cpAssets, eval, tmpprice, tmporigpubkey, vinTx, tx.vin[i].prevout.n, assetid);
+				assetoshis = IsAssetvout(cpAssets, tmpprice, tmporigpubkey, vinTx, tx.vin[i].prevout.n, assetid);
 				if (assetoshis != 0)
 				{
 					std::cerr << "AssetExactAmounts() vin i=" << i << " assetoshis=" << assetoshis << std::endl;
@@ -567,7 +567,6 @@ bool AssetExactAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_
 			}
 		}
 	}
-
 
 	// we do not use this flag anymore
 	//if ( DecodeAssetOpRet(tx.vout[tx.vout.size()-1].scriptPubKey,id,id2,tmpprice,tmporigpubkey) == 't' && id == assetid )
@@ -580,7 +579,7 @@ bool AssetExactAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_
 
 		// Note: we pass in here 'false' because we don't need to call AssetExactAmounts() recursively from IsAssetvout
 		// indeed, in this case we'll be checking this tx again
-		assetoshis = IsAssetvout( cpAssets, eval, tmpprice, tmporigpubkey, tx, i, assetid);
+		assetoshis = IsAssetvout(cpAssets, tmpprice, tmporigpubkey, tx, i, assetid);
 
 		if (assetoshis != 0)
 		{
@@ -592,10 +591,10 @@ bool AssetExactAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_
 	//std::cerr << "AssetExactAmounts() inputs=" << inputs << " outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
 
 	if (inputs != outputs) {
-		if (tx.GetHash() != assetid)
+		if (tx.GetHash() != assetid) {
 			std::cerr << "AssetExactAmounts() unequal inputs=" << inputs << " vs outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
-		return(false);
+			return (!eval) ? false : eval->Invalid("always cc inputs != cc outputs");
+		}
 	}
-	else
-		return(true);
+	return(true);
 }
