@@ -192,7 +192,7 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 
 	// forward validation if evalcode in opret is not EVAL_TOKENS
 	if (cpOther)
-		return cpOther->validate(cp, eval, tx, nIn);
+		return cpOther->validate(cpOther, eval, tx, nIn);
 	else
 		return eval->Invalid("unsupported evalcode in opret");
 
