@@ -621,7 +621,7 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
 	uint64_t mask; 
 	int32_t askvout=0; 
 	int64_t received_assetoshis, total_nValue, orig_assetoshis, paid_nValue, remaining_nValue, inputs, CCchange=0; 
-	struct CCcontract_info *cp,C;
+	struct CCcontract_info *cpTokens, C;
 
     if (fillunits < 0)
     {
@@ -636,7 +636,7 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
         return("");
     }
 
-    cp = CCinit(&C, EVAL_ASSETS);
+    cpTokens = CCinit(&C, EVAL_TOKENS);
 
     if (txfee == 0)
         txfee = 10000;
@@ -652,10 +652,10 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
             dprice = (double)total_nValue / orig_assetoshis;
             paid_nValue = dprice * fillunits;
 
-            mtx.vin.push_back(CTxIn(asktxid, askvout, CScript()));
+            mtx.vin.push_back(CTxIn(asktxid, askvout, CScript()));		// NOTE: this is the reference to tokens!
 
             if (assetid2 != zeroid)
-                inputs = AddAssetInputs(cp, mtx, mypk, assetid2, paid_nValue, 60);
+                inputs = AddAssetInputs(cpTokens, mtx, mypk, assetid2, paid_nValue, 60);
             else
             {
                 inputs = AddNormalinputs(mtx, mypk, paid_nValue, 60);
@@ -677,7 +677,7 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
                 if (assetid2 != zeroid && inputs > paid_nValue)
                     CCchange = (inputs - paid_nValue);
 
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, orig_assetoshis - received_assetoshis, GetUnspendable(cp,0)));   // coins
+                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, orig_assetoshis - received_assetoshis, GetUnspendable(cpTokens,0)));   // coins
                 mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, received_assetoshis, mypk));					// tokens
                 
 				if (assetid2 != zeroid)
@@ -688,7 +688,7 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
 				if (CCchange != 0)
                     mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, CCchange, mypk));							// coins
 
-                return(FinalizeCCTx(mask,cp,mtx,mypk,txfee,EncodeAssetOpRet(assetid2 != zeroid ? 'E' : 'S', assetid, assetid2, remaining_nValue, origpubkey)));
+                return(FinalizeCCTx(mask,cpTokens,mtx,mypk,txfee,EncodeAssetOpRet(assetid2 != zeroid ? 'E' : 'S', assetid, assetid2, remaining_nValue, origpubkey)));
             } else {
                 CCerror = strprintf("filltx not enough utxos");
                 fprintf(stderr,"%s\n", CCerror.c_str());
