@@ -135,7 +135,7 @@ UniValue AssetOrders(uint256 refassetid)
 	cpTokens = CCinit(&tokensC, EVAL_TOKENS);
 	cpAssets = CCinit(&assetsC, EVAL_ASSETS);
 
-	auto addOrders = [&](std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it)
+	auto addOrders = [&](struct CCcontract_info *cp, std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it)
 	{
 		uint256 txid, hashBlock, assetid, assetid2;
 		int64_t price;
@@ -189,7 +189,7 @@ UniValue AssetOrders(uint256 refassetid)
                 }
                 if ( origpubkey.size() == 33 )
                 {
-                    GetCCaddress(cpTokens, origaddr, pubkey2pk(origpubkey));  // TODO: what is this? is it asset or token??
+                    GetCCaddress(cp, origaddr, pubkey2pk(origpubkey));  // TODO: what is this? is it asset or token??
                     item.push_back(Pair("origaddress", origaddr));
                 }
                 if ( assetid != zeroid )
@@ -225,12 +225,12 @@ UniValue AssetOrders(uint256 refassetid)
 	for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator itTokens = unspentOutputsTokens.begin();
 		itTokens != unspentOutputsTokens.end();
 		itTokens++)
-		addOrders(itTokens);
+		addOrders(cpTokens, itTokens);
 	
 	for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator itAssets = unspentOutputsAssets.begin();
 		itAssets != unspentOutputsAssets.end();
 		itAssets++)
-		addOrders(itAssets);
+		addOrders(cpAssets, itAssets);
 
     return(result);
 }
