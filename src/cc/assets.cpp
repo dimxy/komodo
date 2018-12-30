@@ -142,6 +142,10 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
 	uint8_t funcid, evalCodeInOpret; 
 	char destaddr[64],origaddr[64],CCaddr[64];
 
+	// we need this for validating tokens' vins/vous:
+	struct CCcontract_info *cpTokens, tokensC;
+	cpTokens = CCinit(&tokensC, EVAL_TOKENS);
+
     numvins = tx.vin.size();
     numvouts = tx.vout.size();
     outputs = inputs = 0;
@@ -319,7 +323,7 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //'S'.vout.2: vin.2 value to original pubkey [origpubkey]
             //vout.3: normal output for change (if any)
             //'S'.vout.n-1: opreturn [EVAL_ASSETS] ['S'] [assetid] [amount of coin still required] [origpubkey]
-            if( (assetoshis = AssetValidateSellvin(cpAssets, eval, totalunits, tmporigpubkey, CCaddr, origaddr, tx, assetid)) == 0 )
+            if( (assetoshis = AssetValidateSellvin(cpTokens, eval, totalunits, tmporigpubkey, CCaddr, origaddr, tx, assetid)) == 0 )
                 return(false);
             else if( numvouts < 3 )
                 return eval->Invalid("not enough vouts for fillask");

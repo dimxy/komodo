@@ -436,7 +436,7 @@ int64_t AssetValidateBuyvin(struct CCcontract_info *cp,Eval* eval,int64_t &tmppr
 int64_t AssetValidateSellvin(struct CCcontract_info *cp,Eval* eval,int64_t &tmpprice,std::vector<uint8_t> &tmporigpubkey,char *CCaddr,char *origaddr,const CTransaction &tx,uint256 assetid)
 {
     CTransaction vinTx; int64_t nValue,assetoshis;
-    fprintf(stderr,"AssetValidateSellvin\n");
+    //fprintf(stderr,"AssetValidateSellvin\n");
     if ( (nValue= AssetValidateCCvin(cp,eval,CCaddr,origaddr,tx,1,vinTx)) == 0 )
         return(0);
     if ( (assetoshis= IsAssetvout(cp, tmpprice, tmporigpubkey,vinTx,0,assetid)) == 0 )
