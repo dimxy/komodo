@@ -37,8 +37,10 @@ int64_t AddAssetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPubK
         for (j=0; j<mtx.vin.size(); j++)
             if (txid == mtx.vin[j].prevout.hash && vout == mtx.vin[j].prevout.n)
                 break;
-        if( j != mtx.vin.size() )
+        
+		if( j != mtx.vin.size() )
             continue;
+
         if( GetTransaction(txid,vintx,hashBlock,false) != 0 )
         {
             Getscriptaddress(destaddr,vintx.vout[vout].scriptPubKey);
