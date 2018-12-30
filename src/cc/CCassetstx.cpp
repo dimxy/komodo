@@ -126,30 +126,23 @@ UniValue AssetList()
 UniValue AssetOrders(uint256 refassetid)
 {
     static uint256 zero;
-    int64_t price; 
-	uint256 txid,hashBlock,assetid,assetid2; 
-	std::vector<uint8_t> origpubkey; 
-	CTransaction vintx; 
 	UniValue result(UniValue::VARR);  
 	std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputsTokens, unspentOutputsAssets;
-	uint8_t funcid, evalCode; 
-	char numstr[32],funcidstr[16],origaddr[64],assetidstr[65]; 
 	
 	struct CCcontract_info *cpTokens, tokensC;
 	struct CCcontract_info *cpAssets, assetsC;
 
-    cpTokens = CCinit(&tokensC, EVAL_TOKENS);
+	cpTokens = CCinit(&tokensC, EVAL_TOKENS);
 	cpAssets = CCinit(&assetsC, EVAL_ASSETS);
 
-    SetCCunspents(unspentOutputsTokens, (char *)cpTokens->unspendableCCaddr);
-	SetCCunspents(unspentOutputsAssets, (char *)cpAssets->unspendableCCaddr);
-
-
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputsTokens.begin(); 
-		it!=unspentOutputsAssets.end(); 
-		// switch iterator to assets unspents:
-		(it == unspentOutputsTokens.end()) ? (it = unspentOutputsAssets.begin()) : (++it)  )  // sic!
-    {
+	auto addOrders = [&](std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it)
+	{
+		uint256 txid, hashBlock, assetid, assetid2;
+		int64_t price;
+		std::vector<uint8_t> origpubkey;
+		CTransaction vintx;
+		uint8_t funcid, evalCode;
+		char numstr[32], funcidstr[16], origaddr[64], assetidstr[65];
 
         txid = it->first.txhash;
         if ( GetTransaction(txid,vintx,hashBlock,false) != 0 ) 
@@ -165,10 +158,10 @@ UniValue AssetOrders(uint256 refassetid)
                     //fprintf(stderr," assetid\n");
                     //for (z=31; z>=0; z--) fprintf(stderr,"%02x",((uint8_t *)&refassetid)[z]);
                     //fprintf(stderr," refassetid\n");
-                    continue;
+                    return;
                 }
                 if (vintx.vout[it->first.index].nValue == 0)
-                    continue;
+                    return;
 
                 UniValue item(UniValue::VOBJ);
 
@@ -220,7 +213,22 @@ UniValue AssetOrders(uint256 refassetid)
                 //fprintf(stderr,"func.(%c) %s/v%d %.8f\n",funcid,uint256_str(assetidstr,txid),(int32_t)it->first.index,(double)vintx.vout[it->first.index].nValue/COIN);
             }
         }
-    }
+	};
+
+
+	SetCCunspents(unspentOutputsTokens, (char *)cpTokens->unspendableCCaddr);
+	SetCCunspents(unspentOutputsAssets, (char *)cpAssets->unspendableCCaddr);
+
+	for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator itTokens = unspentOutputsTokens.begin();
+		itTokens != unspentOutputsTokens.end();
+		itTokens++)
+		addOrders(itTokens);
+	
+	for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator itAssets = unspentOutputsAssets.begin();
+		itAssets != unspentOutputsAssets.end();
+		itAssets++)
+		addOrders(itAssets);
+
     return(result);
 }
 
