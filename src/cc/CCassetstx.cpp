@@ -23,25 +23,29 @@ int64_t AddAssetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPubK
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
     GetCCaddress(cp,coinaddr,pk);
     SetCCunspents(unspentOutputs,coinaddr);
-    threshold = total/(maxinputs!=0?maxinputs:64); // TODO: is maxinputs really not over 64, what if i want to calc total balance?
+    
+	threshold = total/(maxinputs!=0?maxinputs:64); // TODO: is maxinputs really not over 64, what if i want to calc total balance?
+
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
         txid = it->first.txhash;
         vout = (int32_t)it->first.index;
-        if ( it->second.satoshis < threshold )
+        
+		if (it->second.satoshis < threshold)
             continue;
+
         for (j=0; j<mtx.vin.size(); j++)
-            if ( txid == mtx.vin[j].prevout.hash && vout == mtx.vin[j].prevout.n )
+            if (txid == mtx.vin[j].prevout.hash && vout == mtx.vin[j].prevout.n)
                 break;
-        if ( j != mtx.vin.size() )
+        if( j != mtx.vin.size() )
             continue;
-        if ( GetTransaction(txid,vintx,hashBlock,false) != 0 )
+        if( GetTransaction(txid,vintx,hashBlock,false) != 0 )
         {
             Getscriptaddress(destaddr,vintx.vout[vout].scriptPubKey);
-            if ( strcmp(destaddr,coinaddr) != 0 && strcmp(destaddr,cp->unspendableCCaddr) != 0 && strcmp(destaddr,cp->unspendableaddr2) != 0 )
+            if( strcmp(destaddr,coinaddr) != 0 && strcmp(destaddr,cp->unspendableCCaddr) != 0 && strcmp(destaddr,cp->unspendableaddr2) != 0 )
                 continue;
             fprintf(stderr,"AddAssetInputs() check destaddress=%s vout amount=%.8f\n",destaddr,(double)vintx.vout[vout].nValue/COIN);
-            if ( (nValue= IsAssetvout(true, cp, NULL, price,origpubkey,vintx,vout,assetid)) > 0 && myIsutxo_spentinmempool(txid,vout) == 0 )
+            if( (nValue = IsAssetvout(cp, NULL, price, origpubkey, vintx, vout, assetid)) > 0 && myIsutxo_spentinmempool(txid,vout) == 0 )
             {
                 if ( total != 0 && maxinputs != 0 )
                     mtx.vin.push_back(CTxIn(txid,vout,CScript()));
