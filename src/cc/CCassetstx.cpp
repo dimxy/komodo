@@ -342,6 +342,8 @@ std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, in
 	std::string name,description;
 	int64_t inputs;
 
+	std::cerr << "CreateBuyOffer() bidamount=" << bidamount << " numtokens(pricetotal)=" << pricetotal << std::endl;
+
     if (bidamount < 0 || pricetotal < 0)
     {
         fprintf(stderr,"negative bidamount %lld, pricetotal %lld\n", (long long)bidamount, (long long)pricetotal);
@@ -366,6 +368,7 @@ std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, in
 
     if (inputs= AddNormalinputs(mtx, mypk, bidamount+txfee, 64) > 0)
     {
+		std::cerr << "CreateBuyOffer() inputs=" << inputs << std::endl;
 		if (inputs < bidamount+txfee) {
 			std::cerr << "CreateBuyOffer(): insufficient coins to make buy offer" << std::endl;
 			CCerror = strprintf("insufficient coins to make buy offer");
@@ -375,6 +378,7 @@ std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, in
         mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, bidamount, GetUnspendable(cp,0)));
         return(FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeAssetOpRet('b', assetid, zeroid, pricetotal, Mypubkey())));
     }
+	CCerror = strprintf("no coins found to make buy offer");
     return("");
 }
 
