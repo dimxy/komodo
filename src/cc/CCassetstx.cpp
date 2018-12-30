@@ -145,8 +145,11 @@ UniValue AssetOrders(uint256 refassetid)
 		char numstr[32], funcidstr[16], origaddr[64], assetidstr[65];
 
         txid = it->first.txhash;
+		std::cerr << "addOrders txid" << txid.GetHex() << std::endl;
         if ( GetTransaction(txid,vintx,hashBlock,false) != 0 ) 
         {
+			funcid = DecodeAssetOpRet(vintx.vout[vintx.vout.size() - 1].scriptPubKey, evalCode, assetid, assetid2, price, origpubkey);
+			std::cerr << "addOrders vintx.vout.size()" << vintx.vout.size() << " funcid=" << (char)(funcid ? funcid : ' ') << std::endl;
             if (vintx.vout.size() > 0 && (funcid = DecodeAssetOpRet(vintx.vout[vintx.vout.size()-1].scriptPubKey, evalCode, assetid, assetid2, price, origpubkey)) != 0)
             {
                 if (refassetid != zero && assetid != refassetid)
@@ -210,7 +213,7 @@ UniValue AssetOrders(uint256 refassetid)
                     }
                 }
                 result.push_back(item);
-                //fprintf(stderr,"func.(%c) %s/v%d %.8f\n",funcid,uint256_str(assetidstr,txid),(int32_t)it->first.index,(double)vintx.vout[it->first.index].nValue/COIN);
+                fprintf(stderr,"func.(%c) %s/v%d %.8f\n",funcid,uint256_str(assetidstr,txid),(int32_t)it->first.index,(double)vintx.vout[it->first.index].nValue/COIN);
             }
         }
 	};
@@ -335,7 +338,7 @@ std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, in
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey mypk; 
-	struct CCcontract_info *cp, C; 
+	struct CCcontract_info *cpAssets, C; 
 	uint256 hashBlock; 
 	CTransaction vintx; 
 	std::vector<uint8_t> origpubkey; 
@@ -360,7 +363,7 @@ std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, in
         return("");
     }
 
-    cp = CCinit(&C,EVAL_ASSETS);   // NOTE: assets here!
+    cpAssets = CCinit(&C,EVAL_ASSETS);   // NOTE: assets here!
     if (txfee == 0)
         txfee = 10000;
 
@@ -375,8 +378,8 @@ std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, in
 			return ("");
 		}
 
-        mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, bidamount, GetUnspendable(cp,0)));
-        return(FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeAssetOpRet('b', assetid, zeroid, pricetotal, Mypubkey())));
+        mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, bidamount, GetUnspendable(cpAssets,0)));
+        return(FinalizeCCTx(0, cpAssets, mtx, mypk, txfee, EncodeAssetOpRet('b', assetid, zeroid, pricetotal, Mypubkey())));
     }
 	CCerror = strprintf("no coins found to make buy offer");
     return("");
