@@ -61,7 +61,7 @@ CBlockIndex *komodo_getblockindex(uint256 hash);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
-std::string CCerror;
+thread_local std::string CCerror;   // 'thread_local' is to make CCerror like standard C 'errno' providing isolation in multithread env 
 
 // Private method:
 UniValue z_getoperationstatus_IMPL(const UniValue&, bool);
@@ -6719,12 +6719,20 @@ UniValue tokenlist(const UniValue& params, bool fHelp)
 
 UniValue tokeninfo(const UniValue& params, bool fHelp)
 {
+#ifdef TESTMODE
+	std::cerr << "is CCerror clear? CCerror=" << CCerror << std::endl;
+#endif
     uint256 tokenid;
     if ( fHelp || params.size() != 1 )
         throw runtime_error("tokeninfo tokenid\n");
     if ( ensure_CCrequirements() < 0 )
         throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
     tokenid = Parseuint256((char *)params[0].get_str().c_str());
+
+#ifdef TESTMODE
+	CCerror = "test error";
+#endif
+
     return(AssetInfo(tokenid));
 }
 
