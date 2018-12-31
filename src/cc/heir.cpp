@@ -1061,11 +1061,11 @@ template <typename Helper>UniValue HeirClaim(uint256 fundingtxid, uint64_t txfee
                 GetCCaddress1of2(cp, coinaddr, ownerPubkey, heirPubkey);
                 Myprivkey(myprivkey);
 
-                ////fprintf(stderr,"HeirClaim() before setting unspendable CC addr2= (%s) addr3= (%s)\n", cp->unspendableaddr2, cp->unspendableaddr3);
-                //CCaddr2set(cp, Helper::getMyEval(), ownerPubkey, myprivkey, coinaddr);
-                //CCaddr3set(cp, Helper::getMyEval(), heirPubkey, myprivkey, coinaddr);
+				////fprintf(stderr,"HeirClaim() before setting unspendable CC addr2= (%s) addr3= (%s)\n", cp->unspendableaddr2, cp->unspendableaddr3);
+				//CCaddr2set(cp, Helper::getMyEval(), ownerPubkey, myprivkey, coinaddr);
+				//CCaddr3set(cp, Helper::getMyEval(), heirPubkey, myprivkey, coinaddr);
 				////fprintf(stderr, "HeirClaim() after  setting unspendable CC addr2=(%s) addr3=(%s)\n", cp->unspendableaddr2, cp->unspendableaddr3);
-				
+
 				CCaddr1of2set(cp, ownerPubkey, heirPubkey, myprivkey, coinaddr);
 
                 // add opreturn 'C' and sign tx:				  // this txfee will be ignored

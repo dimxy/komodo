@@ -61,7 +61,7 @@ CBlockIndex *komodo_getblockindex(uint256 hash);
 
 int64_t nWalletUnlockTime;
 static CCriticalSection cs_nWalletUnlockTime;
-thread_local std::string CCerror;   // 'thread_local' is to make CCerror like standard C 'errno' providing isolation in multithread env 
+std::string CCerror;
 
 // Private method:
 UniValue z_getoperationstatus_IMPL(const UniValue&, bool);

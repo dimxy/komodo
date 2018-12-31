@@ -237,11 +237,7 @@ uint8_t TokensCCpriv[32] = { 0x1d, 0x0d, 0x0d, 0xce, 0x2d, 0xd2, 0xe1, 0x9d, 0xf
 
 struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
 {
-	// clear all vars:
-	memset(cp, sizeof(*cp), '\0');
-
-	cp->evalcode = evalcode;
-
+    cp->evalcode = evalcode;
     switch ( evalcode )
     {
         case EVAL_ASSETS:
