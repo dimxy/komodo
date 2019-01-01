@@ -196,11 +196,10 @@ void CCaddr3set(struct CCcontract_info *cp,uint8_t evalcode,CPubKey pk,uint8_t *
 }
 
 // set pubkeys, myprivkey and 1of2 cc addr for spending from 1of2 cryptocondition vout:
-void CCaddr1of2set(struct CCcontract_info *cp, CPubKey pk1, CPubKey pk2, uint8_t *priv, char *coinaddr)
+void CCaddr1of2set(struct CCcontract_info *cp, CPubKey pk1, CPubKey pk2, char *coinaddr)
 {
 	cp->unspendable1of2pk[0] = pk1;
 	cp->unspendable1of2pk[1] = pk2;
-	memcpy(cp->my1of2priv, priv, 32);
 	strcpy(cp->unspendable1of2addr, coinaddr);
 }
 

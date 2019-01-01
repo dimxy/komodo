@@ -1066,7 +1066,7 @@ template <typename Helper>UniValue HeirClaim(uint256 fundingtxid, uint64_t txfee
 				//CCaddr3set(cp, Helper::getMyEval(), heirPubkey, myprivkey, coinaddr);
 				////fprintf(stderr, "HeirClaim() after  setting unspendable CC addr2=(%s) addr3=(%s)\n", cp->unspendableaddr2, cp->unspendableaddr3);
 
-				CCaddr1of2set(cp, ownerPubkey, heirPubkey, myprivkey, coinaddr);
+				CCaddr1of2set(cp, ownerPubkey, heirPubkey, coinaddr);
 
                 // add opreturn 'C' and sign tx:				  // this txfee will be ignored
 				std::string rawhextx = FinalizeCCTx(0, cp, mtx, myPubkey, txfee,

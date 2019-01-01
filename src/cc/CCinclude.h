@@ -93,7 +93,6 @@ struct CCcontract_info
 	// NOTE: only one evalcode is allowed at this time
 	char unspendable1of2addr[64];
 	CPubKey unspendable1of2pk[2];
-	uint8_t my1of2priv[32];
 
 	// this is for spending from two additional 'unspendable' CC addresses of other eval codes 
 	// (that is, for spending from several cc contract 'unspendable' addresses):
@@ -175,7 +174,7 @@ CC *MakeCCcond1of2(uint8_t evalcode,CPubKey pk1,CPubKey pk2);
 CC* GetCryptoCondition(CScript const& scriptSig);
 void CCaddr2set(struct CCcontract_info *cp,uint8_t evalcode,CPubKey pk,uint8_t *priv,char *coinaddr);
 void CCaddr3set(struct CCcontract_info *cp,uint8_t evalcode,CPubKey pk,uint8_t *priv,char *coinaddr);
-void CCaddr1of2set(struct CCcontract_info *cp, CPubKey pk1, CPubKey pk2, uint8_t *priv, char *coinaddr);
+void CCaddr1of2set(struct CCcontract_info *cp, CPubKey pk1, CPubKey pk2, char *coinaddr);
 bool IsCCInput(CScript const& scriptSig);
 int32_t unstringbits(char *buf,uint64_t bits);
 uint64_t stringbits(char *str);

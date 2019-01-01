@@ -167,7 +167,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 				else if (strcmp(cp->unspendable1of2addr,  destaddr) == 0)
 				{
 					//fprintf(stderr,"matched %s unspendable1of2!\n",cp->unspendable1of2addr);
-					privkey = cp->my1of2priv;
+					privkey = myprivkey;
 					if (othercond1of2 == 0)
 						othercond1of2 = MakeCCcond1of2(cp->evalcode, cp->unspendable1of2pk[0], cp->unspendable1of2pk[1]);
 					cond = othercond1of2;
