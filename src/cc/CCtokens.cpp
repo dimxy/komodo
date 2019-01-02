@@ -258,7 +258,9 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 	auto findEval = [](CC *cond, struct CCVisitor _) {
 		bool r = cc_typeId(cond) == CC_Eval && cond->codeLength == 1 && cond->code[0] == EVAL_TOKENS;
 
-		std::cerr << "cond eval=" << cond->code[0] << std::endl;
+		std::cerr << "findEval cond=" << cond << std::endl;
+		std::cerr << "findEval (cond->code[0] == EVAL_TOKENS)=" << (cond->code[0] == EVAL_TOKENS) << std::endl;
+		std::cerr << "findEval cond eval=" << (int)cond->code[0] << std::endl;
 		// false for a match, true for continue
 		return r ? 0 : 1;
 	};
