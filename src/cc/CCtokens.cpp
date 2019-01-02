@@ -267,7 +267,7 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 
 		if (cc_typeId(cond) == CC_Threshold) {
 			for (int i = 0; i < cond->size; i++) {
-				std::cerr << "i=" << i << " size=" << cond->size  << std::endl;
+				std::cerr << "i=" << i << " size=" << (int)cond->size  << std::endl;
 				std::cerr << "findEval subcond=" << cond->subconditions[i] << std::endl;
 				std::cerr << "findEval subcond isAnon=" << cc_isAnon(cond->subconditions[i]) << std::endl;
 				std::cerr << "findEval subcond typeid=" << cc_typeId(cond->subconditions[i]) << std::endl;
