@@ -241,6 +241,7 @@ bool ValidateTokenOpret(CTransaction tx, int32_t v, uint256 tokenid, std::vector
 }
 
 
+
 // Checks if the vout is a really Tokens CC vout
 // compareTotals == true, the func also validates the passed transaction itself: 
 // it should be either sum(cc vins) == sum(cc vouts) or the transaction is the 'tokenbase' ('c') tx
@@ -250,6 +251,19 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 	// this is just for log messages indentation fur debugging recursive calls:
 	std::string indentStr = std::string().append(tokenValIndentSize, '.');
 	//std::cerr << indentStr << "IsTokensvout() entered for txid=" << tx.GetHash().GetHex() << " v=" << v << " for tokenid=" << reftokenid.GetHex() <<  std::endl;
+
+	CC *cond = tx.vout[v].scriptPubKey.GetCryptoCondition();
+	auto findEval = [](CC *cond, struct CCVisitor _) {
+		bool r = cc_typeId(cond) == CC_Eval && cond->codeLength == 1 && cond->code[0] == EVAL_TOKENS;
+
+		std::cerr << "cond eval=" << cond->code[0] << std::endl;
+		// false for a match, true for continue
+		return r ? 0 : 1;
+	};
+	CCVisitor visitor = { findEval, (uint8_t*)"", 0, NULL };
+	bool out = !cc_visit(cond, visitor);
+	cc_free(cond);
+
 
 	//TODO: validate cc vouts are EVAL_TOKENS!
 	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0) // maybe check address too? dimxy: possibly no, because there are too many cases with different addresses here

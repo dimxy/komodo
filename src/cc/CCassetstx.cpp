@@ -619,12 +619,11 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
 
                 fprintf(stderr,"remaining %llu -> origpubkey\n", (long long)remaining_required);
 
-				// add additional unspendable addr from Assets:
 				char unspendableAssetsAddr[64];
 				uint8_t unspendableAssetsPrivkey[32];
-
 				CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
 				GetCCaddress(cpAssets, unspendableAssetsAddr, unspendableAssetsPk);
+				// add additional unspendable addr from Assets:
 				CCaddr2set(cpTokens, EVAL_ASSETS, unspendableAssetsPk, unspendableAssetsPrivkey, unspendableAssetsAddr);
 
                 return(FinalizeCCTx(mask,cpTokens,mtx,mypk,txfee, EncodeAssetOpRet('B', assetid, zeroid, remaining_required, origpubkey)));
