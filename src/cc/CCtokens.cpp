@@ -253,6 +253,8 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 	//std::cerr << indentStr << "IsTokensvout() entered for txid=" << tx.GetHash().GetHex() << " v=" << v << " for tokenid=" << reftokenid.GetHex() <<  std::endl;
 
 	CC *cond = tx.vout[v].scriptPubKey.GetCryptoCondition();
+	std::cerr << "cond=" << cond << std::endl;
+
 	auto findEval = [](CC *cond, struct CCVisitor _) {
 		bool r = cc_typeId(cond) == CC_Eval && cond->codeLength == 1 && cond->code[0] == EVAL_TOKENS;
 
@@ -260,10 +262,12 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 		// false for a match, true for continue
 		return r ? 0 : 1;
 	};
-	CCVisitor visitor = { findEval, (uint8_t*)"", 0, NULL };
-	bool out = !cc_visit(cond, visitor);
-	cc_free(cond);
 
+	if (cond) {
+		CCVisitor visitor = { findEval, (uint8_t*)"", 0, NULL };
+		bool out = !cc_visit(cond, visitor);
+		cc_free(cond);
+	}
 
 	//TODO: validate cc vouts are EVAL_TOKENS!
 	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0) // maybe check address too? dimxy: possibly no, because there are too many cases with different addresses here
