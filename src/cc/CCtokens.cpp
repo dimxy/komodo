@@ -252,10 +252,13 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 	std::string indentStr = std::string().append(tokenValIndentSize, '.');
 	//std::cerr << indentStr << "IsTokensvout() entered for txid=" << tx.GetHash().GetHex() << " v=" << v << " for tokenid=" << reftokenid.GetHex() <<  std::endl;
 
-	CC *cond = tx.vout[v].scriptPubKey.GetCryptoCondition();
-	std::cerr << "cond=" << cond << std::endl;
+	//CC *cond = tx.vout[v].scriptPubKey.GetCryptoCondition();
+	//std::cerr << "cond=" << cond << std::endl;
+	CTxOut testVout = MakeCC1vout(EVAL_TOKENS, tx.vout[v].nValue, GetUnspendable(cp, NULL));
 
-	auto findEval = [](CC *cond, struct CCVisitor _) {
+	std::cerr << "IsTokensvout is vout == testVout =" << (tx.vout[v].scriptPubKey == testVout.scriptPubKey) << std::endl;
+
+	/*auto findEval = [](CC *cond, struct CCVisitor _) {
 		bool r = cc_typeId(cond) == CC_Eval && cond->codeLength == 1 && cond->code[0] == EVAL_TOKENS;
 
 		std::cerr << "findEval cond=" << cond << std::endl;
@@ -268,19 +271,19 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 		}
 		//std::cerr << "findEval (cond->code[0] == EVAL_TOKENS)=" << (cond->code[0] == EVAL_TOKENS) << std::endl;
 
-		/*if (cc_typeId(cond) == CC_Threshold) {
-			for (int i = 0; i < cond->size; i++) {
-				std::cerr << "i=" << i << " size=" << (int)cond->size  << std::endl;
-				std::cerr << "findEval subcond=" << cond->subconditions[i] << std::endl;
-				std::cerr << "findEval subcond isAnon=" << cc_isAnon(cond->subconditions[i]) << std::endl;
-				std::cerr << "findEval subcond typeid=" << cc_typeId(cond->subconditions[i]) << std::endl;
-				std::cerr << "findEval subcond typename=" << cc_typeName(cond->subconditions[i]) << std::endl;
-				std::cerr << "findEval subcond typeMask=" << cc_typeMask(cond->subconditions[i]) << std::endl;
-				bool r0 = cc_typeId(cond->subconditions[i]) == CC_Eval && cond->subconditions[i]->codeLength == 1 && cond->subconditions[i]->code[0] == EVAL_TOKENS;
+		//if (cc_typeId(cond) == CC_Threshold) {
+		//	for (int i = 0; i < cond->size; i++) {
+		//		std::cerr << "i=" << i << " size=" << (int)cond->size  << std::endl;
+		//		std::cerr << "findEval subcond=" << cond->subconditions[i] << std::endl;
+		//		std::cerr << "findEval subcond isAnon=" << cc_isAnon(cond->subconditions[i]) << std::endl;
+		//		std::cerr << "findEval subcond typeid=" << cc_typeId(cond->subconditions[i]) << std::endl;
+		//		std::cerr << "findEval subcond typename=" << cc_typeName(cond->subconditions[i]) << std::endl;
+		//		std::cerr << "findEval subcond typeMask=" << cc_typeMask(cond->subconditions[i]) << std::endl;
+		//		bool r0 = cc_typeId(cond->subconditions[i]) == CC_Eval && cond->subconditions[i]->codeLength == 1 && cond->subconditions[i]->code[0] == EVAL_TOKENS;
 
-				std::cerr << "findEval subcond r0=" << r0 << std::endl;
-			}
-		}*/
+		//		std::cerr << "findEval subcond r0=" << r0 << std::endl;
+		//	}
+		//}
 		std::cerr << "findEval cond r=" << r << std::endl;
 		// false for a match, true for continue
 		return 0; //r ? 0 : 1;
@@ -290,10 +293,10 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 		CCVisitor visitor = { findEval, (uint8_t*)"", 0, NULL };
 		bool out = !cc_visit(cond, visitor);
 		cc_free(cond);
-	}
+	}*/
 
 	//TODO: validate cc vouts are EVAL_TOKENS!
-	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0) // maybe check address too? dimxy: possibly no, because there are too many cases with different addresses here
+	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0 && (tx.vout[v].scriptPubKey == testVout.scriptPubKey)) // maybe check address too? dimxy: possibly no, because there are too many cases with different addresses here
 	{
 		int32_t n = tx.vout.size();
 		// just check boundaries:
