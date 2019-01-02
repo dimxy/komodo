@@ -245,7 +245,7 @@ bool ValidateTokenOpret(CTransaction tx, int32_t v, uint256 tokenid, std::vector
 // Checks if the vout is a really Tokens CC vout
 // compareTotals == true, the func also validates the passed transaction itself: 
 // it should be either sum(cc vins) == sum(cc vouts) or the transaction is the 'tokenbase' ('c') tx
-int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval, std::vector<uint8_t> &vopretExtra, const CTransaction& tx, int32_t v, uint256 reftokenid)
+int64_t IsTokensvout(bool goDeeper, bool isVintxVout, struct CCcontract_info *cp, Eval* eval, std::vector<uint8_t> &vopretExtra, const CTransaction& tx, int32_t v, uint256 reftokenid)
 {
 
 	// this is just for log messages indentation fur debugging recursive calls:
@@ -296,7 +296,7 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 	}*/
 
 	//TODO: validate cc vouts are EVAL_TOKENS!
-	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0 && (!compareTotals || tx.vout[v].scriptPubKey == testVout.scriptPubKey)) // maybe check address too? dimxy: possibly no, because there are too many cases with different addresses here
+	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition()  && (isVintxVout || tx.vout[v].scriptPubKey == testVout.scriptPubKey)) // maybe check address too? dimxy: possibly no, because there are too many cases with different addresses here
 	{
 		int32_t n = tx.vout.size();
 		// just check boundaries:
@@ -305,7 +305,7 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 			return(0);
 		}
 
-		if (compareTotals) {
+		if (goDeeper) {
 			//std::cerr << indentStr << "IsTokensvout() maxTokenExactAmountDepth=" << maxTokenExactAmountDepth << std::endl;
 			//validate all tx
 			int64_t myCCVinsAmount = 0, myCCVoutsAmount = 0;
@@ -340,7 +340,7 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 }
 
 // compares cc inputs vs cc outputs (to prevent feeding vouts from normal inputs)
-bool TokensExactAmounts(bool compareTotals, struct CCcontract_info *cpTokens, int64_t &inputs, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 tokenid)
+bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t &inputs, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 tokenid)
 {
 	CTransaction vinTx; uint256 hashBlock, id, id2; int32_t flag; int64_t tokenoshis; std::vector<uint8_t> tmporigpubkey; int64_t tmpprice;
 	int32_t numvins = tx.vin.size();
@@ -366,7 +366,7 @@ bool TokensExactAmounts(bool compareTotals, struct CCcontract_info *cpTokens, in
 				tokenValIndentSize++;
 				// validate vouts of vintx  
 				//std::cerr << indentStr << "TokenExactAmounts() check vin i=" << i << " nValue=" << vinTx.vout[tx.vin[i].prevout.n].nValue << std::endl;
-				tokenoshis = IsTokensvout(compareTotals, cpTokens, eval, tmporigpubkey, vinTx, tx.vin[i].prevout.n, tokenid);
+				tokenoshis = IsTokensvout(goDeeper, true, cpTokens, eval, tmporigpubkey, vinTx, tx.vin[i].prevout.n, tokenid);
 				tokenValIndentSize--;
 				if (tokenoshis != 0)
 				{
@@ -383,7 +383,7 @@ bool TokensExactAmounts(bool compareTotals, struct CCcontract_info *cpTokens, in
 		tokenValIndentSize++;
 		// Note: we pass in here 'false' because we don't need to call TokenExactAmounts() recursively from IsTokenvout
 		// indeed, in this case we'll be checking this tx again
-		tokenoshis = IsTokensvout(false, cpTokens, eval, tmporigpubkey, tx, i, tokenid);
+		tokenoshis = IsTokensvout(false, goDeeper ? false : true, cpTokens, eval, tmporigpubkey, tx, i, tokenid);
 		tokenValIndentSize--;
 
 		if (tokenoshis != 0)
@@ -437,7 +437,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 			if (strcmp(destaddr, coinaddr) != 0 && strcmp(destaddr, cp->unspendableCCaddr) != 0 && strcmp(destaddr, cp->unspendableaddr2) != 0)
 				continue;
 			fprintf(stderr, "AddTokenCCInputs() check destaddress=%s vout amount=%.8f\n", destaddr, (double)vintx.vout[vout].nValue / COIN);
-			if ((nValue = IsTokensvout(true, cp, NULL, vopretExtra, vintx, vout, tokenid)) > 0 && myIsutxo_spentinmempool(txid, vout) == 0)
+			if ((nValue = IsTokensvout(true, false, cp, NULL, vopretExtra, vintx, vout, tokenid)) > 0 && myIsutxo_spentinmempool(txid, vout) == 0)
 			{
 				if (total != 0 && maxinputs != 0)
 					mtx.vin.push_back(CTxIn(txid, vout, CScript()));
