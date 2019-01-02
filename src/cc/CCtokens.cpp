@@ -265,7 +265,7 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 		std::cerr << "findEval cond typeMask=" << cc_typeMask(cond) << std::endl;
 		//std::cerr << "findEval (cond->code[0] == EVAL_TOKENS)=" << (cond->code[0] == EVAL_TOKENS) << std::endl;
 
-		if (cc_typeId(cond) == CC_Threshold) {
+		/*if (cc_typeId(cond) == CC_Threshold) {
 			for (int i = 0; i < cond->size; i++) {
 				std::cerr << "i=" << i << " size=" << (int)cond->size  << std::endl;
 				std::cerr << "findEval subcond=" << cond->subconditions[i] << std::endl;
@@ -277,11 +277,10 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 
 				std::cerr << "findEval subcond r0=" << r0 << std::endl;
 			}
-
-		}
+		}*/
 		std::cerr << "findEval cond r=" << r << std::endl;
 		// false for a match, true for continue
-		return r ? 0 : 1;
+		return 0; //r ? 0 : 1;
 	};
 
 	if (cond) {
