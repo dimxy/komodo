@@ -296,7 +296,7 @@ int64_t IsTokensvout(bool compareTotals, struct CCcontract_info *cp, Eval* eval,
 	}*/
 
 	//TODO: validate cc vouts are EVAL_TOKENS!
-	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0 && (tx.vout[v].scriptPubKey == testVout.scriptPubKey)) // maybe check address too? dimxy: possibly no, because there are too many cases with different addresses here
+	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0 && (!compareTotals || tx.vout[v].scriptPubKey == testVout.scriptPubKey)) // maybe check address too? dimxy: possibly no, because there are too many cases with different addresses here
 	{
 		int32_t n = tx.vout.size();
 		// just check boundaries:
