@@ -653,7 +653,7 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
 				voutTokenPubkeys.push_back(unspendableTokensPk);
 
                 return(FinalizeCCTx(mask,cpTokens,mtx,mypk,txfee, EncodeAssetOpRet('B', assetid, zeroid, remaining_required, voutTokenPubkeys, origpubkey)));
-            } else return("dont have any assets to fill bid\n");
+            } else return("dont have any assets to fill bid");
         }
     }
     return("no normal coins left");
