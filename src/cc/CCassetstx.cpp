@@ -145,11 +145,11 @@ UniValue AssetOrders(uint256 refassetid)
 		char numstr[32], funcidstr[16], origaddr[64], assetidstr[65];
 
         txid = it->first.txhash;
-		std::cerr << "addOrders() txid" << txid.GetHex() << std::endl;
+		//std::cerr << "addOrders() txid=" << txid.GetHex() << std::endl;
         if ( GetTransaction(txid,vintx,hashBlock,false) != 0 ) 
         {
 			funcid = DecodeAssetOpRet(vintx.vout[vintx.vout.size() - 1].scriptPubKey, evalCode, assetid, assetid2, price, origpubkey);
-			std::cerr << "addOrders() vintx.vout.size()=" << vintx.vout.size() << " funcid=" << (char)(funcid ? funcid : ' ') << std::endl;
+			std::cerr << "addOrders() vintx.vout.size()=" << vintx.vout.size() << " funcid=" << (char)(funcid ? funcid : ' ') << " assetid=" << assetid.GetHex() << std::endl;
             if (vintx.vout.size() > 0 && (funcid = DecodeAssetOpRet(vintx.vout[vintx.vout.size()-1].scriptPubKey, evalCode, assetid, assetid2, price, origpubkey)) != 0)
             {
                 if (refassetid != zero && assetid != refassetid)
@@ -163,6 +163,8 @@ UniValue AssetOrders(uint256 refassetid)
                     //fprintf(stderr," refassetid\n");
                     return;
                 }
+
+				std::cerr << "addOrders() it->first.index=" << it->first.index << " vintx.vout[it->first.index].nValue=" << vintx.vout[it->first.index].nValue << std::endl;
                 if (vintx.vout[it->first.index].nValue == 0)
                     return;
 
