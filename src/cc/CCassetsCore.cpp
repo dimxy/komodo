@@ -286,31 +286,35 @@ bool DecodeAssetCreateOpRet(const CScript &scriptPubKey, std::vector<uint8_t> &o
 
 uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, uint256 &tokenid, uint256 &assetid2, int64_t &price, std::vector<uint8_t> &origpubkey)
 {
-    std::vector<uint8_t> vopret; 
-	uint8_t *script, funcId = 0, assetFuncId = 0, dummyEvalCode, dummyFuncId;
+    std::vector<uint8_t> vopretExtra; 
+	uint8_t *script, funcId = 0, assetFuncId = 0, dummyEvalCode, dummyAssetFuncId;
 	uint256 dummyTokenid;
-
-	GetOpReturnData(scriptPubKey, vopret);
-
-    script = (uint8_t *)vopret.data();
-	if (script == 0) {
-		std::cerr << "DecodeAssetOpRet() script is empty" << std::endl;
-		return (uint8_t)0;
-	}
+	std::vector<CPubKey> voutPubkeysDummy;
 
 	tokenid = zeroid;
 	assetid2 = zeroid;
 	price = 0;
 
-	bool isEof = true;  // NOTE: if parse error occures, parse might not be able to set error. It is safer to treat that it was eof if it is not set!
-	bool result = E_UNMARSHAL(vopret, ss >> evalCodeInOpret; ss >> funcId; ss >> tokenid; ss >> assetFuncId; isEof = ss.eof());
+	// First - decode token opret:
+	funcId = DecodeTokenOpRet(scriptPubKey, evalCodeInOpret, tokenid, voutPubkeysDummy, vopretExtra);
 
-	if (!result && isEof) { // NOTE: 'result==false' means 'parse error' OR 'not eof state'. Consequently, 'result==false' but 'isEof==true' means just 'parse error' 
-		std::cerr << "DecodeAssetOpRet() incorrect opret or no asset's payload" << std::endl;
+
+	/*GetOpReturnData(scriptPubKey, vopret);
+    script = (uint8_t *)vopret.data();
+	if (script == 0) {
+		std::cerr << "DecodeAssetOpRet() script is empty" << std::endl;
+		return (uint8_t)0;
+	}*/
+	//bool isEof = true;  // NOTE: if parse error occures, parse might not be able to set error. It is safer to treat that it was eof if it is not set!
+	//bool result = E_UNMARSHAL(vopret, ss >> evalCodeInOpret; ss >> funcId; ss >> tokenid; ss >> assetFuncId; isEof = ss.eof());
+
+	if (funcId == 0 || vopretExtra.size() == 0) {
+		std::cerr << "DecodeAssetOpRet() incorrect opret or no asset's payload" << " funcId=" << (int)funcId << " vopretExtra.size()=" << vopretExtra.size() << std::endl;
 		return (uint8_t)0;
 	}
 
 	tokenid = revuint256(tokenid);
+	assetFuncId = vopretExtra.begin()[0];
 
 	std::cerr << "DecodeAssetOpRet() evalCodeInOpret=" << (int)evalCodeInOpret <<  " funcId=" << (char)(funcId ? funcId : ' ') << " assetFuncId=" << (char)(assetFuncId ? assetFuncId : ' ') << std::endl;
 
@@ -331,20 +335,20 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, 
 				break; */
 
 			case 'x': case 'o':
-                if (isEof)   // no data after 'assetFuncId' allowed
+                if (vopretExtra.size() == 0)   // no data after 'assetFuncId' allowed
                 {
                     return(assetFuncId);
                 }
                 break;
             case 's': case 'b': case 'S': case 'B':
-				if (E_UNMARSHAL(vopret, ss >> dummyEvalCode; ss >> dummyFuncId; ss >> dummyTokenid; ss >> dummyFuncId; ss >> price; ss >> origpubkey) != 0)
+				if (E_UNMARSHAL(vopretExtra, ss >> dummyAssetFuncId; ss >> price; ss >> origpubkey) != 0)
                 {
                     //fprintf(stderr,"got price %llu\n",(long long)price);
                     return(assetFuncId);
                 }
                 break;
             case 'E': case 'e':
-                if ( E_UNMARSHAL(vopret,ss >> dummyEvalCode; ss >> dummyFuncId; ss >> dummyTokenid; ss >> dummyFuncId; ss >> assetid2; ss >> price; ss >> origpubkey) != 0 )
+                if ( E_UNMARSHAL(vopretExtra, ss >> dummyAssetFuncId; ss >> assetid2; ss >> price; ss >> origpubkey) != 0 )
                 {
                     //fprintf(stderr,"got price %llu\n",(long long)price);
                     assetid2 = revuint256(assetid2);

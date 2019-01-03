@@ -79,7 +79,7 @@ uint8_t DecodeTokenCreateOpRet(const CScript &scriptPubKey,std::vector<uint8_t> 
 uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 &tokenid, std::vector<CPubKey> &voutPubkeys, std::vector<uint8_t>  &vopretExtra)
 {
     std::vector<uint8_t> vopret, extra, dummyPubkey; 
-	uint8_t funcid=0, *script, evalcode, dummyFuncId, cctype;
+	uint8_t funcId=0, *script, evalcode, dummyFuncId, ccType;
 	std::string dummyName; std::string dummyDescription;
 	CPubKey voutPubkey1, voutPubkey2;
 
@@ -89,22 +89,27 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 
     if (script != 0 /*enable all evals: && script[0] == EVAL_TOKENS*/)
     {
+		// NOTE: if parse error occures, parse might not be able to set error. It is safer to treat that it was eof if it is not set!
 		bool isEof = true;
+
 		evalCode = script[0];
-        funcid = script[1];
-        //fprintf(stderr,"decode.[%c]\n",funcid);
-        switch ( funcid )
+        funcId = script[1];
+        //fprintf(stderr,"decode.[%c]\n",funcId);
+
+        switch ( funcId )
         {
             case 'c': 
 				return DecodeTokenCreateOpRet(scriptPubKey, dummyPubkey, dummyName, dummyDescription);
 				//break;
             case 't':  
 			//not used yet: case 'l':
-				if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> dummyFuncId; ss >> tokenid; ss >> cctype; if (cctype >= 1) ss >> voutPubkey1; if (cctype == 2) ss >> voutPubkey2;  isEof = ss.eof(); vopretExtra = std::vector<uint8_t>(ss.begin(), ss.end())) || !isEof)
+				// NOTE: 'E_UNMARSHAL result==false' means 'parse error' OR 'not eof state'. Consequently, 'result==false' but 'isEof==true' means just 'parse error' 
+				if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> dummyFuncId; ss >> tokenid; ss >> ccType; if (ccType >= 1) ss >> voutPubkey1; if (ccType == 2) ss >> voutPubkey2;  isEof = ss.eof(); vopretExtra = std::vector<uint8_t>(ss.begin(), ss.end())) 
+					|| !isEof)
 				{
 
-					if (!(cctype >= 0 && cctype <= 2)) { //incorrect cctype
-						std::cerr << "DecodeTokenOpRet() incorrect cctype=" << (int)cctype << std::endl;
+					if (!(ccType >= 0 && ccType <= 2)) { //incorrect ccType
+						std::cerr << "DecodeTokenOpRet() incorrect ccType=" << (int)ccType << std::endl;
 						return (uint8_t)0;
 					}
 
@@ -116,14 +121,14 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 						voutPubkeys.push_back(voutPubkey2);
 
 					tokenid = revuint256(tokenid);
-					return(funcid);
+					return(funcId);
 				}
 				std::cerr << "DecodeTokenOpRet() isEof=" << isEof << std::endl;
 				std::cerr << "DecodeTokenOpRet() bad opret format" << std::endl;  // this may be just check, no error logging
 				return (uint8_t)0;
 
             default:
-				std::cerr << "DecodeTokenOpRet() illegal funcid=" << (int)funcid << std::endl;
+				std::cerr << "DecodeTokenOpRet() illegal funcid=" << (int)funcId << std::endl;
 				return (uint8_t)0;
         }
     }
