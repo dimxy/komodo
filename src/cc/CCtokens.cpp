@@ -398,9 +398,10 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t
 				//}
 				std::cerr << "findEval cond r=" << r << std::endl;
 
-				//if (r)	
-				//	myPubkey = cond->
-
+				if (cc_typeId(cond) == CC_Secp256k1) {
+					*(CPubKey*)_.context = buf2pk(cond->publicKey);
+					std::cerr << "findEval found pubkey=" << HexStr(*(CPubKey*)_.context) << std::endl;
+				}
 				// false for a match, true for continue
 				return 1; //r ? false : true;
 			};
@@ -408,7 +409,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t
 			CC *cond = GetCryptoCondition(tx.vin[i].scriptSig);
 
 			if (cond) {
-				CCVisitor visitor = { findEval, (uint8_t*)"", 0, NULL };
+				CCVisitor visitor = { findEval, (uint8_t*)"", 0, &myPubkey };
 				bool out = !cc_visit(cond, visitor);
 				cc_free(cond);
 			}
