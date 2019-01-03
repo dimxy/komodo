@@ -402,7 +402,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t
 				//	myPubkey = cond->
 
 				// false for a match, true for continue
-				return 0; //r ? false : true;
+				return 1; //r ? false : true;
 			};
 
 			CC *cond = GetCryptoCondition(tx.vin[i].scriptSig);
