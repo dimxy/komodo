@@ -244,23 +244,23 @@ CScript EncodeAssetOpRet(uint8_t assetFuncId, uint256 tokenid, uint256 assetid2,
     CScript opret; 
 	uint8_t evalcode = EVAL_ASSETS;
 	uint8_t funcId = (uint8_t)'t';  
-	uint8_t cctype = 0;
+	uint8_t ccType = 0;
 	if (voutPubkeys.size() >= 1 && voutPubkeys.size() <= 2)
-		cctype = voutPubkeys.size();
+		ccType = voutPubkeys.size();
 
     tokenid = revuint256(tokenid);
     switch ( assetFuncId )
     {
         //case 't': this cannot be here
 		case 'x': case 'o':
-			opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcId << tokenid << cctype; if(cctype >= 1) ss << voutPubkeys[0]; if(cctype == 2) ss << voutPubkeys[1];  ss << assetFuncId);
+			opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcId << tokenid << ccType; if(ccType >= 1) ss << voutPubkeys[0]; if(ccType == 2) ss << voutPubkeys[1];  ss << assetFuncId);
             break;
         case 's': case 'b': case 'S': case 'B':
-            opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcId << tokenid << cctype; if(cctype >= 1) ss << voutPubkeys[0]; if(cctype == 2) ss << voutPubkeys[1];  ss << assetFuncId << price << origpubkey);
+            opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcId << tokenid << ccType; if(ccType >= 1) ss << voutPubkeys[0]; if(ccType == 2) ss << voutPubkeys[1];  ss << assetFuncId << price << origpubkey);
             break;
         case 'E': case 'e':
             assetid2 = revuint256(assetid2);
-            opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcId << tokenid << cctype; if(cctype >= 1) ss << voutPubkeys[0]; if(cctype == 2) ss << voutPubkeys[1]; ss << assetFuncId << assetid2 << price << origpubkey);
+            opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcId << tokenid << ccType; if(ccType >= 1) ss << voutPubkeys[0]; if(ccType == 2) ss << voutPubkeys[1]; ss << assetFuncId << assetid2 << price << origpubkey);
             break;
         default:
             fprintf(stderr,"EncodeAssetOpRet: illegal funcid.%02x\n", assetFuncId);

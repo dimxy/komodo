@@ -123,7 +123,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 					tokenid = revuint256(tokenid);
 					return(funcId);
 				}
-				std::cerr << "DecodeTokenOpRet() isEof=" << isEof << " ccType=" << ccType << std::endl;
+				std::cerr << "DecodeTokenOpRet() isEof=" << isEof << " ccType=" << ccType << " tokenid=" << revuint256(tokenid).GetHex() << std::endl;
 				std::cerr << "DecodeTokenOpRet() bad opret format" << std::endl;  // this may be just check, no error logging
 				return (uint8_t)0;
 
@@ -143,7 +143,8 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 	static uint256 zero;
 	CTxDestination address; CTransaction vinTx, createTx; uint256 hashBlock, tokenid, tokenid2;
 	int32_t i, starti, numvins, numvouts, preventCCvins, preventCCvouts;
-	int64_t remaining_price, nValue, tokenoshis, outputs, inputs, tmpprice, totalunits, ignore; std::vector<uint8_t> origpubkey, tmporigpubkey, ignorepubkey;
+	int64_t remaining_price, nValue, tokenoshis, outputs, inputs, tmpprice, totalunits, ignore; 
+	std::vector<uint8_t> vopretExtra, tmporigpubkey, ignorepubkey;
 	uint8_t funcid, evalCodeInOpret;
 	char destaddr[64], origaddr[64], CCaddr[64];
 	std::vector<CPubKey> voutTokenPubkeys;
@@ -153,7 +154,7 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 	outputs = inputs = 0;
 	preventCCvins = preventCCvouts = -1;
 
-	if ((funcid = DecodeTokenOpRet(tx.vout[numvouts - 1].scriptPubKey, evalCodeInOpret, tokenid, voutTokenPubkeys, origpubkey)) == 0)
+	if ((funcid = DecodeTokenOpRet(tx.vout[numvouts - 1].scriptPubKey, evalCodeInOpret, tokenid, voutTokenPubkeys, vopretExtra)) == 0)
 		return eval->Invalid("TokenValidate: invalid opreturn payload");
 
 	fprintf(stderr, "TokensValidate (%c)\n", funcid);
