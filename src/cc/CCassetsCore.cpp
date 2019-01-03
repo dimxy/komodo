@@ -487,8 +487,8 @@ bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &pr
 			return(true);
 		}
 	}   */
-	else if ((funcid == 'b' || funcid == 'B') && v == 0) // critical! 'b'/'B' vout0 is NOT asset
-		return(false);
+	//else if ((funcid == 'b' || funcid == 'B') && v == 0) // critical! 'b'/'B' vout0 is NOT asset
+	//	return(false);
 	else if (funcid != 'E')
 	{
 		if (assetid != zeroid && assetidOpret == assetid)
@@ -528,9 +528,9 @@ int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &price, std::vector<uint
 
 		// moved opret checking to this new reusable func (dimxy):
 		const bool valOpret = ValidateAssetOpret(tx, v, refassetid, price, origpubkey);
-		//std::cerr << "IsAssetvout() ValidateAssetOpret returned=" << std::boolalpha << valOpret << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
+		std::cerr << "IsAssetvout() ValidateAssetOpret returned=" << std::boolalpha << valOpret << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
 		if (valOpret) {
-			//std::cerr  << "IsAssetvout() ValidateAssetOpret returned true, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
+			std::cerr  << "IsAssetvout() ValidateAssetOpret returned true, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
 			return tx.vout[v].nValue;
 		}
 
