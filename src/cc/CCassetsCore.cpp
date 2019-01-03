@@ -313,7 +313,8 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, 
 		return (uint8_t)0;
 	}
 
-	tokenid = revuint256(tokenid);
+	////tokenid = revuint256(tokenid); already done in DecodeToken!
+
 	assetFuncId = vopretExtra.begin()[0];
 
 	std::cerr << "DecodeAssetOpRet() evalCodeInOpret=" << (int)evalCodeInOpret <<  " funcId=" << (char)(funcId ? funcId : ' ') << " assetFuncId=" << (char)(assetFuncId ? assetFuncId : ' ') << std::endl;
