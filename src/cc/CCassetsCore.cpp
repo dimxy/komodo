@@ -596,7 +596,7 @@ bool AssetExactAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_
 		}
 	}
 
-	//std::cerr << "AssetExactAmounts() inputs=" << inputs << " outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
+	std::cerr << "AssetExactAmounts() inputs=" << inputs << " outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
 
 	/*	we do not verify inputs == outputs here, 
 		it's done in Tokens:
