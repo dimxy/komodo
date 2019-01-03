@@ -79,7 +79,7 @@ uint8_t DecodeTokenCreateOpRet(const CScript &scriptPubKey,std::vector<uint8_t> 
 uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 &tokenid, std::vector<CPubKey> &voutPubkeys, std::vector<uint8_t>  &vopretExtra)
 {
     std::vector<uint8_t> vopret, extra, dummyPubkey; 
-	uint8_t funcId=0, *script, evalcode, dummyFuncId, ccType;
+	uint8_t funcId=0, *script, dummyEvalCode, dummyFuncId, ccType;
 	std::string dummyName; std::string dummyDescription;
 	CPubKey voutPubkey1, voutPubkey2;
 
@@ -104,7 +104,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
             case 't':  
 			//not used yet: case 'l':
 				// NOTE: 'E_UNMARSHAL result==false' means 'parse error' OR 'not eof state'. Consequently, 'result==false' but 'isEof==true' means just 'parse error' 
-				if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> dummyFuncId; ss >> tokenid; ss >> ccType; if (ccType >= 1) ss >> voutPubkey1; if (ccType == 2) ss >> voutPubkey2;  isEof = ss.eof(); vopretExtra = std::vector<uint8_t>(ss.begin(), ss.end())) 
+				if (E_UNMARSHAL(vopret, ss >> dummyEvalCode; ss >> dummyFuncId; ss >> tokenid; ss >> ccType; if (ccType >= 1) ss >> voutPubkey1; if (ccType == 2) ss >> voutPubkey2;  isEof = ss.eof(); vopretExtra = std::vector<uint8_t>(ss.begin(), ss.end()))
 					|| !isEof)
 				{
 
@@ -123,7 +123,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 					tokenid = revuint256(tokenid);
 					return(funcId);
 				}
-				std::cerr << "DecodeTokenOpRet() isEof=" << isEof << std::endl;
+				std::cerr << "DecodeTokenOpRet() isEof=" << isEof << " ccType=" << ccType << std::endl;
 				std::cerr << "DecodeTokenOpRet() bad opret format" << std::endl;  // this may be just check, no error logging
 				return (uint8_t)0;
 
