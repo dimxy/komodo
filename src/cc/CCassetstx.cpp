@@ -611,11 +611,11 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
                     CCchange = (inputs - fillamount);
                 
 				mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, bidamount - paid_amount, GetUnspendable(cpTokens, NULL)));    // tokens
-                mtx.vout.push_back(CTxOut(paid_amount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+                mtx.vout.push_back(CTxOut(paid_amount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));		// coins to normal
                 mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, fillamount, pubkey2pk(origpubkey)));				// coins on assets
                 
 				if (CCchange != 0)
-                    mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, CCchange, mypk));								// coins on assets
+                    mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, CCchange, mypk));								// change in tokens
 
                 fprintf(stderr,"remaining %llu -> origpubkey\n", (long long)remaining_required);
 

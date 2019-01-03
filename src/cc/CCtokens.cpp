@@ -258,6 +258,19 @@ int64_t IsTokensvout(bool goDeeper, bool isVintxVout, struct CCcontract_info *cp
 
 	std::cerr << "IsTokensvout is vout == testVout =" << (tx.vout[v].scriptPubKey == testVout.scriptPubKey) << std::endl;
 
+	//CTxDestination addr;
+	//bool bExtract = ExtractDestination(tx.vout[v].scriptPubKey, addr, true);
+
+	//bool bExtract = ExtractDestination(tx.vout[v].scriptPubKey, addr, true);
+
+	//std::cerr << "IsTokensvout bExtract=" << bExtract << " which=" << addr.which << std::endl;
+
+	//CPubKey pk = boost::get<CPubKey>(addr);
+	//char hexbuf[67];
+	//pubkey33_str(hexbuf, (uint8_t*)pk.begin());
+	//std::cerr << "IsTokensvout bExtract=" << bExtract << " addr=" << hexbuf << std::endl;
+
+
 	/*auto findEval = [](CC *cond, struct CCVisitor _) {
 		bool r = cc_typeId(cond) == CC_Eval && cond->codeLength == 1 && cond->code[0] == EVAL_TOKENS;
 
@@ -343,6 +356,8 @@ int64_t IsTokensvout(bool goDeeper, bool isVintxVout, struct CCcontract_info *cp
 bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t &inputs, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 tokenid)
 {
 	CTransaction vinTx; uint256 hashBlock, id, id2; int32_t flag; int64_t tokenoshis; std::vector<uint8_t> tmporigpubkey; int64_t tmpprice;
+	CPubKey myPubkey;
+
 	int32_t numvins = tx.vin.size();
 	int32_t numvouts = tx.vout.size();
 	inputs = outputs = 0;
@@ -354,6 +369,51 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t
 	{												  // check for additional contracts which may send tokens to the Tokens contract
 		if ((*cpTokens->ismyvin)(tx.vin[i].scriptSig) /*|| IsVinAllowed(tx.vin[i].scriptSig) != 0*/)
 		{
+			
+			auto findEval = [](CC *cond, struct CCVisitor _) {
+				bool r = cc_typeId(cond) == CC_Eval && cond->codeLength == 1 && cond->code[0] == EVAL_TOKENS;
+
+				std::cerr << "findEval cond=" << cond << std::endl;
+				std::cerr << "findEval cond isAnon=" << cc_isAnon(cond) << std::endl;
+				std::cerr << "findEval cond typeid=" << cc_typeId(cond) << std::endl;
+				std::cerr << "findEval cond typename=" << cc_typeName(cond) << std::endl;
+				std::cerr << "findEval cond typeMask=" << cc_typeMask(cond) << std::endl;
+				if (cc_typeId(cond) == CC_Threshold) {
+					std::cerr << "findEval cond threshold=" << (int)cond->threshold << std::endl;
+				}
+				//std::cerr << "findEval (cond->code[0] == EVAL_TOKENS)=" << (cond->code[0] == EVAL_TOKENS) << std::endl;
+
+				//if (cc_typeId(cond) == CC_Threshold) {
+				//	for (int i = 0; i < cond->size; i++) {
+				//		std::cerr << "i=" << i << " size=" << (int)cond->size  << std::endl;
+				//		std::cerr << "findEval subcond=" << cond->subconditions[i] << std::endl;
+				//		std::cerr << "findEval subcond isAnon=" << cc_isAnon(cond->subconditions[i]) << std::endl;
+				//		std::cerr << "findEval subcond typeid=" << cc_typeId(cond->subconditions[i]) << std::endl;
+				//		std::cerr << "findEval subcond typename=" << cc_typeName(cond->subconditions[i]) << std::endl;
+				//		std::cerr << "findEval subcond typeMask=" << cc_typeMask(cond->subconditions[i]) << std::endl;
+				//		bool r0 = cc_typeId(cond->subconditions[i]) == CC_Eval && cond->subconditions[i]->codeLength == 1 && cond->subconditions[i]->code[0] == EVAL_TOKENS;
+
+				//		std::cerr << "findEval subcond r0=" << r0 << std::endl;
+				//	}
+				//}
+				std::cerr << "findEval cond r=" << r << std::endl;
+
+				//if (r)	
+				//	myPubkey = cond->
+
+				// false for a match, true for continue
+				return 0; //r ? false : true;
+			};
+
+			CC *cond = GetCryptoCondition(tx.vin[i].scriptSig);
+
+			if (cond) {
+				CCVisitor visitor = { findEval, (uint8_t*)"", 0, NULL };
+				bool out = !cc_visit(cond, visitor);
+				cc_free(cond);
+			}
+
+
 			//std::cerr << indentStr << "TokensExactAmounts() eval is true=" << (eval != NULL) << " ismyvin=ok for_i=" << i << std::endl;
 			// we are not inside the validation code -- dimxy
 			if ((eval && eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock) == 0) || (!eval && !myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock)))
