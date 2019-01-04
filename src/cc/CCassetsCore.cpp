@@ -553,8 +553,8 @@ bool AssetExactAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_
 	cpTokens = CCinit(&C, EVAL_TOKENS);
 
 	for (int32_t i = 0; i<numvins; i++)
-	{												  // check for additional contracts which may send tokens to the Assets contract
-		if ((*cpAssets->ismyvin)(tx.vin[i].scriptSig) /*|| (*cpTokens->ismyvin)(tx.vin[i].scriptSig)*/ ) // || IsVinAllowed(tx.vin[i].scriptSig) != 0)
+	{												    // only tokens are relevant!!
+		if (/*(*cpAssets->ismyvin)(tx.vin[i].scriptSig)*/ (*cpTokens->ismyvin)(tx.vin[i].scriptSig) ) // || IsVinAllowed(tx.vin[i].scriptSig) != 0)
 		{
 			//std::cerr << indentStr << "AssetExactAmounts() eval is true=" << (eval != NULL) << " ismyvin=ok for_i=" << i << std::endl;
 			// we are not inside the validation code -- dimxy
