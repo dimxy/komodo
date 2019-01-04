@@ -243,7 +243,9 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //vout.4: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['B'] [assetid] [remaining asset required] [origpubkey]
             preventCCvouts = 4;
-            if( (nValue = AssetValidateBuyvin(cpAssets, eval, totalunits, tmporigpubkey, CCaddr, origaddr, tx, assetid)) == 0 )
+			
+			// tokens:
+            if( (nValue = AssetValidateBuyvin(cpTokens, eval, totalunits, tmporigpubkey, CCaddr, origaddr, tx, assetid)) == 0 )
                 return(false);
             else if( numvouts < 3 )
                 return eval->Invalid("not enough vouts for fillbuy");

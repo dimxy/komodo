@@ -357,12 +357,12 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, 
                 }
                 break;
             default:
-                fprintf(stderr,"DecodeAssetOpRet: illegal funcid.%02x\n", funcId);
-                funcId = 0;
+                fprintf(stderr,"DecodeAssetOpRet: illegal funcid.%02x\n", assetFuncId);
+                //funcId = 0;
                 break;
         }
     }
-    return(funcId);
+    return (uint8_t)0;
 }
 
 bool SetAssetOrigpubkey(std::vector<uint8_t> &origpubkey,int64_t &price,const CTransaction &tx)
