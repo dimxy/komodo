@@ -483,7 +483,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t
 				tokenValIndentSize++;
 				// validate vouts of vintx  
 				//std::cerr << indentStr << "TokenExactAmounts() check vin i=" << i << " nValue=" << vinTx.vout[tx.vin[i].prevout.n].nValue << std::endl;
-				tokenoshis = IsTokensvout(goDeeper, false, cpTokens, eval, tmporigpubkey, vinTx, tx.vin[i].prevout.n, tokenid, vinPubkeysEmpty);
+				tokenoshis = IsTokensvout(goDeeper, false/*<--do not have pubkeys yet*/, cpTokens, eval, tmporigpubkey, vinTx, tx.vin[i].prevout.n, tokenid, vinPubkeysEmpty);
 				tokenValIndentSize--;
 				if (tokenoshis != 0)
 				{
@@ -500,7 +500,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t
 		tokenValIndentSize++;
 		// Note: we pass in here 'false' because we don't need to call TokenExactAmounts() recursively from IsTokenvout
 		// indeed, in this case we'll be checking this tx again
-		tokenoshis = IsTokensvout(false, goDeeper ? true : false, cpTokens, eval, tmporigpubkey, tx, i, tokenid, vinPubkeys);
+		tokenoshis = IsTokensvout(false, true /*<--exclude non-tokens vouts*/, cpTokens, eval, tmporigpubkey, tx, i, tokenid, vinPubkeys);
 		tokenValIndentSize--;
 
 		if (tokenoshis != 0)
