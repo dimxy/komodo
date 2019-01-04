@@ -314,9 +314,9 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //vout.0: vin.1 assetoshis to original pubkey CC sellTx/exchangeTx.vout[0].nValue -> [origpubkey]
             //vout.1: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['x'] [assetid]
-            if( (assetoshis= AssetValidateSellvin(cpAssets, eval, tmpprice, tmporigpubkey, assetsCCaddr, origaddr, tx, assetid)) == 0 )
+            if( (assetoshis= AssetValidateSellvin(cpTokens, eval, tmpprice, tmporigpubkey, tokensCCaddr, origaddr, tx, assetid)) == 0 )
                 return(false);
-            else if( ConstrainVout(tx.vout[0], 1, assetsCCaddr, assetoshis) == 0 )  
+            else if( ConstrainVout(tx.vout[0], 1, tokensCCaddr, assetoshis) == 0 )  
                 return eval->Invalid("invalid vout for cancel");
             preventCCvins = 2;
             preventCCvouts = 1;
