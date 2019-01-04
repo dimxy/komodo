@@ -566,7 +566,10 @@ bool AssetExactAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_
 			else {
 				// validate vouts of vintx  
 				//std::cerr << indentStr << "AssetExactAmounts() check vin i=" << i << " nValue=" << vinTx.vout[tx.vin[i].prevout.n].nValue << std::endl;
-				assetoshis = IsAssetvout(cpAssets, tmpprice, tmporigpubkey, vinTx, tx.vin[i].prevout.n, assetid);
+				//assetoshis = IsAssetvout(cpAssets, tmpprice, tmporigpubkey, vinTx, tx.vin[i].prevout.n, assetid);
+				std::vector<uint8_t> vopretExtra;
+				std::vector<CPubKey> vinPubkeysEmpty;
+				assetoshis = IsTokensvout(false, false, cpTokens, NULL, vopretExtra, vinTx, tx.vin[i].prevout.n, assetid, vinPubkeysEmpty);
 				if (assetoshis != 0)
 				{
 					std::cerr << "AssetExactAmounts() vin i=" << i << " assetoshis=" << assetoshis << std::endl;
