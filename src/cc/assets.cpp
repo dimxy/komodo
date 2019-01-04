@@ -349,8 +349,8 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
                     return eval->Invalid("normal vout1 for fillask");
                 else if( remaining_price != 0 )
                 {
-                    if ( ConstrainVout(tx.vout[0], 1, (char *)cpAssets->unspendableCCaddr,0) == 0 )
-                        return eval->Invalid("mismatched vout0 AssetsCCaddr for fill");
+                    if ( ConstrainVout(tx.vout[0], 1, (char *)cpTokens->unspendableCCaddr,0) == 0 )
+                        return eval->Invalid("mismatched vout0 TokenCCaddr for fill");
                 }
             }
             fprintf(stderr,"fill validated\n");
