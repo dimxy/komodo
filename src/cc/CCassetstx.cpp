@@ -724,23 +724,25 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
 				}
                 
 				if (assetid2 != zeroid)
-                    SetSwapFillamounts(received_assetoshis, remaining_nValue, orig_assetoshis, paid_nValue, total_nValue);
+                    SetSwapFillamounts(received_assetoshis, remaining_nValue, orig_assetoshis, paid_nValue, total_nValue);  //not implemented correctly yet
                 else 
 					SetAskFillamounts(received_assetoshis, remaining_nValue, orig_assetoshis, paid_nValue, total_nValue);
 
                 if (assetid2 != zeroid && inputs > paid_nValue)
                     CCchange = (inputs - paid_nValue);
 
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, orig_assetoshis - received_assetoshis, GetUnspendable(cpAssets, NULL)));   // coins in Assets cc addr
-                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, received_assetoshis, mypk));					// tokens
+                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, orig_assetoshis - received_assetoshis, GetUnspendable(cpAssets, NULL)));   // 0 coins in Assets cc addr
+                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, received_assetoshis, mypk));					//1 tokens
                 
 				if (assetid2 != zeroid)
-                    mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, paid_nValue, origpubkey));					// tokens... (swap is not implemented yet)
-                else 
-					mtx.vout.push_back(CTxOut(paid_nValue, CScript() << origpubkey << OP_CHECKSIG));		// coins normal
+                    mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, paid_nValue, origpubkey));					//2 tokens... (swap is not implemented yet)
+				else {
+					std::cerr << "FillSell() paid_value=" << paid_nValue << " origpubkey=" << HexStr(pubkey2pk(origpubkey)) << std::endl;
+					mtx.vout.push_back(CTxOut(paid_nValue, CScript() << origpubkey << OP_CHECKSIG));		//2 coins normal
+				}
                 
 				if (CCchange != 0)
-                    mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, CCchange, mypk));							// coins in Assets cc addr
+                    mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, CCchange, mypk));							//3 coins in Assets cc addr
 
 				// vout verification pubkeys:
 				std::vector<CPubKey> voutTokenPubkeys;
