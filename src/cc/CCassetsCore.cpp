@@ -530,9 +530,9 @@ int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &price, std::vector<uint
 
 		// moved opret checking to this new reusable func (dimxy):
 		const bool valOpret = ValidateAssetOpret(tx, v, refassetid, price, origpubkey);
-		std::cerr << "IsAssetvout() ValidateAssetOpret returned=" << std::boolalpha << valOpret << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
+		//std::cerr << "IsAssetvout() ValidateAssetOpret returned=" << std::boolalpha << valOpret << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
 		if (valOpret) {
-			std::cerr  << "IsAssetvout() ValidateAssetOpret returned true, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
+			//std::cerr  << "IsAssetvout() ValidateAssetOpret returned true, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
 			return tx.vout[v].nValue;
 		}
 
