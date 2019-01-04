@@ -164,7 +164,7 @@ UniValue AssetOrders(uint256 refassetid)
                     return;
                 }
 
-				std::cerr << "addOrders() it->first.index=" << it->first.index << " vintx.vout[it->first.index].nValue=" << vintx.vout[it->first.index].nValue << std::endl;
+				//std::cerr << "addOrders() it->first.index=" << it->first.index << " vintx.vout[it->first.index].nValue=" << vintx.vout[it->first.index].nValue << std::endl;
                 if (vintx.vout[it->first.index].nValue == 0)
                     return;
 

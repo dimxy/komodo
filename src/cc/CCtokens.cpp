@@ -123,8 +123,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 					tokenid = revuint256(tokenid);
 					return(funcId);
 				}
-				std::cerr << "DecodeTokenOpRet() isEof=" << isEof << " ccType=" << ccType << " tokenid=" << revuint256(tokenid).GetHex() << std::endl;
-				std::cerr << "DecodeTokenOpRet() bad opret format" << std::endl;  // this may be just check, no error logging
+				std::cerr << "DecodeTokenOpRet() warning: bad opret format, isEof=" << isEof << " ccType=" << ccType << " tokenid=" << revuint256(tokenid).GetHex() << std::endl;
 				return (uint8_t)0;
 
             default:
