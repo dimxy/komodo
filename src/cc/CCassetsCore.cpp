@@ -317,7 +317,7 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, 
 
 	assetFuncId = vopretExtra.begin()[0];
 
-	std::cerr << "DecodeAssetOpRet() evalCodeInOpret=" << (int)evalCodeInOpret <<  " funcId=" << (char)(funcId ? funcId : ' ') << " assetFuncId=" << (char)(assetFuncId ? assetFuncId : ' ') << std::endl;
+	//std::cerr << "DecodeAssetOpRet() evalCodeInOpret=" << (int)evalCodeInOpret <<  " funcId=" << (char)(funcId ? funcId : ' ') << " assetFuncId=" << (char)(assetFuncId ? assetFuncId : ' ') << std::endl;
 
 	if(evalCodeInOpret == EVAL_ASSETS)
 	{
@@ -357,7 +357,7 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, 
                 }
                 break;
             default:
-                fprintf(stderr,"DecodeAssetOpRet: illegal funcid.%02x\n", assetFuncId);
+                fprintf(stderr,"DecodeAssetOpRet: illegal assetFuncId.%02x\n", assetFuncId);
                 //funcId = 0;
                 break;
         }
