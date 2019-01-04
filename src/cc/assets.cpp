@@ -169,8 +169,8 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
         return eval->Invalid("cant find asset2 create txid");
     else if( IsCCInput(tx.vin[0].scriptSig) != 0 )
         return eval->Invalid("illegal asset vin0");
-    else if( numvouts < 1 )
-        return eval->Invalid("no vouts");
+    else if( numvouts < 2 )
+        return eval->Invalid("too few vouts");  // it was if(numvouts < 1) but it refers at least to vout[1] below
     else if( funcid != 'c' )
     {
 		/* if( funcid == 't' )
@@ -295,16 +295,16 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             preventCCvouts = 1;
             if( remaining_price == 0 )
                 return eval->Invalid("illegal null remaining_price for selloffer");
-            if( tx.vout[1].scriptPubKey.IsPayToCryptoCondition() != 0 )
+            if( tx.vout[1].scriptPubKey.IsPayToCryptoCondition() != 0 )   // is cc change present?
             {
                 preventCCvouts++;
-                if( ConstrainVout(tx.vout[0], 1, (char *)cpAssets->unspendableCCaddr, 0) == 0 )
-                    return eval->Invalid("mismatched vout0 AssetsCCaddr for selloffer");
+                if( ConstrainVout(tx.vout[0], 1, (char *)cpTokens->unspendableCCaddr, 0) == 0 ) // check also vout[0]
+                    return eval->Invalid("mismatched vout0 TokensCCaddr for selloffer");
                 else if( tx.vout[0].nValue + tx.vout[1].nValue != inputs )
                     return eval->Invalid("mismatched vout0+vout1 total for selloffer");
             } 
-			else if( ConstrainVout(tx.vout[0], 1, (char *)cpAssets->unspendableCCaddr, inputs) == 0 )
-                return eval->Invalid("mismatched vout0 AssetsCCaddr for selloffer");
+			else if( ConstrainVout(tx.vout[0], 1, (char *)cpTokens->unspendableCCaddr, inputs) == 0 )  // no cc change, just vout[0]
+                return eval->Invalid("mismatched vout0 TokensCCaddr for selloffer");
             //fprintf(stderr,"remaining.%d for sell\n",(int32_t)remaining_price);
             break;
             

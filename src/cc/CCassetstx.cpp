@@ -427,7 +427,7 @@ std::string CreateSell(int64_t txfee,int64_t askamount,uint256 assetid,int64_t p
 			}
 
 			CPubKey unspendablePubkey = GetUnspendable(cpTokens, 0);
-            mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,askamount, unspendablePubkey));
+            mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, askamount, unspendablePubkey));
             if (inputs > askamount)
                 CCchange = (inputs - askamount);
             if (CCchange != 0)
