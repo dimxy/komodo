@@ -709,7 +709,7 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
             mtx.vin.push_back(CTxIn(asktxid, askvout, CScript()));		// NOTE: this is the reference to tokens -> send cpTokens for signing into FinalizeCCTx!
 
             if (assetid2 != zeroid)
-                inputs = AddAssetInputs(cpTokens, mtx, mypk, assetid2, paid_nValue, 60);
+                inputs = AddAssetInputs(cpTokens, mtx, mypk, assetid2, paid_nValue, 60);  // not implemented yet
             else
             {
                 inputs = AddNormalinputs(mtx, mypk, paid_nValue, 60);
@@ -731,18 +731,23 @@ std::string FillSell(int64_t txfee,uint256 assetid,uint256 assetid2,uint256 askt
                 if (assetid2 != zeroid && inputs > paid_nValue)
                     CCchange = (inputs - paid_nValue);
 
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, orig_assetoshis - received_assetoshis, GetUnspendable(cpAssets, NULL)));   // 0 coins in Assets cc addr
-                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, received_assetoshis, mypk));					//1 tokens
+                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, orig_assetoshis - received_assetoshis, GetUnspendable(cpTokens, NULL)));   // 0 tokens cc addr - ask remainder
+                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, received_assetoshis, mypk));					//1 tokens to self
                 
-				if (assetid2 != zeroid)
-                    mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, paid_nValue, origpubkey));					//2 tokens... (swap is not implemented yet)
+				if (assetid2 != zeroid) {
+					std::cerr << "FillSell() WARNING: asset swap not implemented yet! (paid_nValue)" << std::endl;
+					mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, paid_nValue, origpubkey));					//2 tokens... (swap is not implemented yet)
+				}
 				else {
 					std::cerr << "FillSell() paid_value=" << paid_nValue << " origpubkey=" << HexStr(pubkey2pk(origpubkey)) << std::endl;
-					mtx.vout.push_back(CTxOut(paid_nValue, CScript() << origpubkey << OP_CHECKSIG));		//2 coins normal
+					mtx.vout.push_back(CTxOut(paid_nValue, CScript() << origpubkey << OP_CHECKSIG));		//2 coins normal to whom who asked token
 				}
                 
-				if (CCchange != 0)
-                    mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, CCchange, mypk));							//3 coins in Assets cc addr
+				// not implemented
+				if (CCchange != 0) {
+					std::cerr << "FillSell() WARNING: asset swap not implemented yet! (CCchange)" << std::endl;
+					mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, CCchange, mypk));							//3 coins in Assets cc addr
+				}
 
 				// vout verification pubkeys:
 				std::vector<CPubKey> voutTokenPubkeys;
