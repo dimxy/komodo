@@ -616,7 +616,7 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
             bidamount = vintx.vout[bidvout].nValue;
             SetAssetOrigpubkey(origpubkey, origprice, vintx);
           
-			mtx.vin.push_back(CTxIn(bidtxid, bidvout, CScript()));
+			mtx.vin.push_back(CTxIn(bidtxid, bidvout, CScript()));					// Coins on Assets unspendable
 
             if ((inputs = AddTokenCCInputs(cpTokens, mtx, mypk, assetid, fillamount, 60)) > 0)
             {
@@ -635,12 +635,12 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
 				uint8_t unspendableAssetsPrivkey[32];
 				CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
 
-				mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, bidamount - paid_amount, unspendableAssetsPk));    // coins remainder
-                mtx.vout.push_back(CTxOut(paid_amount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));		// coins to normal
-                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, fillamount, pubkey2pk(origpubkey)));				// tokens paid
+				mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, bidamount - paid_amount, unspendableAssetsPk));    // 0 coins remainder
+                mtx.vout.push_back(CTxOut(paid_amount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));		// 1 coins to normal
+                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, fillamount, pubkey2pk(origpubkey)));				// 2 tokens paid
                 
 				if (CCchange != 0)
-                    mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, CCchange, mypk));								// change in tokens
+                    mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, CCchange, mypk));								// 3 change in tokens
 
                 fprintf(stderr,"remaining %llu -> origpubkey\n", (long long)remaining_required);
 
