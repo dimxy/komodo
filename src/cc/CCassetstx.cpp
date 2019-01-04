@@ -632,9 +632,12 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
                     CCchange = (inputs - fillamount);
                 
 				CPubKey unspendableTokensPk = GetUnspendable(cpTokens, NULL);
-				mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, bidamount - paid_amount, unspendableTokensPk));    // tokens
+				uint8_t unspendableAssetsPrivkey[32];
+				CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
+
+				mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, bidamount - paid_amount, unspendableAssetsPk));    // coins remainder
                 mtx.vout.push_back(CTxOut(paid_amount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));		// coins to normal
-                mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, fillamount, pubkey2pk(origpubkey)));				// coins on assets
+                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, fillamount, pubkey2pk(origpubkey)));				// tokens paid
                 
 				if (CCchange != 0)
                     mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, CCchange, mypk));								// change in tokens
@@ -642,8 +645,6 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
                 fprintf(stderr,"remaining %llu -> origpubkey\n", (long long)remaining_required);
 
 				char unspendableAssetsAddr[64];
-				uint8_t unspendableAssetsPrivkey[32];
-				CPubKey unspendableAssetsPk = GetUnspendable(cpAssets, unspendableAssetsPrivkey);
 				GetCCaddress(cpAssets, unspendableAssetsAddr, unspendableAssetsPk);
 				// add additional unspendable addr from Assets:
 				CCaddr2set(cpTokens, EVAL_ASSETS, unspendableAssetsPk, unspendableAssetsPrivkey, unspendableAssetsAddr);
