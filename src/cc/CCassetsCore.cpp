@@ -336,7 +336,7 @@ uint8_t DecodeAssetOpRet(const CScript &scriptPubKey, uint8_t &evalCodeInOpret, 
 				break; */
 
 			case 'x': case 'o':
-                if (vopretExtra.size() == 0)   // no data after 'assetFuncId' allowed
+                if (vopretExtra.size() == 1)   // no data after 'assetFuncId' allowed
                 {
                     return(assetFuncId);
                 }
