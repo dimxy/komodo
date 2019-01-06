@@ -675,7 +675,7 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
 
 				// token vout verification pubkeys:
 				std::vector<CPubKey> voutTokenPubkeys;
-				voutTokenPubkeys.push_back(unspendableTokensPk);
+				voutTokenPubkeys.push_back(pubkey2pk(origpubkey));
 
                 return(FinalizeCCTx(mask,cpTokens,mtx,mypk,txfee, EncodeAssetOpRet('B', assetid, zeroid, remaining_required, voutTokenPubkeys, origpubkey)));
             } else return("dont have any assets to fill bid");
