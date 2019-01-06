@@ -224,7 +224,7 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 		else
 			return eval->Invalid("unsupported evalcode in opret");
 	}
-
+	return true;
 	// what does this do?
 	// return(PreventCC(eval,tx,preventCCvins,numvins,preventCCvouts,numvouts));
 }
