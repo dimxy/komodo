@@ -136,7 +136,7 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
 	char destaddr[64], origaddr[64], assetsCCaddr[64], tokensCCaddr[64];
 
 	return true;
-
+#ifdef VVV
 	// we need this for validating tokens' vins/vous:
 	struct CCcontract_info *cpTokens, tokensC;
 	cpTokens = CCinit(&tokensC, EVAL_TOKENS);
@@ -422,6 +422,7 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
 	bool bPrevent = PreventCC(eval, tx, preventCCvins, numvins, preventCCvouts, numvouts);
 	std::cerr << "AssetsValidate() PreventCC returned=" << bPrevent << std::endl;
 	return (bPrevent);
+#endif // VVV
 }
 
 
