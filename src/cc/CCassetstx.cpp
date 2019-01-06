@@ -544,7 +544,7 @@ std::string CancelBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid)
             mtx.vin.push_back(CTxIn(bidtxid, 0, CScript()));		// coins in Assets
 
 			if( DecodeAssetOpRet(vintx.vout[vintx.vout.size() - 1].scriptPubKey, dummyEvalCode, dummyAssetid, dummyAssetid2, dummyPrice, dummyOrigpubkey) == 'b')
-				mtx.vin.push_back(CTxIn(bidtxid, 1, CScript()));		// marker if funcid='b' (not 'B') 
+				mtx.vin.push_back(CTxIn(bidtxid, 1, CScript()));		// spend marker if funcid='b' (not 'B') 
 				// TODO: spend it also in FillBuyOffer?
 
             mtx.vout.push_back(CTxOut(bidamount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
