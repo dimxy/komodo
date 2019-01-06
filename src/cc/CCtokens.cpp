@@ -183,10 +183,6 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 		}
 	}
 
-	// init for forwarding validation call
-	struct CCcontract_info *cpOther = NULL, C;
-	if (evalCodeInOpret != EVAL_TOKENS)
-		cpOther = CCinit(&C, evalCodeInOpret);
 
 	switch (funcid)
 	{
@@ -218,10 +214,16 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 	}
 
 	// forward validation if evalcode in opret is not EVAL_TOKENS
-	if (cpOther)
-		return cpOther->validate(cpOther, eval, tx, nIn);
-	else
-		return eval->Invalid("unsupported evalcode in opret");
+	// init for forwarding validation call
+	if (evalCodeInOpret != EVAL_TOKENS) {		// TODO: should we check also only allowed for tokens evalcodes, like EVAL_ASSETS, EVAL_GATEWAYS?
+		struct CCcontract_info *cpOther = NULL, C;
+
+		cpOther = CCinit(&C, evalCodeInOpret);
+		if (cpOther)
+			return cpOther->validate(cpOther, eval, tx, nIn);
+		else
+			return eval->Invalid("unsupported evalcode in opret");
+	}
 
 	// what does this do?
 	// return(PreventCC(eval,tx,preventCCvins,numvins,preventCCvouts,numvouts));
