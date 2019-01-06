@@ -51,14 +51,19 @@ CScript EncodeTokenCreateOpRet(uint8_t funcid,std::vector<uint8_t> origpubkey,st
 }
 
 //  this is for other contracts which use tokens and build customized extra payloads to token's opret:
-CScript EncodeTokenOpRet(uint8_t tokenFuncId, uint8_t evalCodeInOpret, uint256 tokenid, std::vector<uint8_t> payload)
+CScript EncodeTokenOpRet(uint8_t tokenFuncId, uint8_t evalCodeInOpret, uint256 tokenid, std::vector<CPubKey> voutPubkeys)
 {
     CScript opret; 
+	uint8_t ccType = 0;
+	if (voutPubkeys.size() >= 1 && voutPubkeys.size() <= 2)
+		ccType = voutPubkeys.size();
+
 	//uint8_t evalcode = EVAL_TOKENS;
     tokenid = revuint256(tokenid);
 	//uint8_t tokenFuncId = (isTransferrable) ? (uint8_t)'t' : (uint8_t)'l';
 
-    opret << OP_RETURN << E_MARSHAL(ss << evalCodeInOpret << tokenFuncId << tokenid << payload);
+    //opret << OP_RETURN << E_MARSHAL(ss << evalCodeInOpret << tokenFuncId << tokenid << payload);
+	opret << OP_RETURN << E_MARSHAL(ss << evalCodeInOpret << tokenFuncId << tokenid << ccType; if (ccType >= 1) ss << voutPubkeys[0]; if (ccType == 2) ss << voutPubkeys[1];);
     return(opret);
 }  
 
@@ -564,7 +569,11 @@ std::string TokenTransfer(int64_t txfee, uint256 assetid, std::vector<uint8_t> d
 			mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, total, pubkey2pk(destpubkey)));
 			if (CCchange != 0)
 				mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, CCchange, mypk));
-			return(FinalizeCCTx(mask, cp, mtx, mypk, txfee, EncodeTokenOpRet('t', EVAL_TOKENS, assetid, emptyExtraOpret)));  // By setting EVAL_TOKENS we're getting out from assets validation code
+
+			std::vector<CPubKey> voutTokenPubkeys;
+			voutTokenPubkeys.push_back(pubkey2pk(destpubkey));  // dest pubkey for validating vout
+
+			return(FinalizeCCTx(mask, cp, mtx, mypk, txfee, EncodeTokenOpRet('t', EVAL_TOKENS, assetid, voutTokenPubkeys)));  // By setting EVAL_TOKENS we're getting out from assets validation code
 		}
 		else {
 			fprintf(stderr, "not enough CC token inputs for %.8f\n", (double)total / COIN);
