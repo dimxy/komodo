@@ -490,6 +490,7 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 {
 
 	std::vector<uint8_t> vopretExtra;
+	uint8_t evalCodeInOpret = 0;
 	uint256 dummyTokenid;
 	std::vector<CPubKey> voutPubkeysDummy;
 
@@ -498,20 +499,28 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 
 
 	if (typeid(Helper) == typeid(TokenHelper)) {  // if caller thinks it is a token
-		uint8_t evalCodeInOpret = 0;
 
 		// First - decode token opret:
 		uint8_t tokenFuncId = DecodeTokenOpRet(scriptPubKey, evalCodeInOpret, tokenid, voutPubkeysDummy, vopretExtra);
-		if (tokenFuncId == 0 || evalCodeInOpret != EVAL_HEIR) {
-			std::cerr << "DecodeHeirOpRet() warning: not heir token opret, tokenFuncId=" << (int)tokenFuncId << " evalCodeInOpret=" << (int)evalCodeInOpret << std::endl;
+		if (tokenFuncId == 0) {
+			std::cerr << "DecodeHeirOpRet() warning: not heir token opret, tokenFuncId=" << (int)tokenFuncId << std::endl;
 			return (uint8_t)0;
 		}
 		// tokenid = revuint256(tokenid);  // already done in DecodeTokenOpRet
 	}
-	else
-		GetOpReturnData(scriptPubKey, vopretExtra);	// this is not 'extra' actually :-)
+	else {
+		std::vector<uint8_t> vopret;
 
-	if (vopretExtra.size() > 1) {  
+		GetOpReturnData(scriptPubKey, vopret);	
+		if (vopret.size() == 0) {
+			std::cerr << "DecodeHeirOpRet() warning: empty opret" << std::endl;
+			return (uint8_t)0;
+		}
+		evalCodeInOpret = vopret.begin()[0];
+		vopretExtra = std::vector<uint8_t>( vopret.begin()+1, vopret.end() );  // vopretExtra = vopret + 1, get it for futher parsing
+	}
+
+	if (vopretExtra.size() > 1 && evalCodeInOpret == EVAL_HEIR) {
 		// NOTE: it unmarshals for all F, A and C
 		uint8_t heirFuncId = _UnmarshalOpret(vopretExtra, ownerPubkey, heirPubkey, inactivityTime, heirName, fundingTxidInOpret);
 				
@@ -528,11 +537,11 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 			return heirFuncId;
 		}
 		else	{
-			std::cerr << "DecodeHeirOpRet() warning: unexpected opret, heirFuncId=" << (char)(heirFuncId ? heirFuncId : ' ') << std::endl;
+			std::cerr << "DecodeHeirOpRet() error: unexpected opret, heirFuncId=" << (char)(heirFuncId ? heirFuncId : ' ') << std::endl;
 		}
 	}
 	else {
-		std::cerr << "DecodeHeirOpRet() unmarshal error (vopret.size() == 0)" << std::endl;
+		std::cerr << "DecodeHeirOpRet() error: not a heir opret, vopretExtra.size() == 0 or not EVAL_HEIR evalcode=" << (int)evalCodeInOpret << std::endl;
 	}
 	return (uint8_t)0;
 }
