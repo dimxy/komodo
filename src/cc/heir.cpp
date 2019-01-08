@@ -665,13 +665,18 @@ template <class Helper> uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_
 				fundingtxid == fundingTxidInOpret) {
 
 				// check if heir has begun spending:
-				if (Helper::isSpendingTx(tmpFuncId)) {  // if 'C' or 't' opret 
+				if (Helper::isSpendingTx(tmpFuncId)) {  // if 'C' in opret 
 					//const CScript heirScriptPubkey = CScript() << ParseHex(HexStr(heirPubkey)) << OP_CHECKSIG;
 					
 					for (int32_t v = 0; v < regtx.vout.size() - 1; v++) { // do not check opret vout
-						if (regtx.vout[v].scriptPubKey.IsPayToCryptoCondition() &&
-							Helper::makeClaimerVout(regtx.vout[v].nValue, heirPubkey) == regtx.vout[v])
-							isHeirSpendingBegan = true;
+
+						if (regtx.vout[v].scriptPubKey.IsPayToCryptoCondition()) {
+							std::cerr << "_FindLatestFundingTx() makeClaimerVout=" << Helper::makeClaimerVout(regtx.vout[v].nValue, heirPubkey).ToString() << " regtx.vout[v]=" << regtx.vout[v].ToString() << std::endl;
+
+							if (Helper::makeClaimerVout(regtx.vout[v].nValue, heirPubkey) == regtx.vout[v]) {
+								isHeirSpendingBegan = true;
+							}
+						}
 					}
 				}
 
