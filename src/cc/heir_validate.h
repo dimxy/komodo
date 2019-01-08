@@ -493,6 +493,7 @@ public:
 		}
 
 		std::cerr << "CMyPubkeyVoutValidator::validateVout() exits with false (not the owner's or heir's addresses)" << std::endl;
+		message = std::string("invalid pubkey");
 		return false;
 	}
 	virtual bool validateVin(CTxIn vin, CTxOut prevVout, std::string& message) const { return true; }

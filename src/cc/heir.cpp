@@ -977,6 +977,8 @@ template <class Helper> UniValue HeirAdd(uint256 fundingtxid, uint64_t txfee, in
 
 			int64_t inputs, change;
 
+			std::cerr << "HeirAdd vin[0].prevout.hash=" << mtx.vin[0].prevout.hash.GetHex() << "n=" << mtx.vin[0].prevout.n << std::endl;
+
 			//if (AddNormalinputs(mtx, myPubkey, amount + 1 * txfee, 64) > 0) { // TODO: why 64 max inputs?
 			if ((inputs = Helper::addOwnerInputs(cp, tokenid, mtx, myPubkey, amount, 64)) > 0) { // TODO: why 64 max inputs?
 
@@ -1008,6 +1010,8 @@ template <class Helper> UniValue HeirAdd(uint256 fundingtxid, uint64_t txfee, in
 				// add opreturn 'A'  and sign tx:						// this txfee ignored
 				std::string rawhextx = (FinalizeCCTx(0, cp, mtx, myPubkey, txfee,
 					Helper::makeAddOpRet(tokenid, voutTokenPubkeys, fundingtxid, isHeirSpendingBegan)));
+
+				std::cerr << "HeirAdd vin[0].prevout.hash=" << mtx.vin[0].prevout.hash.GetHex() << "n=" << mtx.vin[0].prevout.n << std::endl;
 
 				result.push_back(Pair("result", "success"));
 				result.push_back(Pair("hextx", rawhextx));
