@@ -511,17 +511,16 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 	else
 		GetOpReturnData(scriptPubKey, vopretExtra);	// this is not 'extra' actually :-)
 
-	if (vopretExtra.size() > 1) {  // TODO: add this funcId cond in Assets too
+	if (vopretExtra.size() > 1) {  
 		// NOTE: it unmarshals for all F, A and C
 		uint8_t heirFuncId = _UnmarshalOpret(vopretExtra, ownerPubkey, heirPubkey, inactivityTime, heirName, fundingTxidInOpret);
-		
-		/*
-		std::cerr << "DecodeHeirOpRet() e=" << (int)e 
-		<< " funcId=" << (char)funcId 
+				
+		std::cerr << "DecodeHeirOpRet()"  
+		<< " heirFuncId=" << (char)(heirFuncId ? heirFuncId : ' ')
 		<< " ownerPubkey=" << HexStr(ownerPubkey)
 		<< " heirPubkey=" << HexStr(heirPubkey)
 		<< " heirName=" << heirName << " inactivityTime=" << inactivityTime << '\n';
-		*/
+		
 
 		//if (e == EVAL_HEIR && IS_CHARINSTR(funcId, "FAC"))
 		if (Helper::isMyFuncId(heirFuncId)) {
