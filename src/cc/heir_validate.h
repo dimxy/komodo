@@ -476,13 +476,13 @@ public:
 		if (m_checkNormals)  {
 			ownerScript = CoinHelper::makeUserVout(vout.nValue, ownerPubkey).scriptPubKey;
 			heirScript = CoinHelper::makeUserVout(vout.nValue, heirPubkey).scriptPubKey;
+			std::cerr << "CMyPubkeyVoutValidator::validateVout() vout.scriptPubKey=" << vout.scriptPubKey.ToString() << " makeUserVout(coin,owner)=" << CoinHelper::makeUserVout(vout.nValue, ownerPubkey).scriptPubKey.ToString() << " makeUserVout(coin,heir)=" << CoinHelper::makeUserVout(vout.nValue, heirPubkey).scriptPubKey.ToString() << std::endl;
 		}
 		else  {
 			ownerScript = Helper::makeUserVout(vout.nValue, ownerPubkey).scriptPubKey;
 			heirScript = Helper::makeUserVout(vout.nValue, heirPubkey).scriptPubKey;
+			std::cerr << "CMyPubkeyVoutValidator::validateVout() vout.scriptPubKey=" << vout.scriptPubKey.ToString() << " makeUserVout(owner)=" << Helper::makeUserVout(vout.nValue, ownerPubkey).scriptPubKey.ToString() << " makeUserVout(heir)=" << Helper::makeUserVout(vout.nValue, heirPubkey).scriptPubKey.ToString() << std::endl;
 		}
-
-		//std::cerr << "CMyPubkeyVoutValidator::validateVout() vout.scriptPubKey=" << vout.scriptPubKey.ToString() <<  " makeUserVout=" << Helper::makeUserVout(vout.nValue, ownerPubkey).scriptPubKey.ToString() << std::endl;
 
 		// recreate scriptPubKey for owner and heir and compare it with that of the vout to check:
 		if (vout.scriptPubKey == ownerScript ||	vout.scriptPubKey == heirScript) {

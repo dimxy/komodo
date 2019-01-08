@@ -608,8 +608,8 @@ template <class Helper> uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_
     //CCtxidaddr(markeraddr, fundingtxid);
     //SetCCunspents(unspentOutputs, markeraddr);
 
-	isHeirSpendingBegan = 0; //init the var
-	funcId = 0; //init the var
+	isHeirSpendingBegan = 0; 
+	funcId = 0; 
 
     // get initial funding tx and set it as initial lasttx:
     if (myGetTransaction(fundingtxid, fundingtx, hashBlock) && fundingtx.vout.size()) {
