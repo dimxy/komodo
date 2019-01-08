@@ -1368,10 +1368,10 @@ UniValue HeirList()
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("result", "success"));
 
-    struct CCcontract_info *cpHeir, *cpTokens, C;
+    struct CCcontract_info *cpHeir, *cpTokens, heirC, tokenC;  // NOTE we must use a separate 'C' structure for each CCinit!
     
-	cpHeir = CCinit(&C, EVAL_HEIR);
-	cpTokens = CCinit(&C, EVAL_TOKENS);
+	cpHeir = CCinit(&heirC, EVAL_HEIR);
+	cpTokens = CCinit(&tokenC, EVAL_TOKENS);
 
 	_HeirList<CoinHelper>(cpHeir, result);
 	_HeirList<TokenHelper>(cpTokens, result);
