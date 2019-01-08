@@ -453,7 +453,7 @@ CScript EncodeHeirOpRet(uint8_t funcid,  uint256 fundingtxid)
 // makes opret for tokens while they are inside Heir contract address space - initial funding
 CScript EncodeHeirTokensCreateOpRet(uint8_t heirFuncId, uint256 tokenid, std::vector<CPubKey> voutPubkeys, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string hearName)
 {
-	uint8_t evalcode = EVAL_TOKENS;
+	uint8_t evalcode = EVAL_HEIR;
 	uint8_t ccType = 0;
 	if (voutPubkeys.size() >= 1 && voutPubkeys.size() <= 2)
 		ccType = voutPubkeys.size();
