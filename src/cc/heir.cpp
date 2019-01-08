@@ -383,13 +383,15 @@ bool HeirValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction& tx
 */
 int64_t IsHeirFundingVout(struct CCcontract_info* cp, const CTransaction& tx, int32_t voutIndex, CPubKey ownerPubkey, CPubKey heirPubkey)
 {
-	char destaddr[65], heirContractAddr[65];
+	char destaddr[65], heirFundingAddr[65];
 
-	GetCCaddress1of2(cp, heirContractAddr, ownerPubkey, heirPubkey);
+	GetCCaddress1of2(cp, heirFundingAddr, ownerPubkey, heirPubkey);
 	if (tx.vout[voutIndex].scriptPubKey.IsPayToCryptoCondition() != 0) {
 		// NOTE: dimxy it was unsafe 'Getscriptaddress(destaddr,tx.vout[voutIndex].scriptPubKey) > 0' here:
-		if (Getscriptaddress(destaddr, tx.vout[voutIndex].scriptPubKey) && strcmp(destaddr, heirContractAddr) == 0)
+		if (Getscriptaddress(destaddr, tx.vout[voutIndex].scriptPubKey) && strcmp(destaddr, heirFundingAddr) == 0)
 			return (tx.vout[voutIndex].nValue);
+		else
+			std::cerr << "IsHeirFundingVout() heirFundingAddr=" << heirFundingAddr << " not equal to destaddr=" << destaddr << std::endl;
 	}
 	return (0);
 }
@@ -756,7 +758,7 @@ template <class Helper> int64_t Add1of2AddressInputs(struct CCcontract_info* cp,
 {
     // TODO: add threshold check
     int64_t nValue, voutValue, totalinputs = 0;
-    CTransaction vintx;
+    CTransaction heirtx;
     int32_t n = 0;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
 
@@ -775,17 +777,17 @@ template <class Helper> int64_t Add1of2AddressInputs(struct CCcontract_info* cp,
         int32_t voutIndex = (int32_t)it->first.index;
         // no need to prevent dup
         // dimxy: maybe it is good to put tx's in cache?
-        if (GetTransaction(txid, vintx, hashBlock, false) != 0) {
+        if (GetTransaction(txid, heirtx, hashBlock, false) != 0) {
 			uint256 tokenid;
             uint256 fundingTxidInOpret;
+			uint8_t funcId;
 
-			uint8_t funcId = DecodeHeirOpRet<Helper>(vintx.vout[vintx.vout.size() - 1].scriptPubKey, tokenid, fundingTxidInOpret, true);
+			//uint8_t funcId = DecodeHeirOpRet<Helper>(vintx.vout[vintx.vout.size() - 1].scriptPubKey, tokenid, fundingTxidInOpret, true); // too much logging if this
             if ((txid == fundingtxid || fundingTxidInOpret == fundingtxid) && 
-				funcId != 0 &&         
+				(funcId = DecodeHeirOpRet<Helper>(heirtx.vout[heirtx.vout.size() - 1].scriptPubKey, tokenid, fundingTxidInOpret, true)) != 0 &&
 				Helper::isMyFuncId(funcId) &&     
-				// deep validation for tokens:
-				(typeid(Helper) == typeid(TokenHelper) && IsHeirvout(true, cp, nullptr, tokenid, vintx, voutIndex) > 0)  &&
-                (voutValue = IsHeirFundingVout(cp, vintx, voutIndex, ownerPubkey, heirPubkey)) > 0 &&
+				// (typeid(Helper) == typeid(TokenHelper) && IsHeirvout(true, cp, nullptr, tokenid, vintx, voutIndex) > 0)  && // deep validation for tokens - not used anymore
+                (voutValue = IsHeirFundingVout(cp, heirtx, voutIndex, ownerPubkey, heirPubkey)) > 0 &&
                 !myIsutxo_spentinmempool(txid, voutIndex)) 
 			{
                 std::cerr << "Add1of2AddressInputs() voutValue=" << voutValue << " satoshis=" << it->second.satoshis << '\n';
