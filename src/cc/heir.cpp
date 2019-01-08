@@ -451,7 +451,7 @@ CScript EncodeHeirOpRet(uint8_t funcid,  uint256 fundingtxid)
 	return CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)evalcode << (uint8_t)funcid << fundingtxid);
 }
 // makes opret for tokens while they are inside Heir contract address space - initial funding
-CScript EncodeHeirTokensCreateOpRet(uint8_t funcid, uint256 tokenid, std::vector<CPubKey> voutPubkeys, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string hearName)
+CScript EncodeHeirTokensCreateOpRet(uint8_t heirFuncId, uint256 tokenid, std::vector<CPubKey> voutPubkeys, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string hearName)
 {
 	uint8_t evalcode = EVAL_TOKENS;
 	uint8_t ccType = 0;
@@ -459,19 +459,27 @@ CScript EncodeHeirTokensCreateOpRet(uint8_t funcid, uint256 tokenid, std::vector
 		ccType = voutPubkeys.size();
 
 	tokenid = revuint256(tokenid);
-	return CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)evalcode << (uint8_t)'t' << tokenid << (uint8_t)funcid << ccType; if (ccType >= 1) ss << voutPubkeys[0]; if (ccType == 2) ss << voutPubkeys[1]; ss << ownerPubkey << heirPubkey << inactivityTimeSec << hearName);
+	return CScript() << OP_RETURN << 
+		E_MARSHAL(ss << evalcode << (uint8_t)'t' << tokenid << ccType;					\
+			if (ccType >= 1) ss << voutPubkeys[0];										\
+			if (ccType == 2) ss << voutPubkeys[1];										\
+			ss << heirFuncId << ownerPubkey << heirPubkey << inactivityTimeSec << hearName);
 }
 // makes opret for tokens while they are inside Heir contract address space - additional funding
-CScript EncodeHeirTokensOpRet(uint8_t funcid, uint256 tokenid, std::vector<CPubKey> voutPubkeys, uint256 fundingtxid)
+CScript EncodeHeirTokensOpRet(uint8_t heirFuncId, uint256 tokenid, std::vector<CPubKey> voutPubkeys, uint256 fundingtxid)
 {
 	uint8_t evalcode = EVAL_HEIR;
 	uint8_t ccType = 0;
 	if (voutPubkeys.size() >= 1 && voutPubkeys.size() <= 2)
 		ccType = voutPubkeys.size();
 
-	tokenid = revuint256(tokenid);
+	tokenid = revuint256(tokenid);   // for visualization in debug logs
 	fundingtxid = revuint256(fundingtxid);
-	return CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)evalcode << (uint8_t)'t' << tokenid << ccType; if (ccType >= 1) ss << voutPubkeys[0]; if (ccType == 2) ss << voutPubkeys[1]; ss << (uint8_t)funcid << fundingtxid);
+	return CScript() << OP_RETURN << 
+		E_MARSHAL(ss << evalcode << (uint8_t)'t' << tokenid << ccType;					\
+			if (ccType >= 1) ss << voutPubkeys[0];										\
+			if (ccType == 2) ss << voutPubkeys[1];										\
+			ss << heirFuncId << fundingtxid);
 }
 
 // helper for decode heir opret payload
