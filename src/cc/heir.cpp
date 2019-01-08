@@ -239,12 +239,15 @@ template <typename Helper> bool RunValidationPlans(uint8_t funcId, struct CCcont
 /**
  * Tx validation entry function
  */
-bool HeirValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction& tx, uint32_t nIn)
+bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction& tx, uint32_t nIn)
 {
     int32_t numvins = tx.vin.size();
     int32_t numvouts = tx.vout.size();
     //int32_t preventCCvins = -1;
     //int32_t preventCCvouts = -1;
+
+	struct CCcontract_info *cpTokens, tokensC;
+	cpTokens = CCinit(&tokensC, EVAL_TOKENS);
 
     if (numvouts < 1)
         return eval->Invalid("no vouts");
@@ -315,7 +318,7 @@ bool HeirValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction& tx
 			  // vout.2: normal change
 			  // vout.n-1: opreturn 't' tokenid 'F' ownerpk heirpk inactivitytime heirname tokenid
 		if (heirType == HEIR_TOKENS)
-			return RunValidationPlans<TokenHelper>(funcId, cp, eval, tx, latestTxid, fundingTxOpRetScript, isHeirSpendingBegan);
+			return RunValidationPlans<TokenHelper>(funcId, cpHeir, eval, tx, latestTxid, fundingTxOpRetScript, isHeirSpendingBegan);
 		else
 			return eval->Invalid("unexpected HeirValidate for heirfund");
 		// break;
@@ -336,7 +339,7 @@ bool HeirValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction& tx
 			  // vout.1: normal change
 			  // vout.n-1: opreturn 't' tokenid 'A' ownerpk heirpk inactivitytime fundingtx 
 		if (heirType == HEIR_TOKENS)
-			return RunValidationPlans<TokenHelper>(funcId, cp, eval, tx, latestTxid, fundingTxOpRetScript, isHeirSpendingBegan);
+			return RunValidationPlans<TokenHelper>(funcId, cpTokens, eval, tx, latestTxid, fundingTxOpRetScript, isHeirSpendingBegan);
 		else
 			return eval->Invalid("unexpected HeirValidate for heiradd");
 		//break;
@@ -360,9 +363,9 @@ bool HeirValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction& tx
 			  // vout.2: change to normal from txfee input if any
               // vout.n-1: opreturn 't' tokenid 'C' ownerpk heirpk inactivitytime fundingtx		
 		if (heirType == HEIR_TOKENS)
-			return RunValidationPlans<TokenHelper>(funcId, cp, eval, tx, latestTxid, fundingTxOpRetScript, isHeirSpendingBegan);
+			return RunValidationPlans<TokenHelper>(funcId, cpTokens, eval, tx, latestTxid, fundingTxOpRetScript, isHeirSpendingBegan);
 		else
-			return RunValidationPlans<CoinHelper>(funcId, cp, eval, tx, latestTxid, fundingTxOpRetScript, isHeirSpendingBegan);
+			return RunValidationPlans<CoinHelper>(funcId, cpHeir, eval, tx, latestTxid, fundingTxOpRetScript, isHeirSpendingBegan);
 		// break;
 
     default:
