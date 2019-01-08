@@ -439,16 +439,9 @@ bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> param
     return(false);
 }
 
-int64_t CCduration(int32_t &numblocks, uint256 txid)
+int64_t CCduration(int32_t &numblocks,uint256 txid)
 {
-    CTransaction tx; 
-	uint256 hashBlock; 
-	uint32_t txtime=0;
-	int32_t txheight = 0;
-	char str[65]; 
-	CBlockIndex *pindex = NULL, *pindexTip = NULL; 
-	int64_t duration = 0;
-
+    CTransaction tx; uint256 hashBlock; uint32_t txheight,txtime=0; char str[65]; CBlockIndex *pindex; int64_t duration = 0;
     numblocks = 0;
     if ( myGetTransaction(txid,tx,hashBlock) == 0 )
     {
@@ -460,41 +453,20 @@ int64_t CCduration(int32_t &numblocks, uint256 txid)
         //fprintf(stderr,"CCduration no hashBlock for txid %s\n",uint256_str(str,txid));
         return(0);
     }
-	else {
-		pindex = komodo_getblockindex(hashBlock);
-		txtime = pindex ? pindex->nTime : 0;
-		txheight = pindex? pindex->GetHeight() : 0;
-
-		std::cerr << "CCduration() komodo_getblockindex()=" << pindex << " blocktime=" << (pindex ? pindex->nTime : 0) << " - txtime=" << txtime << " blockHeight=" << (pindex ? pindex->GetHeight() : 0) << " txheight=" << txheight << std::endl;
-
-		if (pindex == NULL || txtime  == 0 || txheight <= 0)
-		{
-			fprintf(stderr, "CCduration no txtime %u or txheight.%d %p for txid %s\n", txtime, txheight, pindex, uint256_str(str, txid));
-			return(0);
-		}
-		else {
-
-			pindexTip = chainActive.LastTip();
-		
-			std::cerr << "CCduration() chainActive.LastTip()=" << pindexTip << " tip blocktime=" << (pindexTip ? pindexTip->nTime : 0) << " - txtime=" << txtime << " tip blockHeight=" << (pindexTip ? pindexTip->GetHeight() : 0) << " txheight=" << txheight << std::endl;
-
-			if (pindexTip == NULL || pindexTip->nTime < txtime || pindexTip->GetHeight() <= txheight)
-			{
-				if (pindexTip && pindexTip->nTime < txtime)
-					fprintf(stderr, "CCduration backwards timestamps %u %u for txid %s hts.(%d %d)\n", (uint32_t)pindexTip->nTime, txtime, uint256_str(str, txid), txheight, (int32_t)pindexTip->GetHeight());
-				return(0);
-			}
-		}
-
-	}
-
-	if (pindexTip) {
-		numblocks = (pindexTip->GetHeight() - txheight);
-		duration = (pindexTip->nTime - txtime);
-	
-		//fprintf(stderr,"duration=%d (%u - %u) numblocks=%d (%d - %d)\n",(int32_t)duration,(uint32_t)pindex->nTime, txtime, numblocks, pindex->GetHeight(), txheight);
-		std::cerr << "CCduration() duration=" << duration << " tip blocktime=" << pindexTip->nTime << " - txtime=" << txtime << " numblocks=" << numblocks << " tip blockHeight=" << pindexTip->GetHeight() << " txheight=" << txheight << std::endl;
-	}
+    else if ( (pindex= komodo_getblockindex(hashBlock)) == 0 || (txtime= pindex->nTime) == 0 || (txheight= pindex->GetHeight()) <= 0 )
+    {
+        fprintf(stderr,"CCduration no txtime %u or txheight.%d %p for txid %s\n",txtime,txheight,pindex,uint256_str(str,txid));
+        return(0);
+    }
+    else if ( (pindex= chainActive.LastTip()) == 0 || pindex->nTime < txtime || pindex->GetHeight() <= txheight )
+    {
+        if ( pindex->nTime < txtime )
+            fprintf(stderr,"CCduration backwards timestamps %u %u for txid %s hts.(%d %d)\n",(uint32_t)pindex->nTime,txtime,uint256_str(str,txid),txheight,(int32_t)pindex->GetHeight());
+        return(0);
+    }
+    numblocks = (pindex->GetHeight() - txheight);
+    duration = (pindex->nTime - txtime);
+    //fprintf(stderr,"duration %d (%u - %u) numblocks %d (%d - %d)\n",(int32_t)duration,(uint32_t)pindex->nTime,txtime,numblocks,pindex->GetHeight(),txheight);
     return(duration);
 }
 
