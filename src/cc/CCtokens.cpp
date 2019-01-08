@@ -114,7 +114,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 				{
 
 					if (!(ccType >= 0 && ccType <= 2)) { //incorrect ccType
-						std::cerr << "DecodeTokenOpRet() incorrect ccType=" << (int)ccType << std::endl;
+						std::cerr << "DecodeTokenOpRet() error: incorrect ccType=" << (int)ccType << std::endl;
 						return (uint8_t)0;
 					}
 
@@ -132,7 +132,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 				return (uint8_t)0;
 
             default:
-				std::cerr << "DecodeTokenOpRet() illegal funcid=" << (int)funcId << std::endl;
+				std::cerr << "DecodeTokenOpRet() warning: illegal funcid=" << (int)funcId << std::endl;
 				return (uint8_t)0;
         }
     }

@@ -488,7 +488,6 @@ uint8_t _UnmarshalOpret(std::vector<uint8_t> vopretExtra, CPubKey& ownerPubkey, 
 */
 template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &tokenid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, uint256& fundingTxidInOpret, bool noLogging)
 {
-	uint8_t evalCodeInOpret = 0;
 
 	std::vector<uint8_t> vopretExtra;
 	uint256 dummyTokenid;
@@ -498,12 +497,21 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 	tokenid = zeroid;
 
 
-	// First - decode token opret:
-	uint8_t funcId = DecodeTokenOpRet(scriptPubKey, evalCodeInOpret, tokenid, voutPubkeysDummy, vopretExtra);
+	if (typeid(Helper) == typeid(TokenHelper)) {  // if caller thinks it is a token
+		uint8_t evalCodeInOpret = 0;
 
-	//GetOpReturnData(scriptPubKey, vopret);
+		// First - decode token opret:
+		uint8_t tokenFuncId = DecodeTokenOpRet(scriptPubKey, evalCodeInOpret, tokenid, voutPubkeysDummy, vopretExtra);
+		if (tokenFuncId == 0 || evalCodeInOpret != EVAL_HEIR) {
+			std::cerr << "DecodeHeirOpRet() warning: not heir token opret, tokenFuncId=" << (int)tokenFuncId << " evalCodeInOpret=" << (int)evalCodeInOpret << std::endl;
+			return (uint8_t)0;
+		}
+		// tokenid = revuint256(tokenid);  // already done in DecodeTokenOpRet
+	}
+	else
+		GetOpReturnData(scriptPubKey, vopretExtra);	// this is not 'extra' actually :-)
 
-	if (funcId != 0 && vopretExtra.size() > 1) {  // TODO: add this funcId cond in Assets too
+	if (vopretExtra.size() > 1) {  // TODO: add this funcId cond in Assets too
 		// NOTE: it unmarshals for all F, A and C
 		uint8_t heirFuncId = _UnmarshalOpret(vopretExtra, ownerPubkey, heirPubkey, inactivityTime, heirName, fundingTxidInOpret);
 		
@@ -516,18 +524,16 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 		*/
 
 		//if (e == EVAL_HEIR && IS_CHARINSTR(funcId, "FAC"))
-		if (evalCodeInOpret == EVAL_HEIR && Helper::isMyFuncId(heirFuncId)) {
-			tokenid = revuint256(tokenid);
+		if (Helper::isMyFuncId(heirFuncId)) {
 			fundingTxidInOpret = revuint256(fundingTxidInOpret);
 			return heirFuncId;
 		}
-		else
-		{
-			if(!noLogging) std::cerr << "DecodeHeirOpRet() warning unexpected OP_RETURN eval=" << (int)evalCodeInOpret << " or field type=" << (char)(heirFuncId ? heirFuncId : ' ') << '\n';
+		else	{
+			std::cerr << "DecodeHeirOpRet() warning: unexpected opret, heirFuncId=" << (char)(heirFuncId ? heirFuncId : ' ') << std::endl;
 		}
 	}
 	else {
-		std::cerr << "DecodeHeirOpRet() unmarshal error (vopret.size() == 0)" << '\n';
+		std::cerr << "DecodeHeirOpRet() unmarshal error (vopret.size() == 0)" << std::endl;
 	}
 	return (uint8_t)0;
 }
