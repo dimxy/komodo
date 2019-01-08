@@ -767,7 +767,7 @@ template <class Helper> int64_t Add1of2AddressInputs(struct CCcontract_info* cp,
     //   char markeraddr[64];
     //   CCtxidaddr(markeraddr, fundingtxid);
     //   SetCCunspents(unspentOutputs, markeraddr);
-    //std::cerr << "Add1of2AddressInputs() using 1of2addr=" << coinaddr << " unspentOutputs.size()=" << unspentOutputs.size() << '\n';
+    std::cerr << "Add1of2AddressInputs() using 1of2addr=" << coinaddr << " unspentOutputs.size()=" << unspentOutputs.size() << std::endl;
 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++) {
         uint256 txid = it->first.txhash;
@@ -780,8 +780,7 @@ template <class Helper> int64_t Add1of2AddressInputs(struct CCcontract_info* cp,
             uint256 fundingTxidInOpret;
 
 			uint8_t funcId = DecodeHeirOpRet<Helper>(vintx.vout[vintx.vout.size() - 1].scriptPubKey, tokenid, fundingTxidInOpret, true);
-            // note: it returns in in satoshis too...
-            if ((txid == fundingtxid || fundingTxidInOpret == fundingtxid) && // we're spending only tx's in this funding plan
+            if ((txid == fundingtxid || fundingTxidInOpret == fundingtxid) && 
 				funcId != 0 &&         
 				Helper::isMyFuncId(funcId) &&     
 				// deep validation for tokens:
