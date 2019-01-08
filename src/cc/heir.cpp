@@ -253,7 +253,7 @@ bool HeirValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction& tx
 		return true;
 
     uint8_t funcId;
-    uint256 fundingTxidInOpret = zeroid, latestTxid = zeroid, tokenid = zeroid;
+    uint256 fundingTxidInOpret = zeroid, latestTxid = zeroid, dummyTokenid, tokenid = zeroid;
     
 	//CScript opRetScript = tx.vout[numvouts - 1].scriptPubKey;
 
@@ -261,7 +261,7 @@ bool HeirValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction& tx
 	bool isHeirSpendingBegan = false;
 
 	int32_t heirType = NOT_HEIR;
-	funcId = DecodeHeirOpRet<CoinHelper>(tx.vout[numvouts - 1].scriptPubKey, tokenid, fundingTxidInOpret, true);
+	funcId = DecodeHeirOpRet<CoinHelper>(tx.vout[numvouts - 1].scriptPubKey, dummyTokenid, fundingTxidInOpret, true);
 	if(funcId != 0)
 		heirType = HEIR_COINS;
 	else  {
@@ -278,7 +278,7 @@ bool HeirValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction& tx
             return eval->Invalid("invalid tx opreturn format: no fundingtxid present");
         }
 		if (heirType == HEIR_COINS)
-			latestTxid = FindLatestFundingTx<CoinHelper>(fundingTxidInOpret, tokenid, fundingTxOpRetScript, isHeirSpendingBegan);
+			latestTxid = FindLatestFundingTx<CoinHelper>(fundingTxidInOpret, dummyTokenid, fundingTxOpRetScript, isHeirSpendingBegan);
 		else
 			latestTxid = FindLatestFundingTx<TokenHelper>(fundingTxidInOpret, tokenid, fundingTxOpRetScript, isHeirSpendingBegan);
 
@@ -479,7 +479,14 @@ CScript EncodeHeirTokensOpRet(uint8_t funcid, uint256 tokenid, std::vector<CPubK
 uint8_t _UnmarshalOpret(std::vector<uint8_t> vopretExtra, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, uint256& fundingTxidInOpret) {
 	uint8_t heirFuncId = 0;
 
-	bool result = E_UNMARSHAL(vopretExtra, { ss >> heirFuncId; ss >> ownerPubkey; ss >> heirPubkey; ss >> inactivityTime; if (IS_CHARINSTR(heirFuncId, "F")) { ss >> heirName; } if (IS_CHARINSTR(heirFuncId, "AC")) { ss >> fundingTxidInOpret; } });
+	bool result = E_UNMARSHAL(vopretExtra, { ss >> heirFuncId;							\
+		if( heirFuncId == 'F') {														\
+			ss >> ownerPubkey; ss >> heirPubkey; ss >> inactivityTime; ss >> heirName;  \
+		} else {																		\
+			ss >> fundingTxidInOpret;													\
+		}																				\
+	});
+
 	if (!result /*|| assetFuncId != 't' -- any tx is ok*/)
 		return (uint8_t)0;
 
@@ -508,7 +515,6 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 			if (!noLogging) std::cerr << "DecodeHeirOpRet() warning: not heir token opret, tokenFuncId=" << (int)tokenFuncId << std::endl;
 			return (uint8_t)0;
 		}
-		// tokenid = revuint256(tokenid);  // already done in DecodeTokenOpRet
 	}
 	else {
 		std::vector<uint8_t> vopret;
