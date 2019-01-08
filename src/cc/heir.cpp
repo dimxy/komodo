@@ -252,8 +252,8 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
     if (numvouts < 1)
         return eval->Invalid("no vouts");
 
-	if (chainActive.Height() < 741)
-		return true;
+	//if (chainActive.Height() < 741)
+	//	return true;
 
     uint8_t funcId;
     uint256 fundingTxidInOpret = zeroid, latestTxid = zeroid, dummyTokenid, tokenid = zeroid;
@@ -292,6 +292,8 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
 	else {
 		fundingTxOpRetScript = tx.vout[numvouts - 1].scriptPubKey;
 	}
+
+	std::cerr << "HeirValidate funcid=" << (char)funcId << std::endl;
 
 	// validate prev tx cc inputs = outputs:
 	/* if (heirType == HEIR_TOKENS && funcId == 't' && !HeirExactTokenAmounts(true, cp, eval, zeroid, tx)) {
@@ -549,7 +551,7 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 			<< " ownerPubkey=" << HexStr(ownerPubkey)
 			<< " heirPubkey=" << HexStr(heirPubkey)
 			<< " heirName=" << heirName << " inactivityTime=" << inactivityTime 
-			<< " isHeirSpendingBegan=" << isHeirSpendingBegan << std::endl;
+			<< " isHeirSpendingBegan=" << (int)isHeirSpendingBegan << std::endl;
 		
 
 		//if (e == EVAL_HEIR && IS_CHARINSTR(funcId, "FAC"))
@@ -659,7 +661,8 @@ template <class Helper> uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_
 				uint8_t debIsHeirSpendingBegan;
 				uint8_t debfuncid = DecodeHeirOpRet<Helper>(regtx.vout[regtx.vout.size() - 1].scriptPubKey, debAssetid, fundingTxidInOpret, debIsHeirSpendingBegan, true);
 
-				std::cerr << "FindLatestFundingTx() regtx.vout.size()=" << regtx.vout.size() << " funcId=" << (char)(debfuncid ? debfuncid : ' ') << " tokenid=" << debAssetid.GetHex() << " fundingtxidInOpret=" << fundingTxidInOpret.GetHex() << " debIsHeirSpendingBegan=" << debIsHeirSpendingBegan << std::endl;
+				std::cerr << "FindLatestFundingTx() regtx.vout.size()=" << regtx.vout.size() << " funcId=" << (char)(debfuncid ? debfuncid : ' ') 
+					<< " tokenid=" << debAssetid.GetHex() << " fundingtxidInOpret=" << fundingTxidInOpret.GetHex() << " debIsHeirSpendingBegan=" << (int)debIsHeirSpendingBegan << std::endl;
 			}
 
 			uint256 dummyTokenid;  // not to contaminate the tokenid from the params!
@@ -677,7 +680,8 @@ template <class Helper> uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_
 					funcId = tmpFuncId;
 					isHeirSpendingBegan = tmpIsHeirSpendingBegan;
 
-                    std::cerr << "FindLatestFundingTx() txid=" << latesttxid.GetHex() << " at blockHeight=" << maxBlockHeight << " opreturn type=" << (char)(funcId ? funcId : ' ') << " isHeirSpendingBegan=" << isHeirSpendingBegan << " -- set as current lasttxid" << '\n';
+                    std::cerr << "FindLatestFundingTx() txid=" << latesttxid.GetHex() << " at blockHeight=" << maxBlockHeight 
+						<< " opreturn type=" << (char)(funcId ? funcId : ' ') << " isHeirSpendingBegan=" << (int)isHeirSpendingBegan << " - set as current lasttxid" << '\n';
                 }
             }
         }
