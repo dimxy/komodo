@@ -261,14 +261,14 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
 	//CScript opRetScript = tx.vout[numvouts - 1].scriptPubKey;
 
 	CScript fundingTxOpRetScript;
-	uint8_t isHeirSpendingBegan = 0;
+	uint8_t isHeirSpendingBegan = 0, dummyIsHeirSpendingBegan;
 
 	int32_t heirType = NOT_HEIR;
-	funcId = DecodeHeirOpRet<CoinHelper>(tx.vout[numvouts - 1].scriptPubKey, dummyTokenid, fundingTxidInOpret, isHeirSpendingBegan, true);
+	funcId = DecodeHeirOpRet<CoinHelper>(tx.vout[numvouts - 1].scriptPubKey, dummyTokenid, fundingTxidInOpret, dummyIsHeirSpendingBegan, true);
 	if(funcId != 0)
 		heirType = HEIR_COINS;
 	else  {
-		funcId = DecodeHeirOpRet<TokenHelper>(tx.vout[numvouts - 1].scriptPubKey, tokenid, fundingTxidInOpret, isHeirSpendingBegan, false);
+		funcId = DecodeHeirOpRet<TokenHelper>(tx.vout[numvouts - 1].scriptPubKey, tokenid, fundingTxidInOpret, dummyIsHeirSpendingBegan, false);
 		if (funcId != 0)
 			heirType = HEIR_TOKENS;
 	}
@@ -489,6 +489,7 @@ CScript EncodeHeirTokensOpRet(uint8_t heirFuncId, uint256 tokenid, std::vector<C
 // NOTE: Heir for coins has the same opret as Heir for tokens
 uint8_t _UnmarshalOpret(std::vector<uint8_t> vopretExtra, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, uint256& fundingTxidInOpret, uint8_t &isHeirSpendingBegan) {
 	uint8_t heirFuncId = 0;
+	uint8_t isHeirSpendingBegan = 0;
 
 	bool result = E_UNMARSHAL(vopretExtra, { ss >> heirFuncId;							\
 		if( heirFuncId == 'F') {														\
