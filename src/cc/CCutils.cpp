@@ -466,7 +466,8 @@ int64_t CCduration(int32_t &numblocks,uint256 txid)
     }
     numblocks = (pindex->GetHeight() - txheight);
     duration = (pindex->nTime - txtime);
-    //fprintf(stderr,"duration %d (%u - %u) numblocks %d (%d - %d)\n",(int32_t)duration,(uint32_t)pindex->nTime,txtime,numblocks,pindex->GetHeight(),txheight);
+    //fprintf(stderr,"duration=%d (%u - %u) numblocks=%d (%d - %d)\n",(int32_t)duration,(uint32_t)pindex->nTime, txtime, numblocks, pindex->GetHeight(), txheight);
+	std::cerr << "CCduration() duration=" << duration << " blocktime=" << pindex->nTime << " - txtime=" << txtime << " numblocks=" << numblocks << " blockHeight=" << pindex->GetHeight() << " txheight=" << txheight << std::endl;
     return(duration);
 }
 
