@@ -666,10 +666,11 @@ template <class Helper> uint256 _FindLatestFundingTx(uint256 fundingtxid, uint8_
 
 				// check if heir has begun spending:
 				if (Helper::isSpendingTx(tmpFuncId)) {  // if 'C' or 't' opret 
-					const CScript heirScriptPubkey = CScript() << ParseHex(HexStr(heirPubkey)) << OP_CHECKSIG;
-
+					//const CScript heirScriptPubkey = CScript() << ParseHex(HexStr(heirPubkey)) << OP_CHECKSIG;
+					
 					for (int32_t v = 0; v < regtx.vout.size() - 1; v++) { // do not check opret vout
-						if (heirScriptPubkey == regtx.vout[v].scriptPubKey)
+						if (regtx.vout[v].scriptPubKey.IsPayToCryptoCondition() &&
+							Helper::makeClaimerVout(regtx.vout[v].nValue, heirPubkey) == regtx.vout[v])
 							isHeirSpendingBegan = true;
 					}
 				}
