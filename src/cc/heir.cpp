@@ -505,7 +505,7 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 		// First - decode token opret:
 		uint8_t tokenFuncId = DecodeTokenOpRet(scriptPubKey, evalCodeInOpret, tokenid, voutPubkeysDummy, vopretExtra);
 		if (tokenFuncId == 0) {
-			std::cerr << "DecodeHeirOpRet() warning: not heir token opret, tokenFuncId=" << (int)tokenFuncId << std::endl;
+			if (!noLogging) std::cerr << "DecodeHeirOpRet() warning: not heir token opret, tokenFuncId=" << (int)tokenFuncId << std::endl;
 			return (uint8_t)0;
 		}
 		// tokenid = revuint256(tokenid);  // already done in DecodeTokenOpRet
@@ -515,7 +515,7 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 
 		GetOpReturnData(scriptPubKey, vopret);	
 		if (vopret.size() == 0) {
-			std::cerr << "DecodeHeirOpRet() warning: empty opret" << std::endl;
+			if (!noLogging) std::cerr << "DecodeHeirOpRet() warning: empty opret" << std::endl;
 			return (uint8_t)0;
 		}
 		evalCodeInOpret = vopret.begin()[0];
@@ -527,10 +527,10 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 		uint8_t heirFuncId = _UnmarshalOpret(vopretExtra, ownerPubkey, heirPubkey, inactivityTime, heirName, fundingTxidInOpret);
 				
 		std::cerr << "DecodeHeirOpRet()"  
-		<< " heirFuncId=" << (char)(heirFuncId ? heirFuncId : ' ')
-		<< " ownerPubkey=" << HexStr(ownerPubkey)
-		<< " heirPubkey=" << HexStr(heirPubkey)
-		<< " heirName=" << heirName << " inactivityTime=" << inactivityTime << '\n';
+			<< " heirFuncId=" << (char)(heirFuncId ? heirFuncId : ' ')
+			<< " ownerPubkey=" << HexStr(ownerPubkey)
+			<< " heirPubkey=" << HexStr(heirPubkey)
+			<< " heirName=" << heirName << " inactivityTime=" << inactivityTime << '\n';
 		
 
 		//if (e == EVAL_HEIR && IS_CHARINSTR(funcId, "FAC"))
@@ -539,11 +539,11 @@ template <class Helper> uint8_t _DecodeHeirOpRet(CScript scriptPubKey, uint256 &
 			return heirFuncId;
 		}
 		else	{
-			std::cerr << "DecodeHeirOpRet() error: unexpected opret, heirFuncId=" << (char)(heirFuncId ? heirFuncId : ' ') << std::endl;
+			if(!noLogging) std::cerr << "DecodeHeirOpRet() error: unexpected opret, heirFuncId=" << (char)(heirFuncId ? heirFuncId : ' ') << std::endl;
 		}
 	}
 	else {
-		std::cerr << "DecodeHeirOpRet() error: not a heir opret, vopretExtra.size() == 0 or not EVAL_HEIR evalcode=" << (int)evalCodeInOpret << std::endl;
+		if (!noLogging) std::cerr << "DecodeHeirOpRet() error: not a heir opret, vopretExtra.size() == 0 or not EVAL_HEIR evalcode=" << (int)evalCodeInOpret << std::endl;
 	}
 	return (uint8_t)0;
 }
@@ -780,11 +780,10 @@ template <class Helper> int64_t Add1of2AddressInputs(struct CCcontract_info* cp,
         if (GetTransaction(txid, heirtx, hashBlock, false) != 0) {
 			uint256 tokenid;
             uint256 fundingTxidInOpret;
-			uint8_t funcId;
-
-			//uint8_t funcId = DecodeHeirOpRet<Helper>(vintx.vout[vintx.vout.size() - 1].scriptPubKey, tokenid, fundingTxidInOpret, true); // too much logging if this
+			
+			uint8_t funcId = DecodeHeirOpRet<Helper>(heirtx.vout[heirtx.vout.size() - 1].scriptPubKey, tokenid, fundingTxidInOpret, true); 
             if ((txid == fundingtxid || fundingTxidInOpret == fundingtxid) && 
-				(funcId = DecodeHeirOpRet<Helper>(heirtx.vout[heirtx.vout.size() - 1].scriptPubKey, tokenid, fundingTxidInOpret, true)) != 0 &&
+				funcId != 0 &&
 				Helper::isMyFuncId(funcId) &&     
 				// (typeid(Helper) == typeid(TokenHelper) && IsHeirvout(true, cp, nullptr, tokenid, vintx, voutIndex) > 0)  && // deep validation for tokens - not used anymore
                 (voutValue = IsHeirFundingVout(cp, heirtx, voutIndex, ownerPubkey, heirPubkey)) > 0 &&
