@@ -318,7 +318,7 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
 			  // vout.2: normal change
 			  // vout.n-1: opreturn 't' tokenid 'F' ownerpk heirpk inactivitytime heirname tokenid
 		if (heirType == HEIR_TOKENS)
-			return RunValidationPlans<TokenHelper>(funcId, cpHeir, eval, tx, latestTxid, fundingTxOpRetScript, isHeirSpendingBegan);
+			return RunValidationPlans<TokenHelper>(funcId, cpTokens, eval, tx, latestTxid, fundingTxOpRetScript, isHeirSpendingBegan);
 		else
 			return eval->Invalid("unexpected HeirValidate for heirfund");
 		// break;
