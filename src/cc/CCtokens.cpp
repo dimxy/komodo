@@ -382,7 +382,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t
 
 				if (cc_typeId(cond) == CC_Secp256k1) {
 					*(CPubKey*)_.context = buf2pk(cond->publicKey);
-					std::cerr << "findEval found pubkey=" << HexStr(*(CPubKey*)_.context) << std::endl;
+					//std::cerr << "findEval found pubkey=" << HexStr(*(CPubKey*)_.context) << std::endl;
 					r = true;
 				}
 				// false for a match, true for continue
