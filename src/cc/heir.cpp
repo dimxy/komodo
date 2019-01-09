@@ -959,8 +959,8 @@ template <class Helper> UniValue HeirAdd(uint256 fundingtxid, uint64_t txfee, in
 
     cp = CCinit(&C, Helper::getMyEval());
 
-	struct CCcontract_info *cpAssets, Cassets;
-	cpAssets = CCinit(&Cassets, EVAL_ASSETS);
+	//struct CCcontract_info *cpAssets, Cassets;
+	//cpAssets = CCinit(&Cassets, EVAL_ASSETS);
 
     if (txfee == 0)
         txfee = 10000;
@@ -981,7 +981,7 @@ template <class Helper> UniValue HeirAdd(uint256 fundingtxid, uint64_t txfee, in
 
 			int64_t inputs, change;
 
-			std::cerr << "HeirAdd vin[0].prevout.hash=" << mtx.vin[0].prevout.hash.GetHex() << "n=" << mtx.vin[0].prevout.n << std::endl;
+			//std::cerr << "HeirAdd vin[0].prevout.hash=" << mtx.vin[0].prevout.hash.GetHex() << "n=" << mtx.vin[0].prevout.n << std::endl;
 
 			//if (AddNormalinputs(mtx, myPubkey, amount + 1 * txfee, 64) > 0) { // TODO: why 64 max inputs?
 			if ((inputs = Helper::addOwnerInputs(cp, tokenid, mtx, myPubkey, amount, 64)) > 0) { // TODO: why 64 max inputs?
@@ -1012,7 +1012,7 @@ template <class Helper> UniValue HeirAdd(uint256 fundingtxid, uint64_t txfee, in
 				voutTokenPubkeys.push_back(heirPubkey);
 
 				// add opreturn 'A'  and sign tx:						// this txfee ignored
-				std::string rawhextx = (FinalizeCCTx(0, cpAssets /*test*/, mtx, myPubkey, txfee,
+				std::string rawhextx = (FinalizeCCTx(0, cp, mtx, myPubkey, txfee,
 					Helper::makeAddOpRet(tokenid, voutTokenPubkeys, fundingtxid, isHeirSpendingBegan)));
 
 				std::cerr << "HeirAdd vin[0].prevout.hash=" << mtx.vin[0].prevout.hash.GetHex() << "n=" << mtx.vin[0].prevout.n << std::endl;
