@@ -61,7 +61,7 @@ public:
 class TokenHelper {
 public:
 	static bool isMyFuncId(uint8_t funcid) { return IS_CHARINSTR(funcid, "FAC"); }   
-	static uint8_t getMyEval() { return EVAL_TOKENS; }
+	static uint8_t getMyEval() { return EVAL_ASSETS; } //EVAL_TOKENS; }
 	static int64_t addOwnerInputs(struct CCcontract_info* cp, uint256 tokenid, CMutableTransaction& mtx, CPubKey ownerPubkey, int64_t total, int32_t maxinputs) {
 		return AddTokenCCInputs(cp, mtx, ownerPubkey, tokenid, total, maxinputs);
 	}
