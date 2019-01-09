@@ -67,10 +67,11 @@
  vin.1: unspendable.(vout.0 from buyoffer) buyTx.vout[0]
  vin.2+: valid CC output satisfies buyoffer (*tx.vin[2])->nValue
  vout.0: remaining amount of bid to unspendable
- vout.1: vin.1 value to signer of vin.2
- vout.2: vin.2 assetoshis to original pubkey
- vout.3: CC output for assetoshis change (if any)
- vout.4: normal output for change (if any)
+ vout.1: CC output for marker
+ vout.2: vin.1 value to signer of vin.2
+ vout.3: vin.2 assetoshis to original pubkey
+ vout.4: CC output for assetoshis change (if any)
+ vout.5: normal output for change (if any)
  vout.n-1: opreturn [EVAL_ASSETS] ['B'] [assetid] [remaining asset required] [origpubkey]
 
  selloffer:
@@ -102,14 +103,13 @@
  fillsell:
  vin.0: normal input
  vin.1: unspendable.(vout.0 assetoshis from selloffer) sellTx.vout[0]
- vin.2+: normal output that satisfies selloffer (*tx.vin[2])->nValue
+ 'S'.vin.2+: normal output that satisfies selloffer (*tx.vin[2])->nValue
  vout.0: remaining assetoshis -> unspendable
- vout.1: vin.1 assetoshis to signer of vin.2 sellTx.vout[0].nValue -> any
- vout.2: vin.2 value to original pubkey [origpubkey]
- vout.3: CC asset for change (if any)
- vout.4: CC asset2 for change (if any) 'E' only
- vout.5: normal output for change (if any)
- vout.n-1: opreturn [EVAL_ASSETS] ['S'] [assetid] [amount of coin still required] [origpubkey]
+ vout.1: CC output for marker
+ vout.2: vin.1 assetoshis to signer of vin.2 sellTx.vout[0].nValue -> any
+ 'S'.vout.3: vin.2 value to original pubkey [origpubkey]
+ vout.4: normal output for change (if any)
+ 'S'.vout.n-1: opreturn [EVAL_ASSETS] ['S'] [assetid] [amount of coin still required] [origpubkey]
  
  fillexchange:
  vin.0: normal input
@@ -242,35 +242,36 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //vin.1: unspendable.(vout.0 from buyoffer) buyTx.vout[0]
             //vin.2+: valid CC output satisfies buyoffer (*tx.vin[2])->nValue
             //vout.0: remaining amount of bid to unspendable
-            //vout.1: vin.1 value to signer of vin.2
-            //vout.2: vin.2 assetoshis to original pubkey
-            //vout.3: CC output for assetoshis change (if any)
-            //vout.4: normal output for change (if any)
+            //vout.1: CC output for marker
+            //vout.2: vin.1 value to signer of vin.2
+            //vout.3: vin.2 assetoshis to original pubkey
+            //vout.4: CC output for assetoshis change (if any)
+            //vout.5: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['B'] [assetid] [remaining asset required] [origpubkey]
             preventCCvouts = 4;
 			
             if( (nValue = AssetValidateBuyvin(cpAssets, eval, totalunits, tmporigpubkey, assetsCCaddr, origaddr, tx, assetid)) == 0 )
                 return(false);
-            else if( numvouts < 3 )
+            else if( numvouts < 4 )
                 return eval->Invalid("not enough vouts for fillbuy");
             else if( tmporigpubkey != origpubkey )
                 return eval->Invalid("mismatched origpubkeys for fillbuy");
             else
             {
-                if( nValue != tx.vout[0].nValue + tx.vout[1].nValue )
+                if( nValue != tx.vout[0].nValue + tx.vout[2].nValue )
                     return eval->Invalid("locked value doesnt match vout0+1 fillbuy");
-                else if( tx.vout[3].scriptPubKey.IsPayToCryptoCondition() != 0 )
+                else if( tx.vout[4].scriptPubKey.IsPayToCryptoCondition() != 0 )
                 {
-                    if( ConstrainVout(tx.vout[2], 1, tokensCCaddr, 0) == 0 )			// tokens on user cc addr
+                    if( ConstrainVout(tx.vout[3], 1, tokensCCaddr, 0) == 0 )			// tokens on user cc addr
                         return eval->Invalid("vout2 doesnt go to origpubkey fillbuy");
-                    else if ( inputs != tx.vout[2].nValue + tx.vout[3].nValue )
+                    else if ( inputs != tx.vout[3].nValue + tx.vout[4].nValue )
                         return eval->Invalid("asset inputs doesnt match vout2+3 fillbuy");
                 }
-                else if( ConstrainVout(tx.vout[2], 1, tokensCCaddr, inputs) == 0 )   // tokens on user cc addr
+                else if( ConstrainVout(tx.vout[3], 1, tokensCCaddr, inputs) == 0 )   // tokens on user cc addr
                     return eval->Invalid("vout2 doesnt match inputs fillbuy");
-                else if( ConstrainVout(tx.vout[1],0,0,0) == 0 )
+                else if( ConstrainVout(tx.vout[2],0,0,0) == 0 )
                     return eval->Invalid("vout1 is CC for fillbuy");
-                else if( ValidateBidRemainder(remaining_price, tx.vout[0].nValue, nValue, tx.vout[1].nValue, tx.vout[2].nValue, totalunits) == false )
+                else if( ValidateBidRemainder(remaining_price, tx.vout[0].nValue, nValue, tx.vout[2].nValue, tx.vout[3].nValue, totalunits) == false )
                     return eval->Invalid("mismatched remainder for fillbuy");
                 else if( remaining_price != 0 )
                 {
@@ -330,25 +331,26 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //vin.1: unspendable.(vout.0 assetoshis from selloffer) sellTx.vout[0]
             //'S'.vin.2+: normal output that satisfies selloffer (*tx.vin[2])->nValue
             //vout.0: remaining assetoshis -> unspendable
-            //vout.1: vin.1 assetoshis to signer of vin.2 sellTx.vout[0].nValue -> any
-            //'S'.vout.2: vin.2 value to original pubkey [origpubkey]
-            //vout.3: normal output for change (if any)
+            //vout.1: CC output for marker
+            //vout.2: vin.1 assetoshis to signer of vin.2 sellTx.vout[0].nValue -> any
+            //'S'.vout.3: vin.2 value to original pubkey [origpubkey]
+            //vout.4: normal output for change (if any)
             //'S'.vout.n-1: opreturn [EVAL_ASSETS] ['S'] [assetid] [amount of coin still required] [origpubkey]
             if( (assetoshis = AssetValidateSellvin(cpTokens, eval, totalunits, tmporigpubkey, tokensCCaddr, origaddr, tx, assetid)) == 0 )
                 return(false);
-            else if( numvouts < 3 )
+            else if( numvouts < 4 )
                 return eval->Invalid("not enough vouts for fillask");
             else if( tmporigpubkey != origpubkey )
                 return eval->Invalid("mismatched origpubkeys for fillask");
             else
             {
-                if( assetoshis != tx.vout[0].nValue + tx.vout[1].nValue )
+                if( assetoshis != tx.vout[0].nValue + tx.vout[2].nValue )
                     return eval->Invalid("locked value doesnt match vout0+1 fillask");
-                if( ValidateAskRemainder(remaining_price, tx.vout[0].nValue, assetoshis, tx.vout[1].nValue, tx.vout[2].nValue, totalunits) == false )
+                if( ValidateAskRemainder(remaining_price, tx.vout[0].nValue, assetoshis, tx.vout[2].nValue, tx.vout[3].nValue, totalunits) == false )
                     return eval->Invalid("mismatched remainder for fillask");
-                else if( ConstrainVout(tx.vout[1], 1, 0, 0) == 0 )
+                else if( ConstrainVout(tx.vout[2], 1, 0, 0) == 0 )
                     return eval->Invalid("normal vout1 for fillask");
-                else if( ConstrainVout(tx.vout[2], 0, origaddr, 0) == 0 )
+                else if( ConstrainVout(tx.vout[3], 0, origaddr, 0) == 0 )
                     return eval->Invalid("normal vout1 for fillask");
                 else if( remaining_price != 0 )
                 {
