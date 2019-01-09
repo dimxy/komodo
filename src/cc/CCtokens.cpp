@@ -330,7 +330,7 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys, struct CCcontract_info *c
 						testVout = MakeCC1of2vout(EVAL_TOKENS, tx.vout[v].nValue, voutPubkeys[0], voutPubkeys[1]);
 
 					if (tx.vout[v].scriptPubKey == testVout.scriptPubKey) {
-						std::cerr << indentStr << "IsTokensvout() vout is EVAL_TOKENS, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for tokenid=" << reftokenid.GetHex() << std::endl;
+						//std::cerr << indentStr << "IsTokensvout() vout is EVAL_TOKENS, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for tokenid=" << reftokenid.GetHex() << std::endl;
 						return tx.vout[v].nValue;
 					}
 				}
@@ -340,7 +340,7 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys, struct CCcontract_info *c
 					CTxOut testVout = MakeCC1vout(EVAL_TOKENS, tx.vout[v].nValue, *it);
 
 					if (tx.vout[v].scriptPubKey == testVout.scriptPubKey) {
-						std::cerr << indentStr << "IsTokensvout() vout is EVAL_TOKENS change, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for tokenid=" << reftokenid.GetHex() << std::endl;
+						//std::cerr << indentStr << "IsTokensvout() vout is EVAL_TOKENS change, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for tokenid=" << reftokenid.GetHex() << std::endl;
 						return tx.vout[v].nValue;
 					}
 				}

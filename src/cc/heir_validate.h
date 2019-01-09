@@ -12,20 +12,14 @@
 
 // makes coin initial tx opret
 CScript EncodeHeirCreateOpRet(uint8_t funcid, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string heirName);
-// makes coin additional tx opret
 CScript EncodeHeirOpRet(uint8_t funcid,  uint256 fundingtxid, uint8_t isHeirSpendingBegan);
-
+// makes token opret
 CScript EncodeHeirTokensCreateOpRet(uint8_t funcid, uint256 tokenid, std::vector<CPubKey> voutPubkeys, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string hearName);
 CScript EncodeHeirTokensOpRet(uint8_t funcid, uint256 tokenid, std::vector<CPubKey> voutPubkeys, uint256 fundingtxid, uint8_t isHeirSpendingBegan);
-//CScript EncodeHeirConvertedAssetsOpRet(uint8_t eval, uint8_t funcid, uint256 tokenid, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, uint256 fundingtxid);
 
 template <class Helper> uint256 FindLatestFundingTx(uint256 fundingtxid, uint256 &tokenid, CScript& opRetScript, uint8_t &isHeirSpendingBegan);
 template <class Helper> uint8_t DecodeHeirOpRet(CScript scriptPubKey, uint256 &tokenid, uint256& fundingtxid, uint8_t &isHeirSpendingBegan, bool noLogging = false);
-//template <class Helper> uint8_t DecodeHeirOpRet(CScript scriptPubKey, uint256 &tokenid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, bool noLogging = false);
 template <class Helper> uint8_t DecodeHeirOpRet(CScript scriptPubKey, uint256 &tokenid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName,  bool noLogging = false);
-
-//int64_t AddHeirTokenInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 reftokenid, int64_t total, int32_t maxinputs);
-
 
 // helper class to allow polymorphic behaviour for HeirXXX() functions in case of coins
 class CoinHelper {
@@ -86,9 +80,6 @@ public:
 	}
 };
 
-//#define OPTIONAL_VOUT 0			// if vout is optional then in a validation plan it will be skipped without error, if all validators return false 
-
-
 
 /**
 * Small framework for vins and vouts validation implementing a variation of 'chain of responsibility' pattern:
@@ -104,10 +95,8 @@ public:
 *
 * For validating vouts COutputValidator is configured for each vector of validators with the vout index to which these validators are applied
 * (see constructors of both CInputValidator and COutputValidator)
-*
-*
-* Base class for all validators
 */
+
 /**
  * base class for all validators
  */
@@ -123,7 +112,6 @@ protected:
 	CCcontract_info * m_cp;
 };
 
-
 /**
  * Base class for classes which identify vins as normal or cc inputs
  */
@@ -136,9 +124,6 @@ public:
 protected:
 	CCcontract_info * m_cp;
 };
-
-
-
 
 /**
 * Encapsulates an array containing rows of validators
@@ -222,7 +207,7 @@ public:
 			return eval->Invalid("incorrect tx structure: not all required vins are present.");
 		}
 
-		std::cerr << "CInputValidationPlan::validate() returns with true" << std::endl;
+		//std::cerr << "CInputValidationPlan::validate() returns with true" << std::endl;
 		return true;
 	}
 
@@ -246,7 +231,7 @@ private:
 		// get requested row of validators:
 		ValidatorsRow vValidators = m_arrayValidators[ival].second;
 
-		std::cerr << "CInputValidationPlan::execValidatorsInRow() calling validators" << " for vin iv=" << iv << " ival=" << ival << std::endl;
+		//std::cerr << "CInputValidationPlan::execValidatorsInRow() calling validators" << " for vin iv=" << iv << " ival=" << ival << std::endl;
 
 		for (auto v : vValidators) {
 			bool result;
@@ -327,7 +312,7 @@ public:
 
 		}
 
-		std::cerr << "COutputValidationPlan::validate() returns with true" << std::endl;
+		//std::cerr << "COutputValidationPlan::validate() returns with true" << std::endl;
 		return true;
 	}
 
@@ -351,7 +336,7 @@ private:
 		// get requested row of validators:
 		ValidatorsRow vValidators = m_arrayValidators[ival].second;
 
-		std::cerr << "COutputValidationPlan::execRow() calling validators" << " for vout iv=" << iv << " ival=" << ival << std::endl;
+		//std::cerr << "COutputValidationPlan::execRow() calling validators" << " for vout iv=" << iv << " ival=" << ival << std::endl;
 
 		for (auto v : vValidators) {
 
@@ -422,7 +407,7 @@ public:
 		GetCCaddress1of2(m_cp, shouldBeAddr, ownerPubkey, heirPubkey);
 		if (vout.scriptPubKey.IsPayToCryptoCondition()) {
 			if (Getscriptaddress(ccAddr, vout.scriptPubKey) && strcmp(shouldBeAddr, ccAddr) == 0) {
-				std::cerr << "CCC1of2AddressValidator::validateVout() exits with true" << std::endl;
+				//std::cerr << "CCC1of2AddressValidator::validateVout() exits with true" << std::endl;
 				return true;
 			}
 			else {
@@ -487,7 +472,7 @@ public:
 		// recreate scriptPubKey for owner and heir and compare it with that of the vout to check:
 		if (vout.scriptPubKey == ownerScript ||	vout.scriptPubKey == heirScript) {
 			// this is vout to owner or heir addr:
-			std::cerr << "CMyPubkeyVoutValidator::validateVout() exits with true" << std::endl;
+			//std::cerr << "CMyPubkeyVoutValidator::validateVout() exits with true" << std::endl;
 			return true;
 
 		}
@@ -548,7 +533,7 @@ public:
 			}
 		}
 
-		std::cerr << "CHeirSpendValidator::validateVout() exits with true" << std::endl;
+		//std::cerr << "CHeirSpendValidator::validateVout() exits with true" << std::endl;
 
 		// this is not heir:
 		return true;

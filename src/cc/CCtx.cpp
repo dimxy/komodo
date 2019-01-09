@@ -130,24 +130,22 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
             else
             {
                 Getscriptaddress(destaddr,vintx.vout[utxovout].scriptPubKey);
-                fprintf(stderr,"vin.%d is CC %.8f -> (%s)\n",i,(double)utxovalues[i]/COIN,destaddr); //test
+                //fprintf(stderr,"vin.%d is CC %.8f -> (%s)\n",i,(double)utxovalues[i]/COIN,destaddr);
                 if ( strcmp(destaddr,myaddr) == 0 )
                 {
                     privkey = myprivkey;
                     cond = mycond;
-					fprintf(stderr, "vin.%d is CC %.8f -> (%s)-- using myprivkey\n", i, (double)utxovalues[i] / COIN, destaddr); //test
-
                 }
                 else if ( strcmp(destaddr,unspendable) == 0 )
                 {
                     privkey = unspendablepriv;
                     cond = othercond;
-                    fprintf(stderr,"unspendable CC addr.(%s)\n",unspendable); //test
+                    //fprintf(stderr,"unspendable CC addr.(%s)\n",unspendable);
                 }
 				// check if this is the 2nd additional evalcode + 'unspendable' cc addr:
                 else if ( strcmp(destaddr,cp->unspendableaddr2) == 0)
                 {
-                    fprintf(stderr,"matched %s unspendable2!\n",cp->unspendableaddr2); //test
+                    //fprintf(stderr,"matched %s unspendable2!\n",cp->unspendableaddr2);
                     privkey = cp->unspendablepriv2;
                     if ( othercond2 == 0 ) //&& cp->evalcode != EVAL_CHANNELS && cp->evalcode != EVAL_HEIR && cp->evalcode != EVAL_ASSETS && cp->evalcode != EVAL_TOKENS)
                         othercond2 = MakeCCcond1(cp->evalcode2, cp->unspendablepk2);
@@ -158,7 +156,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 				// check if this is 3rd additional evalcode + 'unspendable' cc addr:
                 else if ( strcmp(destaddr,cp->unspendableaddr3) == 0 )
                 {
-                    fprintf(stderr,"matched %s unspendable3!\n",cp->unspendableaddr3); //test
+                    //fprintf(stderr,"matched %s unspendable3!\n",cp->unspendableaddr3);
                     privkey = cp->unspendablepriv3;
                     if ( othercond3 == 0 )
                         othercond3 = MakeCCcond1(cp->evalcode3,cp->unspendablepk3);
@@ -167,7 +165,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 				// check if this is spending from 1of2 cc addr:
 				else if (strcmp(cp->unspendable1of2addr,  destaddr) == 0)
 				{
-					fprintf(stderr,"matched %s unspendable1of2!\n",cp->unspendable1of2addr);  // test
+					//fprintf(stderr,"matched %s unspendable1of2!\n",cp->unspendable1of2addr);
 					privkey = myprivkey;
 					if (othercond1of2 == 0)
 						othercond1of2 = MakeCCcond1of2(cp->evalcode, cp->unspendable1of2pk[0], cp->unspendable1of2pk[1]);
