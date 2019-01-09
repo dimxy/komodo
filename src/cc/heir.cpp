@@ -1165,27 +1165,28 @@ template <typename Helper>void _HeirList(struct CCcontract_info *cp, UniValue &r
 		uint256 tokenid;
 		int32_t vout = (int32_t)it->first.index;
 
-		std::cerr << "HeirList() checking txid=" << txid.GetHex() << " vout=" << vout << '\n';
+		//std::cerr << "HeirList() checking txid=" << txid.GetHex() << " vout=" << vout << '\n';
 
-		CTransaction vintx;
-		if (GetTransaction(txid, vintx, hashBlock, false) != 0 && (vintx.vout.size() - 1) > 0) {
+		CTransaction inittx;
+		if (GetTransaction(txid, inittx, hashBlock, false) != 0 && (inittx.vout.size() - 1) > 0) {
 			CPubKey ownerPubkey, heirPubkey;
 			std::string heirName;
 			int64_t inactivityTimeSec;
 			const bool noLogging = true;
 
-			uint8_t funcId = DecodeHeirOpRet<Helper>(vintx.vout[vintx.vout.size() - 1].scriptPubKey, tokenid, ownerPubkey, heirPubkey, inactivityTimeSec, heirName, noLogging);
+			uint8_t funcId = DecodeHeirOpRet<Helper>(inittx.vout[inittx.vout.size() - 1].scriptPubKey, tokenid, ownerPubkey, heirPubkey, inactivityTimeSec, heirName, noLogging);
 
 			// note: if it is not Heir token funcId would be equal to 0
 			if (funcId == 'F') {
-				result.push_back(Pair("fundingtxid heirName", txid.GetHex() + std::string(" ") + (typeid(Helper) == typeid(TokenHelper) ? std::string("token") : std::string("coin")) + std::string(" ") + heirName));
+				//result.push_back(Pair("fundingtxid kind name", txid.GetHex() + std::string(" ") + (typeid(Helper) == typeid(TokenHelper) ? std::string("token") : std::string("coin")) + std::string(" ") + heirName));
+				result.push_back( Pair("fundingtxid", txid.GetHex()) );
 			}
 			else {
-				fprintf(stderr, "HeirList() couldnt find initial transaction\n");
+				std::cerr << "HeirList() this is not the initial F transaction=" << txid.GetHex() << std::endl;
 			}
 		}
 		else {
-			fprintf(stderr, "HeirList() couldnt load transaction\n");
+			std::cerr << "HeirList() could not load transaction=" << txid.GetHex() << std::endl;
 		}
 	}
 }
