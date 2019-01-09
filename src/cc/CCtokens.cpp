@@ -247,7 +247,7 @@ bool ValidateTokenOpret(CTransaction tx, int32_t v, uint256 tokenid, std::vector
 
 	if ((funcid = DecodeTokenOpRet(tx.vout[n - 1].scriptPubKey, evalCode, tokenidOpret, voutPubkeys, vopretExtra)) == 0)
 	{
-		std::cerr << indentStr << "ValidateTokenOpret() DecodeOpret returned null for n-1=" << n - 1 << " txid=" << tx.GetHash().GetHex() << std::endl;
+		std::cerr << indentStr << "ValidateTokenOpret() DecodeOpret returned null for txid=" << tx.GetHash().GetHex() << std::endl;
 		return(false);
 	}
 	else if (funcid == 'c')
@@ -483,7 +483,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 			Getscriptaddress(destaddr, vintx.vout[vout].scriptPubKey);
 			if (strcmp(destaddr, coinaddr) != 0 && strcmp(destaddr, cp->unspendableCCaddr) != 0 && strcmp(destaddr, cp->unspendableaddr2) != 0)
 				continue;
-			fprintf(stderr, "AddTokenCCInputs() check destaddress=%s vout amount=%.8f\n", destaddr, (double)vintx.vout[vout].nValue / COIN);
+			//fprintf(stderr, "AddTokenCCInputs() check destaddress=%s vout amount=%.8f\n", destaddr, (double)vintx.vout[vout].nValue / COIN);
 
 			std::vector<CPubKey> vinPubkeysEmpty;
 			if ((nValue = IsTokensvout(true, false/*<-- do not check spending outside EVAL_TOKENS for now */, cp, NULL, vopretExtra, vintx, vout, tokenid, vinPubkeysEmpty)) > 0 && myIsutxo_spentinmempool(txid, vout) == 0)
