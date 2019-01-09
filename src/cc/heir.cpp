@@ -605,7 +605,7 @@ template <class Helper> int64_t Add1of2AddressInputs(struct CCcontract_info* cp,
                 (voutValue = IsHeirFundingVout(cp, heirtx, voutIndex, ownerPubkey, heirPubkey)) > 0 &&
                 !myIsutxo_spentinmempool(txid, voutIndex)) 
 			{
-                std::cerr << "Add1of2AddressInputs() voutValue=" << voutValue << " satoshis=" << it->second.satoshis << '\n';
+                //std::cerr << "Add1of2AddressInputs() voutValue=" << voutValue << " satoshis=" << it->second.satoshis << '\n';
                 if (total != 0 && maxinputs != 0)
                     mtx.vin.push_back(CTxIn(txid, voutIndex, CScript()));
                 nValue = it->second.satoshis;

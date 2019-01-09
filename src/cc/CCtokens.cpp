@@ -92,7 +92,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
     script = (uint8_t *)vopret.data();
 	tokenid = zeroid;
 
-    if (script != 0 /*enable all evals: && script[0] == EVAL_TOKENS*/)
+    if (script != 0 && vopret.size() > 2)
     {
 		// NOTE: if parse error occures, parse might not be able to set error. It is safer to treat that it was eof if it is not set!
 		bool isEof = true;
@@ -114,7 +114,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 				{
 
 					if (!(ccType >= 0 && ccType <= 2)) { //incorrect ccType
-						std::cerr << "DecodeTokenOpRet() error: incorrect ccType=" << (int)ccType << std::endl;
+						std::cerr << "DecodeTokenOpRet() incorrect ccType=" << (int)ccType << " tokenid=" << revuint256(tokenid).GetHex() << std::endl;
 						return (uint8_t)0;
 					}
 
@@ -128,14 +128,17 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCode, uint256 
 					tokenid = revuint256(tokenid);
 					return(funcId);
 				}
-				std::cerr << "DecodeTokenOpRet() warning: bad opret format, isEof=" << isEof << " ccType=" << ccType << " tokenid=" << revuint256(tokenid).GetHex() << std::endl;
+				std::cerr << "DecodeTokenOpRet() bad opret format, isEof=" << isEof << " ccType=" << ccType << " tokenid=" << revuint256(tokenid).GetHex() << std::endl;
 				return (uint8_t)0;
 
             default:
-				std::cerr << "DecodeTokenOpRet() warning: illegal funcid=" << (int)funcId << std::endl;
+				std::cerr << "DecodeTokenOpRet() illegal funcid=" << (int)funcId << std::endl;
 				return (uint8_t)0;
         }
     }
+	else	{
+		std::cerr << "DecodeTokenOpRet() empty opret, could not parse" << std::endl;
+	}
 	return (uint8_t)0;
 }
 
@@ -247,7 +250,7 @@ bool ValidateTokenOpret(CTransaction tx, int32_t v, uint256 tokenid, std::vector
 
 	if ((funcid = DecodeTokenOpRet(tx.vout[n - 1].scriptPubKey, evalCode, tokenidOpret, voutPubkeys, vopretExtra)) == 0)
 	{
-		std::cerr << indentStr << "ValidateTokenOpret() DecodeOpret returned null for txid=" << tx.GetHash().GetHex() << std::endl;
+		std::cerr << indentStr << "ValidateTokenOpret() DecodeTokenOpret could not parse opret for txid=" << tx.GetHash().GetHex() << std::endl;
 		return(false);
 	}
 	else if (funcid == 'c')
