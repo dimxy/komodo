@@ -608,6 +608,19 @@ private:
 	CScript m_fundingOpretScript;
 };
 
+/**
+* empty validator always returns true
+*/
+template <class Helper> class CNullValidator : CValidatorBase
+{
+public:
+	CNullValidator(CCcontract_info* cp)
+		: CValidatorBase(cp) {	}
+
+	virtual bool isVinValidator() const { return false; }
+	virtual bool validateVout(CTxOut vout, std::string& message) const { return true; }
+	virtual bool validateVin(CTxIn vin, CTxOut prevVout, std::string& message) const { return true; }
+};
 
 
 #endif

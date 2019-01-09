@@ -177,24 +177,21 @@ template <typename Helper> bool RunValidationPlans(uint8_t funcId, struct CCcont
 
 	// vin and vout 'validators'
 	// always check coin inputs:
-	CMyPubkeyVoutValidator<Helper>	normalInputValidator(cp, fundingOpretScript, true);									// check normal input for this opret cause this is first tx
-	//CMyPubkeyVoutValidator<Helper>	normalInputValidatorLast(cp, latestTxOpRetScript, true);						// check normal input for latest opret. TODO: we may also check this opret
+	CMyPubkeyVoutValidator<Helper>	normalInputValidator(cp, fundingOpretScript, true);								// check normal input for this opret cause this is first tx
 
-	CCC1of2AddressValidator<Helper> cc1of2ValidatorThis(cp, fundingOpretScript, "checking this tx opreturn:");				// 1of2add validator with pubkeys from this tx opreturn
-	//CCC1of2AddressValidator<Helper> cc1of2ValidatorLast(cp, latestTxOpRetScript, "checking last tx opreturn:");     // 1of2add validator with pubkeys from last tx opreturn
+	CCC1of2AddressValidator<Helper> cc1of2ValidatorThis(cp, fundingOpretScript, "checking this tx opreturn:");		// 1of2add validator with pubkeys from this tx opreturn
 	CHeirSpendValidator<Helper>	    heirSpendValidator(cp, fundingOpretScript, latestTxid, isHeirSpendingBegan);	// check if heir allowed to spend
 
 	// only for tokens:
-	CMyPubkeyVoutValidator<TokenHelper>	ownerCCaddrValidator(cp, fundingOpretScript, false);								// check if this correct owner's cc user addr corresponding to opret
-	//CMyPubkeyVoutValidator<TokenHelper>	ownerCCaddrValidatorLast(cp, latestTxOpRetScript, false);					// check if this correct owner's cc user addr corresponding to lastest opret 
-																													// TODO: we may also check with current opret
-	COpRetValidator<Helper>		    opRetValidator(cp, fundingOpretScript);										// compare opRets in this and last tx
+	CMyPubkeyVoutValidator<TokenHelper>	ownerCCaddrValidator(cp, fundingOpretScript, false);						// check if this correct owner's cc user addr corresponding to opret
+	COpRetValidator<Helper>		    opRetValidator(cp, fundingOpretScript);											// compare opRets in this and last tx
+	CNullValidator<Helper>			nullValidator(cp);
 
 	switch (funcId) {
 	case 'F': // fund tokens
 		// vin validation plan:
 		//											we need cast here							this is casted inside 
-		vinPlan.pushValidators<CValidatorBase>((CInputIdentifierBase*)&normalInputIdentifier, &normalInputValidator);		// txfee - see AddNormalInput parameter
+		vinPlan.pushValidators<CValidatorBase>((CInputIdentifierBase*)&normalInputIdentifier, &nullValidator);		// txfee - see AddNormalInput parameter
 		vinPlan.pushValidators<CValidatorBase>((CInputIdentifierBase*)&ccInputIdentifier, &ownerCCaddrValidator);			// check cc owner addr
 
 		// vout validation plan:
@@ -206,7 +203,7 @@ template <typename Helper> bool RunValidationPlans(uint8_t funcId, struct CCcont
 	case 'A': // add tokens
 		// vin validation plan:
 		//											we need cast here							this is casted inside 
-		vinPlan.pushValidators<CValidatorBase>((CInputIdentifierBase*)&normalInputIdentifier, &normalInputValidator/*, &normalInputValidatorLast*/);		// txfee - see AddNormalInput parameter
+		vinPlan.pushValidators<CValidatorBase>((CInputIdentifierBase*)&normalInputIdentifier, &nullValidator);		// txfee - see AddNormalInput parameter
 		vinPlan.pushValidators<CValidatorBase>((CInputIdentifierBase*)&ccInputIdentifier, &ownerCCaddrValidator);			// check cc owner addr
 
 																															// vout validation plan:
@@ -218,7 +215,7 @@ template <typename Helper> bool RunValidationPlans(uint8_t funcId, struct CCcont
 	case 'C':
 		// vin validation plan:
 		//											we need cast here							this is casted inside 
-		vinPlan.pushValidators<CValidatorBase>((CInputIdentifierBase*)&normalInputIdentifier, &normalInputValidator/*&normalInputValidatorLast*/);		// txfee - see AddNormalInput parameter
+		vinPlan.pushValidators<CValidatorBase>((CInputIdentifierBase*)&normalInputIdentifier, &nullValidator);		// txfee - see AddNormalInput parameter
 		vinPlan.pushValidators<CValidatorBase>((CInputIdentifierBase*)&ccInputIdentifier, &cc1of2ValidatorThis /*, &cc1of2ValidatorLast*/);		// cc1of2 funding addr
 
 		// vout validation plan:
