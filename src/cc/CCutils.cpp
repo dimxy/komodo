@@ -78,7 +78,6 @@ CTxOut MakeCC1of2vout(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey pk2)
 
 CC *MakeTokensCCcond1of2(uint8_t evalcode, CPubKey pk1, CPubKey pk2)
 {
-	// make 1of2 sigs cond 
 	std::vector<CC*> pks;
 	pks.push_back(CCNewSecp256k1(pk1));
 	pks.push_back(CCNewSecp256k1(pk2));
@@ -343,6 +342,18 @@ bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk)
     return(destaddr[0] != 0);
 }
 
+bool _GetTokensCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk)
+{
+    CC *payoutCond;
+    destaddr[0] = 0;
+    if ( (payoutCond= MakeTokensCCcond1(evalcode,pk)) != 0 )
+    {
+        Getscriptaddress(destaddr,CCPubKey(payoutCond));
+        cc_free(payoutCond);
+    }
+    return(destaddr[0] != 0);
+}
+
 bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk)
 {
     destaddr[0] = 0;
@@ -383,6 +394,8 @@ bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubK
     }
     return(destaddr[0] != 0);
 }
+
+
 
 bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk, CPubKey pk2)
 {

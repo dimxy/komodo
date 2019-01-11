@@ -76,14 +76,15 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 
     unspendablepk = GetUnspendable(cp,unspendablepriv);
     GetCCaddress(cp,unspendable,unspendablepk);
+<<<<<<< HEAD
     othercond = MakeCCcond1(cp->evalcode,unspendablepk);  
 
-    //Reorder vins so that for multiple normal vins all other except vin0 goes to the end
-    //This is a must to avoid hardfork change of validation in every CC, because there could be maximum one normal vin at the begining with current validation.
+=======
+    othercond = MakeCCcond1(cp->evalcode,unspendablepk);
+    GetTokensCCaddress(cp,tokensunspendable,unspendablepk);
     for (i=0; i<n; i++)
     {
         if ( GetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock,false) != 0 )
-        {
             if ( vintx.vout[mtx.vin[i].prevout.n].scriptPubKey.IsPayToCryptoCondition() == 0 && ccvins==0)
                 normalvins++;            
             else ccvins++;
@@ -166,6 +167,11 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                     privkey = unspendablepriv;
                     cond = othercond;
                     //fprintf(stderr,"FinalizeCCTx() unspendable CC addr.(%s)\n",unspendable);
+                }
+                else if ( strcmp(destaddr,tokensunspendable) == 0 )
+                {
+                    privkey = unspendablepriv;
+                    cond = othertokenscond;
                 }
 				// check if this is the 2nd additional evalcode + 'unspendable' cc addr:
                 else if ( strcmp(destaddr,cp->unspendableaddr2) == 0)
