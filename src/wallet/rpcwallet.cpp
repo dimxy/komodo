@@ -5687,8 +5687,10 @@ UniValue channelsinfo(const UniValue& params, bool fHelp)
 UniValue channelsopen(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ); int32_t numpayments; int64_t payment; std::vector<unsigned char> destpub; struct CCcontract_info *cp,C; std::string hex;
+    uint256 tokenid=zeroid;
+
     cp = CCinit(&C,EVAL_CHANNELS);
-    if ( fHelp || params.size() != 3 )
+    if ( fHelp || params.size() < 3 || params.size() > 4)
         throw runtime_error("channelsopen destpubkey numpayments payment\n");
     if ( ensure_CCrequirements() < 0 )
         throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
@@ -5712,7 +5714,11 @@ UniValue channelsopen(const UniValue& params, bool fHelp)
         ERR_RESULT("invalid payment amount, must be greater than 0");
         return result;
     }
-    hex = ChannelOpen(0,pubkey2pk(destpub),numpayments,payment);
+    if (params.size() ==4)
+    {
+        tokenid=Parseuint256((char *)params[3].get_str().c_str());
+    }
+    hex = ChannelOpen(0,pubkey2pk(destpub),numpayments,payment,tokenid);
     if ( hex.size() > 0 )
     {
         result.push_back(Pair("result", "success"));
@@ -5725,7 +5731,7 @@ UniValue channelspayment(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ); struct CCcontract_info *cp,C; std::string hex; uint256 opentxid,secret=zeroid; int32_t n; int64_t amount;
     cp = CCinit(&C,EVAL_CHANNELS);
-    if ( fHelp || params.size() != 2 )
+    if ( fHelp || params.size() < 2 ||  params.size() >3 )
         throw runtime_error("channelspayment opentxid amount [secret]\n");
     if ( ensure_CCrequirements() < 0 )
         throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
