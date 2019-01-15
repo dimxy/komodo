@@ -43,16 +43,10 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTransaction vintx; std::string hex; uint256 hashBlock; uint64_t mask=0,nmask=0,vinimask=0;
     int64_t utxovalues[64],change,normalinputs=0,totaloutputs=0,normaloutputs=0,totalinputs=0,normalvins=0,ccvins=0; 
-<<<<<<< HEAD
     int32_t i,utxovout,n,err = 0; 
 	char myaddr[64], destaddr[64], unspendable[64], mytokensaddr[64], mysingletokensaddr[64];
     uint8_t *privkey, myprivkey[32], unspendablepriv[32], *msg32 = 0; 
 	CC *mycond=0, *othercond=0, *othercond2=0, *othercond3=0, *othercond1of2=NULL, *othercond1of2tokens = NULL, *cond, *mytokenscond = NULL, *mysingletokenscond = NULL;
-=======
-    int32_t i,utxovout,n,err = 0; char myaddr[64],destaddr[64],unspendable[64],mytokensaddr[64];
-    uint8_t *privkey,myprivkey[32],unspendablepriv[32],*msg32 = 0; 
-	CC *mycond=0, *othercond=0, *othercond2=0, *othercond3=0, *othercond1of2=NULL, *othercond1of2tokens = NULL, *cond, *mytokenscond = NULL;
->>>>>>> Fix
 	CPubKey unspendablepk;
 	struct CCcontract_info *cpTokens, tokensC;
 
@@ -74,10 +68,14 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
     mycond = MakeCCcond1(cp->evalcode,mypk);
 	
 <<<<<<< HEAD
+<<<<<<< HEAD
 	GetTokensCCaddress(cp, mytokensaddr, mypk);
 	mytokenscond = MakeTokensCCcond1(cp->evalcode, mypk);
 =======
 	GetTokensCCaddress(cp, myaddr, mypk);
+=======
+	GetTokensCCaddress(cp, mytokensaddr, mypk);
+>>>>>>> Fix
     mytokenscond = MakeTokensCCcond1(cp->evalcode, mypk);
 >>>>>>> Fix
 
@@ -154,7 +152,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
             {
                 Getscriptaddress(destaddr,vintx.vout[utxovout].scriptPubKey);
                 //fprintf(stderr,"FinalizeCCTx() vin.%d is CC %.8f -> (%s)\n",i,(double)utxovalues[i]/COIN,destaddr);
-				std::cerr << "FinalizeCCtx() destaddr=" << destaddr << " myaddr=" << myaddr << std::endl;
+				std::cerr << "FinalizeCCtx() destaddr=" << destaddr << " myCCaddr=" << myaddr << std::endl;
                 if( strcmp(destaddr,myaddr) == 0 )
                 {
                     privkey = myprivkey;

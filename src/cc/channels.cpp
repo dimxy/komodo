@@ -166,7 +166,8 @@ bool ChannelsExactAmounts(struct CCcontract_info *cp,Eval* eval,const CTransacti
         {
             fprintf(stderr,"inputs %llu vs outputs %llu\n",(long long)inputs,(long long)outputs);
             return eval->Invalid("mismatched inputs != outputs");
-        }        
+        } 
+        else return (true);       
     }
     else
     {
@@ -193,7 +194,7 @@ bool ChannelsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
     {
         if (ChannelsExactAmounts(cp,eval,tx,1,10000) == false )
         {
-            return eval->Invalid("uinvalid channel inputs vs. outputs!");            
+            return eval->Invalid("invalid channel inputs vs. outputs!");            
         }
         else
         {
@@ -771,13 +772,13 @@ UniValue ChannelsInfo(uint256 channeltxid)
         if(tokenid!=zeroid)
         {
             result.push_back(Pair("Token id",tokenid.GetHex().data()));
-            result.push_back(Pair("Denomination (tokens)",i64tostr(dstr(param2))));
-            result.push_back(Pair("Amount (tokens)",i64tostr(dstr(param1*param2))));
+            result.push_back(Pair("Denomination (tokens)",dstr(param2)));
+            result.push_back(Pair("Amount (tokens)",dstr(param1*param2)));
         }
         else
         {
-            result.push_back(Pair("Denomination (coins)",i64tostr(dstr(param2))));
-            result.push_back(Pair("Amount (coins)",i64tostr(dstr(param1*param2))));
+            result.push_back(Pair("Denomination (coins)",dstr(param2)));
+            result.push_back(Pair("Amount (coins)",dstr(param1*param2)));
         }        
         SetCCtxids(addressIndex,CCaddr);                      
         for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); it++)
