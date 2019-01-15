@@ -99,7 +99,7 @@ CScript EncodeChannelsOpRet(uint8_t funcid,uint256 tokenid,uint256 opentxid,CPub
         std::vector<CPubKey> pks;
         pks.push_back(srcpub);
         pks.push_back(destpub);
-        opret=EncodeTokenOpRet('t',EVAL_TOKENS,tokenid,pks,opret);
+        return(EncodeTokenOpRet(tokenid,pks,opret));
     }
     return(opret);
 }
@@ -111,7 +111,7 @@ uint8_t DecodeChannelsOpRet(const CScript &scriptPubKey, uint256 &tokenid, uint2
 
     if (DecodeTokenOpRet(scriptPubKey,tokenevalcode,tokenid,pubkeys,vOpretExtra)!=0 && tokenevalcode==EVAL_TOKENS && vOpretExtra.size()>0)
     {
-        vopret=vOpretExtra;
+        if (!E_UNMARSHAL(vOpretExtra, { ss >> vopret; })) return (0);
     }
     else GetOpReturnData(scriptPubKey, vopret);
     if ( vopret.size() > 2 )
@@ -455,7 +455,7 @@ int64_t AddChannelsInputs(struct CCcontract_info *cp,CMutableTransaction &mtx, C
 std::string ChannelOpen(uint64_t txfee,CPubKey destpub,int32_t numpayments,int64_t payment, uint256 tokenid)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    uint8_t hash[32],hashdest[32]; uint64_t amount,funds; int32_t i; uint256 hashchain,entropy,hentropy;
+    uint8_t hash[32],hashdest[32]; uint64_t amount,tokens=0,funds; int32_t i; uint256 hashchain,entropy,hentropy;
     CPubKey mypk; struct CCcontract_info *cp,*cpTokens,C,CTokens;
     
     if ( numpayments <= 0 || payment <= 0 || numpayments > CHANNELS_MAXPAYMENTS )
@@ -473,10 +473,10 @@ std::string ChannelOpen(uint64_t txfee,CPubKey destpub,int32_t numpayments,int64
     if (tokenid!=zeroid)
     {
         amount=AddNormalinputs(mtx,mypk,3*txfee,5);
-        amount+=AddTokenCCInputs(cpTokens, mtx, mypk, tokenid, funds, 64);       
+        tokens=AddTokenCCInputs(cpTokens, mtx, mypk, tokenid, funds, 64);       
     }
     else amount=AddNormalinputs(mtx,mypk,funds+3*txfee,64);
-    if (amount > 0)
+    if (amount+tokens >= funds+2*txfee)
     {
         hentropy = DiceHashEntropy(entropy,mtx.vin[0].prevout.hash,mtx.vin[0].prevout.n,1);
         endiancpy(hash,(uint8_t *)&hentropy,32);
@@ -490,6 +490,7 @@ std::string ChannelOpen(uint64_t txfee,CPubKey destpub,int32_t numpayments,int64
         else mtx.vout.push_back(MakeCC1of2vout(EVAL_CHANNELS,funds,mypk,destpub));
         mtx.vout.push_back(MakeCC1vout(EVAL_CHANNELS,txfee,mypk));
         mtx.vout.push_back(MakeCC1vout(EVAL_CHANNELS,txfee,destpub));
+        if (tokenid!=zeroid && tokens>funds) mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,tokens-funds,mypk));
         return(FinalizeCCTx(0,cp,mtx,mypk,txfee,EncodeChannelsOpRet('O',tokenid,zeroid,mypk,destpub,numpayments,payment,hashchain)));
     }
     return("");
@@ -773,13 +774,13 @@ UniValue ChannelsInfo(uint256 channeltxid)
         if(tokenid!=zeroid)
         {
             result.push_back(Pair("Token id",tokenid.GetHex().data()));
-            result.push_back(Pair("Denomination (tokens)",dstr(param2)));
-            result.push_back(Pair("Amount (tokens)",dstr(param1*param2)));
+            result.push_back(Pair("Denomination (token satoshi)",i64tostr(param2)));
+            result.push_back(Pair("Amount (token satoshi)",i64tostr(param1*param2)));
         }
         else
         {
-            result.push_back(Pair("Denomination (coins)",dstr(param2)));
-            result.push_back(Pair("Amount (coins)",dstr(param1*param2)));
+            result.push_back(Pair("Denomination (satoshi)",i64tostr(param2)));
+            result.push_back(Pair("Amount (satoshi)",i64tostr(param1*param2)));
         }        
         SetCCtxids(addressIndex,CCaddr);                      
         for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it=addressIndex.begin(); it!=addressIndex.end(); it++)
