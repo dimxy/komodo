@@ -236,8 +236,12 @@ bool ChannelsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
                             return eval->Invalid("vout.1 is CC for channelPayment (marker to srcPub)!");
                         else if ( IsChannelsMarkervout(cp,tx,destpub,2)==0 )
                             return eval->Invalid("vout.2 is CC for channelPayment (marker to dstPub)!");
-                        // else if ( tx.vout[3].scriptPubKey.IsPayToCryptoCondition() != 0 )
-                        //     return eval->Invalid("vout.3 is normal for channelPayment!");
+                        else if ( tokenid!=zeroid && tx.vout[3].scriptPubKey.IsPayToCryptoCondition() == 0 )
+                            return eval->Invalid("vout.3 is CC for channelPayment!");
+                        else if ( tokenid==zeroid && tx.vout[3].scriptPubKey.IsPayToCryptoCondition() != 0 )
+                            return eval->Invalid("vout.3 is normal for channelPayment!");
+                        else if ( tokenid!=zeroid && tx.vout[3].scriptPubKey!=MakeCC1vout(EVAL_TOKENS,tx.vout[3].nValue,destpub).scriptPubKey)
+                            return eval->Invalid("payment funds do not go to receiver!");
                         else if ( tx.vout[3].scriptPubKey!=CScript() << ParseHex(HexStr(destpub)) << OP_CHECKSIG)
                             return eval->Invalid("payment funds do not go to receiver!");
                         else if ( param1 > CHANNELS_MAXPAYMENTS)
@@ -341,8 +345,12 @@ bool ChannelsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
                             return eval->Invalid("vout.0 is CC for channelRefund (marker to srcPub)!");
                         else if ( IsChannelsMarkervout(cp,tx,destpub,1)==0 )
                             return eval->Invalid("vout.1 is CC for channelRefund (marker to dstPub)!");
-                        // else if ( tx.vout[2].scriptPubKey.IsPayToCryptoCondition() != 0 )
-                        //     return eval->Invalid("vout.2 is normal for channelRefund!");
+                        else if ( tokenid!=zeroid && tx.vout[2].scriptPubKey.IsPayToCryptoCondition() == 0 )
+                            return eval->Invalid("vout.2 is CC for channelPayment!");
+                        else if ( tokenid==zeroid && tx.vout[2].scriptPubKey.IsPayToCryptoCondition() != 0 )
+                            return eval->Invalid("vout.2 is normal for channelPayment!");
+                        else if ( tokenid!=zeroid && tx.vout[2].scriptPubKey!=MakeCC1vout(EVAL_TOKENS,tx.vout[2].nValue,srcpub).scriptPubKey)
+                            return eval->Invalid("payment funds do not go to sender!");
                         else if ( tx.vout[2].scriptPubKey!=CScript() << ParseHex(HexStr(srcpub)) << OP_CHECKSIG)
                             return eval->Invalid("payment funds do not go to sender!");
                         else if ( param1 > CHANNELS_MAXPAYMENTS)
@@ -445,8 +453,9 @@ int64_t AddChannelsInputs(struct CCcontract_info *cp,CMutableTransaction &mtx, C
         prevtxid=txid;
         mtx.vin.push_back(CTxIn(txid,0,CScript()));
         mtx.vin.push_back(CTxIn(txid,marker,CScript()));
-        Myprivkey(myprivkey);
-        CCaddr1of2set(cp,srcpub,destpub,coinaddr);
+        Myprivkey(myprivkey);        
+        if (tokenid!=zeroid) CCaddrTokens1of2set(cp,srcpub,destpub,coinaddr);
+        else CCaddr1of2set(cp,srcpub,destpub,coinaddr);
         return totalinputs;
     }
     else return 0;
