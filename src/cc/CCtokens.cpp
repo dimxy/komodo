@@ -407,6 +407,16 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys, struct CCcontract_info *c
 				std::cerr << "IsTokensvout() vopretExtra=" << HexStr(vopretExtra) << std::endl;
 				//std::cerr << "IsTokensvout() vcontractOpret=" << HexStr(vcontractOpret) << std::endl;;
 
+				uint8_t evalCodeInOpret;
+				if (vopretExtra.size() >= 2 /*|| vopretExtra.size() != vopretExtra.begin()[0]  <-- shold we check this?*/) {
+					std::cerr << "IsTokensvout() empty or incorrect contract opret" << std::endl;
+					evalCodeInOpret = vopretExtra.begin()[1];
+				}
+				else {
+					// if payload is empty maybe it is a claim to non-payload-one-token-eval vout?
+					evalCodeInOpret = EVAL_TOKENS;
+				}
+
 				// maybe this is dual-eval 1 pubkey or 1of2 pubkey vout?
 				if (voutPubkeys.size() >= 1 && voutPubkeys.size() <= 2) {					
 					CTxOut testDualVout;
@@ -704,10 +714,10 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CTransaction tokentx;
 
-	// CCerror = strprintf("obsolete, cannot return correct value without eval");
-	// return 0;
+	CCerror = strprintf("obsolete, cannot return correct value without eval");
+	return 0;
 
-	if (GetTransaction(tokenid, tokentx, hashBlock, false) == 0)
+/*	if (GetTransaction(tokenid, tokentx, hashBlock, false) == 0)
 	{
 		fprintf(stderr, "cant find tokenid\n");
 		CCerror = strprintf("cant find tokenid");
@@ -716,7 +726,7 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 
 	struct CCcontract_info *cp, C;
 	cp = CCinit(&C, EVAL_TOKENS);
-	return(AddTokenCCInputs(cp, mtx, pk, tokenid, 0, 0));
+	return(AddTokenCCInputs(cp, mtx, pk, tokenid, 0, 0)); */
 }
 
 UniValue TokenInfo(uint256 tokenid)

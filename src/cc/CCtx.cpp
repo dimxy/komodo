@@ -66,36 +66,17 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 
     GetCCaddress(cp,myaddr,mypk);
     mycond = MakeCCcond1(cp->evalcode,mypk);
-<<<<<<< HEAD
 	
-<<<<<<< HEAD
-<<<<<<< HEAD
 	GetTokensCCaddress(cp, mytokensaddr, mypk);
 	mytokenscond = MakeTokensCCcond1(cp->evalcode, mypk);
-=======
-	GetTokensCCaddress(cp, myaddr, mypk);
-=======
-	GetTokensCCaddress(cp, mytokensaddr, mypk);
->>>>>>> Fix
-    mytokenscond = MakeTokensCCcond1(cp->evalcode, mypk);
->>>>>>> Fix
 
 	cpTokens = CCinit(&tokensC, EVAL_TOKENS);
 	GetCCaddress(cpTokens, mysingletokensaddr, mypk);
 	mysingletokenscond = MakeCCcond1(cpTokens->evalcode, mypk);
-=======
-
-    cpTokens = CCinit(&CTokens,EVAL_TOKENS);
-    GetCCaddress(cpTokens,mytokensaddr,mypk);
-    mytokenscond = MakeCCcond1(cpTokens->evalcode,mypk);
-
-	GetTokensCCaddress(cp, tokensaddr, mypk);
-    tokenscond = MakeTokensCCcond1(cp->evalcode, mypk);
->>>>>>> Fix
 
     unspendablepk = GetUnspendable(cp,unspendablepriv);
     GetCCaddress(cp,unspendable,unspendablepk);
-    othercond = MakeCCcond1(cp->evalcode,unspendablepk);
+    othercond = MakeCCcond1(cp->evalcode,unspendablepk);  
 
     //Reorder vins so that for multiple normal vins all other except vin0 goes to the end
     //This is a must to avoid hardfork change of validation in every CC, because there could be maximum one normal vin at the begining with current validation.
@@ -162,19 +143,17 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
             {
                 Getscriptaddress(destaddr,vintx.vout[utxovout].scriptPubKey);
                 //fprintf(stderr,"FinalizeCCTx() vin.%d is CC %.8f -> (%s)\n",i,(double)utxovalues[i]/COIN,destaddr);
-				std::cerr << "FinalizeCCtx() destaddr=" << destaddr << " myCCaddr=" << myaddr << std::endl;
+				std::cerr << "FinalizeCCtx() destaddr=" << destaddr << " myaddr=" << myaddr << std::endl;
                 if( strcmp(destaddr,myaddr) == 0 )
                 {
                     privkey = myprivkey;
                     cond = mycond;
                 }
-				else if (strcmp(destaddr, mytokensaddr) == 0)  // if this is Tokensvout
+				else if (strcmp(destaddr, mytokensaddr) == 0)  // if this is TokensCC1vout
 				{
 					privkey = myprivkey;
 					cond = mytokenscond;
-<<<<<<< HEAD
 					fprintf(stderr,"FinalizeCCTx() matched TokensCC1vout CC addr.(%s)\n",mytokensaddr);
-<<<<<<< HEAD
 				}
 				else if (strcmp(destaddr, mysingletokensaddr) == 0)  // if this is TokensCC1vout
 				{
@@ -182,18 +161,6 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 					cond = mysingletokenscond;
 					fprintf(stderr, "FinalizeCCTx() matched single-eval TokensCC1vout CC addr.(%s)\n", mytokensaddr);
 				}
-=======
-=======
-					fprintf(stderr,"FinalizeCCTx() matched Tokensvout CC addr.(%s)\n",mytokensaddr);
-                }
-                else if (strcmp(destaddr, tokensaddr) == 0)  // if this is Tokens+CCvout
-				{
-					privkey = myprivkey;
-					cond = tokenscond;
-					fprintf(stderr,"FinalizeCCTx() matched TokensCC1vout CC addr.(%s)\n",tokensaddr);
->>>>>>> Fix
-                }
->>>>>>> Fix
                 else if ( strcmp(destaddr,unspendable) == 0 )
                 {
                     privkey = unspendablepriv;

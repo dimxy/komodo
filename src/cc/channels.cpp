@@ -242,7 +242,7 @@ bool ChannelsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
                             return eval->Invalid("vout.3 is normal for channelPayment!");
                         else if ( tokenid!=zeroid && tx.vout[3].scriptPubKey!=MakeCC1vout(EVAL_TOKENS,tx.vout[3].nValue,destpub).scriptPubKey)
                             return eval->Invalid("payment funds do not go to receiver!");
-                        else if ( tx.vout[3].scriptPubKey!=CScript() << ParseHex(HexStr(destpub)) << OP_CHECKSIG)
+                        else if ( tokenid==zeroid && tx.vout[3].scriptPubKey!=CScript() << ParseHex(HexStr(destpub)) << OP_CHECKSIG)
                             return eval->Invalid("payment funds do not go to receiver!");
                         else if ( param1 > CHANNELS_MAXPAYMENTS)
                             return eval->Invalid("too many payment increments!");
@@ -351,7 +351,7 @@ bool ChannelsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
                             return eval->Invalid("vout.2 is normal for channelPayment!");
                         else if ( tokenid!=zeroid && tx.vout[2].scriptPubKey!=MakeCC1vout(EVAL_TOKENS,tx.vout[2].nValue,srcpub).scriptPubKey)
                             return eval->Invalid("payment funds do not go to sender!");
-                        else if ( tx.vout[2].scriptPubKey!=CScript() << ParseHex(HexStr(srcpub)) << OP_CHECKSIG)
+                        else if ( tokenid==zeroid && tx.vout[2].scriptPubKey!=CScript() << ParseHex(HexStr(srcpub)) << OP_CHECKSIG)
                             return eval->Invalid("payment funds do not go to sender!");
                         else if ( param1 > CHANNELS_MAXPAYMENTS)
                             return eval->Invalid("too many payment increments!");
