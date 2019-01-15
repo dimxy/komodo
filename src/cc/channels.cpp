@@ -157,7 +157,7 @@ bool ChannelsExactAmounts(struct CCcontract_info *cp,Eval* eval,const CTransacti
                 if ( eval->GetTxUnconfirmed(tx.vin[1].prevout.hash,vinTx,hashBlock) == 0 )
                     return eval->Invalid("cant find vinTx");
                 inputs = vinTx.vout[tx.vin[1].prevout.n].nValue;
-                outputs = tx.vout[0].nValue + tx.vout[2].nValue; 
+                outputs = tx.vout[2].nValue; 
                 break;   
             default:
                 return (false);
