@@ -66,6 +66,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 
     GetCCaddress(cp,myaddr,mypk);
     mycond = MakeCCcond1(cp->evalcode,mypk);
+<<<<<<< HEAD
 	
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -82,6 +83,15 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 	cpTokens = CCinit(&tokensC, EVAL_TOKENS);
 	GetCCaddress(cpTokens, mysingletokensaddr, mypk);
 	mysingletokenscond = MakeCCcond1(cpTokens->evalcode, mypk);
+=======
+
+    cpTokens = CCinit(&CTokens,EVAL_TOKENS);
+    GetCCaddress(cpTokens,mytokensaddr,mypk);
+    mytokenscond = MakeCCcond1(cpTokens->evalcode,mypk);
+
+	GetTokensCCaddress(cp, tokensaddr, mypk);
+    tokenscond = MakeTokensCCcond1(cp->evalcode, mypk);
+>>>>>>> Fix
 
     unspendablepk = GetUnspendable(cp,unspendablepriv);
     GetCCaddress(cp,unspendable,unspendablepk);
@@ -158,10 +168,11 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                     privkey = myprivkey;
                     cond = mycond;
                 }
-				else if (strcmp(destaddr, mytokensaddr) == 0)  // if this is TokensCC1vout
+				else if (strcmp(destaddr, mytokensaddr) == 0)  // if this is Tokensvout
 				{
 					privkey = myprivkey;
 					cond = mytokenscond;
+<<<<<<< HEAD
 					fprintf(stderr,"FinalizeCCTx() matched TokensCC1vout CC addr.(%s)\n",mytokensaddr);
 <<<<<<< HEAD
 				}
@@ -172,6 +183,15 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 					fprintf(stderr, "FinalizeCCTx() matched single-eval TokensCC1vout CC addr.(%s)\n", mytokensaddr);
 				}
 =======
+=======
+					fprintf(stderr,"FinalizeCCTx() matched Tokensvout CC addr.(%s)\n",mytokensaddr);
+                }
+                else if (strcmp(destaddr, tokensaddr) == 0)  // if this is Tokens+CCvout
+				{
+					privkey = myprivkey;
+					cond = tokenscond;
+					fprintf(stderr,"FinalizeCCTx() matched TokensCC1vout CC addr.(%s)\n",tokensaddr);
+>>>>>>> Fix
                 }
 >>>>>>> Fix
                 else if ( strcmp(destaddr,unspendable) == 0 )
