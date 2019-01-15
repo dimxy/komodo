@@ -362,18 +362,6 @@ bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk)
     return(_GetCCaddress(destaddr,cp->evalcode,pk));
 }
 
-bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode, CPubKey pk)
-{
-	CC *payoutCond;
-	destaddr[0] = 0;
-	if ((payoutCond = MakeTokensCCcond1(evalcode, pk)) != 0)
-	{
-		Getscriptaddress(destaddr, CCPubKey(payoutCond));
-		cc_free(payoutCond);
-	}
-	return(destaddr[0] != 0);
-}
-
 bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk)
 {
 	destaddr[0] = 0;

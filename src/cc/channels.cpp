@@ -106,10 +106,10 @@ CScript EncodeChannelsOpRet(uint8_t funcid,uint256 tokenid,uint256 opentxid,CPub
 
 uint8_t DecodeChannelsOpRet(const CScript &scriptPubKey, uint256 &tokenid, uint256 &opentxid, CPubKey &srcpub,CPubKey &destpub,int32_t &numpayments,int64_t &payment,uint256 &hashchain)
 {
-    std::vector<uint8_t> vopret; uint8_t *script,e,f,dummyevalcode;
+    std::vector<uint8_t> vopret; uint8_t *script,e,f,tokenevalcode;
     std::vector<CPubKey> pubkeys; std::vector<uint8_t> vOpretExtra;
 
-    if (DecodeTokenOpRet(scriptPubKey,dummyevalcode,tokenid,pubkeys,vOpretExtra)!=0 && vOpretExtra.size()>0)
+    if (DecodeTokenOpRet(scriptPubKey,tokenevalcode,tokenid,pubkeys,vOpretExtra)!=0 && tokenevalcode==EVAL_TOKENS && vOpretExtra.size()>0)
     {
         vopret=vOpretExtra;
     }

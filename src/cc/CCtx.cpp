@@ -43,10 +43,16 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTransaction vintx; std::string hex; uint256 hashBlock; uint64_t mask=0,nmask=0,vinimask=0;
     int64_t utxovalues[64],change,normalinputs=0,totaloutputs=0,normaloutputs=0,totalinputs=0,normalvins=0,ccvins=0; 
+<<<<<<< HEAD
     int32_t i,utxovout,n,err = 0; 
 	char myaddr[64], destaddr[64], unspendable[64], mytokensaddr[64], mysingletokensaddr[64];
     uint8_t *privkey, myprivkey[32], unspendablepriv[32], *msg32 = 0; 
 	CC *mycond=0, *othercond=0, *othercond2=0, *othercond3=0, *othercond1of2=NULL, *othercond1of2tokens = NULL, *cond, *mytokenscond = NULL, *mysingletokenscond = NULL;
+=======
+    int32_t i,utxovout,n,err = 0; char myaddr[64],destaddr[64],unspendable[64],mytokensaddr[64];
+    uint8_t *privkey,myprivkey[32],unspendablepriv[32],*msg32 = 0; 
+	CC *mycond=0, *othercond=0, *othercond2=0, *othercond3=0, *othercond1of2=NULL, *othercond1of2tokens = NULL, *cond, *mytokenscond = NULL;
+>>>>>>> Fix
 	CPubKey unspendablepk;
 	struct CCcontract_info *cpTokens, tokensC;
 
@@ -67,8 +73,13 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
     GetCCaddress(cp,myaddr,mypk);
     mycond = MakeCCcond1(cp->evalcode,mypk);
 	
+<<<<<<< HEAD
 	GetTokensCCaddress(cp, mytokensaddr, mypk);
 	mytokenscond = MakeTokensCCcond1(cp->evalcode, mypk);
+=======
+	GetTokensCCaddress(cp, myaddr, mypk);
+    mytokenscond = MakeTokensCCcond1(cp->evalcode, mypk);
+>>>>>>> Fix
 
 	cpTokens = CCinit(&tokensC, EVAL_TOKENS);
 	GetCCaddress(cpTokens, mysingletokensaddr, mypk);
@@ -76,15 +87,14 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 
     unspendablepk = GetUnspendable(cp,unspendablepriv);
     GetCCaddress(cp,unspendable,unspendablepk);
-<<<<<<< HEAD
-    othercond = MakeCCcond1(cp->evalcode,unspendablepk);  
-
-=======
     othercond = MakeCCcond1(cp->evalcode,unspendablepk);
-    GetTokensCCaddress(cp,tokensunspendable,unspendablepk);
+
+    //Reorder vins so that for multiple normal vins all other except vin0 goes to the end
+    //This is a must to avoid hardfork change of validation in every CC, because there could be maximum one normal vin at the begining with current validation.
     for (i=0; i<n; i++)
     {
         if ( GetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock,false) != 0 )
+        {
             if ( vintx.vout[mtx.vin[i].prevout.n].scriptPubKey.IsPayToCryptoCondition() == 0 && ccvins==0)
                 normalvins++;            
             else ccvins++;
@@ -155,6 +165,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 					privkey = myprivkey;
 					cond = mytokenscond;
 					fprintf(stderr,"FinalizeCCTx() matched TokensCC1vout CC addr.(%s)\n",mytokensaddr);
+<<<<<<< HEAD
 				}
 				else if (strcmp(destaddr, mysingletokensaddr) == 0)  // if this is TokensCC1vout
 				{
@@ -162,16 +173,14 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 					cond = mysingletokenscond;
 					fprintf(stderr, "FinalizeCCTx() matched single-eval TokensCC1vout CC addr.(%s)\n", mytokensaddr);
 				}
+=======
+                }
+>>>>>>> Fix
                 else if ( strcmp(destaddr,unspendable) == 0 )
                 {
                     privkey = unspendablepriv;
                     cond = othercond;
                     //fprintf(stderr,"FinalizeCCTx() unspendable CC addr.(%s)\n",unspendable);
-                }
-                else if ( strcmp(destaddr,tokensunspendable) == 0 )
-                {
-                    privkey = unspendablepriv;
-                    cond = othertokenscond;
                 }
 				// check if this is the 2nd additional evalcode + 'unspendable' cc addr:
                 else if ( strcmp(destaddr,cp->unspendableaddr2) == 0)

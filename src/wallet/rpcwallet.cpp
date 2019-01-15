@@ -5714,7 +5714,7 @@ UniValue channelsopen(const UniValue& params, bool fHelp)
         ERR_RESULT("invalid payment amount, must be greater than 0");
         return result;
     }
-    if (params.size() ==4)
+    if (params.size()==4)
     {
         tokenid=Parseuint256((char *)params[3].get_str().c_str());
     }
