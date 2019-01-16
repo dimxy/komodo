@@ -6832,7 +6832,6 @@ UniValue tokenbalance(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VOBJ); uint256 tokenid; uint64_t balance; std::vector<unsigned char> pubkey; struct CCcontract_info *cp,C;
 	CCerror.clear();
 
-    cp = CCinit(&C,EVAL_ASSETS);
     if ( fHelp || params.size() > 2 )
         throw runtime_error("tokenbalance tokenid [pubkey]\n");
     if ( ensure_CCrequirements() < 0 )
@@ -6852,7 +6851,7 @@ UniValue tokenbalance(const UniValue& params, bool fHelp)
 		char destaddr[64];
 
 		result.push_back(Pair("result", "success"));
-
+        cp = CCinit(&C,EVAL_TOKENS);
 		if (GetCCaddress(cp, destaddr, pubkey2pk(pubkey)) != 0)
 			result.push_back(Pair("CCaddress", destaddr));
 
