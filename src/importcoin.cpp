@@ -29,7 +29,7 @@ int32_t komodo_nextheight();
 CTransaction MakeImportCoinTransaction(const TxProof proof, const CTransaction burnTx, const std::vector<CTxOut> payouts)
 {
     std::vector<uint8_t> payload = E_MARSHAL(ss << EVAL_IMPORTCOIN);
-    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), /*komodo_nextheight()*/ 0); //nExpiryHeight = 0 to prevent validation errors if it changes
     mtx.vin.push_back(CTxIn(COutPoint(burnTx.GetHash(), 10e8), CScript() << payload));
     mtx.vout = payouts;
     auto importData = E_MARSHAL(ss << proof; ss << burnTx);
