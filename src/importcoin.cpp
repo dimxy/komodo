@@ -26,14 +26,17 @@
 
 int32_t komodo_nextheight();
 
-CTransaction MakeImportCoinTransaction(const TxProof proof, const CTransaction burnTx, const std::vector<CTxOut> payouts, uint32_t nExpiryHeightParam)
+CTransaction MakeImportCoinTransaction(const TxProof proof, const CTransaction burnTx, const std::vector<CTxOut> payouts, uint32_t nExpiryHeightOverwrite)
 {
     std::vector<uint8_t> payload = E_MARSHAL(ss << EVAL_IMPORTCOIN);
-    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), (nExpiryHeightParam == 0 ? komodo_nextheight() : nExpiryHeightParam)); 
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight()); 
     mtx.vin.push_back(CTxIn(COutPoint(burnTx.GetHash(), 10e8), CScript() << payload));
     mtx.vout = payouts;
     auto importData = E_MARSHAL(ss << proof; ss << burnTx);
     mtx.vout.insert(mtx.vout.begin(), CTxOut(0, CScript() << OP_RETURN << importData));
+
+	if (nExpiryHeightOverwrite != 0)
+		mtx.nExpiryHeight = nExpiryHeightOverwrite;  //this is for validation tx construction
     return CTransaction(mtx);
 }
 
