@@ -331,8 +331,8 @@ UniValue selfimport(const UniValue& params, bool fHelp)
 	bool fValidAddress = ExtractDestination(scriptPubKey, address);
 	UniValue result(UniValue::VOBJ);
 	result.push_back(Pair("hex", hextx));
-	result.push_back(Pair("vout", ivout));   // notify user about the used vout of rawtx
-	result.push_back(Pair("address", EncodeDestination(address)));  // notify user about the address where funds are send
+	result.push_back(Pair("UsedRawtxVout", ivout));   // notify user about the used vout of rawtx
+	result.push_back(Pair("DestinationAddress", EncodeDestination(address)));  // notify user about the address where funds are send
 
 	return result;
 }
