@@ -40,6 +40,7 @@
 #include <univalue.h>
 #include <regex>
 
+#include <string.h>
 
 using namespace std;
 
