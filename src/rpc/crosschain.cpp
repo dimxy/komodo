@@ -40,8 +40,6 @@
 #include <univalue.h>
 #include <regex>
 
-#include <string.h>
-
 using namespace std;
 
 int32_t komodo_MoM(int32_t *notarized_htp,uint256 *MoMp,uint256 *kmdtxidp,int32_t nHeight,uint256 *MoMoMp,int32_t *MoMoMoffsetp,int32_t *MoMoMdepthp,int32_t *kmdstartip,int32_t *kmdendip);
@@ -300,7 +298,7 @@ UniValue selfimport(const UniValue& params, bool fHelp)
     txid = Parseuint256((char *)params[1].get_str().c_str()); // allow for txid != hash(rawtx)
 
 	int32_t ivout = -1;
-	if (strcmpi(params[2].get_str().c_str(), "find") != 0) {
+	if( params[2].get_str() != "find" ) {
 		if( !std::all_of(params[2].get_str().begin(), params[2].get_str().end(), ::isdigit) )  // check if not all chars are digit
 			throw std::runtime_error("incorrect nvout param");
 
