@@ -33,7 +33,7 @@ extern std::string ASSETCHAINS_SELFIMPORT;
 extern uint16_t ASSETCHAINS_CODAPORT,ASSETCHAINS_BEAMPORT;
 extern uint8_t ASSETCHAINS_OVERRIDE_PUBKEY33[33];
 
-int32_t GetSelfimportProof(std::string source,CMutableTransaction &mtx,CScript &scriptPubKey,TxProof &proof,uint64_t burnAmount,std::vector<uint8_t> rawtx,uint256 txid,std::vector<uint8_t> rawproof) // find burnTx with hash from "other" daemon
+int32_t GetSelfimportProof(std::string source, CMutableTransaction &mtx, CScript &scriptPubKey, TxProof &proof, uint64_t burnAmount, std::vector<uint8_t> rawtx, int32_t &ivout, uint256 txid, std::vector<uint8_t> rawproof) // find burnTx with hash from "other" daemon
 {
     MerkleBranch newBranch; CMutableTransaction tmpmtx; CTransaction tx,vintx; uint256 blockHash; char destaddr[64],pkaddr[64];
     tmpmtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(),komodo_nextheight());
@@ -51,22 +51,27 @@ int32_t GetSelfimportProof(std::string source,CMutableTransaction &mtx,CScript &
         // confirm via ASSETCHAINS_CODAPORT that burnTx/hash is a valid CODA burn
         // return(0);
     }
-    else
-    {
-        if ( !E_UNMARSHAL(rawtx, ss >> tx) )
-            return(-1);
+	else
+	{
+		if (!E_UNMARSHAL(rawtx, ss >> tx))
+			return(-1);
 
 		if (tx.vout.size() == 0)
 			return -1;
 
-		CPubKey myPubkey = Mypubkey();
-		int32_t ivout = 0;
-		// skip change:
-		if( tx.vout[ivout].scriptPubKey == (CScript() << ParseHex(HexStr(myPubkey)) << OP_CHECKSIG) )
-			ivout++;
+		if (ivout < 0) {  // "ivout < 0" means "find"  
+			// try to find vout
+			CPubKey myPubkey = Mypubkey();
+			ivout = 0;
+			// skip change:
+			if (tx.vout[ivout].scriptPubKey == (CScript() << ParseHex(HexStr(myPubkey)) << OP_CHECKSIG))
+				ivout++;
+		}
 
-		if ( ivout >= tx.vout.size() )
+		if (ivout >= tx.vout.size())
 			return -1;
+
+		std::cerr << "GetSelfimportProof: using vout[" << ivout << "] of the passed rawtx" << std::endl;
 
         scriptPubKey = tx.vout[ivout].scriptPubKey;
         mtx = tx;

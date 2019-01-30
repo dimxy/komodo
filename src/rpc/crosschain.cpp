@@ -34,6 +34,8 @@
 #include "script/sign.h"
 #include "script/standard.h"
 
+#include "key_io.h"
+
 #include <stdint.h>
 #include <univalue.h>
 #include <regex>
@@ -47,7 +49,7 @@ struct komodo_ccdata_entry *komodo_allMoMs(int32_t *nump,uint256 *MoMoMp,int32_t
 uint256 komodo_calcMoM(int32_t height,int32_t MoMdepth);
 extern std::string ASSETCHAINS_SELFIMPORT;
 uint256 Parseuint256(char *hexstr);
-int32_t GetSelfimportProof(std::string source,CMutableTransaction &mtx,CScript &scriptPubKey,TxProof &proof,uint64_t burnAmount,std::vector<uint8_t> rawtx,uint256 txid,std::vector<uint8_t> rawproof);
+int32_t GetSelfimportProof(std::string source,CMutableTransaction &mtx,CScript &scriptPubKey,TxProof &proof,uint64_t burnAmount,std::vector<uint8_t> rawtx, int32_t &ivout, uint256 txid,std::vector<uint8_t> rawproof);
 
 
 UniValue assetchainproof(const UniValue& params, bool fHelp)
@@ -256,6 +258,7 @@ UniValue migrate_createimporttransaction(const UniValue& params, bool fHelp)
     TxProof proof = GetAssetchainProof(burnTx.GetHash(),burnTx);
 
     CTransaction importTx = MakeImportCoinTransaction(proof, burnTx, payouts);
+
     return HexStr(E_MARSHAL(ss << importTx));
 }
 
@@ -282,31 +285,57 @@ UniValue migrate_completeimporttransaction(const UniValue& params, bool fHelp)
 UniValue selfimport(const UniValue& params, bool fHelp)
 {
     CMutableTransaction mtx;
-    std::string source; TxProof proof; CTransaction burnTx,tx; CTxOut burnOut; uint64_t burnAmount; uint256 txid,blockHash; std::vector<CTxOut> vouts; std::vector<uint8_t> rawtx,rawproof; CScript scriptPubKey;
+    std::string source; TxProof proof; CTransaction burnTx,tx; CTxOut burnOut; uint64_t burnAmount; uint256 txid,blockHash; 
+	std::vector<CTxOut> vouts; 
+	std::vector<uint8_t> rawtx,rawproof; 
+	CScript scriptPubKey;
+
     if ( ASSETCHAINS_SELFIMPORT.size() == 0 )
         throw runtime_error("selfimport only works on -ac_import chains");
-    if (fHelp || params.size() < 3 || params.size() > 5 )
-        throw runtime_error("selfimport rawtx txid burnamount [rawproof source]\n\n"
-                            "creates signed selfimport transaction");
+    if (fHelp || params.size() < 4 || params.size() > 6 )
+        throw runtime_error("selfimport rawtx txid {nvout|find} burnamount [rawproof source]\n\n"
+                            "creates self import coin transaction for trusted ac_pubkey");
     rawtx = ParseHex(params[0].get_str().c_str());
     txid = Parseuint256((char *)params[1].get_str().c_str()); // allow for txid != hash(rawtx)
-    burnAmount = atof(params[2].get_str().c_str()) * COIN + 0.00000000499999;
+
+	int32_t ivout = -1;
+	if (strcmpi(params[2].get_str().c_str(), "find") != 0) {
+		if( !std::all_of(params[2].get_str().begin(), params[2].get_str().end(), ::isdigit) )  // check if not all chars are digit
+			throw std::runtime_error("incorrect nvout param");
+
+		ivout = atoi(params[2].get_str().c_str());
+	}
+
+    burnAmount = atof(params[3].get_str().c_str()) * COIN + 0.00000000499999;
     source = ASSETCHAINS_SELFIMPORT;
-    if ( params.size() >= 4 )
+    if ( params.size() >= 5 )
     {
-        rawproof = ParseHex(params[3].get_str().c_str());
-        if ( params.size() == 5 )
-            source = params[4].get_str();
+        rawproof = ParseHex(params[4].get_str().c_str());
+        if ( params.size() == 6 )
+            source = params[5].get_str();
     }
+
 	// prepare self-import 'quazi-burn' tx and also create vout for import tx (in mtx.vout):
-    if ( GetSelfimportProof(source,mtx,scriptPubKey,proof,burnAmount,rawtx,txid,rawproof) < 0 )
+    if ( GetSelfimportProof(source, mtx, scriptPubKey, proof, burnAmount, rawtx, ivout, txid, rawproof) < 0 )
         throw std::runtime_error("Failed validating selfimport");
+
     vouts = mtx.vout;
     burnOut = MakeBurnOutput(burnAmount,0xffffffff,ASSETCHAINS_SELFIMPORT,vouts,rawproof);
     mtx.vout.clear();
     mtx.vout.push_back(burnOut);	// push opret with proof
     burnTx = mtx;					// complete the creation of 'quazi-burn' tx
-    return HexStr(E_MARSHAL(ss << MakeImportCoinTransaction(proof,burnTx,vouts)));
+
+
+    std::string hextx = HexStr(E_MARSHAL(ss << MakeImportCoinTransaction(proof,burnTx,vouts)));
+
+	CTxDestination address;
+	bool fValidAddress = ExtractDestination(scriptPubKey, address);
+	UniValue result(UniValue::VOBJ);
+	result.push_back(Pair("hex", hextx));
+	result.push_back(Pair("vout", ivout));   // notify user about the used vout of rawtx
+	result.push_back(Pair("address", EncodeDestination(address)));  // notify user about the address where funds are send
+
+	return result;
 }
 
 UniValue getNotarisationsForBlock(const UniValue& params, bool fHelp)
