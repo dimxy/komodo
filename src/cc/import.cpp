@@ -55,7 +55,20 @@ int32_t GetSelfimportProof(std::string source,CMutableTransaction &mtx,CScript &
     {
         if ( !E_UNMARSHAL(rawtx, ss >> tx) )
             return(-1);
-        scriptPubKey = tx.vout[0].scriptPubKey;
+
+		if (tx.vout.size() == 0)
+			return -1;
+
+		CPubKey myPubkey = Mypubkey();
+		int32_t ivout = 0;
+		// skip change:
+		if( tx.vout[ivout].scriptPubKey == (CScript() << ParseHex(HexStr(myPubkey)) << OP_CHECKSIG) )
+			ivout++;
+
+		if ( ivout >= tx.vout.size() )
+			return -1;
+
+        scriptPubKey = tx.vout[ivout].scriptPubKey;
         mtx = tx;
         mtx.fOverwintered = tmpmtx.fOverwintered;
         mtx.nExpiryHeight = tmpmtx.nExpiryHeight;

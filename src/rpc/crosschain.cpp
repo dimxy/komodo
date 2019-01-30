@@ -298,13 +298,14 @@ UniValue selfimport(const UniValue& params, bool fHelp)
         if ( params.size() == 5 )
             source = params[4].get_str();
     }
+	// prepare self-import 'quazi-burn' tx and also create vout for import tx (in mtx.vout):
     if ( GetSelfimportProof(source,mtx,scriptPubKey,proof,burnAmount,rawtx,txid,rawproof) < 0 )
         throw std::runtime_error("Failed validating selfimport");
     vouts = mtx.vout;
     burnOut = MakeBurnOutput(burnAmount,0xffffffff,ASSETCHAINS_SELFIMPORT,vouts,rawproof);
     mtx.vout.clear();
-    mtx.vout.push_back(burnOut);
-    burnTx = mtx;
+    mtx.vout.push_back(burnOut);	// push opret with proof
+    burnTx = mtx;					// complete the creation of 'quazi-burn' tx
     return HexStr(E_MARSHAL(ss << MakeImportCoinTransaction(proof,burnTx,vouts)));
 }
 
