@@ -7930,10 +7930,17 @@ UniValue test_proof(const UniValue& params, bool fHelp)
 	}
 	uint256 merkleRoot = merkleBlock.txn.ExtractMatches(txids);
 
-	result.push_back(Pair("root", merkleRoot.GetHex()));
+	result.push_back(Pair("source_root", merkleRoot.GetHex()));
 
 	for (int i = 0; i < txids.size(); i++)
 		std::cerr << "merkle block txid=" << txids[0].GetHex() << std::endl;
+
+
+	std::vector<bool> vMatches(txids.size());
+	for (auto v : vMatches) v = true;
+	CPartialMerkleTree verifTree(txids, vMatches);
+
+	result.push_back(Pair("verif_root", verifTree.ExtractMatches(txids).GetHex()));
 
 	return result;
 }
