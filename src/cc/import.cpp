@@ -74,6 +74,8 @@ int32_t GetSelfimportProof(std::string source, CMutableTransaction &mtx, CScript
 		std::cerr << "GetSelfimportProof: using vout[" << ivout << "] of the passed rawtx" << std::endl;
 
         scriptPubKey = tx.vout[ivout].scriptPubKey;
+
+		//mtx is import tx
         mtx = tx;
         mtx.fOverwintered = tmpmtx.fOverwintered;
         mtx.nExpiryHeight = tmpmtx.nExpiryHeight;

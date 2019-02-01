@@ -306,7 +306,7 @@ UniValue selfimport(const UniValue& params, bool fHelp)
 	}
 
     burnAmount = atof(params[3].get_str().c_str()) * COIN + 0.00000000499999;
-    source = ASSETCHAINS_SELFIMPORT;
+    source = ASSETCHAINS_SELFIMPORT;   //defaults to -ac_import=... param
     if ( params.size() >= 5 )
     {
         rawproof = ParseHex(params[4].get_str().c_str());
