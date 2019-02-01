@@ -7914,12 +7914,13 @@ UniValue test_proof(const UniValue& params, bool fHelp)
 	UniValue result(UniValue::VOBJ);
 	std::vector<uint8_t>proof;
 
-	if (fHelp || (params.size() != 1))
+	if (fHelp || (params.size() != 2))
 		throw runtime_error("incorrect params\n");
 	if (ensure_CCrequirements() < 0)
 		throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
 
 	proof = ParseHex(params[0].get_str());
+	uint256 cointxid = Parseuint256((char *)params[1].get_str().c_str());
 
 	std::vector<uint256> txids;
 
@@ -7941,6 +7942,10 @@ UniValue test_proof(const UniValue& params, bool fHelp)
 	CPartialMerkleTree verifTree(txids, vMatches);
 
 	result.push_back(Pair("verif_root", verifTree.ExtractMatches(txids).GetHex()));
+
+	if (std::find(txids.begin(), txids.end(), cointxid) == txids.end()) {
+		fprintf(stderr, "GatewaysVerify invalid proof for this cointxid\n");
+	}
 
 	return result;
 }
