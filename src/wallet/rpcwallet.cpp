@@ -7938,7 +7938,7 @@ UniValue test_proof(const UniValue& params, bool fHelp)
 
 
 	std::vector<bool> vMatches(txids.size());
-	for (auto v : vMatches) v = true;
+	for (auto v : vMatches) v = false;
 	CPartialMerkleTree verifTree(txids, vMatches);
 
 	result.push_back(Pair("verif_root", verifTree.ExtractMatches(txids).GetHex()));
