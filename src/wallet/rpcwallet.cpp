@@ -7944,8 +7944,17 @@ UniValue test_proof(const UniValue& params, bool fHelp)
 	result.push_back(Pair("verif_root", verifTree.ExtractMatches(txids).GetHex()));
 
 	if (std::find(txids.begin(), txids.end(), cointxid) == txids.end()) {
-		fprintf(stderr, "GatewaysVerify invalid proof for this cointxid\n");
+		fprintf(stderr, "invalid proof for this cointxid\n");
 	}
+
+    std::vector<uint256> vMerkleTree;
+    bool f;
+    ::BuildMerkleTree(&f, txids, vMerkleTree);
+
+    std::vector<uint256> vMerkleBranch = ::GetMerkleBranch(0, txids.size(), vMerkleTree);
+
+    uint256 ourResult = SafeCheckMerkleBranch(zeroid, vMerkleBranch, 0);
+    result.push_back(Pair("SafeCheckMerkleBranch", ourResult.GetHex()));
 
 	return result;
 }
