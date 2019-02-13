@@ -20,9 +20,9 @@
 #include "primitives/transaction.h"
 #include "cc/CCinclude.h"
 
-#define LEV_INFO 0
-#define LEV_DEBUG1 1
-#define LOGSTREAM(category, level, logoperator) { std::ostringstream stream; logoperator; for(int i = 0; i < level; i ++) if( LogAcceptCategory( (std::string(category) + (level > 0 ? std::string("-")+std::to_string(level) : std::string("") )).c_str() ) ) LogPrintStr(stream.str()); }
+//#define LEV_INFO 0
+//#define LEV_DEBUG1 1
+//#define LOGSTREAM(category, level, logoperator) { std::ostringstream stream; logoperator; for(int i = 0; i < level; i ++) if( LogAcceptCategory( (std::string(category) + (level > 0 ? std::string("-")+std::to_string(level) : std::string("") )).c_str() ) ) LogPrintStr(stream.str()); }
 
 /*
  * CC Eval method for import coin.
@@ -64,24 +64,24 @@ bool ImportCoinGatewaysVerify(char *refdepositaddr, uint256 oracletxid, int32_t 
 
     if (myGetTransaction(oracletxid, oracletx, hashBlock) == 0 || (numvouts = oracletx.vout.size()) <= 0)
     {
-        LOGSTREAM("importcoin", LEV_INFO, stream << "ImportCoinGatewaysVerify can't find oracletxid=" << oracletxid.GetHex() << std::endl);
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "ImportCoinGatewaysVerify can't find oracletxid=" << oracletxid.GetHex() << std::endl);
         return false;
     }
     if (DecodeOraclesCreateOpRet(oracletx.vout[numvouts - 1].scriptPubKey, name, description, format) != 'C' || name != refcoin)
     {
-        LOGSTREAM("importcoin", LEV_INFO, stream << "ImportCoinGatewaysVerify mismatched oracle name=" << name.c_str() << " != " << refcoin.c_str() << std::endl);
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "ImportCoinGatewaysVerify mismatched oracle name=" << name.c_str() << " != " << refcoin.c_str() << std::endl);
         return false;
     }
     proofroot = BitcoinGetProofMerkleRoot(proof, txids);
     if (proofroot != merkleroot)
     {
-        LOGSTREAM("importcoin", LEV_INFO, stream << "ImportCoinGatewaysVerify mismatched proof merkleroot=" << proofroot.GetHex() << " and oracles merkleroot=" << merkleroot.GetHex() << std::endl);
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "ImportCoinGatewaysVerify mismatched proof merkleroot=" << proofroot.GetHex() << " and oracles merkleroot=" << merkleroot.GetHex() << std::endl);
         return false;
     }
 
     // check the burntxid is in the proof:
     if (std::find(txids.begin(), txids.end(), burntxid) == txids.end()) {
-        LOGSTREAM("importcoin", LEV_INFO, stream << "ImportCoinGatewaysVerify invalid proof for this burntxid=" << burntxid.GetHex() << std::endl);
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "ImportCoinGatewaysVerify invalid proof for this burntxid=" << burntxid.GetHex() << std::endl);
         return false;
     }
 
@@ -117,7 +117,7 @@ bool ImportCoinGatewaysVerify(char *refdepositaddr, uint256 oracletxid, int32_t 
         fprintf(stderr, "(%s) != (%s) or txid %s mismatch.%d or script mismatch\n", refdepositaddr, destaddr, uint256_str(str, foundtxid), foundtxid != burntxid);
         */
 
-    LOGSTREAM("importcoin", LEV_DEBUG1, stream << "verified proof for burntxid=" << burntxid.GetHex() << " in trusted merkleroot" << std::endl);
+    LOGSTREAM("importcoin", CCLOG_DEBUG1, stream << "verified proof for burntxid=" << burntxid.GetHex() << " in trusted merkleroot" << std::endl);
     return true;
 }
 
@@ -149,23 +149,23 @@ std::string MakeGatewaysImportTx(uint64_t txfee, uint256 bindtxid, int32_t heigh
 
     CAmount amount = GetCoinImportValue(burntx);  // equal to int64_t
 
-    LOGSTREAM("importcoin", LEV_DEBUG1, stream << "MakeGatewaysImportTx height=" << height << " coin=" << refcoin << " amount=" << (double)amount / COIN  << " pubkeys num=" << pubkeys.size() << std::endl);
+    LOGSTREAM("importcoin", CCLOG_DEBUG1, stream << "MakeGatewaysImportTx height=" << height << " coin=" << refcoin << " amount=" << (double)amount / COIN  << " pubkeys num=" << pubkeys.size() << std::endl);
 
     if (GetTransaction(bindtxid, bindtx, hashBlock, false) == 0 || (numvouts = bindtx.vout.size()) <= 0)
     {
-        LOGSTREAM("importcoin", LEV_INFO, stream << "MakeGatewaysImportTx cant find bindtxid=" << bindtxid.GetHex() << std::endl);
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "MakeGatewaysImportTx cant find bindtxid=" << bindtxid.GetHex() << std::endl);
         return("");
     }
     if (DecodeGatewaysBindOpRet(depositaddr, bindtx.vout[numvouts - 1].scriptPubKey, coin, tokenid, totalsupply, oracletxid, M, N, pubkeys, taddr, prefix, prefix2) != 'B' || refcoin != coin)
     {
-        LOGSTREAM("importcoin", LEV_INFO, stream << "MakeGatewaysImportTx invalid coin - bindtxid=" << bindtxid.GetHex() << " coin=" << coin.c_str() << std::endl);
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "MakeGatewaysImportTx invalid coin - bindtxid=" << bindtxid.GetHex() << " coin=" << coin.c_str() << std::endl);
         return("");
     }
     n = (int32_t)pubkeys.size();
     merkleroot = zeroid;
     for (i = m = 0; i < n; i++)
     {
-        LOGSTREAM("importcoin", LEV_DEBUG1, stream << "MakeGatewaysImportTx using pubkeys[" << i << "]=" << HexStr(pubkeys[i]) << std::endl);
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "MakeGatewaysImportTx using pubkeys[" << i << "]=" << HexStr(pubkeys[i]) << std::endl);
         if ((mhash = GatewaysReverseScan(txid, height, oracletxid, OraclesBatontxid(oracletxid, pubkeys[i]))) != zeroid)
         {
             if (merkleroot == zeroid)
@@ -177,20 +177,20 @@ std::string MakeGatewaysImportTx(uint64_t txfee, uint256 bindtxid, int32_t heigh
         }
     }
     
-    LOGSTREAM("importcoin", LEV_DEBUG1, stream << "MakeGatewaysImportTx burntxid=" << burntxid.GetHex() << " nodes m=" << m << " of n=" << n << std::endl);
+    LOGSTREAM("importcoin", CCLOG_DEBUG1, stream << "MakeGatewaysImportTx burntxid=" << burntxid.GetHex() << " nodes m=" << m << " of n=" << n << std::endl);
     if (merkleroot == zeroid || m < n / 2) // none or less than half oracle nodes sent merkleroot
     {
-        LOGSTREAM("importcoin", LEV_INFO, stream << "MakeGatewaysImportTx couldnt find merkleroot for block height=" << height << "coin=" << coin.c_str() << " oracleid=" << oracletxid.GetHex() << " m=" << m << " vs n=" << n << std::endl );
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "MakeGatewaysImportTx couldnt find merkleroot for block height=" << height << "coin=" << coin.c_str() << " oracleid=" << oracletxid.GetHex() << " m=" << m << " vs n=" << n << std::endl );
         return("");
     }
     if (GatewaysCointxidExists(cp, burntxid) != 0)
     {
-        LOGSTREAM("importcoin", LEV_INFO, stream << "MakeGatewaysImportTx burntxid=" << burntxid.GetHex() << " already exists" << std::endl);
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "MakeGatewaysImportTx burntxid=" << burntxid.GetHex() << " already exists" << std::endl);
         return("");
     }
     if (!ImportCoinGatewaysVerify(depositaddr, oracletxid, ivout, coin, burntxid, rawburntx, proof, merkleroot))
     {
-        LOGSTREAM("importcoin", LEV_INFO, stream << "MakeGatewaysImportTx could not validate burntx, txid=" << burntxid.GetHex() << std::endl);
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "MakeGatewaysImportTx could not validate burntx, txid=" << burntxid.GetHex() << std::endl);
         return("");
     }
 
@@ -241,7 +241,7 @@ int32_t GetSelfimportProof(std::string source, CMutableTransaction &mtx, CScript
 	if (ivout >= tx.vout.size())
 		return -1;
 
-	LOGSTREAM("importcoin", 1, stream << "GetSelfimportProof: using vout[" << ivout << "] of the passed rawtx" << std::endl);
+	LOGSTREAM("importcoin", CCLOG_DEBUG1, stream << "GetSelfimportProof: using vout[" << ivout << "] of the passed rawtx" << std::endl);
 
     scriptPubKey = tx.vout[ivout].scriptPubKey;
 
@@ -269,7 +269,7 @@ int32_t GetSelfimportProof(std::string source, CMutableTransaction &mtx, CScript
             proof = std::make_pair(sourcetxid,newBranch);
             return(0);
         }
-        LOGSTREAM("importcoin", 0, stream << "mismatched vin0[prevout.n=" << tx.vin[0].prevout.n << "] -> destaddr=" << destaddr << " vs pkaddr=" << pkaddr << std::endl);
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "mismatched vin0[prevout.n=" << tx.vin[0].prevout.n << "] -> destaddr=" << destaddr << " vs pkaddr=" << pkaddr << std::endl);
     }
     return(-1);
 }
