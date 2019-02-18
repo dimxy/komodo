@@ -216,8 +216,8 @@ std::string MakeGatewaysImportTx(uint64_t txfee, uint256 bindtxid, int32_t heigh
     return("");
 }
 
-// makes source tx for self import tx
-std::string MakeSelfImportSourceTx(CTxDestination &dest, int64_t amount, CMutableTransaction &mtx) 
+// makes self import "PUBLIC" burn tx 
+std::string MakeSelfImportBurnTx(CTxDestination &dest, int64_t amount, CMutableTransaction &burnMtx) 
 {
     const int64_t txfee = 10000;
     int64_t inputs, change;
@@ -226,21 +226,21 @@ std::string MakeSelfImportSourceTx(CTxDestination &dest, int64_t amount, CMutabl
 
     cpDummy = CCinit(&C, EVAL_TOKENS);
 
-    mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    burnMtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 
-    if( (inputs = AddNormalinputs(mtx, myPubKey, txfee, 4)) == 0 ) {
-        LOGSTREAM("importcoin", CCLOG_INFO, stream << "MakeSelfImportSourceTx: cannot find normal imputs for txfee" << std::endl);
+    if( (inputs = AddNormalinputs(burnMtx, myPubKey, txfee, 4)) == 0 ) {
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "MakeSelfImportBurnTx: cannot find normal inputs for txfee" << std::endl);
         return std::string("");
     }
 
     CScript scriptPubKey = GetScriptForDestination(dest);
-    mtx.vout.push_back(CTxOut(txfee, scriptPubKey));
+    burnMtx.vout.push_back(CTxOut(txfee, scriptPubKey));
     change = inputs - txfee;
     if( change != 0 )
-        mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(myPubKey)) << OP_CHECKSIG));
+        burnMtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(myPubKey)) << OP_CHECKSIG));
 
     //make opret with amount:
-    return FinalizeCCTx(0, cpDummy, mtx, myPubKey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_IMPORTCOIN << (uint8_t)'A' << amount));
+    return FinalizeCCTx(0, cpDummy, burnMtx, myPubKey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_IMPORTCOIN << (uint8_t)'A' << amount));
 }
 
 // make sure vin0 is signed by ASSETCHAINS_OVERRIDE_PUBKEY33
@@ -371,12 +371,22 @@ int32_t CheckPUBKEYimport(TxProof proof,std::vector<uint8_t> rawproof,CTransacti
         return -1;
     }
 
-    // might be malleable:
+
+    /* we switched to burntx = sourcetx
+    //
+    // might be malleable if not check:
     if (burnTx.nExpiryHeight != sourcetx.nExpiryHeight) {
         LOGSTREAM("importcoin", CCLOG_INFO, stream << "burntx nExpiryHeight incorrect for source txid=" << sourcetxid.GetHex() << std::endl);
         return -1;
+        // could some other tx header params (like 'version') make a burntx malleable?
+    }  
+    */
+    
+    // burntx is sourcetx
+    if( burnTx.GetHash() != sourcetxid )    {
+        LOGSTREAM("importcoin", CCLOG_INFO, stream << "incorrect burntx txid=" << sourcetxid.GetHex() << std::endl);
+        return -1;
     }
-
     //ac_pubkey check:
     if (CheckVin0PubKey(sourcetx) < 0) {
         return -1;
@@ -395,8 +405,9 @@ int32_t CheckPUBKEYimport(TxProof proof,std::vector<uint8_t> rawproof,CTransacti
 
     LOGSTREAM("importcoin", CCLOG_DEBUG1, stream << "importTx amount=" << payouts[0].nValue << " burnTx amount=" << burnTx.vout[0].nValue << " opret amount=" << amount << " source txid=" << sourcetxid.GetHex() << std::endl);
 
-    // amount malleability check with the opret from the source tx: 
-    if (payouts[0].nValue != amount) { // assume that burntx amount is checked in the common code in Eval::ImportCoin()
+    // check importxt amount with the amount in the opret from source (burntx) tx
+    // this is a similar check in eval::ImportCoin() but that is more flexible
+    if (payouts[0].nValue != amount) { 
         LOGSTREAM("importcoin", CCLOG_INFO, stream << "importTx amount != amount in the opret of source txid=" << sourcetxid.GetHex() << std::endl);
         return -1;
     }
