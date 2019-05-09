@@ -95,12 +95,14 @@ typedef struct BetInfo {
     int64_t rektfee;
     int32_t lastheight;
     int16_t leverage;
-    bool isOpen, isRekt, isUp;
+    bool isOpen, isRekt;
     uint256 tokenid;
 
     std::vector<uint16_t> vecparsed;
     std::vector<onebetdata> bets;
     CPubKey pk;
+
+    bool isUp;
 
     BetInfo() { 
         averageCostbasis = firstprice = lastprice = liquidationprice = equity = 0;
@@ -2191,6 +2193,7 @@ UniValue PricesGetOrderbook()
         }
         else {
             totalRekt += (betspos - book[0].rektfee);
+            //TODO: store rekt
         }
         book.erase(book.begin());
     }
