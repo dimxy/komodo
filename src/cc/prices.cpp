@@ -2078,12 +2078,13 @@ static bool prices_ispositionup(const std::vector<uint16_t> &vecparsed, int16_t 
                 prices_splitpair(std::string(name), upperquote, bottomquote);
                 
                 uint16_t opcode1 = vecparsed[1];
+                bool isInverted = ((opcode1 & KOMODO_PRICEMASK) == PRICES_INV);
 
                 std::cerr << "prices_ispositionup upperquote=" << upperquote << " bottomquote=" << bottomquote << " opcode1=" << opcode1 << " (opcode1 & KOMODO_PRICEMASK)=" << (opcode1 & KOMODO_PRICEMASK) << std::endl;
 
                 if (upperquote == "BTC" || bottomquote == "BTC") { // it is relatively btc
-                    if (upperquote == "BTC" && (leverage > 0 || (opcode1 & KOMODO_PRICEMASK) != PRICES_INV) ||
-                        bottomquote == "BTC" && (leverage < 0 || (opcode1 & KOMODO_PRICEMASK) == PRICES_INV)) {
+                    if (upperquote == "BTC" && (leverage > 0 && !isInverted || leverage < 0 && isInverted) ||
+                        bottomquote == "BTC" && (leverage < 0 && !isInverted || leverage > 0 && isInverted)) {
                         std::cerr << "prices_ispositionup return true for BTC" << std::endl;
                         return true;
                     }
@@ -2092,8 +2093,8 @@ static bool prices_ispositionup(const std::vector<uint16_t> &vecparsed, int16_t 
                 }
 
                 if (upperquote == "USD" || bottomquote == "USD") { // it is relatively usd
-                    if (upperquote == "USD" && (leverage > 0 || (opcode1 & KOMODO_PRICEMASK) != PRICES_INV) ||
-                        bottomquote == "USD" && (leverage < 0 || (opcode1 & KOMODO_PRICEMASK) == PRICES_INV)) {
+                    if (upperquote == "USD" && (leverage > 0 && !isInverted || leverage < 0 && isInverted) ||
+                        bottomquote == "USD" && (leverage < 0 && !isInverted || leverage > 0 && isInverted)) {
                         std::cerr << "prices_ispositionup return true for USD" << std::endl;
                         return true;
                     }
