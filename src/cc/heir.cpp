@@ -220,7 +220,7 @@ std::string HeirAdd(uint256 fundingtxid, int64_t amount)
     if (AddNormalinputs(mtx, myPubkey, amount + txfee, 60) > 0) {
 
         // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
-        mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
+        mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, amount, ownerPubkey, heirPubkey));
 
         // Add normal change if any, add opreturn data and sign the transaction:
         return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'A' << fundingtxid << hasHeirSpendingBegun));
