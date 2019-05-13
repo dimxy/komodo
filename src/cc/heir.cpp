@@ -129,6 +129,9 @@ int64_t Add1of2AddressInputs(CMutableTransaction &mtx, uint256 fundingtxid, char
                 // Pass empty CScript() to scriptSig param, it will be filled by FinalizeCCtx:
                 mtx.vin.push_back(CTxIn(it->first.txhash, it->first.index, CScript()));
                 totalinputs += it->second.satoshis;
+
+                // stop if sufficient inputs found
+                // if amount == 0 that would mean to add all available funds to calculate total
                 if (amount > 0 && totalinputs >= amount || ++count > maxinputs)
                     break;
             }
@@ -192,7 +195,6 @@ std::string HeirAdd(uint256 fundingtxid, int64_t amount)
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_HEIR);
 
-    const int64_t txfee = 10000;
     CPubKey ownerPubkey, heirPubkey;
     int64_t inactivityTimeSec;
     uint8_t hasHeirSpendingBegun;
