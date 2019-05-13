@@ -7823,7 +7823,7 @@ UniValue heirclaim(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
     if (fHelp || params.size() != 2)
-        throw runtime_error("heirclaim txfee funds fundingtxid\n");
+        throw runtime_error("heirclaim fundingtxid funds\n");
     if (ensure_CCrequirements(EVAL_HEIR) < 0)
         throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
 

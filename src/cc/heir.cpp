@@ -171,9 +171,7 @@ std::string HeirFund(int64_t amount, std::string heirName, CPubKey heirPubkey, i
         // Finishing the creation of the transaction by calling FinalizeCCTx with params of the mtx object itself, the owner pubkey, txfee amount. 
         // Also an opreturn object with the contract data is passed which is created by serializing the needed ids and variables to a CScript object.
         // Note the cast to uint8_t for the constants EVAL_HEIR and 'F' funcid, this is important as it is supposed one-byte size for serialization of these values (otherwise they would be 'int').
-        std::string rawhextx = FinalizeCCTx(0, cp, mtx, myPubkey, txfee,
-            CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'F' << myPubkey << heirPubkey << inactivityTimeSec << heirName));
-        return rawhextx;
+        return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'F' << myPubkey << heirPubkey << inactivityTimeSec << heirName));
     }
     CCerror = "not enough coins for requested amount and txfee";
     return std::string("");
@@ -199,7 +197,7 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
     uint256 latesttxid = FindLatestOwnerTx(fundingtxid, ownerPubkey, heirPubkey, inactivityTimeSec, hasHeirSpendingBegun);
     if (latesttxid.IsNull()) {
         CCerror = "no funding tx found";
-        return "";
+        return std::string("");
     }
 
     // Now check if the inactivity time has passed from the last owner transaction.Use cc sdk function which returns time in seconds from the block with the txid in the params to the chain tip block:
@@ -216,7 +214,7 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
     // add normal inputs for txfee:
     if (AddNormalinputs(mtx, myPubkey, txfee, 3) <= txfee) {
         CCerror = "not enough normal inputs for txfee";
-        return "";
+        return std::string("");
     }
 
     // Add cc inputs for the requested amount.
@@ -227,12 +225,14 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
     // add inputs for this address with use of a custom function:
     int64_t inputs;
     if ((inputs = Add1of2AddressInputs(mtx, fundingtxid, coinaddr, amount, 64)) < amount) {
-        CCerror = "not enough funds claimed";
-        return "";
+        CCerror = "not enough funds for the amount claimed";
+        return std::string("");
     }
 
     // Now add an normal output to send claimed funds to and cc change output for the fund remainder:
     mtx.vout.push_back(CTxOut(amount, CScript() << ParseHex(HexStr(myPubkey)) << OP_CHECKSIG));
+
+    // add cc change, if needed
     if (inputs > amount)
         mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, inputs - amount, ownerPubkey, heirPubkey));
 
