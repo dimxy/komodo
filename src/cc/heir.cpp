@@ -101,6 +101,8 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
             }
         }
     }
+
+    std::cerr << "FindLatestOwnerTx() latesttxid=" << latesttxid.GetHex() << std::endl;  // debug log
     return latesttxid;
 }
 
