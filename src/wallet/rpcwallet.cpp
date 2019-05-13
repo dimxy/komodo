@@ -7924,36 +7924,28 @@ UniValue heirfund0(const UniValue& params, bool fHelp)
 
 UniValue heiradd(const UniValue& params, bool fHelp)
 {
-	UniValue result; 
-	uint256 fundingtxid;
-	int64_t txfee;
-	int64_t amount;
-	int64_t inactivitytime;
-	std::string hex;
-	std::vector<unsigned char> pubkey;
-	std::string name;
+    UniValue result(UniValue::VOBJ);
+    CCerror.clear(); // clear global error object
 
 	if (!EnsureWalletIsAvailable(fHelp))
 	    return NullUniValue;
 
-	if (fHelp || params.size() != 3)
-		throw runtime_error("heiradd txfee funds fundingtxid\n");
+	if (fHelp || params.size() != 2)
+		throw runtime_error("heiradd fundingtxid amount\n");
 	if (ensure_CCrequirements(EVAL_HEIR) < 0)
 		throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
 
 	const CKeyStore& keystore = *pwalletMain;
 	LOCK2(cs_main, pwalletMain->cs_wallet);
 
-	txfee = atoll(params[0].get_str().c_str());
-	if (txfee < 0) {
-		result.push_back(Pair("result", "error"));
-		result.push_back(Pair("error", "incorrect txfee"));
-		return result;
-	}
+	uint256 fundingtxid = Parseuint256((char*)params[0].get_str().c_str());
+    CAmount amount = atof(params[1].get_str().c_str()) * COIN;  // Note conversion to satoshis by multiplication on 10E8
 
-	fundingtxid = Parseuint256((char*)params[2].get_str().c_str());
+	std::string hextx = HeirAdd(fundingtxid, amount);
+    RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set
 
-	result = HeirAddCaller(fundingtxid, txfee, params[1].get_str());
+    result.push_back(Pair("result", "success"));
+    result.push_back(Pair("hextx", hextx));
 	return result;
 }
 

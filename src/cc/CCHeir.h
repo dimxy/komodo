@@ -26,6 +26,7 @@ class CoinHelper;
 class TokenHelper;
 
 std::string HeirFund( int64_t amount, std::string heirName, CPubKey heirPubkey, int64_t inactivityTimeSec);
+std::string HeirAdd(uint256 fundingtxid, int64_t amount);
 std::string HeirClaim(uint256 fundingtxid, int64_t amount);
 
 
