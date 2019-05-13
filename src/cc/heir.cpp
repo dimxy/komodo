@@ -159,8 +159,7 @@ std::string HeirFund(int64_t amount, std::string heirName, CPubKey heirPubkey, i
 
         // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
         mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
-        mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cp, NULL)));
-
+        mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cp, NULL)));   // this creates a 'marker' for the cc heir initial tx. See HeirList for its usage
         // In this example we used two cc sdk functions for creating cryptocondition vouts.
         // MakeCC1of2vout creates a vout with a threshold = 2 cryptocondition allowing to spend funds from this vout with 
         // either myPubkey(which would be the pubkey of the funds owner) or heir pubkey.
@@ -168,7 +167,6 @@ std::string HeirFund(int64_t amount, std::string heirName, CPubKey heirPubkey, i
         // We need this output to be able to find all the created heir funding plans.
         // You will always need some kind of marker for any cc contract at least for the initial transaction, otherwise you might lose contract's data in blockchain.
         // We may call this as a 'marker pattern' in cc development.See more about the marker pattern later in the CC contract patterns section.
-
 
         // Finishing the creation of the transaction by calling FinalizeCCTx with params of the mtx object itself, the owner pubkey, txfee amount. 
         // Also an opreturn object with the contract data is passed which is created by serializing the needed ids and variables to a CScript object.
@@ -252,6 +250,48 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
     return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, 
         CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'C' << fundingtxid << (myPubkey == heirPubkey ? (uint8_t)1 : hasHeirSpendingBegun)));
 }
+
+// heirlist rpc implementation. Use marker uxtos to list all heir initial transactions
+UniValue HeirList()
+{
+    UniValue result(UniValue::VARR);
+
+    // init cc contract object:
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_HEIR);
+
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
+    char markeraddr[65];
+
+    // get the address of heir global address as heir marker's address
+    GetCCaddress(cp, markeraddr, GetUnspendable(cp, NULL));
+
+    // get list of uxtos on marker's address
+    SetCCunspents(unspentOutputs, markeraddr, true);
+
+    // list all uxtos with markers
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++) {
+        
+        CTransaction fundingtx;
+        uint256 hashBlock;
+        const int32_t markerVoutNum = 1;
+        std::vector<uint8_t> vopret;
+
+        // load tx with unspent marker, check if its opreturn has heir eval code and function id
+        if (it->first.index == markerVoutNum && GetTransaction(it->first.txhash, fundingtx, hashBlock, false) &&
+            fundingtx.vout.size() > 0  &&  // vout bounds checking
+            GetOpReturnData(fundingtx.vout.back().scriptPubKey, vopret) &&
+            vopret.size() > 2 &&  // opret bounds checking
+            vopret.begin()[0] == EVAL_HEIR &&
+            vopret.begin()[1] == 'F')
+        {
+            // add txid to list
+            result.push_back(it->first.txhash.GetHex());
+        }
+    }
+    return result;
+}
+
 
 class CoinHelper;
 class TokenHelper;
@@ -1496,7 +1536,7 @@ void _HeirList(struct CCcontract_info *cp, UniValue &result)
 }
 
 
-UniValue HeirList()
+UniValue HeirList000()
 {
     UniValue result(UniValue::VARR);
     //result.push_back(Pair("result", "success"));
