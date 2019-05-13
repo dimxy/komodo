@@ -17,6 +17,230 @@
 #include "heir_validate.h"
 #include <iomanip>
 
+
+// find the latest owner transaction id
+// this function also returns some values from the initial and latest transaction opreturns
+// Note: this function is also called from validation code (use non-locking calls)
+uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, uint8_t &hasHeirSpendingBegun)
+{
+    uint8_t eval, funcId;
+    
+    hasHeirSpendingBegun = 0; 
+
+    CTransaction fundingtx;
+    uint256 hashBlock;
+    std::vector<uint8_t> vopret;
+    std::string name;
+    // get initial funding tx, check if it has an opreturn and deserialize it:
+    if (!myGetTransaction(fundingtxid, fundingtx, hashBlock) ||  // NOTE: use non-locking version of GetTransaction as we may be called from validation code
+        fundingtx.vout.size() == 0 ||
+        !GetOpReturnData(fundingtx.vout.back().scriptPubKey, vopret) ||
+        !E_UNMARSHAL(vopret, ss >> eval; ss >> funcId; ss >> ownerPubkey; ss >> heirPubkey; ss >> inactivityTime; ss >> name;) ||
+        eval != EVAL_HEIR || 
+        funcId != 'F')
+        return zeroid;
+   
+    // init cc contract object:
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_HEIR);
+
+    // get the address of cryptocondition '1 of 2 pubkeys':
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
+    char coinaddr[64];
+    GetCCaddress1of2(cp, coinaddr, ownerPubkey, heirPubkey); 
+
+    // get vector with uxtos for 1of2 address:
+    SetCCunspents(unspentOutputs, coinaddr, true);				 
+
+    int32_t maxBlockHeight = 0; 
+    uint256 latesttxid = fundingtxid;   // set to initial txid
+
+    // go through uxto's to find the last funding or spending owner tx:
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
+    {
+        CTransaction vintx;
+        uint256 blockHash;
+        std::vector<uint8_t> vopret;
+        uint8_t eval, funcId, flagopret;
+        uint256 txidopret;
+
+        int32_t blockHeight = (int32_t)it->second.blockHeight;
+
+        // Get a transaction from the returned array
+        // unmarshal its opret and check if this is a tx from this funding plan
+        if (myGetTransaction(it->first.txhash, vintx, blockHash) &&     // NOTE: use non-locking version of GetTransaction as we may be called from validation code
+            vintx.vout.size() > 0 &&
+            GetOpReturnData(vintx.vout.back().scriptPubKey, vopret) &&
+            E_UNMARSHAL(vopret, ss >> eval; ss >> funcId; ss >> txidopret; ss >> flagopret) &&
+            eval == EVAL_HEIR &&
+            (funcId == 'C' || funcId == 'A') &&
+            fundingtxid == txidopret )   {
+
+            // As SetCCunspents returns uxtos not in the chronological order we need to order them by the block height as we need the latest one:
+            if (blockHeight > maxBlockHeight) {
+
+                // Now check if this tx was owner's activity
+                // verify if the tx was signed with owner's pubkey using cc sdk function:
+                bool isOwnerTx = false;
+                for (auto vin : vintx.vin) 
+                    if( ownerPubkey == check_signing_pubkey(vin.scriptSig) )
+                        isOwnerTx = true;
+
+                // reset the lastest txid to this txid if this is owner's activity:
+                if (isOwnerTx) {
+                    hasHeirSpendingBegun = flagopret;
+                    maxBlockHeight = blockHeight;
+                    latesttxid = it->first.txhash;
+                }
+            }
+        }
+    }
+    return latesttxid;
+}
+
+// add inputs from cc threshold=2 cryptocondition address to transaction object
+int64_t Add1of2AddressInputs(CMutableTransaction &mtx, uint256 fundingtxid, char *coinaddr, int64_t amount, int32_t maxinputs)
+{
+    int64_t totalinputs = 0L;
+    int32_t count = 0;
+
+    // Call the cc sdk function SetCCunspents that fills the provider vector with a list of unspent outputs for the provider bitcoin address coinaddr(actually we passed here the 1of2 address where fund is stored)
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
+    SetCCunspents(unspentOutputs, coinaddr, true);  // get a vector of uxtos for the address in coinaddr[]
+
+    // Go through the returned uxtos and add appropriate ones to the transaction's vin array:
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++) {
+        CTransaction tx;
+        uint256 hashBlock;
+        std::vector<uint8_t> vopret;
+
+        // Load current uxto's transaction and check if it has an opreturn in the back of array of outputs: 
+        if (GetTransaction(it->first.txhash, tx, hashBlock, false) && tx.vout.size() > 0 && GetOpReturnData(tx.vout.back().scriptPubKey, vopret) && vopret.size() > 2)
+        {
+            uint8_t evalCode, funcId, hasHeirSpendingBegun;
+            uint256 txid;
+
+            if (it->first.txhash == fundingtxid ||   // if this is our contract instance coins 
+                E_UNMARSHAL(vopret, { ss >> evalCode; ss >> funcId; ss >> txid >> hasHeirSpendingBegun; }) && // unserialize opreturn
+                fundingtxid == txid) // it is a tx from this funding plan
+            {
+                // Add the uxto to the transaction's vins, that is, set the txid of the transaction and vout number providing the uxto. 
+                // Pass empty CScript() to scriptSig param, it will be filled by FinalizeCCtx:
+                mtx.vin.push_back(CTxIn(txid, it->first.index, CScript()));
+                totalinputs += it->second.satoshis;
+                if (totalinputs >= amount || ++count > maxinputs)
+                    break;
+            }
+        }
+    }
+    // Return the total inputs' amount which has been added:
+    return totalinputs;
+}
+
+// heirfund transaction creation code
+std::string HeirFund(int64_t amount, std::string heirName, CPubKey heirPubkey, int64_t inactivityTimeSec)
+{
+    // First, we need to create a mutable version of a transaction object.
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+    // Declare and initialize an CCcontract_info object with heir cc contract variables like cc global address, global private key etc.
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_HEIR);
+
+    // Next we need to add some inputs to transaction that are enough to make deposit of the requested amount to the heir fund, some fee for the marker and for miners
+    // Let's use a constant fee = 10000 sat.
+    // We need the pubkey from the komodod - pubkey param.
+    // For adding normal inputs to the mutable transaction there is a corresponding function in the cc SDK.
+    const int64_t txfee = 10000;
+    CPubKey myPubkey = pubkey2pk(Mypubkey());
+    if (AddNormalinputs(mtx, myPubkey, amount + 2 * txfee, 60) > 0) {
+        // The parameters passed to the AddNormalinputs() are the tx itself, my pubkey, total value for the funding amount, marker and miners fee, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
+
+        // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
+        mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
+        mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cp, NULL)));
+
+        // In this example we used two cc sdk functions for creating cryptocondition vouts.
+        // MakeCC1of2vout creates a vout with a threshold = 2 cryptocondition allowing to spend funds from this vout with 
+        // either myPubkey(which would be the pubkey of the funds owner) or heir pubkey.
+        // MakeCC1vout creates a vout with a simple cryptocondition which sends a txfee to cc Heir contract global address(returned by GetUnspendable() function call).
+        // We need this output to be able to find all the created heir funding plans.
+        // You will always need some kind of marker for any cc contract at least for the initial transaction, otherwise you might lose contract's data in blockchain.
+        // We may call this as a 'marker pattern' in cc development.See more about the marker pattern later in the CC contract patterns section.
+
+        // Finishing the creation of the transaction by calling FinalizeCCTx with params of the mtx object itself, the owner pubkey, txfee amount. 
+        // Also an opreturn object with the contract data is passed which is created by serializing the needed ids and variables to a CScript object.
+        // Note the cast to uint8_t for the constants EVAL_HEIR and 'F' funcid, this is important as it is supposed one-byte size for serialization of these values (otherwise they would be 'int').
+        std::string rawhextx = FinalizeCCTx(0, cp, mtx, myPubkey, txfee,
+            CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'F' << myPubkey << heirPubkey << inactivityTimeSec << heirName));
+        return rawhextx;
+    }
+    CCerror = "not enough coins for requested amount and txfee";
+    return std::string("");
+}
+
+// heirclaim transaction creation
+std::string HeirClaim(uint256 fundingtxid, int64_t amount)
+{
+    // Start with creating a mutable transaction object:
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+    // Next, init the cc contract object :
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_HEIR);
+
+    const int64_t txfee = 10000;
+    CPubKey ownerPubkey, heirPubkey;
+    int64_t inactivityTimeSec;
+    uint8_t hasHeirSpendingBegun;
+
+    // Now we need to find the latest owner transaction to calculate the owner's inactivity time:
+    // Use a developed helper FindLatestOwnerTx function which returns the lastest txid, heir public key and the hasHeirSpendingBegun flag value :
+    uint256 latesttxid = FindLatestOwnerTx(fundingtxid, ownerPubkey, heirPubkey, inactivityTimeSec, hasHeirSpendingBegun);
+    if (latesttxid.IsNull()) {
+        CCerror = "no funding tx found";
+        return "";
+    }
+
+    // Now check if the inactivity time has passed from the last owner transaction.Use cc sdk function which returns time in seconds from the block with the txid in the params to the chain tip block:
+    int32_t numBlocks; // not used
+    bool isAllowedToHeir = (hasHeirSpendingBegun || CCduration(numBlocks, latesttxid) > inactivityTimeSec) ? true : false;
+    CPubKey myPubkey = pubkey2pk(Mypubkey());  // pubkey2pk sdk function converts pubkey from byte array to high-level CPubKey object
+    if (myPubkey == heirPubkey && !isAllowedToHeir) {
+        CCerror = "spending funds is not allowed for heir yet";
+        return "";
+    }
+
+    // Let's create the claim transaction inputs and outputs.
+
+    // add normal inputs for txfee:
+    if (AddNormalinputs(mtx, myPubkey, txfee, 3) <= txfee) {
+        CCerror = "not enough normal inputs for txfee";
+        return "";
+    }
+
+    // Add cc inputs for the requested amount.
+    // first get the address of 1 of 2 cryptocondition output where the fund was deposited :
+    char coinaddr[65];
+    GetCCaddress1of2(cp, coinaddr, ownerPubkey, heirPubkey);
+
+    // add inputs for this address with use of a custom function:
+    int64_t inputs;
+    if ((inputs = Add1of2AddressInputs(mtx, fundingtxid, coinaddr, amount, 64)) < amount) {
+        CCerror = "not enough funds claimed";
+        return "";
+    }
+
+    // Now add an normal output to send claimed funds to and cc change output for the fund remainder:
+    mtx.vout.push_back(CTxOut(amount, CScript() << ParseHex(HexStr(myPubkey)) << OP_CHECKSIG));
+    if (inputs > amount)
+        mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, inputs - amount, ownerPubkey, heirPubkey));
+
+    // Add normal change if any, add opreturn data and sign the transaction :
+    return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, 
+        CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'C' << fundingtxid << (myPubkey == heirPubkey ? (uint8_t)1 : hasHeirSpendingBegun)));
+}
+
 class CoinHelper;
 class TokenHelper;
 
