@@ -36,6 +36,7 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
 {
     uint8_t eval, funcId;
     
+    // set inital state as the heir has not begun to spend the funds:
     hasHeirSpendingBegun = 0; 
 
     CTransaction fundingtx;
@@ -266,7 +267,7 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
     CPubKey myPubkey = pubkey2pk(Mypubkey());  // pubkey2pk sdk function converts pubkey from byte array to high-level CPubKey object
     if (myPubkey == heirPubkey && !isAllowedToHeir) {
         CCerror = "spending funds is not allowed for heir yet";
-        return "";
+        return std::string("");
     }
 
     // Let's create the claim transaction inputs and outputs.
@@ -365,7 +366,6 @@ UniValue HeirInfo(uint256 fundingtxid)
     std::string name;
     int64_t inactivityTime;
 
-
     // get initial funding tx and set it as initial lasttx:
     if (GetTransaction(fundingtxid, fundingtx, hashBlock, false) && 
         fundingtx.vout.size() &&   // vout bound checking
@@ -384,9 +384,11 @@ UniValue HeirInfo(uint256 fundingtxid)
             return result;
         }
 
+        // send some data about this heir cc contract instance (funding plan)
         int32_t numblocks;
         uint64_t durationSec = 0;
 
+        // pubkeys:
         result.push_back(Pair("fundingtxid", fundingtxid.GetHex()));
         result.push_back(Pair("name", name));
         
@@ -401,14 +403,16 @@ UniValue HeirInfo(uint256 fundingtxid)
         GetCCaddress1of2(cp, coinaddr, ownerPubkey, heirPubkey);
 
         CMutableTransaction mtx;  // dummy tx object
-        // add all available inputs:
+        // calculate total funds amount by adding all available inputs:
         int64_t inputs = Add1of2AddressInputs(mtx, fundingtxid, coinaddr, 0, 64);
 
-        result.push_back(Pair("AvailableFund", ValueFromAmount(inputs)));
+        result.push_back(Pair("AvailableFund", ValueFromAmount(inputs))); // ValueFromAmount() function converts satoshis to coins representation
         result.push_back(Pair("InactivityTimeSetting", inactivityTime));
             
         if (!hasHeirSpendingBegun) { // we do not need find duration if the spending already has begun
-            durationSec = CCduration(numblocks, latestFundingTxid);
+            durationSec = CCduration(numblocks, latestFundingTxid);  
+            // Note: when running cc heir contract on a private chain make sure there is at least one block mined after the block with the latest tx, 
+            // for CCduration to return non-zero
         }
 
         result.push_back(Pair("HeirSpendingAllowed", (hasHeirSpendingBegun || durationSec > inactivityTime ? "true" : "false")));
@@ -419,7 +423,6 @@ UniValue HeirInfo(uint256 fundingtxid)
         }
 
         result.push_back(Pair("result", "success"));
-
     }
     else {
         result.push_back(Pair("result", "error"));
