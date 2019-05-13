@@ -348,6 +348,8 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
     int32_t numvouts = tx.vout.size();
     //int32_t preventCCvins = -1;
     //int32_t preventCCvouts = -1;
+
+    return true;
     
     struct CCcontract_info *cpTokens, tokensC;
     cpTokens = CCinit(&tokensC, EVAL_TOKENS);
