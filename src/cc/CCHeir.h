@@ -27,6 +27,9 @@ bool HeirValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, 
 class CoinHelper;
 class TokenHelper;
 
+std::string HeirFund( int64_t amount, std::string heirName, CPubKey heirPubkey, int64_t inactivityTimeSec);
+
+
 UniValue HeirFundCoinCaller(int64_t txfee, int64_t coins, std::string heirName, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string memo);
 UniValue HeirFundTokenCaller(int64_t txfee, int64_t satoshis, std::string heirName, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string memo, uint256 tokenid);
 UniValue HeirClaimCaller(uint256 fundingtxid, int64_t txfee, std::string amount);

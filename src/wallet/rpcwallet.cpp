@@ -7737,9 +7737,70 @@ UniValue getbalance64(const UniValue& params, bool fHelp)
     return ret;
 }
 
+// heirfund command rpc-level implementation
+UniValue heirfund(const UniValue& params, bool fHelp)
+{
+    CCerror.clear(); // clear global error object
+
+    // Check that the wallet and heir cc contract are available
+    // and check the rpc params' required number:
+
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+    if (ensure_CCrequirements(EVAL_HEIR) < 0)
+        throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
+    // output help message if asked or params count is incorrect:
+    if (fHelp || params.size() != 4)
+        throw runtime_error("heirfund funds heirname heirpubkey inactivitytime\n");
+
+    // UniValue object is a special type for passing data in rpc calls.
+    // Univalue params is actually an array of Univalue objects.
+    // We still need to convert them into usual c / c++ language types and pass to the contract implementation.
+    // Next let's convert the params from UniValue type to the basic c++ types.
+    CAmount amount = atof(params[0].get_str().c_str()) * COIN;  // Note conversion to satoshis by multiplication on 10E8
+    std::string name = params[1].get_str();
+    std::vector<uint8_t> vheirpubkey = ParseHex(params[2].get_str().c_str());
+    CPubKey heirpk = pubkey2pk(vheirpubkey);
+    int64_t inactivitytime = atoll(params[3].get_str().c_str());
+    // We still need to add checks that the converted param values are correct (what I ommitted in the sample), for example not negative or not exceeding some limit.
+    // Note how to parse hex representation of the pubkey param and convert it to CPubKey object.
+
+    // And now time to call the heir cc contract code and pass the returned created tx in hexademical representation to the caller, ready to be sent to the chain:
+    UniValue result = HeirFund(amount, name, heirpk, inactivitytime);
+    RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set in HeirFund()
+    return result;
+}
+
+// heirclaim command rpc-level implementation 
+UniValue heirclaim(const UniValue& params, bool fHelp)
+{
+    CCerror.clear(); // clear global error object
+
+    // Check that the wallet is available.
+    // if asked for help or the param size is incorrect, return help message.
+    // Also check that cc contract requirements are satisfied:
+    if (!EnsureWalletIsAvailable(fHelp))
+        return NullUniValue;
+    if (fHelp || params.size() != 2)
+        throw runtime_error("heirclaim txfee funds fundingtxid\n");
+    if (ensure_CCrequirements(EVAL_HEIR) < 0)
+        throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
+
+    // Lock the wallet
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    
+    // Convert the parameters from UniValue to c++ types and call the tx creation function:
+    uint256 fundingtxid = Parseuint256((char*)params[0].get_str().c_str());
+    CAmount amount = atof(params[1].get_str().c_str()) * COIN;  // Note conversion to satoshis by multiplication on 10E8
+
+    UniValue result = HeirClaimCaller(fundingtxid, amount);
+    RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set in HeirFund()
+    return result;
+}
+
 
 // heir contract functions for coins and tokens
-UniValue heirfund(const UniValue& params, bool fHelp)
+UniValue heirfund0(const UniValue& params, bool fHelp)
 {
 	UniValue result(UniValue::VOBJ);
 	uint256 tokenid = zeroid;
@@ -7848,7 +7909,7 @@ UniValue heiradd(const UniValue& params, bool fHelp)
 	return result;
 }
 
-UniValue heirclaim(const UniValue& params, bool fHelp)
+UniValue heirclaim0(const UniValue& params, bool fHelp)
 {
 	UniValue result;
 	uint256 fundingtxid;
