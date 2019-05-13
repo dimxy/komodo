@@ -127,7 +127,7 @@ int64_t Add1of2AddressInputs(CMutableTransaction &mtx, uint256 fundingtxid, char
             {
                 // Add the uxto to the transaction's vins, that is, set the txid of the transaction and vout number providing the uxto. 
                 // Pass empty CScript() to scriptSig param, it will be filled by FinalizeCCtx:
-                mtx.vin.push_back(CTxIn(txid, it->first.index, CScript()));
+                mtx.vin.push_back(CTxIn(it->first.txhash, it->first.index, CScript()));
                 totalinputs += it->second.satoshis;
                 if (totalinputs >= amount || ++count > maxinputs)
                     break;
