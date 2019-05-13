@@ -20,14 +20,13 @@
 #include "CCinclude.h"
 #include "CCtokens.h"
 
-//#define EVAL_HEIR 0xea
-
 bool HeirValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn);
 
 class CoinHelper;
 class TokenHelper;
 
 std::string HeirFund( int64_t amount, std::string heirName, CPubKey heirPubkey, int64_t inactivityTimeSec);
+std::string HeirClaim(uint256 fundingtxid, int64_t amount);
 
 
 UniValue HeirFundCoinCaller(int64_t txfee, int64_t coins, std::string heirName, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string memo);

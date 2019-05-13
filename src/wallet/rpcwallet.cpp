@@ -7793,7 +7793,7 @@ UniValue heirclaim(const UniValue& params, bool fHelp)
     uint256 fundingtxid = Parseuint256((char*)params[0].get_str().c_str());
     CAmount amount = atof(params[1].get_str().c_str()) * COIN;  // Note conversion to satoshis by multiplication on 10E8
 
-    UniValue result = HeirClaimCaller(fundingtxid, amount);
+    UniValue result = HeirClaim(fundingtxid, amount);
     RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set in HeirFund()
     return result;
 }
