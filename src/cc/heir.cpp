@@ -169,6 +169,7 @@ std::string HeirFund(int64_t amount, std::string heirName, CPubKey heirPubkey, i
         // You will always need some kind of marker for any cc contract at least for the initial transaction, otherwise you might lose contract's data in blockchain.
         // We may call this as a 'marker pattern' in cc development.See more about the marker pattern later in the CC contract patterns section.
 
+
         // Finishing the creation of the transaction by calling FinalizeCCTx with params of the mtx object itself, the owner pubkey, txfee amount. 
         // Also an opreturn object with the contract data is passed which is created by serializing the needed ids and variables to a CScript object.
         // Note the cast to uint8_t for the constants EVAL_HEIR and 'F' funcid, this is important as it is supposed one-byte size for serialization of these values (otherwise they would be 'int').
@@ -241,6 +242,11 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
     // add cc change, if needed
     if (inputs > amount)
         mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, inputs - amount, ownerPubkey, heirPubkey));
+
+    // use cc sdk functions to get user's private key and set cc contract variables to notify that 1 of 2 cryptocondition is in use
+    uint8_t mypriv[32];
+    Myprivkey(mypriv);
+    CCaddr1of2set(cp, ownerPubkey, heirPubkey, mypriv, coinaddr);
 
     // Add normal change if any, add opreturn data and sign the transaction :
     return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, 
