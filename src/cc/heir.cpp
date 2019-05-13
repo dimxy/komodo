@@ -332,7 +332,7 @@ UniValue HeirInfo(uint256 fundingtxid)
         result.push_back(Pair("name", name));
         
         result.push_back(Pair("OwnerPubKey", HexStr(ownerPubkey)));
-        result.push_back(Pair("HeirPubKey", HexStr(ownerPubkey)));
+        result.push_back(Pair("HeirPubKey", HexStr(heirPubkey)));
 
         struct CCcontract_info *cp, C;
         cp = CCinit(&C, EVAL_HEIR);
@@ -352,11 +352,11 @@ UniValue HeirInfo(uint256 fundingtxid)
             durationSec = CCduration(numblocks, latestFundingTxid);
         }
 
-        result.push_back(Pair("IsHeirSpendingAllowed", (hasHeirSpendingBegun || durationSec > inactivityTime ? "true" : "false")));
+        result.push_back(Pair("HeirSpendingAllowed", (hasHeirSpendingBegun || durationSec > inactivityTime ? "true" : "false")));
 
         // adding owner current inactivity time:
         if (!hasHeirSpendingBegun && durationSec <= inactivityTime) {
-            result.push_back(Pair("InactivityTime", durationSec));
+            result.push_back(Pair("InactivityTimePassed", durationSec));
         }
 
         result.push_back(Pair("result", "success"));
