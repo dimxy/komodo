@@ -7781,6 +7781,7 @@ UniValue getbalance64(const UniValue& params, bool fHelp)
 // heirfund command rpc-level implementation
 UniValue heirfund(const UniValue& params, bool fHelp)
 {
+    UniValue result(UniValue::VOBJ);
     CCerror.clear(); // clear global error object
 
     // Check that the wallet and heir cc contract are available
@@ -7807,14 +7808,17 @@ UniValue heirfund(const UniValue& params, bool fHelp)
     // Note how to parse hex representation of the pubkey param and convert it to CPubKey object.
 
     // And now time to call the heir cc contract code and pass the returned created tx in hexademical representation to the caller, ready to be sent to the chain:
-    UniValue result = HeirFund(amount, name, heirpk, inactivitytime);
+    std::string hextx = HeirFund(amount, name, heirpk, inactivitytime);
     RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set in HeirFund()
+    result.push_back(Pair("result", "success"));
+    result.push_back(Pair("hextx", hextx));
     return result;
 }
 
 // heirclaim command rpc-level implementation 
 UniValue heirclaim(const UniValue& params, bool fHelp)
 {
+    UniValue result(UniValue::VOBJ);
     CCerror.clear(); // clear global error object
 
     // Check that the wallet is available.
@@ -7834,8 +7838,11 @@ UniValue heirclaim(const UniValue& params, bool fHelp)
     uint256 fundingtxid = Parseuint256((char*)params[0].get_str().c_str());
     CAmount amount = atof(params[1].get_str().c_str()) * COIN;  // Note conversion to satoshis by multiplication on 10E8
 
-    UniValue result = HeirClaim(fundingtxid, amount);
+    std::string hextx = HeirClaim(fundingtxid, amount);
     RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set
+
+    result.push_back(Pair("result", "success"));
+    result.push_back(Pair("hextx", hextx));
     return result;
 }
 
