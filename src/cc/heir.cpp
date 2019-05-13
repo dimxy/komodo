@@ -122,6 +122,7 @@ int64_t Add1of2AddressInputs(CMutableTransaction &mtx, uint256 fundingtxid, char
 
             if (it->first.txhash == fundingtxid ||   // if this is our contract instance coins 
                 E_UNMARSHAL(vopret, { ss >> evalCode; ss >> funcId; ss >> txid >> hasHeirSpendingBegun; }) && // unserialize opreturn
+                evalCode == EVAL_HEIR &&
                 fundingtxid == txid) // it is a tx from this funding plan
             {
                 // Add the uxto to the transaction's vins, that is, set the txid of the transaction and vout number providing the uxto. 
@@ -182,6 +183,11 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
 {
     // Start with creating a mutable transaction object:
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+    if (fundingtxid.IsNull()) {
+        CCerror = "incorrect funding tx";
+        return std::string("");
+    }
 
     // Next, init the cc contract object :
     struct CCcontract_info *cp, C;
