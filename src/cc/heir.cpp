@@ -177,7 +177,49 @@ std::string HeirFund(int64_t amount, std::string heirName, CPubKey heirPubkey, i
     return std::string("");
 }
 
-// heirclaim transaction creation
+// heiradd rpc transaction creation
+std::string HeirAdd(uint256 fundingtxid, int64_t amount)
+{
+    // Start with creating a mutable transaction object:
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+    if (fundingtxid.IsNull()) {
+        CCerror = "incorrect funding tx";
+        return std::string("");
+    }
+
+    // Init the cc contract object :
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_HEIR);
+
+    const int64_t txfee = 10000;
+    CPubKey ownerPubkey, heirPubkey;
+    int64_t inactivityTimeSec;
+    uint8_t hasHeirSpendingBegun;
+
+    // call FindLatestOwnerTx to obtain hasHeirSpendingBegun flag value:
+    uint256 latesttxid = FindLatestOwnerTx(fundingtxid, ownerPubkey, heirPubkey, inactivityTimeSec, hasHeirSpendingBegun);
+    if (latesttxid.IsNull()) {
+        CCerror = "no funding tx found";
+        return std::string("");
+    }
+
+    const int64_t txfee = 10000;
+    CPubKey myPubkey = pubkey2pk(Mypubkey());
+    // The parameters passed to the AddNormalinputs() are the tx itself, my pubkey, total value for the funding amount, marker and miners fee, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
+    if (AddNormalinputs(mtx, myPubkey, amount + 2 * txfee, 60) > 0) {
+
+        // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
+        mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
+
+        // Add normal change if any, add opreturn data and sign the transaction:
+        return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'A' << fundingtxid << hasHeirSpendingBegun));
+        // in opreturn we addrd the standard ids: heir cc eval code and func id, this funding plan identifier as fundingtxid and pass further the hasHeirSpendingBegun flag
+    }
+}
+
+
+// heirclaim rpc transaction creation
 std::string HeirClaim(uint256 fundingtxid, int64_t amount)
 {
     // Start with creating a mutable transaction object:
@@ -247,8 +289,10 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
     CCaddr1of2set(cp, ownerPubkey, heirPubkey, mypriv, coinaddr);
 
     // Add normal change if any, add opreturn data and sign the transaction :
-    return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, 
-        CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'C' << fundingtxid << (myPubkey == heirPubkey ? (uint8_t)1 : hasHeirSpendingBegun)));
+    return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'C' << fundingtxid << (myPubkey == heirPubkey ? (uint8_t)1 : hasHeirSpendingBegun)));
+    // We use a special flag hasHeirSpendingBegun that is turned to 1 when the heir first time spends funds. 
+    // That means that it is no need further in checking the owner's inactivity time
+    // Once set to 'true' this flag should be set to true in the following transaction opreturns
 }
 
 // heirlist rpc implementation. Use marker uxtos to list all heir initial transactions
@@ -281,7 +325,7 @@ UniValue HeirList()
         if (it->first.index == markerVoutNum && GetTransaction(it->first.txhash, fundingtx, hashBlock, false) &&
             fundingtx.vout.size() > 0  &&  // vout bounds checking
             GetOpReturnData(fundingtx.vout.back().scriptPubKey, vopret) &&
-            vopret.size() > 2 &&  // opret bounds checking
+            vopret.size() > 2 &&  // opreturn bounds checking
             vopret.begin()[0] == EVAL_HEIR &&
             vopret.begin()[1] == 'F')
         {
@@ -316,6 +360,7 @@ UniValue HeirInfo(uint256 fundingtxid)
         eval == EVAL_HEIR &&
         funcId == 'F')
     {
+        // call FindLatestOwnerTx function to get hasHeirSpendingBegun flag.
         uint8_t hasHeirSpendingBegun;
         uint256 latestFundingTxid = FindLatestOwnerTx(fundingtxid, ownerPubkey, heirPubkey, inactivityTime, hasHeirSpendingBegun);
 
