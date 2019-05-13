@@ -13,6 +13,17 @@
  *                                                                            *
  ******************************************************************************/
 
+ /*
+ The idea of Heir CC is to allow crypto inheritance.
+ A special 1of2 CC address is created that is freely spendable by the creator (funds owner).
+ The owner may add additional funds to this 1of2 address.
+ The heir is only allowed to spend after "the specified amount of idle blocks" (changed to "the owner inactivityTime").
+ The idea is that if the address doesnt spend any funds for a year (or whatever amount set), then it is time to allow the heir to spend.
+ "The design requires the heir to spend all the funds at once" (this requirement was changed to "after the inactivity time both the heir and owner may freely spend available funds")
+ After the first heir spending a flag is set that spending is allowed for the heir whether the owner adds more funds or spends them.
+ This Heir contract supports both coins and tokens.
+ */
+
 #include "CCHeir.h"
 #include "heir_validate.h"
 #include <iomanip>
@@ -79,18 +90,13 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
             // As SetCCunspents returns uxtos not in the chronological order we need to order them by the block height as we need the latest one:
             if (blockHeight > maxBlockHeight) {
 
-                // Now check if this tx was owner's activity
-                // verify if the tx was signed with owner's pubkey using cc sdk function:
-                bool isOwnerTx = false;
-                for (auto vin : vintx.vin) 
-                    if( ownerPubkey == check_signing_pubkey(vin.scriptSig) )
-                        isOwnerTx = true;
-
-                // reset the lastest txid to this txid if this is owner's activity:
-                if (isOwnerTx) {
+                // Now check if this tx was the owner's activity:
+                // use pair of cc sdk functions that walk through vin array and find if the tx was signed with the owner's pubkey:   
+                if (TotalPubkeyNormalInputs(vintx, ownerPubkey) > 0 || TotalPubkeyCCInputs(vintx, ownerPubkey) > 0) {
+                    // reset the lastest txid to this txid if this is owner's activity:
+                    latesttxid = it->first.txhash;
                     hasHeirSpendingBegun = flagopret;
                     maxBlockHeight = blockHeight;
-                    latesttxid = it->first.txhash;
                 }
             }
         }
@@ -209,15 +215,17 @@ std::string HeirAdd(uint256 fundingtxid, int64_t amount)
     const int64_t txfee = 10000;
     CPubKey myPubkey = pubkey2pk(Mypubkey());
     // The parameters passed to the AddNormalinputs() are the tx itself, my pubkey, total value for the funding amount, marker and miners fee, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
-    if (AddNormalinputs(mtx, myPubkey, amount + 2 * txfee, 60) > 0) {
+    if (AddNormalinputs(mtx, myPubkey, amount + txfee, 60) > 0) {
 
         // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
         mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
 
         // Add normal change if any, add opreturn data and sign the transaction:
         return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'A' << fundingtxid << hasHeirSpendingBegun));
-        // in opreturn we addrd the standard ids: heir cc eval code and func id, this funding plan identifier as fundingtxid and pass further the hasHeirSpendingBegun flag
+        // in the opreturn we added a pair of standard ids: cc eval code and functional id, the fundingtxid as the funding plan identifier and also passed further the hasHeirSpendingBegun flag
     }
+    CCerror = "insufficient coins for the requested amount and txee";
+    return std::string("");
 }
 
 
@@ -249,7 +257,8 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
         return std::string("");
     }
 
-    // Now check if the inactivity time has passed from the last owner transaction.Use cc sdk function which returns time in seconds from the block with the txid in the params to the chain tip block:
+    // Now check if the inactivity time has passed from the last owner transaction. 
+    // Use cc sdk function which returns time in seconds from the block with the txid in the params to the chain tip block:
     int32_t numBlocks; // not used
     bool isAllowedToHeir = (hasHeirSpendingBegun || CCduration(numBlocks, latesttxid) > inactivityTimeSec) ? true : false;
     CPubKey myPubkey = pubkey2pk(Mypubkey());  // pubkey2pk sdk function converts pubkey from byte array to high-level CPubKey object
@@ -292,6 +301,7 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
 
     // Add normal change if any, add opreturn data and sign the transaction :
     return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'C' << fundingtxid << (myPubkey == heirPubkey ? (uint8_t)1 : hasHeirSpendingBegun)));
+    // in the opreturn we added a pair of standard ids: cc eval code and functional id plus the fundingtxid as the funding plan identifier
     // We use a special flag hasHeirSpendingBegun that is turned to 1 when the heir first time spends funds. 
     // That means that it is no need further in checking the owner's inactivity time
     // Once set to 'true' this flag should be set to true in the following transaction opreturns
@@ -418,19 +428,13 @@ UniValue HeirInfo(uint256 fundingtxid)
 
 
 
+////////////////// old code, to be removed when the code above is finished //////////////////////
+
+
 class CoinHelper;
 class TokenHelper;
 
-/*
- The idea of Heir CC is to allow crypto inheritance.
- A special 1of2 CC address is created that is freely spendable by the creator (funds owner).
- The owner may add additional funds to this 1of2 address.
- The heir is only allowed to spend after "the specified amount of idle blocks" (changed to "the owner inactivityTime").
- The idea is that if the address doesnt spend any funds for a year (or whatever amount set), then it is time to allow the heir to spend.
- "The design requires the heir to spend all the funds at once" (this requirement was changed to "after the inactivity time both the heir and owner may freely spend available funds")
- After the first heir spending a flag is set that spending is allowed for the heir whether the owner adds more funds or spends them.
- This Heir contract supports both coins and tokens.
- */
+
 
 // tx validation code
 
