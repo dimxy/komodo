@@ -129,7 +129,7 @@ int64_t Add1of2AddressInputs(CMutableTransaction &mtx, uint256 fundingtxid, char
                 // Pass empty CScript() to scriptSig param, it will be filled by FinalizeCCtx:
                 mtx.vin.push_back(CTxIn(it->first.txhash, it->first.index, CScript()));
                 totalinputs += it->second.satoshis;
-                if (totalinputs >= amount || ++count > maxinputs)
+                if (amount > 0 && totalinputs >= amount || ++count > maxinputs)
                     break;
             }
         }
@@ -291,6 +291,84 @@ UniValue HeirList()
     }
     return result;
 }
+
+
+// heirinfo implementation returns some data about a heir plan identified by funding txid 
+// (it could be obtained by heirlist rpc call)
+UniValue HeirInfo(uint256 fundingtxid)
+{
+    UniValue result(UniValue::VOBJ);
+
+    CTransaction fundingtx;
+    uint256 hashBlock;
+    std::vector<uint8_t> vopret;
+    uint8_t eval, funcId;
+    CPubKey ownerPubkey, heirPubkey;
+    std::string name;
+    int64_t inactivityTime;
+
+
+    // get initial funding tx and set it as initial lasttx:
+    if (GetTransaction(fundingtxid, fundingtx, hashBlock, false) && 
+        fundingtx.vout.size() &&   // vout bound checking
+        GetOpReturnData(fundingtx.vout.back().scriptPubKey, vopret) &&  
+        E_UNMARSHAL(vopret, ss >> eval; ss >> funcId; ss >> ownerPubkey; ss >> heirPubkey; ss >> inactivityTime; ss >> name;) &&
+        eval == EVAL_HEIR &&
+        funcId == 'F')
+    {
+        uint8_t hasHeirSpendingBegun;
+        uint256 latestFundingTxid = FindLatestOwnerTx(fundingtxid, ownerPubkey, heirPubkey, inactivityTime, hasHeirSpendingBegun);
+
+        if (latestFundingTxid == zeroid) {
+            result.push_back(Pair("result", "error"));
+            result.push_back(Pair("error", "could not find latest tx"));
+            return result;
+        }
+
+        int32_t numblocks;
+        uint64_t durationSec = 0;
+
+        result.push_back(Pair("fundingtxid", fundingtxid.GetHex()));
+        result.push_back(Pair("name", name));
+        
+        result.push_back(Pair("OwnerPubKey", HexStr(ownerPubkey)));
+        result.push_back(Pair("HeirPubKey", HexStr(ownerPubkey)));
+
+        struct CCcontract_info *cp, C;
+        cp = CCinit(&C, EVAL_HEIR);
+
+        // get 1 of 2 address:
+        char coinaddr[65];
+        GetCCaddress1of2(cp, coinaddr, ownerPubkey, heirPubkey);
+
+        CMutableTransaction mtx;  // dummy tx object
+        // add all available inputs:
+        int64_t inputs = Add1of2AddressInputs(mtx, fundingtxid, coinaddr, 0, 64);
+
+        result.push_back(Pair("AvailableFund", ValueFromAmount(inputs)));
+        result.push_back(Pair("InactivityTimeSetting", inactivityTime));
+            
+        if (!hasHeirSpendingBegun) { // we do not need find duration if the spending already has begun
+            durationSec = CCduration(numblocks, latestFundingTxid);
+        }
+
+        result.push_back(Pair("IsHeirSpendingAllowed", (hasHeirSpendingBegun || durationSec > inactivityTime ? "true" : "false")));
+
+        // adding owner current inactivity time:
+        if (!hasHeirSpendingBegun && durationSec <= inactivityTime) {
+            result.push_back(Pair("InactivityTime", durationSec));
+        }
+
+        result.push_back(Pair("result", "success"));
+
+    }
+    else {
+        result.push_back(Pair("result", "error"));
+        result.push_back(Pair("error", "could not find heir cc plan for this txid (no initial tx)"));
+    }
+    return (result);
+}
+
 
 
 class CoinHelper;
@@ -1320,7 +1398,7 @@ UniValue HeirClaimCaller(uint256 fundingtxid, int64_t txfee, std::string strAmou
  * plan name, owner and heir pubkeys, funds deposited and available, flag if spending is enabled for the heir
  * @return heir info data
  */
-UniValue HeirInfo(uint256 fundingtxid)
+UniValue HeirInfo000(uint256 fundingtxid)
 {
     UniValue result(UniValue::VOBJ);
     
