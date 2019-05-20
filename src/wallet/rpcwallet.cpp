@@ -7752,7 +7752,7 @@ UniValue heirfund(const UniValue& params, bool fHelp)
         throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
     // output help message if asked or params count is incorrect:
     if (fHelp || params.size() != 4)
-        throw runtime_error("heirfund funds heirname heirpubkey inactivitytime\n");
+        throw runtime_error("heirfund amount heirname heirpubkey inactivitytime\n");
 
     // UniValue object is a special type for passing data in rpc calls.
     // Univalue params is actually an array of Univalue objects.

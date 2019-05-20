@@ -173,7 +173,7 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
                 // check inactivity time
                 int32_t numBlocks;
                 if (lastHeirSpendingBegun || CCduration(numBlocks, latesttxid) > inactivityTime) {
-                    std::cerr << "CheckInactivityTime() " << "inactivity time passed, newHeirSpendingBegun="<< newHeirSpendingBegun << std::endl;
+                    std::cerr << "CheckInactivityTime() " << "inactivity time passed, newHeirSpendingBegun="<< (int)newHeirSpendingBegun << std::endl;
                     if (newHeirSpendingBegun != 1)
                         return eval->Invalid("heir spending flag incorrect, must be 1");
                     else
@@ -181,7 +181,7 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
                 }
                 else
                 {
-                    std::cerr << "CheckInactivityTime() " << "inactivity time not passed yet, newHeirSpendingBegun=" << newHeirSpendingBegun << std::endl;
+                    std::cerr << "CheckInactivityTime() " << "inactivity time not passed yet, newHeirSpendingBegun=" << (int)newHeirSpendingBegun << std::endl;
                     if (newHeirSpendingBegun != 0)
                         return eval->Invalid("heir spending flag incorrect, must be 0");
                     else
@@ -190,7 +190,7 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
             }
             else
             {
-                std::cerr << "CheckInactivityTime() " << "owner spends, no need to check inactivity time, lastHeirSpendingBegun=" << lastHeirSpendingBegun << ", newHeirSpendingBegun = " << newHeirSpendingBegun  << std::endl;
+                std::cerr << "CheckInactivityTime() " << "owner spends, no need to check inactivity time, lastHeirSpendingBegun=" << (int)lastHeirSpendingBegun << ", newHeirSpendingBegun = " << (int)newHeirSpendingBegun  << std::endl;
                 if (newHeirSpendingBegun != lastHeirSpendingBegun)
                     return eval->Invalid("heir spending flag incorrect");
                 else
@@ -291,13 +291,13 @@ int64_t Add1of2AddressInputs(CMutableTransaction &mtx, uint256 fundingtxid, char
         uint256 hashBlock;
         std::vector<uint8_t> vopret;
 
-        // Load current uxto's transaction and check if it has an opreturn in the back of array of outputs: 
+        // Load the current uxto's transaction and check if it has a correct opreturn in the back of array of outputs: 
         if (GetTransaction(it->first.txhash, tx, hashBlock, false) && tx.vout.size() > 0 && GetOpReturnData(tx.vout.back().scriptPubKey, vopret) && vopret.size() > 2)
         {
             uint8_t evalCode, funcId, hasHeirSpendingBegun;
             uint256 txid;
 
-            if (it->first.txhash == fundingtxid ||   // if this is our contract instance coins 
+            if (it->first.txhash == fundingtxid ||   // check if this tx is from our contract instance 
                 E_UNMARSHAL(vopret, { ss >> evalCode; ss >> funcId; ss >> txid >> hasHeirSpendingBegun; }) && // unserialize opreturn
                 evalCode == EVAL_HEIR &&
                 fundingtxid == txid) // it is a tx from this funding plan
@@ -438,9 +438,9 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
         return std::string("");
     }
 
-    // Let's create the claim transaction inputs and outputs.
+    // Let's create the claim transaction inputs and outputs:
 
-    // add normal inputs for txfee:
+    // add normal inputs for txfee amount:
     if (AddNormalinputs(mtx, myPubkey, txfee, 3) <= txfee) {
         CCerror = "not enough normal inputs for txfee";
         return std::string("");
