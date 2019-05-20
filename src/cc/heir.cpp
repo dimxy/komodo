@@ -198,7 +198,7 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
             }
         }
     }
-    return eval->Invalid("not normal outputs found"); // if no any normal output not found then tx is incorrect
+    return eval->Invalid("no normal outputs found"); // if no any normal output not found then tx is incorrect
 }
 
 // Tx validation entry function, it is a callback actually
@@ -261,7 +261,7 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
 
         // if it is heir claiming the funds check if he is allowed
         // also check if the new flag is set correctly
-        if (CheckInactivityTime(cpHeir, eval, tx, latesttxid, inactivityTimeSec, heirPubkey, lastHeirSpendingBegun, hasHeirSpendingBegun) )
+        if (!CheckInactivityTime(cpHeir, eval, tx, latesttxid, inactivityTimeSec, heirPubkey, lastHeirSpendingBegun, hasHeirSpendingBegun) )
             return false;
         break;
 
@@ -269,7 +269,7 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
         std::cerr << "HeirValidate() illegal heir funcid=" << (char)funcId << std::endl;
         return eval->Invalid("unexpected HeirValidate funcid");
     }
-    return true;   
+    return eval->Valid();   
 }
 // end of consensus code
 
