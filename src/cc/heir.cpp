@@ -143,9 +143,9 @@ bool CheckSpentTxns(struct CCcontract_info* cpHeir, Eval* eval, const CTransacti
                 // if vintx is add or claim tx the heirtxid should be equal to the txid in the vintx opret
                 else  {
                     uint256 vinHeirtxid;
-                    uint8_t vinHeirSpendingBegun;
+                    uint8_t evalcode, funcid, vinHeirSpendingBegun;
 
-                    if (!E_UNMARSHAL(vinopret, ss >> vinHeirtxid; ss >> vinHeirSpendingBegun;))
+                    if (!E_UNMARSHAL(vinopret, ss >> evalcode; ss >> funcid; ss >> vinHeirtxid; ss >> vinHeirSpendingBegun;))
                         // return invalid state if unserializing function returned false
                         return eval->Invalid("incorrect vintx opreturn data");
 
@@ -202,10 +202,10 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
     return eval->Invalid("not normal outputs found"); // if no any normal output not found then tx is incorrect
 }
 
-// Tx validation entry function
+// Tx validation entry function, it is a callback actually
 // params: 
 // cpHeir pointer to contract variable structure
-// eval pointer to cc dispatching object
+// eval pointer to cc dispatching object, used to return invalid state
 // tx is the tx itself
 // nIn not used in validation code
 bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction& tx, uint32_t nIn)
@@ -255,7 +255,8 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
         return eval->Invalid("unexpected HeirValidate for heirfund");
 
     case 'C':
-        // check if correct tx are being spent
+        // check if correct funding txns are being spent, 
+        // like they belong to this contract instance
         if (!CheckSpentTxns(cpHeir, eval, tx, fundingtxid))
             return false;
 
