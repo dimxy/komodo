@@ -45,7 +45,7 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
     std::string name;
     // get initial funding tx, check if it has an opreturn and deserialize it:
     if (!myGetTransaction(fundingtxid, fundingtx, hashBlock) ||  // NOTE: use non-locking version of GetTransaction as we may be called from validation code
-        fundingtx.vout.size() == 0 ||
+        fundingtx.vout.size() < 2 ||
         !GetOpReturnData(fundingtx.vout.back().scriptPubKey, vopret) ||
         !E_UNMARSHAL(vopret, ss >> eval; ss >> funcId; ss >> ownerPubkey; ss >> heirPubkey; ss >> inactivityTime; ss >> name;) ||
         eval != EVAL_HEIR ||
@@ -58,14 +58,10 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_HEIR);
 
-    // check if pubkeys in funding tx opreturn match vouts:
-    for (auto vout : fundingtx.vout) {
-        if (vout.scriptPubKey.IsPayToCryptoCondition()) {
-            if (vout != MakeCC1of2vout(EVAL_HEIR, vout.nValue, ownerPubkey, heirPubkey)) {
-                std::cerr << "FindLatestOwnerTx()" << "funding tx vout pubkeys do not match pubkeys in the opreturn" << std::endl;
-                return zeroid;
-            }
-        }
+    // check if pubkeys in funding tx opreturn match 1 of 2 pubkey cc vout:
+    if (fundingtx.vout[0] != MakeCC1of2vout(EVAL_HEIR, fundingtx.vout[0].nValue, ownerPubkey, heirPubkey)) {
+        std::cerr << "FindLatestOwnerTx()" << "funding tx vout pubkeys do not match pubkeys in the opreturn" << std::endl;
+        return zeroid;
     }
 
 
