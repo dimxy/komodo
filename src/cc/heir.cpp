@@ -586,7 +586,7 @@ UniValue HeirInfo(uint256 fundingtxid)
         result.push_back(Pair("HeirSpendingAllowed", (hasHeirSpendingBegun || durationSec > inactivityTime ? "true" : "false")));
 
         // adding owner current inactivity time:
-        if (hasHeirSpendingBegun && durationSec <= inactivityTime) {
+        if (!hasHeirSpendingBegun && durationSec <= inactivityTime) {
             result.push_back(Pair("InactivityTimePassed", durationSec));
         }
 
