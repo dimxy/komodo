@@ -162,6 +162,7 @@ bool CheckSpentTxns(struct CCcontract_info* cpHeir, Eval* eval, const CTransacti
 
 
 // check that enough time has passed from the last owner activity
+// also validate if hasHeirSpendingBegun flag is set correctly
 bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction &tx, uint256 latesttxid, int64_t inactivityTime, CPubKey heirPubkey, uint8_t lastHeirSpendingBegun, uint8_t newHeirSpendingBegun) {
 
     // check if this is heir claiming funds
@@ -210,12 +211,12 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
 bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction& tx, uint32_t nIn)
 {
     // let's check basic tx structure, that is, has opreturn with correct basic evalcode and funcid
-    // Note: we do not check for 'F' or 'A' funcids because we never get into validation code for the initial or add tx as it has no cc heir vins ever
+    // Note: we do not check for 'F' or 'A' funcids because we never get into validation code for the initial tx or for an add tx as they have no heir cc vins ever
     std::vector <uint8_t> vopret;
     if( tx.vout.size() < 1 || !GetOpReturnData(tx.vout.back().scriptPubKey, vopret) || vopret.size() < 2 || vopret.begin()[0] != EVAL_HEIR || 
         vopret.begin()[1] != 'C')
-        // interrupt the vaidation and return invalid state:
-        return eval->Invalid("incorrect or no opreturn data");
+        // interrupt the validation and return invalid state:
+        return eval->Invalid("incorrect or no opreturn data");  // note that you should not return simply 'false'
 
     uint8_t evalcode, funcId;
 
@@ -272,8 +273,6 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
     return eval->Valid();   
 }
 // end of consensus code
-
-
 
 // add inputs from fund cc threshold=2 aka 1 of 2 cryptocondition address to transaction object
 int64_t Add1of2AddressInputs(CMutableTransaction &mtx, uint256 fundingtxid, char *coinaddr, int64_t amount, int32_t maxinputs)
@@ -475,12 +474,13 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
     // in the opreturn we added a pair of standard ids: cc eval code and functional id plus the fundingtxid as the funding plan identifier
     // We use a special flag hasHeirSpendingBegun that is turned to 1 when the heir first time spends funds. 
     // That means that it is no need further in checking the owner's inactivity time
-    // Once set to 'true' this flag should be set to true in the following transaction opreturns
+    // Once set to 'true' this flag should be set to true in the successive transaction opreturns
 }
 
 // heirlist rpc implementation. Use marker uxtos to list all heir initial transactions
 UniValue HeirList()
 {
+    // rpc object to return the array of initial txids
     UniValue result(UniValue::VARR);
 
     // init cc contract object:
@@ -519,11 +519,11 @@ UniValue HeirList()
     return result;
 }
 
-
 // heirinfo implementation returns some data about a heir plan identified by funding txid 
-// (it could be obtained by heirlist rpc call)
+// which could be obtained by heirlist rpc call
 UniValue HeirInfo(uint256 fundingtxid)
 {
+    // rpc object to return the resulting info
     UniValue result(UniValue::VOBJ);
 
     CTransaction fundingtx;
@@ -552,7 +552,7 @@ UniValue HeirInfo(uint256 fundingtxid)
             return result;
         }
 
-        // output some data about this heir cc contract instance (funding plan)
+        // output some data about this heir cc contract instance (funding plan):
 
         // pubkeys:
         result.push_back(Pair("fundingtxid", fundingtxid.GetHex()));
