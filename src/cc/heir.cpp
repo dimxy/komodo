@@ -37,7 +37,7 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
     uint8_t eval, funcId;
 
     // set inital state as the heir has not begun to spend the funds:
-    hasHeirSpendingBegun = '0';
+    hasHeirSpendingBegun = 0;
 
     CTransaction fundingtx;
     uint256 hashBlock;
@@ -175,7 +175,7 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
                 int32_t numBlocks;
                 if (lastHeirSpendingBegun || CCduration(numBlocks, latesttxid) > inactivityTime) {
                     std::cerr << "CheckInactivityTime() " << "inactivity time passed, newHeirSpendingBegun="<< newHeirSpendingBegun << std::endl;
-                    if (newHeirSpendingBegun != '1')
+                    if (newHeirSpendingBegun != 1)
                         return eval->Invalid("heir spending flag incorrect, must be 1");
                     else
                         return true;
@@ -183,7 +183,7 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
                 else
                 {
                     std::cerr << "CheckInactivityTime() " << "inactivity time not passed yet, newHeirSpendingBegun=" << newHeirSpendingBegun << std::endl;
-                    if (newHeirSpendingBegun != '0')
+                    if (newHeirSpendingBegun != 0)
                         return eval->Invalid("heir spending flag incorrect, must be 0");
                     else
                         return true;
@@ -374,7 +374,7 @@ std::string HeirAdd(uint256 fundingtxid, int64_t amount)
 
     CPubKey ownerPubkey, heirPubkey;
     int64_t inactivityTimeSec;
-    uint8_t hasHeirSpendingBegun = '0';
+    uint8_t hasHeirSpendingBegun = 0;
 
     // call FindLatestOwnerTx to obtain hasHeirSpendingBegun flag value:
     uint256 latesttxid = FindLatestOwnerTx(fundingtxid, ownerPubkey, heirPubkey, inactivityTimeSec, hasHeirSpendingBegun);
@@ -418,7 +418,7 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
     const int64_t txfee = 10000;
     CPubKey ownerPubkey, heirPubkey;
     int64_t inactivityTimeSec;
-    uint8_t hasHeirSpendingBegun = '0';
+    uint8_t hasHeirSpendingBegun = 0;
 
     // Now we need to find the latest owner transaction to calculate the owner's inactivity time:
     // Use a developed helper FindLatestOwnerTx function which returns the lastest txid, heir public key and the hasHeirSpendingBegun flag value :
@@ -471,7 +471,7 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
     CCaddr1of2set(cp, ownerPubkey, heirPubkey, mypriv, coinaddr);
 
     // Add normal change if any, add opreturn data and sign the transaction :
-    return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'C' << fundingtxid << (myPubkey == heirPubkey ? (uint8_t)'1' : hasHeirSpendingBegun)));
+    return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'C' << fundingtxid << (myPubkey == heirPubkey ? (uint8_t)1 : hasHeirSpendingBegun)));
     // in the opreturn we added a pair of standard ids: cc eval code and functional id plus the fundingtxid as the funding plan identifier
     // We use a special flag hasHeirSpendingBegun that is turned to 1 when the heir first time spends funds. 
     // That means that it is no need further in checking the owner's inactivity time
@@ -576,17 +576,17 @@ UniValue HeirInfo(uint256 fundingtxid)
         result.push_back(Pair("InactivityTimeSetting", inactivityTime));
           
         uint64_t durationSec = 0;
-        if (hasHeirSpendingBegun == '0') { // we do not need find duration if the spending already has begun
+        if (!hasHeirSpendingBegun) { // we do not need find duration if the spending already has begun
             int32_t numblocks;
             durationSec = CCduration(numblocks, latestFundingTxid);  
             // Note: when running cc heir contract on a private chain make sure there is at least one block mined after the block with the latest tx, 
             // for CCduration to return non-zero
         }
 
-        result.push_back(Pair("HeirSpendingAllowed", (hasHeirSpendingBegun == '1' || durationSec > inactivityTime ? "true" : "false")));
+        result.push_back(Pair("HeirSpendingAllowed", (hasHeirSpendingBegun || durationSec > inactivityTime ? "true" : "false")));
 
         // adding owner current inactivity time:
-        if (hasHeirSpendingBegun == '0' && durationSec <= inactivityTime) {
+        if (hasHeirSpendingBegun && durationSec <= inactivityTime) {
             result.push_back(Pair("InactivityTimePassed", durationSec));
         }
 
