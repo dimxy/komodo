@@ -64,7 +64,6 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
         return zeroid;
     }
 
-
     // get the address of cryptocondition '1 of 2 pubkeys':
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
     char coinaddr[64];
@@ -76,7 +75,7 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
     int32_t maxBlockHeight = 0;
     uint256 latesttxid = fundingtxid;   // set to initial txid
 
-                                        // go through uxto's to find the last funding or spending owner tx:
+    // go through uxto's to find the last funding or spending owner tx:
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
     {
         CTransaction vintx;
@@ -168,7 +167,7 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
     // check if this is heir claiming funds
     for (auto vout : tx.vout) {
         // is this normal output?
-        if (vout.scriptPubKey.IsPayToPublicKeyHash())   {
+        if (vout.scriptPubKey.IsPayToPublicKey())   {
             // is it to heir pubkey?
             if (vout.scriptPubKey == CScript() << ParseHex(HexStr(heirPubkey)) << OP_CHECKSIG) {
                 // check inactivity time
