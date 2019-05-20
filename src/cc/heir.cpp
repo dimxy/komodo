@@ -232,14 +232,13 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
     if( fundingtxid.IsNull() )
         return eval->Invalid("incorrect funding plan id in tx opret");
 
-    // usually here we load and check the initial tx
-    // but in this cc contract we have only one tx to check claiming
-    // so the initial tx will be checked during claim tx validation
     CPubKey ownerPubkey, heirPubkey;
     int64_t inactivityTimeSec;
     uint8_t lastHeirSpendingBegun;
 
-    // call FindLatestOwnerTx function to obtain opreturn parameters and hasHeirSpendingBegun flag:
+    // it is good place to load the initial tx and check if it exist and has correct opretun
+    // we are callinng FindLatestOwnerTx function to obtain opreturn parameters and hasHeirSpendingBegun flag,
+    // and this function also checks the initial tx:
     uint256 latesttxid = FindLatestOwnerTx(fundingtxid, ownerPubkey, heirPubkey, inactivityTimeSec, lastHeirSpendingBegun);
     if (latesttxid.IsNull()) {
         return eval->Invalid("no or incorrect funding tx found");
@@ -375,7 +374,7 @@ std::string HeirAdd(uint256 fundingtxid, int64_t amount)
 
     CPubKey ownerPubkey, heirPubkey;
     int64_t inactivityTimeSec;
-    uint8_t hasHeirSpendingBegun;
+    uint8_t hasHeirSpendingBegun = '0';
 
     // call FindLatestOwnerTx to obtain hasHeirSpendingBegun flag value:
     uint256 latesttxid = FindLatestOwnerTx(fundingtxid, ownerPubkey, heirPubkey, inactivityTimeSec, hasHeirSpendingBegun);
@@ -553,9 +552,7 @@ UniValue HeirInfo(uint256 fundingtxid)
             return result;
         }
 
-        // send some data about this heir cc contract instance (funding plan)
-        int32_t numblocks;
-        uint64_t durationSec = 0;
+        // output some data about this heir cc contract instance (funding plan)
 
         // pubkeys:
         result.push_back(Pair("fundingtxid", fundingtxid.GetHex()));
@@ -577,17 +574,19 @@ UniValue HeirInfo(uint256 fundingtxid)
 
         result.push_back(Pair("AvailableFund", ValueFromAmount(inputs))); // ValueFromAmount() function converts satoshis to coins representation
         result.push_back(Pair("InactivityTimeSetting", inactivityTime));
-            
-        if (!hasHeirSpendingBegun) { // we do not need find duration if the spending already has begun
+          
+        uint64_t durationSec = 0;
+        if (hasHeirSpendingBegun == '0') { // we do not need find duration if the spending already has begun
+            int32_t numblocks;
             durationSec = CCduration(numblocks, latestFundingTxid);  
             // Note: when running cc heir contract on a private chain make sure there is at least one block mined after the block with the latest tx, 
             // for CCduration to return non-zero
         }
 
-        result.push_back(Pair("HeirSpendingAllowed", (hasHeirSpendingBegun || durationSec > inactivityTime ? "true" : "false")));
+        result.push_back(Pair("HeirSpendingAllowed", (hasHeirSpendingBegun == '1' || durationSec > inactivityTime ? "true" : "false")));
 
         // adding owner current inactivity time:
-        if (!hasHeirSpendingBegun && durationSec <= inactivityTime) {
+        if (hasHeirSpendingBegun == '0' && durationSec <= inactivityTime) {
             result.push_back(Pair("InactivityTimePassed", durationSec));
         }
 
