@@ -211,20 +211,20 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
 bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction& tx, uint32_t nIn)
 {
     // let's check basic tx structure, that is, has opreturn with correct basic evalcode and funcid
-    // Note: we do not check for 'F' because we never get into validation code for the initial tx as it has no cc heir vins
+    // Note: we do not check for 'F' or 'A' funcids because we never get into validation code for the initial or add tx as it has no cc heir vins ever
     std::vector <uint8_t> vopret;
     if( tx.vout.size() < 1 || !GetOpReturnData(tx.vout.back().scriptPubKey, vopret) || vopret.size() < 2 || vopret.begin()[0] != EVAL_HEIR || 
-        vopret.begin()[1] != 'A' && vopret.begin()[1] != 'C')
+        vopret.begin()[1] != 'C')
         // interrupt the vaidation and return invalid state:
         return eval->Invalid("incorrect or no opreturn data");
 
-    uint8_t funcId = vopret.begin()[1];
+    uint8_t evalcode, funcId;
 
     // let's try to decode opreturn:
     // heirid is this contract instance id (the initial tx id)
     uint256 fundingtxid; //initialized to null
     uint8_t hasHeirSpendingBegun;
-    if (!E_UNMARSHAL(vopret, ss >> fundingtxid; ss >> hasHeirSpendingBegun;) )
+    if (!E_UNMARSHAL(vopret, ss >> evalcode; ss >> funcId; ss >> fundingtxid; ss >> hasHeirSpendingBegun;))
         // return invalid state if unserializing function returned false
         return eval->Invalid("incorrect opreturn data");
 
