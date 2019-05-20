@@ -275,7 +275,7 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
 
 
 
-// add inputs from cc threshold=2 cryptocondition address to transaction object
+// add inputs from fund cc threshold=2 aka 1 of 2 cryptocondition address to transaction object
 int64_t Add1of2AddressInputs(CMutableTransaction &mtx, uint256 fundingtxid, char *coinaddr, int64_t amount, int32_t maxinputs)
 {
     int64_t totalinputs = 0L;
