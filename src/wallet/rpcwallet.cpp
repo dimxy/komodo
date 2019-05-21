@@ -7790,10 +7790,13 @@ UniValue heirfund(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
     if (ensure_CCrequirements(EVAL_HEIR) < 0)
-        throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
+        throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet and Heir cc contract enabled\n");
     // output help message if asked or params count is incorrect:
     if (fHelp || params.size() != 4)
         throw runtime_error("heirfund amount heirname heirpubkey inactivitytime\n");
+
+    // Lock the wallet
+    LOCK2(cs_main, pwalletMain->cs_wallet);
 
     // UniValue object is a special type for passing data in rpc calls.
     // Univalue params is actually an array of Univalue objects.
@@ -7829,7 +7832,7 @@ UniValue heirclaim(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 2)
         throw runtime_error("heirclaim fundingtxid funds\n");
     if (ensure_CCrequirements(EVAL_HEIR) < 0)
-        throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
+        throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet and Heir cc contract enabled\n");
 
     // Lock the wallet
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -7838,6 +7841,7 @@ UniValue heirclaim(const UniValue& params, bool fHelp)
     uint256 fundingtxid = Parseuint256((char*)params[0].get_str().c_str());
     CAmount amount = atof(params[1].get_str().c_str()) * COIN;  // Note conversion to satoshis by multiplication on 10E8
 
+    // call transaction creation code
     std::string hextx = HeirClaim(fundingtxid, amount);
     RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set
 
@@ -7847,7 +7851,7 @@ UniValue heirclaim(const UniValue& params, bool fHelp)
 }
 
 
-
+// heiradd command rpc-level implementation
 UniValue heiradd(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
@@ -7859,14 +7863,15 @@ UniValue heiradd(const UniValue& params, bool fHelp)
 	if (fHelp || params.size() != 2)
 		throw runtime_error("heiradd fundingtxid amount\n");
 	if (ensure_CCrequirements(EVAL_HEIR) < 0)
-		throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
+		throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet and Heir cc contract enabled\n");
 
-	const CKeyStore& keystore = *pwalletMain;
-	LOCK2(cs_main, pwalletMain->cs_wallet);
+    // lock the wallet:
+    LOCK2(cs_main, pwalletMain->cs_wallet);
 
 	uint256 fundingtxid = Parseuint256((char*)params[0].get_str().c_str());
     CAmount amount = atof(params[1].get_str().c_str()) * COIN;  // Note conversion to satoshis by multiplication on 10E8
 
+    // call transaction creation code
 	std::string hextx = HeirAdd(fundingtxid, amount);
     RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set
 
@@ -7875,27 +7880,28 @@ UniValue heiradd(const UniValue& params, bool fHelp)
 	return result;
 }
 
-
+// heirinfo rpc-level implementation:
 UniValue heirinfo(const UniValue& params, bool fHelp)
 {
 	uint256 fundingtxid;
 	if (fHelp || params.size() != 1) 
 		throw runtime_error("heirinfo fundingtxid\n");
 
-	//    if ( ensure_CCrequirements(EVAL_HEIR) < 0 )
-	//        throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
+	//if( ensure_CCrequirements(EVAL_HEIR) < 0 )
+	//    throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
 
 	fundingtxid = Parseuint256((char*)params[0].get_str().c_str());
 	return (HeirInfo(fundingtxid));
 }
 
+// heirlist rpc levelimplementation:
 UniValue heirlist(const UniValue& params, bool fHelp)
 {
 	if (fHelp || params.size() != 0) 
 		throw runtime_error("heirlist\n");
 
-	//    if ( ensure_CCrequirements(EVAL_HEIR) < 0 )
-	//        throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
+	//if( ensure_CCrequirements(EVAL_HEIR) < 0 )
+	//    throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
 
 	return (HeirList());
 }
