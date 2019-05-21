@@ -221,14 +221,14 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
     uint8_t evalcode, funcId;
 
     // let's try to decode opreturn:
-    // heirid is this contract instance id (the initial tx id)
+    // fundingtxid is this contract instance id (the initial tx id)
     uint256 fundingtxid; //initialized to null
     uint8_t hasHeirSpendingBegun;
     if (!E_UNMARSHAL(vopret, ss >> evalcode; ss >> funcId; ss >> fundingtxid; ss >> hasHeirSpendingBegun;))
         // return invalid state if unserializing function returned false
         return eval->Invalid("incorrect opreturn data");
 
-    // important to check if heirid parsed okay:
+    // important to check if fundingtxid parsed is okay:
     if( fundingtxid.IsNull() )
         return eval->Invalid("incorrect funding plan id in tx opret");
 
