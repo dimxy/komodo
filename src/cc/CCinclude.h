@@ -114,34 +114,53 @@ struct CC_meta
     // followed by address destinations
 };
 
+class CCwrapper {
+public:
+    CCwrapper() {}
+    CCwrapper(CC *cond) : spcond(cond, [](CC* p) {cc_free(p); })  { }
+    CCwrapper(const CCwrapper &w) { spcond = w.spcond; } // default copy constr
+    CC *get() { return spcond.get(); }
+private:
+    std::shared_ptr<CC> spcond;
+};
+
+struct CCVintxCond {
+    CCwrapper wcond;
+    uint8_t CCpriv[32];
+};
+
 struct CCcontract_info
 {
 	// this is for spending from 'unspendable' CC address
-	uint8_t evalcode;
-    uint8_t additionalTokensEvalcode2;  // this is for making three-eval-token vouts (EVAL_TOKENS + evalcode + additionalEvalcode2)
-	char unspendableCCaddr[64], CChexstr[72], normaladdr[64];
+	uint8_t evalcode = 0;
+    uint8_t additionalTokensEvalcode2 = 0;  // this is for making three-eval-token vouts (EVAL_TOKENS + evalcode + additionalEvalcode2)
+
+    // clear all char[] as they are compared in FinalizeCCtx vs vintx destaddr's:
+	char unspendableCCaddr[64] = "", CChexstr[72] = "", normaladdr[64] = "";
 	uint8_t CCpriv[32];
 
 	// this for 1of2 keys coins cryptocondition (for this evalcode)
 	// NOTE: only one evalcode is allowed at this time
-	char coins1of2addr[64];
+	char coins1of2addr[64] = "";
     CPubKey coins1of2pk[2]; uint8_t coins1of2priv[32];
 
 	// the same for tokens 1of2 keys cc 
-	char tokens1of2addr[64];
+	char tokens1of2addr[64] = "";
 	CPubKey tokens1of2pk[2]; uint8_t tokens1of2priv[32];
 
 	// this is for spending from two additional 'unspendable' CC addresses of other eval codes 
 	// (that is, for spending from several cc contract 'unspendable' addresses):
 	uint8_t unspendableEvalcode2, unspendableEvalcode3;  // changed evalcodeN to unspendableEvalcodeN for not mixing up with additionalEvalcodeN
-	char    unspendableaddr2[64], unspendableaddr3[64];
+	char    unspendableaddr2[64] = "", unspendableaddr3[64] = "";
 	uint8_t unspendablepriv2[32], unspendablepriv3[32];
     CPubKey unspendablepk2,       unspendablepk3;
 
     bool (*validate)(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);  // cc contract tx validation callback
     bool (*ismyvin)(CScript const& scriptSig);	// checks if evalcode is present in the scriptSig param
 
-    uint8_t didinit;
+    std::vector< struct CCVintxCond > vintxconds;
+
+    uint8_t didinit = 0;
 };
 struct CCcontract_info *CCinit(struct CCcontract_info *cp,uint8_t evalcode);
 
@@ -296,6 +315,7 @@ int64_t NSPV_AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total
 int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs);
 int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinputs);
 int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCflag);
+void CCAddVintxCond(struct CCcontract_info *cp, CCwrapper cond, uint8_t *priv = NULL);
 bool NSPV_SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey,uint32_t nTime);
 
 // curve25519 and sha256
