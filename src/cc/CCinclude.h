@@ -126,7 +126,6 @@ private:
 
 struct CCVintxCond {
     CCwrapper wcond;
-    char coinaddr[64];
     uint8_t CCpriv[32];
 };
 
@@ -316,7 +315,7 @@ int64_t NSPV_AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total
 int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs);
 int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinputs);
 int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCflag);
-void CCAddVintxCond(struct CCcontract_info *cp, char *coinaddr, CCwrapper cond, uint8_t *priv = NULL);
+void CCAddVintxCond(struct CCcontract_info *cp, CCwrapper cond, uint8_t *priv = NULL);
 bool NSPV_SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey,uint32_t nTime);
 
 // curve25519 and sha256
