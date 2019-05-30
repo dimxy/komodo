@@ -282,10 +282,11 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                     {
                         // use vector of dest addresses and conds
                         for (auto t : cp->vintxconds) {
-                            char coinaddr[64];
-                            cond = t.wcond.get();
-                            Getscriptaddress(coinaddr, CCPubKey(cond));
-                            if (strcmp(destaddr, coinaddr) == 0) {
+                            //char coinaddr[64];
+                            //cond = t.wcond.get();
+                            //Getscriptaddress(coinaddr, CCPubKey(cond));
+                            if (strcmp(destaddr, t.coinaddr) == 0) {
+                                cond = t.wcond.get();
                                 if (t.CCpriv[0])
                                     privkey = t.CCpriv;
                                 else
