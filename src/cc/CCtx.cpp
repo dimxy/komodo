@@ -281,7 +281,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                     if (flag == 0)
                     {
                         // use vector of dest addresses and conds
-                        for (auto t : cp->vintxconds) {
+                        for (auto &t : cp->vintxconds) {
                             char coinaddr[64];
                             cond = t.wcond.get();
                             Getscriptaddress(coinaddr, CCPubKey(cond));
