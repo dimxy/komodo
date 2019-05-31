@@ -48,9 +48,8 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
     int32_t i,flag,utxovout,n,err = 0;
 	char myaddr[64], destaddr[64], unspendable[64], mytokensaddr[64], mysingletokensaddr[64], unspendabletokensaddr[64],CC1of2CCaddr[64];
     uint8_t *privkey, myprivkey[32], unspendablepriv[32], /*tokensunspendablepriv[32],*/ *msg32 = 0;
-    CC *mycond = 0, *othercond = 0, *othercond2 = 0, *othercond4 = 0, *othercond3 = 0, *othercond1of2 = NULL, *othercond1of2tokens = NULL, *cond = 0, *condCC2 = 0;
-    CC *mytokenscond = NULL, *mysingletokenscond = NULL, *othertokenscond = NULL;
-    CC *vectcond = NULL;
+    CC *mycond = 0, *othercond = 0, *othercond2 = 0, *othercond4 = 0, *othercond3 = 0, *othercond1of2 = NULL, *othercond1of2tokens = NULL, *cond = 0, *condCC2 = 0,
+       *mytokenscond = NULL, *mysingletokenscond = NULL, *othertokenscond = NULL;
 	CPubKey unspendablepk /*, tokensunspendablepk*/;
 	struct CCcontract_info *cpTokens, tokensC;
     globalpk = GetUnspendable(cp,0);
@@ -260,12 +259,9 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                         for (auto &t : cp->vintxconds) {
                             char coinaddr[64];
 
-                            if (vectcond != NULL) 
-                                cc_free(vectcond);  // free previous
-
-                            vectcond = t.CCwrapped.get();
+                            CC *vectcond = t.CCwrapped.get();  // Note: no need to free, it is free by CCwrapper
                             Getscriptaddress(coinaddr, CCPubKey(vectcond));
-                            std::cerr << __func__ << " destaddr=" << destaddr << " coinaddr=" << coinaddr << std::endl;
+                            // std::cerr << __func__ << " destaddr=" << destaddr << " coinaddr=" << coinaddr << std::endl;
                             if (strcmp(destaddr, coinaddr) == 0) {
                                 if (t.CCpriv[0])
                                     privkey = t.CCpriv;
@@ -327,8 +323,6 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
         cc_free(mysingletokenscond);   
     if ( othertokenscond != 0 )
         cc_free(othertokenscond);   
-    if (vectcond != NULL)
-        cc_free(vectcond);  
 
     std::string strHex = EncodeHexTx(mtx);
     if ( strHex.size() > 0 )
