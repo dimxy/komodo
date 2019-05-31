@@ -112,16 +112,27 @@ struct CC_meta
 class CCwrapper {
 public:
     CCwrapper() {}
-    CCwrapper(CC *cond) : spcond(cond, [](CC* p) {cc_free(p); std::cerr << "CCwrapper freed ptr" << std::endl; }) { }
-    CCwrapper(const CCwrapper &w) { spcond = w.spcond; } // default copy constr
-    CC *get() { return spcond.get(); }
+    //CCwrapper(CC *cond) : spcond(cond, [](CC* p) {cc_free(p); }) { }
+
+    void set(CC *cond) {
+        cclen = cc_fulfillmentBinary(cond, ccbuf, sizeof(ccbuf) / sizeof(ccbuf[0]));
+    }
+
+    //CCwrapper(const CCwrapper &w) { spcond = w.spcond; } // default copy constr
+    // CC *get() { return spcond.get(); }
+    CC *get() { 
+        return cc_readFulfillmentBinary((uint8_t*)ccbuf, cclen);
+    }
+
 private:
-    std::shared_ptr<CC> spcond;
+    //std::shared_ptr<CC> spcond;
+    uint8_t ccbuf[10000];
+    size_t  cclen;
 };
 
 struct CCVintxCond {
-    CCwrapper wcond;
-    uint8_t CCpriv[32];
+    CCwrapper CCwrapped;
+    uint8_t   CCpriv[32];
 };
 
 struct CCcontract_info
@@ -306,7 +317,7 @@ void SetCCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex
 int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs);
 int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinputs);
 int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCflag);
-void CCAddVintxCond(struct CCcontract_info *cp, CCwrapper cond, uint8_t *priv = NULL);
+void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, uint8_t *priv = NULL);
 
 // curve25519 and sha256
 bits256 curve25519_shared(bits256 privkey,bits256 otherpub);
