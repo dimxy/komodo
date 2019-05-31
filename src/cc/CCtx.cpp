@@ -284,6 +284,11 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                         return("");
                     }
                 }
+
+                std::cerr << "CCtx before test CCSig" << std::endl;
+                CCSig(cond);
+                std::cerr << "CCtx after test CCSig" << std::endl;
+
                 uint256 sighash = SignatureHash(CCPubKey(cond), mtx, i, SIGHASH_ALL, utxovalues[i],consensusBranchId, &txdata);
                 if ( cc_signTreeSecp256k1Msg32(cond,privkey,sighash.begin()) != 0 )
                 {
