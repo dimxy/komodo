@@ -121,9 +121,9 @@ public:
     //CCwrapper(const CCwrapper &w) { spcond = w.spcond; } // default copy constr
     // CC *get() { return spcond.get(); }
     CC *get() { 
-        char err[1024];
+        char err[1024] = "";
         CC *cc = cc_conditionFromJSONString(ccJsonString, err);
-        std::cerr << "CCwrapper.get cc_conditionFromJSONString error=" << err << std::endl;
+        std::cerr << "CCwrapper.get cc_conditionFromJSONString error=" << err << " cc="  << cc << std::endl;
         return cc;
     }
 
