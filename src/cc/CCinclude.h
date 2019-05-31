@@ -117,23 +117,23 @@ struct CC_meta
 class CCwrapper {
 public:
     CCwrapper() {}
-    CCwrapper(CC *cond) : spcond(cond, [](CC* p) {cc_free(p); }) { }
-    CCwrapper(const CCwrapper &w) { spcond = w.spcond; }  // default copy constr
+    //CCwrapper(CC *cond) : spcond(cond, [](CC* p) {cc_free(p); }) { }
+    //CCwrapper(const CCwrapper &w) { spcond = w.spcond; }  // default copy constr
 
-    /*void set(CC *cond) {
+    void set(CC *cond) {
         ccJsonString = cc_conditionToJSONString(cond); // bad try to serialize cc, does not work if not signed
-    }*/
+    }
 
-    CC *get() { return spcond.get(); }
-    /*CC *get() { 
+    //CC *get() { return spcond.get(); }
+    CC *get() { 
         char err[1024] = "";
         return cc_conditionFromJSONString(ccJsonString, err);  // does not work if not signed
-    }*/
+    }
 
 private:
-    std::shared_ptr<CC> spcond;
-    //char *ccJsonString;
-    //size_t  cclen;
+    //std::shared_ptr<CC> spcond;
+    char *ccJsonString;
+    size_t  cclen;
 };
 
 struct CCVintxCond {
@@ -327,7 +327,7 @@ int64_t NSPV_AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total
 int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs);
 int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinputs);
 int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCflag);
-void CCAddVintxCond(struct CCcontract_info *cp, CCwrapper wrcond, uint8_t *priv = NULL);
+void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, uint8_t *priv = NULL);
 bool NSPV_SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey,uint32_t nTime);
 
 // curve25519 and sha256
