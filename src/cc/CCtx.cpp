@@ -19,13 +19,7 @@
 std::vector<CPubKey> NULL_pubkeys;
 struct NSPV_CCmtxinfo NSPV_U;
 
-/*
- FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and the opreturn.
 
- This allows the contract transaction functions to create the appropriate vins and vouts and have FinalizeCCTx create a properly signed transaction.
-
- By using -addressindex=1, it allows tracking of all the CC addresses
- */
 
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey)
 {
@@ -41,6 +35,25 @@ bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScrip
     return(false);
 }
 
+/*
+FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and the opreturn.
+This allows the contract transaction functions to create the appropriate vins and vouts and have FinalizeCCTx create a properly signed transaction.
+By using -addressindex=1, it allows tracking of all the CC addresses
+ 
+Normal vins are signed with no additional params.
+For cc vins the function builds a set of basic probe cryptoconditions for mypk and global pubkey, both for coins and tokens cases and checks them against vintx cc vouts.
+For more complex cc vins like 1of2 you need to use CCaddr1of2set function to set both pubkeys (this function supports only one 1of2 cc)
+For a set of 1of2 cc with globalpk and pk, spending with global pk, pass 'pubkeys' vector
+For any other cc case use CCAddVintxCond function to add probe cryptoconditions for spending.
+Params:
+    CCmask - not used
+    cp - contract info structure with cc eval code, global address and privkey, vector of cryptoconditions to make scriptSigs for non-
+    mtx - prepared transaction to sign
+    mypk - my pubkey to sign
+    txfee - transaction fee
+    opret - opreturn vout which function will add if it is not empty
+    pubkeys - array of pubkeys to make probe 1of2 cc like Make1of2cond(cp->evalcode, globalpk, pubkeys[i])
+*/
 std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey mypk,uint64_t txfee,CScript opret,std::vector<CPubKey> pubkeys)
 {
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
@@ -281,13 +294,13 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 
                     if (flag == 0)
                     {
-                        // use vector of dest addresses and conds
-                        for (auto &t : cp->vintxconds) {
+                        // use vector of dest addresses and conds to probe vintxconds
+                        for (auto &t : cp->CCvintxprobes) {
                             char coinaddr[64];
 
                             if (vectcond != NULL)
                                 cc_free(vectcond);  // free prev used cond
-                            vectcond = t.CCwrapped.get();  // Note: no need to free, it is free by CCwrapper
+                            vectcond = t.CCwrapped.get();  // Note: need to cc_free at the function exit
                             Getscriptaddress(coinaddr, CCPubKey(vectcond));
                             // std::cerr << __func__ << " destaddr=" << destaddr << " coinaddr=" << coinaddr << std::endl;
                             if (strcmp(destaddr, coinaddr) == 0) {
