@@ -113,7 +113,7 @@ class CCwrapper {
 public:
     CCwrapper() {}
 
-    // smart pointer variant (not to copy cc but use smart pointer with auto cc_free)
+    // smart pointer variant (not to copy cc but use smart pointer with auto cc_free) - could use it if cc serialization to JSON fails. But serialization is more consistent
     // CCwrapper(CC *cond) : spcond(cond, [](CC* p) {cc_free(p); }) { }
     // CCwrapper(const CCwrapper &w) { spcond = w.spcond; }  // default copy constr
     // CC *get() { return spcond.get(); }
@@ -138,7 +138,10 @@ private:
     size_t  cclen;
 };
 
-struct CCVintxCond {
+// struct with cc and privkey 
+// cc is used as a probe to detect vintx cc vouts in FinalizeCCtx
+// CCVintxCond is passed inside a vector of probe cc
+struct CCVintxProbe {
     CCwrapper CCwrapped;
     uint8_t   CCpriv[32];
 };
@@ -172,7 +175,7 @@ struct CCcontract_info
     bool (*validate)(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);  // cc contract tx validation callback
     bool (*ismyvin)(CScript const& scriptSig);	// checks if evalcode is present in the scriptSig param
 
-    std::vector< struct CCVintxCond > vintxconds;
+    std::vector< struct CCVintxProbe > CCvintxprobes;
 
     uint8_t didinit = 0;
 };
