@@ -632,6 +632,17 @@ CBlockIndex *komodo_getblockindex(uint256 hash)
     return((it != mapBlockIndex.end()) ? it->second : NULL);
 }
 
+// extension point to add preferences for stakes (dimxy)
+void komodo_getstakemultiplier(CTransaction &tx, uint64_t multiplier, uint64_t divisor)
+{
+    multiplier = 1;
+    divisor = 1;
+    if (ASSETCHAINS_MARMARA == 0) {
+
+        // TODO:
+    }
+}
+
 uint32_t komodo_txtime2(uint64_t *valuep,uint256 hash,int32_t n,char *destaddr)
 {
     CTxDestination address; CBlockIndex *pindex; CTransaction tx; uint256 hashBlock; uint32_t txtime = 0;
@@ -651,7 +662,9 @@ uint32_t komodo_txtime2(uint64_t *valuep,uint256 hash,int32_t n,char *destaddr)
     //fprintf(stderr,"%s/v%d locktime.%u\n",hash.ToString().c_str(),n,(uint32_t)tx.nLockTime);
     if ( n < tx.vout.size() )
     {
-        *valuep = tx.vout[n].nValue;
+        uint64_t multiplier, divisor;
+        komodo_getstakemultiplier(tx, multiplier, divisor);
+        *valuep = tx.vout[n].nValue * multiplier / divisor;
         if (ExtractDestination(tx.vout[n].scriptPubKey, address))
             strcpy(destaddr,CBitcoinAddress(address).ToString().c_str());
     }
@@ -2537,6 +2550,44 @@ struct komodo_staking
     CScript scriptPubKey;
 };
 
+//struct komodo_staking *komodo_addmarmarautxo(struct komodo_staking *array, int32_t *numkp, int32_t *maxkp, uint32_t txtime, uint64_t nValue, uint256 txid, int32_t vout, char *address, uint8_t *hashbuf, CScript pk)
+struct komodo_staking *komodo_addmarmarautxo(struct komodo_staking *array, int32_t *numkp, int32_t *maxkp, uint8_t *hashbuf)
+{
+    struct CCcontract_info *cp, C; uint256 txid; int32_t vout, ht, unlockht; CAmount nValue; char coinaddr[64]; CPubKey mypk, Marmarapk, pk;
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+
+    cp = CCinit(&C, EVAL_MARMARA);
+    mypk = pubkey2pk(Mypubkey());
+    Marmarapk = GetUnspendable(cp, 0);
+
+    // add activated coins:
+    GetCCaddress1of2(cp, coinaddr, Marmarapk, mypk);
+    SetCCunspents(unspentOutputs, coinaddr, true);
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
+    {
+        CTransaction tx; uint256 hashBlock;
+        CBlockIndex *pindex;
+
+        txid = it->first.txhash;
+        vout = (int32_t)it->first.index;
+        if ((nValue = it->second.satoshis) < COIN)
+            continue;
+        if (GetTransaction(txid, tx, hashBlock, true) != 0 && (pindex = komodo_getblockindex(hashBlock)) != 0 && myIsutxo_spentinmempool(ignoretxid, ignorevin, txid, vout) == 0)
+        {
+            const CScript &scriptPubKey = tx.vout[vout].scriptPubKey;
+            if (DecodeMarmaraCoinbaseOpRet(tx.vout[tx.vout.size() - 1].scriptPubKey, pk, ht, unlockht) != 0 && pk == mypk)
+            {
+                array = komodo_addutxo(array, numkp, maxkp, (uint32_t)pindex->nTime, (uint64_t)nValue, txid, vout, coinaddr, hashbuf, (CScript)scriptPubKey);
+            }
+            // else fprintf(stderr,"SKIP addutxo %.8f numkp.%d vs max.%d\n",(double)nValue/COIN,numkp,maxkp);
+        }
+    }
+
+    // add locked-in-loop coins:
+
+}
+
+
 struct komodo_staking *komodo_addutxo(struct komodo_staking *array,int32_t *numkp,int32_t *maxkp,uint32_t txtime,uint64_t nValue,uint256 txid,int32_t vout,char *address,uint8_t *hashbuf,CScript pk)
 {
     uint256 hash; uint32_t segid32; struct komodo_staking *kp;
@@ -2566,9 +2617,12 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
     static struct komodo_staking *array; static int32_t numkp,maxkp; static uint32_t lasttime;
     int32_t PoSperc;
     set<CBitcoinAddress> setAddress; struct komodo_staking *kp; int32_t winners,segid,minage,nHeight,counter=0,i,m,siglen=0,nMinDepth = 1,nMaxDepth = 99999999; vector<COutput> vecOutputs; uint32_t block_from_future_rejecttime,besttime,eligible,earliest = 0; CScript best_scriptPubKey; arith_uint256 mindiff,ratio,bnTarget,tmpTarget; CBlockIndex *tipindex,*pindex; CTxDestination address; bool fNegative,fOverflow; uint8_t hashbuf[256]; CTransaction tx; uint256 hashBlock;
+
     if (!EnsureWalletIsAvailable(0))
         return 0;
-    
+
+    const bool needSpecialStakeUtxo = (ASSETCHAINS_MARMARA != 0);   //contracts or params for which non-basic utxo for staking are needed
+
     bnTarget.SetCompact(nBits, &fNegative, &fOverflow);
     assert(pwalletMain != NULL);
     *utxovaluep = 0;
@@ -2591,7 +2645,7 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
     {
         CBlockIndex* pblockindex = chainActive[tipindex->GetHeight()];
         CBlock block; CTxDestination addressout;
-        if ( ASSETCHAINS_MARMARA != 0 )
+        if (needSpecialStakeUtxo)
             resetstaker = true;
         else if( ReadBlockFromDisk(block, pblockindex, 1) && komodo_WhoStaked(&block, addressout) != 0 && IsMine(*pwalletMain,addressout) != 0 )
         {
@@ -2611,7 +2665,7 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
             maxkp = numkp = 0;
             lasttime = 0;
         }
-        if ( ASSETCHAINS_MARMARA == 0 )
+        if (!needSpecialStakeUtxo)
         {
             BOOST_FOREACH(const COutput& out, vecOutputs)
             {
@@ -2642,30 +2696,12 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
                 }
             }
         }
-        else
+        else  
         {
-            struct CCcontract_info *cp,C; uint256 txid; int32_t vout,ht,unlockht; CAmount nValue; char coinaddr[64]; CPubKey mypk,Marmarapk,pk;
-            std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
-            cp = CCinit(&C,EVAL_MARMARA);
-            mypk = pubkey2pk(Mypubkey());
-            Marmarapk = GetUnspendable(cp,0);
-            GetCCaddress1of2(cp,coinaddr,Marmarapk,mypk);
-            SetCCunspents(unspentOutputs,coinaddr,true);
-            for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
-            {
-                txid = it->first.txhash;
-                vout = (int32_t)it->first.index;
-                if ( (nValue= it->second.satoshis) < COIN )
-                    continue;
-                if ( GetTransaction(txid,tx,hashBlock,true) != 0 && (pindex= komodo_getblockindex(hashBlock)) != 0 && myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
-                {
-                    const CScript &scriptPubKey = tx.vout[vout].scriptPubKey;
-                    if ( DecodeMarmaraCoinbaseOpRet(tx.vout[tx.vout.size()-1].scriptPubKey,pk,ht,unlockht) != 0 && pk == mypk )
-                    {
-                        array = komodo_addutxo(array,&numkp,&maxkp,(uint32_t)pindex->nTime,(uint64_t)nValue,txid,vout,coinaddr,hashbuf,(CScript)scriptPubKey);
-                    }
-                    // else fprintf(stderr,"SKIP addutxo %.8f numkp.%d vs max.%d\n",(double)nValue/COIN,numkp,maxkp);
-                }
+            // Special cases for adding utxo to stake:
+            // marmara case:
+            if (ASSETCHAINS_MARMARA != 0) {
+                array = komodo_addmarmarautxo(array, &numkp, &maxkp, hashbuf);
             }
         }
         lasttime = (uint32_t)time(NULL);
