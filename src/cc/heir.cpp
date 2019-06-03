@@ -26,6 +26,7 @@
 
 #include "CCHeir.h"
 
+#define BITCOINADDRESS_BUFSIZE 64
 
 // helper functions for tx creation or validation:
 
@@ -66,7 +67,7 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
 
     // get the address of cryptocondition '1 of 2 pubkeys':
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
-    char coinaddr[64];
+    char coinaddr[BITCOINADDRESS_BUFSIZE];
     GetCCaddress1of2(cp, coinaddr, ownerPubkey, heirPubkey);
 
     // get vector with uxtos for 1of2 address:
@@ -447,7 +448,7 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
 
     // Add cc inputs for the requested amount.
     // first get the address of 1 of 2 cryptocondition output where the fund was deposited :
-    char coinaddr[65];
+    char coinaddr[BITCOINADDRESS_BUFSIZE];
     GetCCaddress1of2(cp, coinaddr, ownerPubkey, heirPubkey);
 
     // add inputs for this address with use of a custom function:
@@ -488,7 +489,7 @@ UniValue HeirList()
     cp = CCinit(&C, EVAL_HEIR);
 
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>> unspentOutputs;
-    char markeraddr[65];
+    char markeraddr[BITCOINADDRESS_BUFSIZE];
 
     // get the address of heir global address as heir marker's address
     GetCCaddress(cp, markeraddr, GetUnspendable(cp, NULL));
@@ -565,7 +566,7 @@ UniValue HeirInfo(uint256 fundingtxid)
         cp = CCinit(&C, EVAL_HEIR);
 
         // get 1 of 2 address:
-        char coinaddr[65];
+        char coinaddr[BITCOINADDRESS_BUFSIZE];
         GetCCaddress1of2(cp, coinaddr, ownerPubkey, heirPubkey);
 
         CMutableTransaction mtx;  // dummy tx object
