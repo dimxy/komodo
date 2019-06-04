@@ -586,7 +586,7 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
 
     // add cc change, if needed
     if (inputs > amount)
-        mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, inputs - amount, ownerPubkey, heirPubkey));
+        mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_HEIR, inputs - amount, ownerPubkey, heirPubkey));
 
     // use cc sdk functions to get user's private key and set cc contract variables to notify that 1 of 2 cryptocondition is in use
     CCaddrTokens1of2set(cp, ownerPubkey, heirPubkey, coinaddr);
