@@ -702,6 +702,8 @@ UniValue HeirInfoTokens(uint256 fundingtxid)
         // calculate total funds amount by adding all available inputs:
         int64_t inputs = Add1of2AddressInputs(mtx, fundingtxid, coinaddr, 0, 64);
 
+        result.push_back(Pair("FundingAddress", coinaddr));
+
         result.push_back(Pair("AvailableTokens", inputs)); // ValueFromAmount() function converts satoshis to coins representation
         result.push_back(Pair("InactivityTimeSetting", inactivityTime));
           
