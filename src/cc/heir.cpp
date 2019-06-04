@@ -408,7 +408,7 @@ std::string HeirFundTokens(int64_t amount, std::string heirName, CPubKey heirPub
 
     // Declare and initialize an CCcontract_info object with heir cc contract variables like cc global address, global private key etc.
     struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_HEIR);
+    cp = CCinit(&C, EVAL_TOKENS);
 
     // Next we need to add some inputs to transaction that are enough to make deposit of the requested amount to the heir fund, some fee for the marker and for miners
     // Let's use a constant fee = 10000 sat.
@@ -422,16 +422,19 @@ std::string HeirFundTokens(int64_t amount, std::string heirName, CPubKey heirPub
         // The parameters passed to the AddNormalinputs() are the tx itself, my pubkey, total value for the funding amount, marker and miners fee, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
 
         // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
-        // using the function version for tokens
-        mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
-        mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cp, NULL)));   // this creates a 'marker' for the cc heir initial tx. See HeirList for its usage
         // In this example we used two cc sdk functions for creating cryptocondition vouts.
-        // MakeTokensCC1of2vout creates a vout with a threshold = 2 cryptocondition allowing to spend funds from this vout with 
+        // MakeTokensCC1of2vout (version for tokens) creates a vout with a threshold = 2 cryptocondition allowing to spend funds from this vout with 
         // either myPubkey(which would be the pubkey of the funds owner) or heir pubkey.
+        mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
+
+        struct CCcontract_info *cpHeir, heirC;
+        cpHeir = CCinit(&heirC, EVAL_HEIR);
         // MakeCC1vout creates a vout with a simple cryptocondition which sends a txfee to cc Heir contract global address(returned by GetUnspendable() function call).
         // We need this output to be able to find all the created heir funding plans.
         // You will always need some kind of marker for any cc contract at least for the initial transaction, otherwise you might lose contract's data in blockchain.
         // We may call this as a 'marker pattern' in cc development.See more about the marker pattern later in the CC contract patterns section.
+        mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cpHeir, NULL)));   // this creates a 'marker' for the cc heir initial tx. See HeirList for its usage
+        
 
         // pubkeys with which token vouts were created, currently required by token cc
         std::vector<CPubKey> validationPubkeys{ myPubkey, heirPubkey };
