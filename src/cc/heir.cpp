@@ -27,6 +27,7 @@
 #include "CCHeir.h"
 
 #define BITCOINADDRESS_BUFSIZE 64
+const int32_t markerVoutNum = 1;
 
 // helper function to encode/decode opreturn
 
@@ -51,53 +52,45 @@ vscript_t EncodeHeirOpRet(uint8_t funcid, uint256 fundingtxid, uint8_t hasHeirSp
 // returns funcid or 0 if any errors (so it also would check opreturn correctness)
 uint8_t DecodeHeirTokenOpRet(CScript scriptOpret, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, uint256& fundingTxid, uint8_t &hasHeirSpendingBegun, uint256 &tokenid)
 {  
-    vscript_t vopret;  // vscript_t is a typedef for vector<uint8_t>
-
-    if (!GetOpReturnData(scriptOpret, vopret))  // not an opreturn script
-        return 0;
-
-    // parse heir or heir with token opreturn
-    // in case of tokens at the beginning of the opreturn there is token eval code, function and token ids, followed by heir opreturn data
-    // if this is not a tokenthen it has only heir data
+    // parse heir data within token opreturn
+    // at the beginning of the opreturn there is token eval code, function and token ids, followed by heir opreturn data
+    // if this is not a token then it has only heir data
 
     // important to clear this variables:
     fundingTxid = zeroid;
     tokenid = zeroid;
 
-    if (vopret.size() > 2)
+    uint8_t evalTokens;
+    std::vector<CPubKey> vpk;
+    std::vector<std::pair<uint8_t, vscript_t>>  oprets;
+
+    if (DecodeTokenOpRet(scriptOpret, evalTokens, tokenid, vpk, oprets) == 0)
+        return 0;
+
+    if( oprets.size() > 0 && oprets.begin()[0].first == OPRETID_HEIRDATA && oprets.begin()[0].second.size() > 2 )
     {
         uint8_t evalCode;
         uint8_t tokenfuncId, funcId;
 
         // call unmarshal macro
-        if (E_UNMARSHAL(vopret,
-            // create unmarshal function body,
-            // it has defined ss variable which is actually a stream with the fields serialized into the opreturn 
+        if (E_UNMARSHAL(oprets.begin()[0].second,
+            // make unmarshal function body
+            // ss is a stream with the opreturn fields serialized  
             // the function would automatically fail if eof or cannot decode
             {
                 ss >> evalCode;
-                if (evalCode == EVAL_TOKENS) {
-                    // if this is token, read token data 
-                    // from which we need tokenid
-                    ss >> tokenfuncId;
-                    ss >> tokenid;
-
-                    // next should be heir evalcode
-                    ss >> evalCode;
-                    // now read heir opreturn params
-                    if (evalCode == EVAL_HEIR) {
-                        ss >> funcId;
-                        if (funcId == 'F') {
-                            // if initial tx there are many fields:
-                            ss >> ownerPubkey; ss >> heirPubkey; ss >> inactivityTime; ss >> heirName;
-                        }
-                        else if (funcId == 'C' || funcId == 'A') {
-                            // if other tx only two fields:
-                            ss >> fundingTxid >> hasHeirSpendingBegun;
-                        }
-                        else
-                            funcId = 0; // mark as incorrect func id
+                if (evalCode == EVAL_HEIR) {
+                    ss >> funcId;
+                    if (funcId == 'F') {
+                        // if initial tx there are many fields:
+                        ss >> ownerPubkey; ss >> heirPubkey; ss >> inactivityTime; ss >> heirName;
                     }
+                    else if (funcId == 'C' || funcId == 'A') {
+                        // if other tx only two fields:
+                        ss >> fundingTxid >> hasHeirSpendingBegun;
+                    }
+                    else
+                        funcId = 0; // mark as incorrect func id
                 }
             }/*end of function body*/)  )
         {
@@ -437,7 +430,7 @@ std::string HeirFundTokens(int64_t amount, std::string heirName, CPubKey heirPub
             // We need this output to be able to find all the created heir funding plans.
             // You will always need some kind of marker for any cc contract at least for the initial transaction, otherwise you might lose contract's data in blockchain.
             // We may call this as a 'marker pattern' in cc development.See more about the marker pattern later in the CC contract patterns section.
-            mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cpHeir, NULL)));   // this creates a 'marker' for the cc heir initial tx. See HeirList for its usage
+            mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cpHeir, NULL)));   // vout1 is a 'marker' for the cc heir initial tx. See HeirList for its usage
 
             if (inputs > amount) {	// token change
                 mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, inputs - amount, myPubkey));  // no evalcode
@@ -500,7 +493,7 @@ std::string HeirAdd(uint256 fundingtxid, int64_t amount)
 
         // change AddNormalinputs on function adding token inputs
         // The parameters passed to the AddTokenCCInputs() are the created tx itself, my pubkey, token id, total value for the funding amount, marker and miners fee, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
-        if (AddTokenCCInputs(cp, mtx, myPubkey, tokenid, amount, 60) > 0) {
+        if ((inputs = AddTokenCCInputs(cp, mtx, myPubkey, tokenid, amount, 60)) > 0) {
 
             // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
             // using the function version for tokens
@@ -633,16 +626,20 @@ UniValue HeirList()
         
         CTransaction fundingtx;
         uint256 hashBlock;
-        const int32_t markerVoutNum = 1;
         std::vector<uint8_t> vopret;
+
+        CPubKey ownerPubkey, heirPubkey;
+        std::string name;
+        int64_t inactivityTime;
+        uint8_t hasHeirSpendingBegun;
+        uint256 dummytxid, tokenid;
+
+        std::cerr << "HeirList check txid=" << it->first.txhash.GetHex() << std::endl;
 
         // load tx with unspent marker, check if its opreturn has heir eval code and function id
         if (it->first.index == markerVoutNum && GetTransaction(it->first.txhash, fundingtx, hashBlock, false) &&
             fundingtx.vout.size() > 0  &&  // vout bounds checking
-            GetOpReturnData(fundingtx.vout.back().scriptPubKey, vopret) &&
-            vopret.size() > 2 &&  // opreturn bounds checking
-            vopret.begin()[0] == EVAL_HEIR &&
-            vopret.begin()[1] == 'F')
+            DecodeHeirTokenOpRet(fundingtx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, dummytxid, hasHeirSpendingBegun, tokenid) == 'F')
         {
             // add txid to list
             result.push_back(it->first.txhash.GetHex());
@@ -727,7 +724,7 @@ UniValue HeirInfo(uint256 fundingtxid)
     }
     else {
         result.push_back(Pair("result", "error"));
-        result.push_back(Pair("error", "could not find heir cc plan for this txid (no initial tx)"));
+        result.push_back(Pair("error", "could not find heir cc plan for this txid (no of incorrect initial tx)"));
     }
     return (result);
 }
