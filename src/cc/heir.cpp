@@ -653,7 +653,6 @@ UniValue HeirInfo(uint256 fundingtxid)
         }
 
         // output some data about this heir cc contract instance (funding plan):
-
         result.push_back(Pair("fundingtxid", fundingtxid.GetHex()));
         result.push_back(Pair("name", name));
 

@@ -7832,7 +7832,7 @@ UniValue heirclaim(const UniValue& params, bool fHelp)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
     if (fHelp || params.size() != 2)
-        throw runtime_error("heirclaim fundingtxid funds\n");
+        throw runtime_error("heirclaim fundingtxid amount\n");
     if (ensure_CCrequirements(EVAL_HEIR) < 0)
         throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet and Heir cc contract enabled\n");
 
@@ -7841,7 +7841,7 @@ UniValue heirclaim(const UniValue& params, bool fHelp)
     
     // Convert the parameters from UniValue to c++ types and call the tx creation function:
     uint256 fundingtxid = Parseuint256((char*)params[0].get_str().c_str());
-    CAmount amount = atof(params[1].get_str().c_str()) * COIN;  // Note conversion to satoshis by multiplication on 10E8
+    CAmount amount = atoll(params[1].get_str().c_str());  // No conversion to satoshis for tokens
 
     // call transaction creation code
     std::string hextx = HeirClaim(fundingtxid, amount);
@@ -7871,7 +7871,7 @@ UniValue heiradd(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
 	uint256 fundingtxid = Parseuint256((char*)params[0].get_str().c_str());
-    CAmount amount = atof(params[1].get_str().c_str()) * COIN;  // Note conversion to satoshis by multiplication on 10E8
+    CAmount amount = atoll(params[1].get_str().c_str());  // for tokens use passed value as is, no conversion coins to satoshi
 
     // call transaction creation code
 	std::string hextx = HeirAdd(fundingtxid, amount);
