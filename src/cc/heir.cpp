@@ -284,38 +284,31 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
 // nIn not used in validation code
 bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction& tx, uint32_t nIn)
 {
+    uint8_t evalCode, funcId, hasHeirSpendingBegun;
+    CPubKey ownerPubkey, heirPubkey;
+    std::string name;
+    int64_t inactivityTime;
+    uint256 fundingtxid = zeroid, tokenid;
+
     // let's check basic tx structure, that is, has opreturn with correct basic evalcode and funcid
     // Note: we do not check for 'F' or 'A' funcids because we never get into validation code for the initial tx or for an add tx as they have no heir cc vins ever
-    std::vector <uint8_t> vopret;
-    if( tx.vout.size() < 1 || !GetOpReturnData(tx.vout.back().scriptPubKey, vopret) || vopret.size() < 2 || vopret.begin()[0] != EVAL_HEIR || 
-        vopret.begin()[1] != 'C')
+    if( tx.vout.size() < 2 || 
+         // check opreturn:
+        // note: only fundingtxid, hasHeirSpendingBegun retrieved for 'C'
+        (funcId = DecodeHeirTokenOpRet(tx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, fundingtxid, hasHeirSpendingBegun, tokenid)) != 'C' )
         // interrupt the validation and return invalid state:
-        return eval->Invalid("incorrect or no opreturn data");  // note that you should not return simply 'false'
-
-    uint8_t evalcode, funcId;
-
-    // let's try to decode opreturn:
-    // fundingtxid is this contract instance id (the initial tx id)
-    uint256 fundingtxid; //initialized to null
-    uint8_t hasHeirSpendingBegun;
-    if (!E_UNMARSHAL(vopret, ss >> evalcode; ss >> funcId; ss >> fundingtxid; ss >> hasHeirSpendingBegun;))
-        // return invalid state if unserializing function returned false
-        return eval->Invalid("incorrect opreturn data");
+        return eval->Invalid("incorrect or no opreturn data or funcid");  // note that you should not return simply 'false'
 
     // important to check if fundingtxid parsed is okay:
     if( fundingtxid.IsNull() )
         return eval->Invalid("incorrect funding plan id in tx opret");
 
-    CPubKey ownerPubkey, heirPubkey;
-    int64_t inactivityTimeSec;
-    std::string name;
     uint8_t lastHeirSpendingBegun;
-    uint256 tokenid;
 
     // it is good place to load the initial tx and check if it exist and has correct opretun
     // we are calling FindLatestOwnerTx function to obtain opreturn parameters and hasHeirSpendingBegun flag,
     // and this function also checks the initial tx:
-    uint256 latesttxid = FindLatestOwnerTx(fundingtxid, ownerPubkey, heirPubkey, inactivityTimeSec, name, lastHeirSpendingBegun, tokenid);
+    uint256 latesttxid = FindLatestOwnerTx(fundingtxid, ownerPubkey, heirPubkey, inactivityTime, name, lastHeirSpendingBegun, tokenid);
     if (latesttxid.IsNull()) {
         return eval->Invalid("no or incorrect funding tx found");
     }
@@ -338,7 +331,7 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
 
         // if it is heir claiming the funds check if he is allowed
         // also check if the new flag is set correctly
-        if (!CheckInactivityTime(cpHeir, eval, tx, latesttxid, inactivityTimeSec, heirPubkey, lastHeirSpendingBegun, hasHeirSpendingBegun) )
+        if (!CheckInactivityTime(cpHeir, eval, tx, latesttxid, inactivityTime, heirPubkey, lastHeirSpendingBegun, hasHeirSpendingBegun) )
             return false;
         break;
 
@@ -370,7 +363,6 @@ int64_t Add1of2AddressInputs(CMutableTransaction &mtx, uint256 fundingtxid, char
         if (GetTransaction(it->first.txhash, tx, hashBlock, false) && tx.vout.size() > 0 && GetOpReturnData(tx.vout.back().scriptPubKey, vopret) && vopret.size() > 2)
         {
             uint8_t evalCode, funcId, hasHeirSpendingBegun;
-            uint256 txid;
             CPubKey ownerPubkey, heirPubkey;
             std::string name;
             int64_t inactivityTime;
