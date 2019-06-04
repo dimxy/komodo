@@ -56,7 +56,7 @@ uint8_t DecodeHeirTokenOpRet(CScript scriptOpret, CPubKey& ownerPubkey, CPubKey&
     // at the beginning of the opreturn there is token eval code, function and token ids, followed by heir opreturn data
     // if this is not a token then it has only heir data
 
-    // important to clear this variables:
+    // important to clear this variables in order to not to return accidentaly old values:
     fundingTxid = zeroid;
     tokenid = zeroid;
 
@@ -371,11 +371,15 @@ int64_t Add1of2AddressInputs(CMutableTransaction &mtx, uint256 fundingtxid, char
         {
             uint8_t evalCode, funcId, hasHeirSpendingBegun;
             uint256 txid;
+            CPubKey ownerPubkey, heirPubkey;
+            std::string name;
+            int64_t inactivityTime;
+            uint256 txidopret, tokenidopret;
 
-            if (it->first.txhash == fundingtxid ||   // check if this tx is from our contract instance 
-                E_UNMARSHAL(vopret, { ss >> evalCode; ss >> funcId; ss >> txid >> hasHeirSpendingBegun; }) && // unserialize opreturn
-                evalCode == EVAL_HEIR &&
-                fundingtxid == txid) // it is a tx from this funding plan
+            if ( // check if this tx is from our contract instance 
+                (funcId = DecodeHeirTokenOpRet(tx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, txidopret, hasHeirSpendingBegun, tokenidopret)) != 0 && // unserialize opreturn
+                funcId == 'F' && it->first.txhash == fundingtxid ||
+                txidopret == fundingtxid) // it is a tx from this funding plan
             {
                 // Add the uxto to the transaction's vins, that is, set the txid of the transaction and vout number providing the uxto. 
                 // Pass empty CScript() to scriptSig param, it will be filled by FinalizeCCtx:
