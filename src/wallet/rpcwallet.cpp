@@ -7802,22 +7802,28 @@ UniValue heirfund(const UniValue& params, bool fHelp)
     // Univalue params is actually an array of Univalue objects.
     // We still need to convert them into usual c / c++ language types and pass to the contract implementation.
     // Next let's convert the params from UniValue type to the basic c++ types.
-    CAmount amount = atof(params[0].get_str().c_str()) * COIN;  // Note conversion to satoshis by multiplication on 10E8
+    CAmount amount;
+    if (params.size() == 4)
+        amount = atof(params[0].get_str().c_str()) * COIN;  // for coins conversion to satoshis by multiplication on 10E8
+    else
+        amount = atoll(params[0].get_str().c_str()); // for tokens value is taken as is
     std::string name = params[1].get_str();
     std::vector<uint8_t> vheirpubkey = ParseHex(params[2].get_str().c_str());
     CPubKey heirpk = pubkey2pk(vheirpubkey);
     int64_t inactivitytime = atoll(params[3].get_str().c_str());
     // parse tokenid from hex representation:
-    uint256 tokenid = Parseuint256(params[4].get_str().c_str());
+    uint256 tokenid = zeroid;
+    if (params.size() == 5)
+        tokenid = Parseuint256(params[4].get_str().c_str());
     // We still need to add checks that the converted param values are correct (what I ommitted in the sample), for example not negative or not exceeding some limit.
     // Note how to parse hex representation of the pubkey param and convert it to CPubKey object.
 
     // And now time to call the heir cc contract code and pass the returned created tx in hexademical representation to the caller, ready to be sent to the chain:
     std::string hextx;
     if( tokenid.IsNull() )
-        hextx = HeirFund<typename CoinHelper>(amount, name, heirpk, inactivitytime, tokenid);
+        hextx = HeirFund<CoinHelper>(amount, name, heirpk, inactivitytime, tokenid);
     else
-        hextx = HeirFund<typename TokenHelper>(amount, name, heirpk, inactivitytime, tokenid);
+        hextx = HeirFund<TokenHelper>(amount, name, heirpk, inactivitytime, tokenid);
     RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set in HeirFund()
     result.push_back(Pair("result", "success"));
     result.push_back(Pair("hextx", hextx));
