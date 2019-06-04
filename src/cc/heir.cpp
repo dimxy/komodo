@@ -456,7 +456,7 @@ std::string HeirFundTokens(int64_t amount, std::string heirName, CPubKey heirPub
 }
 
 // heiradd rpc transaction creation
-std::string HeirAdd(uint256 fundingtxid, int64_t amount)
+std::string HeirAddTokens(uint256 fundingtxid, int64_t amount)
 {
     // Start with creating a mutable transaction object:
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -520,7 +520,7 @@ std::string HeirAdd(uint256 fundingtxid, int64_t amount)
 
 
 // heirclaim rpc transaction creation
-std::string HeirClaim(uint256 fundingtxid, int64_t amount)
+std::string HeirClaimTokens(uint256 fundingtxid, int64_t amount)
 {
     // Start with creating a mutable transaction object:
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -603,7 +603,7 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
 }
 
 // heirlist rpc implementation. Use marker uxtos to list all heir initial transactions
-UniValue HeirList()
+UniValue HeirListTokens()
 {
     // rpc object to return the array of initial txids
     UniValue result(UniValue::VARR);
@@ -650,7 +650,7 @@ UniValue HeirList()
 
 // heirinfo implementation returns some data about a heir plan identified by funding txid 
 // which could be obtained by heirlist rpc call
-UniValue HeirInfo(uint256 fundingtxid)
+UniValue HeirInfoTokens(uint256 fundingtxid)
 {
     // rpc object to return the resulting info
     UniValue result(UniValue::VOBJ);

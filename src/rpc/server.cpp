@@ -434,10 +434,10 @@ static const CRPCCommand vRPCCommands[] =
 		// Heir
 	{ "heir",       "heiraddress",   &heiraddress,      true },
 	{ "heir",       "heirfundtokens",   &heirfundtokens,      true },
-	{ "heir",       "heiradd",    &heiradd,        true },
-	{ "heir",       "heirclaim",  &heirclaim,     true },
-	{ "heir",       "heirinfo",   &heirinfo,      true },
-	{ "heir",       "heirlist",   &heirlist,      true },
+	{ "heir",       "heiraddtokens",    &heiraddtokens,        true },
+	{ "heir",       "heirclaimtokens",  &heirclaimtokens,     true },
+	{ "heir",       "heirinfotokens",   &heirinfotokens,      true },
+	{ "heir",       "heirlisttokens",   &heirlisttokens,      true },
 
     // Channels
     { "channels",       "channelsaddress",   &channelsaddress,   true },

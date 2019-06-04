@@ -21,12 +21,12 @@
 #include "CCtokens.h"
 
 std::string HeirFundTokens(int64_t amount, std::string heirName, CPubKey heirPubkey, int64_t inactivityTimeSec, uint256 tokenid);
-std::string HeirAdd(uint256 fundingtxid, int64_t amount);
-std::string HeirClaim(uint256 fundingtxid, int64_t amount);
+std::string HeirAddTokens(uint256 fundingtxid, int64_t amount);
+std::string HeirClaimTokens(uint256 fundingtxid, int64_t amount);
 
 bool HeirValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 
-UniValue HeirInfo(uint256 fundingtxid);
-UniValue HeirList();
+UniValue HeirInfoTokens(uint256 fundingtxid);
+UniValue HeirListTokens();
 
 #endif

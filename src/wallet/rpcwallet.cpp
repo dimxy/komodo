@@ -7850,7 +7850,7 @@ UniValue heirclaim(const UniValue& params, bool fHelp)
     CAmount amount = atoll(params[1].get_str().c_str());  // No conversion to satoshis for tokens
 
     // call transaction creation code
-    std::string hextx = HeirClaim(fundingtxid, amount);
+    std::string hextx = HeirClaimTokens(fundingtxid, amount);
     RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set
 
     result.push_back(Pair("result", "success"));
@@ -7860,7 +7860,7 @@ UniValue heirclaim(const UniValue& params, bool fHelp)
 
 
 // heiradd command rpc-level implementation
-UniValue heiradd(const UniValue& params, bool fHelp)
+UniValue heiraddtokens(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear(); // clear global error object
@@ -7880,7 +7880,7 @@ UniValue heiradd(const UniValue& params, bool fHelp)
     CAmount amount = atoll(params[1].get_str().c_str());  // for tokens use passed value as is, no conversion coins to satoshi
 
     // call transaction creation code
-	std::string hextx = HeirAdd(fundingtxid, amount);
+	std::string hextx = HeirAddTokens(fundingtxid, amount);
     RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set
 
     result.push_back(Pair("result", "success"));
@@ -7889,7 +7889,7 @@ UniValue heiradd(const UniValue& params, bool fHelp)
 }
 
 // heirinfo rpc-level implementation:
-UniValue heirinfo(const UniValue& params, bool fHelp)
+UniValue heirinfotokens(const UniValue& params, bool fHelp)
 {
 	uint256 fundingtxid;
 	if (fHelp || params.size() != 1) 
@@ -7899,11 +7899,11 @@ UniValue heirinfo(const UniValue& params, bool fHelp)
 	//    throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
 
 	fundingtxid = Parseuint256((char*)params[0].get_str().c_str());
-	return (HeirInfo(fundingtxid));
+	return (HeirInfoTokens(fundingtxid));
 }
 
 // heirlist rpc levelimplementation:
-UniValue heirlist(const UniValue& params, bool fHelp)
+UniValue heirlisttokens(const UniValue& params, bool fHelp)
 {
 	if (fHelp || params.size() != 0) 
 		throw runtime_error("heirlist\n");
@@ -7911,7 +7911,7 @@ UniValue heirlist(const UniValue& params, bool fHelp)
 	//if( ensure_CCrequirements(EVAL_HEIR) < 0 )
 	//    throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
 
-	return (HeirList());
+	return (HeirListTokens());
 }
 
 
