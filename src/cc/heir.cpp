@@ -108,86 +108,6 @@ uint8_t DecodeHeirOpRet(CScript scriptOpret, CPubKey& ownerPubkey, CPubKey& heir
     return (uint8_t)0;
 }
 
-
-// template helper classes for working either with coins or tokens
-
-// coins support
-class CoinHelper {
-public:
-
-    static uint8_t getMyEval() { return EVAL_HEIR; }
-    static int64_t addOwnerInputs(uint256 dummyid, CMutableTransaction& mtx, CPubKey ownerPubkey, int64_t total, int32_t maxinputs) {
-        return AddNormalinputs(mtx, ownerPubkey, total, maxinputs);
-    }
-
-    static CScript makeCreateOpRet(uint256 dummyid, std::vector<CPubKey> dummyPubkeys, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string heirName) {
-        return CScript() << OP_RETURN << EncodeHeirCreateOpRet((uint8_t)'F', ownerPubkey, heirPubkey, inactivityTimeSec, heirName);
-    }
-    static CScript makeAddOpRet(uint256 dummyid, std::vector<CPubKey> dummyPubkeys, uint256 fundingtxid, uint8_t isHeirSpendingBegan) {
-        return CScript() << OP_RETURN << EncodeHeirOpRet((uint8_t)'A', fundingtxid, isHeirSpendingBegan);
-    }
-    static CScript makeClaimOpRet(uint256 dummyid, std::vector<CPubKey> dummyPubkeys, uint256 fundingtxid, uint8_t isHeirSpendingBegan) {
-        return CScript() << OP_RETURN << EncodeHeirOpRet((uint8_t)'C', fundingtxid, isHeirSpendingBegan);
-    }
-    static CTxOut make1of2Vout(int64_t amount, CPubKey ownerPubkey, CPubKey heirPubkey) {
-        return MakeCC1of2vout(EVAL_HEIR, amount, ownerPubkey, heirPubkey);
-    }
-    static CTxOut makeUserVout(int64_t amount, CPubKey myPubkey) {
-        return CTxOut(amount, CScript() << ParseHex(HexStr(myPubkey)) << OP_CHECKSIG);
-    }
-    static bool GetCoinsOrTokensCCaddress1of2(char *coinaddr, CPubKey ownerPubkey, CPubKey heirPubkey) {
-        struct CCcontract_info *cpHeir, heirC;
-        cpHeir = CCinit(&heirC, EVAL_HEIR);
-        return GetCCaddress1of2(cpHeir, coinaddr, ownerPubkey, heirPubkey);
-    }
-    static void CCaddrCoinsOrTokens1of2set(struct CCcontract_info *cp, CPubKey ownerPubkey, CPubKey heirPubkey, char *coinaddr)
-    {
-        uint8_t mypriv[32];
-        Myprivkey(mypriv);
-        CCaddr1of2set(cp, ownerPubkey, heirPubkey, mypriv, coinaddr);
-    }
-};
-
-// tokens support
-class TokenHelper {
-public:
-    static uint8_t getMyEval() { return EVAL_TOKENS; }
-    static int64_t addOwnerInputs(uint256 tokenid, CMutableTransaction& mtx, CPubKey ownerPubkey, int64_t total, int32_t maxinputs) {
-        struct CCcontract_info *cpHeir, heirC;
-        cpHeir = CCinit(&heirC, EVAL_TOKENS);
-        return AddTokenCCInputs(cpHeir, mtx, ownerPubkey, tokenid, total, maxinputs);
-    }
-
-    static CScript makeCreateOpRet(uint256 tokenid, std::vector<CPubKey> voutTokenPubkeys, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string heirName) {
-        return EncodeTokenOpRet(tokenid, voutTokenPubkeys,
-            std::make_pair(OPRETID_HEIRDATA, EncodeHeirCreateOpRet((uint8_t)'F', ownerPubkey, heirPubkey, inactivityTimeSec, heirName)));
-    }
-    static CScript makeAddOpRet(uint256 tokenid, std::vector<CPubKey> voutTokenPubkeys, uint256 fundingtxid, uint8_t isHeirSpendingBegan) {
-        return EncodeTokenOpRet(tokenid, voutTokenPubkeys,
-            std::make_pair(OPRETID_HEIRDATA, EncodeHeirOpRet((uint8_t)'A', fundingtxid, isHeirSpendingBegan)));
-    }
-    static CScript makeClaimOpRet(uint256 tokenid, std::vector<CPubKey> voutTokenPubkeys, uint256 fundingtxid, uint8_t isHeirSpendingBegan) {
-        return EncodeTokenOpRet(tokenid, voutTokenPubkeys,
-            std::make_pair(OPRETID_HEIRDATA, EncodeHeirOpRet((uint8_t)'C', fundingtxid, isHeirSpendingBegan)));
-    }
-
-    static CTxOut make1of2Vout(int64_t amount, CPubKey ownerPubkey, CPubKey heirPubkey) {
-        return MakeTokensCC1of2vout(EVAL_HEIR, amount, ownerPubkey, heirPubkey);
-    }
-    static CTxOut makeUserVout(int64_t amount, CPubKey myPubkey) {
-        return MakeCC1vout(EVAL_TOKENS, amount, myPubkey);  
-    }
-    static bool GetCoinsOrTokensCCaddress1of2(char *coinaddr, CPubKey ownerPubkey, CPubKey heirPubkey) {
-        struct CCcontract_info *cpHeir, heirC;
-        cpHeir = CCinit(&heirC, EVAL_HEIR);
-        return GetTokensCCaddress1of2(cpHeir, coinaddr, ownerPubkey, heirPubkey);
-    }
-
-    static void CCaddrCoinsOrTokens1of2set(struct CCcontract_info *cp, CPubKey ownerPubkey, CPubKey heirPubkey, char *coinaddr) {
-        CCaddrTokens1of2set(cp, ownerPubkey, heirPubkey, coinaddr);
-    }
-};
-
 // helper functions for tx creation or validation:
 
 // find the latest owner transaction id
@@ -252,7 +172,7 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
         // unmarshal its opret
         if (myGetTransaction(it->first.txhash, vintx, blockHash) &&     // NOTE: use non-locking version of GetTransaction as we may be called from validation code
             vintx.vout.size() > 1 &&
-            (funcId = DecodeHeirOpRet(fundingtx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, txidopret, hasHeirSpendingBegun, tokenidopret)) != 0 && 
+            (funcId = DecodeHeirOpRet(fundingtx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, txidopret, flagopret, tokenidopret)) != 0 && 
             (funcId == 'C' || funcId == 'A') &&
             // also check if this is a tx from this funding plan:
             fundingtxid == txidopret &&
