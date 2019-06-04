@@ -468,7 +468,7 @@ std::string HeirAdd(uint256 fundingtxid, int64_t amount)
 
     // Init the cc contract object :
     struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_HEIR);
+    cp = CCinit(&C, EVAL_TOKENS);
 
     CPubKey ownerPubkey, heirPubkey;
     int64_t inactivityTimeSec;
@@ -696,13 +696,13 @@ UniValue HeirInfo(uint256 fundingtxid)
 
         // get 1 of 2 address:
         char coinaddr[BITCOINADDRESS_BUFSIZE];
-        GetCCaddress1of2(cp, coinaddr, ownerPubkey, heirPubkey);
+        GetTokensCCaddress1of2(cp, coinaddr, ownerPubkey, heirPubkey);
 
         CMutableTransaction mtx;  // dummy tx object
         // calculate total funds amount by adding all available inputs:
         int64_t inputs = Add1of2AddressInputs(mtx, fundingtxid, coinaddr, 0, 64);
 
-        result.push_back(Pair("AvailableFund", ValueFromAmount(inputs))); // ValueFromAmount() function converts satoshis to coins representation
+        result.push_back(Pair("AvailableTokens", inputs)); // ValueFromAmount() function converts satoshis to coins representation
         result.push_back(Pair("InactivityTimeSetting", inactivityTime));
           
         uint64_t durationSec = 0;
