@@ -47,8 +47,9 @@ vscript_t EncodeHeirOpRet(uint8_t funcid, uint256 fundingtxid, uint8_t hasHeirSp
 }
 
 
-// decodes either token or non-token ininital tx opreturn, returns funcid or 0 if any errors (so it also would check opreturn correctness)
-uint8_t DecodeHeirOpRet(CScript scriptOpret, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, uint256& fundingTxid, uint8_t &hasHeirSpendingBegun, uint256 &tokenid)
+// decodes token heir tx opreturn, token data is located in the first place, heir data follows the token data
+// returns funcid or 0 if any errors (so it also would check opreturn correctness)
+uint8_t DecodeHeirTokenOpRet(CScript scriptOpret, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, uint256& fundingTxid, uint8_t &hasHeirSpendingBegun, uint256 &tokenid)
 {  
     vscript_t vopret;  // vscript_t is a typedef for vector<uint8_t>
 
@@ -66,7 +67,7 @@ uint8_t DecodeHeirOpRet(CScript scriptOpret, CPubKey& ownerPubkey, CPubKey& heir
     if (vopret.size() > 2)
     {
         uint8_t evalCode;
-        uint8_t funcId;
+        uint8_t tokenfuncId, funcId;
 
         // call unmarshal macro
         if (E_UNMARSHAL(vopret,
@@ -78,28 +79,27 @@ uint8_t DecodeHeirOpRet(CScript scriptOpret, CPubKey& ownerPubkey, CPubKey& heir
                 if (evalCode == EVAL_TOKENS) {
                     // if this is token, read token data 
                     // from which we need tokenid
-                    ss >> funcId;
+                    ss >> tokenfuncId;
                     ss >> tokenid;
 
                     // next should be heir evalcode
                     ss >> evalCode;
-                }
-
-                // now read heir opreturn params
-                if (evalCode == EVAL_HEIR) {
-                    ss >> funcId;
-                    if (funcId == 'F') {
-                        // if initial tx there are many fields:
-                        ss >> ownerPubkey; ss >> heirPubkey; ss >> inactivityTime; ss >> heirName;
+                    // now read heir opreturn params
+                    if (evalCode == EVAL_HEIR) {
+                        ss >> funcId;
+                        if (funcId == 'F') {
+                            // if initial tx there are many fields:
+                            ss >> ownerPubkey; ss >> heirPubkey; ss >> inactivityTime; ss >> heirName;
+                        }
+                        else if (funcId == 'C' || funcId == 'A') {
+                            // if other tx only two fields:
+                            ss >> fundingTxid >> hasHeirSpendingBegun;
+                        }
+                        else
+                            funcId = 0; // mark as incorrect func id
                     }
-                    else if (funcId == 'C' || funcId == 'A') {
-                        // if other tx only two fields:
-                        ss >> fundingTxid >> hasHeirSpendingBegun;
-                    }
-                    else
-                        funcId = 0;
                 }
-            })/*end of unmarshal function body*/  )
+            }/*end of function body*/)  )
         {
             return funcId;
         }
@@ -128,9 +128,9 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
     std::vector<uint8_t> vopret;
 
     // get initial funding tx, check if it has an opreturn and deserialize it:
-    if (!myGetTransaction(fundingtxid, fundingtx, hashBlock) ||  // NOTE: use non-locking version of GetTransaction as we may be called from validation code
+    if (!myGetTransaction(fundingtxid, fundingtx, hashBlock) ||  // NOTE: we use non-locking version of GetTransaction as we may be called from validation code
         fundingtx.vout.size() < 2 ||
-        DecodeHeirOpRet(fundingtx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, dummytxid, hasHeirSpendingBegun, tokenid) != 'F') 
+        DecodeHeirTokenOpRet(fundingtx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, dummytxid, hasHeirSpendingBegun, tokenid) != 'F') 
     {
         std::cerr << "FindLatestOwnerTx()" << "cannot load funding tx or parse opret" << std::endl;
         return zeroid;
@@ -141,7 +141,7 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
     cp = CCinit(&C, EVAL_HEIR);
 
     // check if pubkeys in funding tx opreturn match 1 of 2 pubkey cc vout:
-    if (fundingtx.vout[0] != MakeCC1of2vout(EVAL_HEIR, fundingtx.vout[0].nValue, ownerPubkey, heirPubkey)) {
+    if (fundingtx.vout[0] != MakeTokensCC1of2vout(EVAL_HEIR, fundingtx.vout[0].nValue, ownerPubkey, heirPubkey)) {
         std::cerr << "FindLatestOwnerTx()" << "funding tx vout pubkeys do not match pubkeys in the opreturn" << std::endl;
         return zeroid;
     }
@@ -172,7 +172,7 @@ uint256 FindLatestOwnerTx(uint256 fundingtxid, CPubKey& ownerPubkey, CPubKey& he
         // unmarshal its opret
         if (myGetTransaction(it->first.txhash, vintx, blockHash) &&     // NOTE: use non-locking version of GetTransaction as we may be called from validation code
             vintx.vout.size() > 1 &&
-            (funcId = DecodeHeirOpRet(fundingtx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, txidopret, flagopret, tokenidopret)) != 0 && 
+            (funcId = DecodeHeirTokenOpRet(fundingtx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, txidopret, flagopret, tokenidopret)) != 0 && 
             (funcId == 'C' || funcId == 'A') &&
             // also check if this is a tx from this funding plan:
             fundingtxid == txidopret &&
@@ -218,7 +218,7 @@ bool CheckSpentTxns(struct CCcontract_info* cpHeir, Eval* eval, const CTransacti
 
             // load the tx being spent and check if it has an opreturn and it has correct basic data (eval code and funcid)
             if (myGetTransaction(vin.prevout.hash, vintx, hashBlock) && vintx.vout.size() > 1 &&
-                (funcId = DecodeHeirOpRet(vintx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, txidopret, hasHeirSpendingBegun, tokenidopret)) != 0 &&
+                (funcId = DecodeHeirTokenOpRet(vintx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, txidopret, hasHeirSpendingBegun, tokenidopret)) != 0 &&
                 (funcId == 'F' || funcId != 'A' || funcId != 'C')) {
                 // if vintx is the initial tx then heirtxid should be equal to its txid
                 if (funcId == 'F') {
@@ -401,14 +401,14 @@ int64_t Add1of2AddressInputs(CMutableTransaction &mtx, uint256 fundingtxid, char
 }
 
 // heirfund transaction creation code
-template <typename Helper> std::string HeirFund(int64_t amount, std::string heirName, CPubKey heirPubkey, int64_t inactivityTimeSec, uint256 tokenid)
+std::string HeirFundTokens(int64_t amount, std::string heirName, CPubKey heirPubkey, int64_t inactivityTimeSec, uint256 tokenid)
 {
     // First, we need to create a mutable version of a transaction object.
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 
     // Declare and initialize an CCcontract_info object with heir cc contract variables like cc global address, global private key etc.
     struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_HEIR);
+    cp = CCinit(&C, EVAL_TOKENS);
 
     // Next we need to add some inputs to transaction that are enough to make deposit of the requested amount to the heir fund, some fee for the marker and for miners
     // Let's use a constant fee = 10000 sat.
@@ -416,11 +416,14 @@ template <typename Helper> std::string HeirFund(int64_t amount, std::string heir
     // For adding normal inputs to the mutable transaction there is a corresponding function in the cc SDK.
     const int64_t txfee = 10000;
     CPubKey myPubkey = pubkey2pk(Mypubkey());
-    if (AddNormalinputs(mtx, myPubkey, amount + 2 * txfee, 60) > 0) {
+
+    // change AddNormalinputs on function adding token inputs
+    if( AddTokenCCInputs(cp, mtx, myPubkey, tokenid, amount + 2 * txfee, 60) > 0) {
         // The parameters passed to the AddNormalinputs() are the tx itself, my pubkey, total value for the funding amount, marker and miners fee, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
 
         // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
-        mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
+        // using the function version for tokens
+        mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
         mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cp, NULL)));   // this creates a 'marker' for the cc heir initial tx. See HeirList for its usage
         // In this example we used two cc sdk functions for creating cryptocondition vouts.
         // MakeCC1of2vout creates a vout with a threshold = 2 cryptocondition allowing to spend funds from this vout with 
@@ -430,10 +433,14 @@ template <typename Helper> std::string HeirFund(int64_t amount, std::string heir
         // You will always need some kind of marker for any cc contract at least for the initial transaction, otherwise you might lose contract's data in blockchain.
         // We may call this as a 'marker pattern' in cc development.See more about the marker pattern later in the CC contract patterns section.
 
+        // pubkeys with which token vouts were created, currently required by token cc
+        std::vector<CPubKey> validationPubkeys{ myPubkey, heirPubkey };
+
         // Finishing the creation of the transaction by calling FinalizeCCTx with params of the mtx object itself, the owner pubkey, txfee amount. 
         // Also an opreturn object with the contract data is passed which is created by serializing the needed ids and variables to a CScript object.
         // Note the cast to uint8_t for the constants EVAL_HEIR and 'F' funcid, this is important as it is supposed one-byte size for serialization of these values (otherwise they would be 'int').
-        return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'F' << myPubkey << heirPubkey << inactivityTimeSec << heirName));
+        return FinalizeCCTx(0, cp, mtx, myPubkey, txfee,
+            EncodeTokenOpRet(tokenid, validationPubkeys, std::make_pair(OPRETID_HEIRDATA, EncodeHeirCreateOpRet('F', myPubkey, heirPubkey, inactivityTimeSec, heirName))));            
     }
     CCerror = "not enough coins for requested amount and txfee";
     return std::string("");
@@ -469,17 +476,22 @@ std::string HeirAdd(uint256 fundingtxid, int64_t amount)
 
     const int64_t txfee = 10000;
     CPubKey myPubkey = pubkey2pk(Mypubkey());
-    // The parameters passed to the AddNormalinputs() are the tx itself, my pubkey, total value for the funding amount, marker and miners fee, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
-    if (AddNormalinputs(mtx, myPubkey, amount + txfee, 60) > 0) {
+    // change AddNormalinputs on function adding token inputs
+    // The parameters passed to the AddTokenCCInputs() are the created tx itself, my pubkey, token id, total value for the funding amount, marker and miners fee, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
+    if (AddTokenCCInputs(cp, mtx, myPubkey, tokenid, amount + txfee, 60) > 0) {
 
         // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
-        mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, amount, ownerPubkey, heirPubkey));
+        // using the function version for tokens
+        mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_HEIR, amount, ownerPubkey, heirPubkey));
+
+        // pubkeys with which token vouts were created, currently required by token cc
+        std::vector<CPubKey> validationPubkeys{ ownerPubkey, heirPubkey };
 
         // Add normal change if any, add opreturn data and sign the transaction:
-        return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'A' << fundingtxid << hasHeirSpendingBegun));
+        return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, EncodeTokenOpRet(tokenid, validationPubkeys, std::make_pair(OPRETID_HEIRDATA, EncodeHeirOpRet('A', fundingtxid, hasHeirSpendingBegun))));
         // in the opreturn we added a pair of standard ids: cc eval code and functional id, the fundingtxid as the funding plan identifier and also passed further the hasHeirSpendingBegun flag
     }
-    CCerror = "insufficient coins for the requested amount and txee";
+    CCerror = "insufficient coins for the requested amount and txfee";
     return std::string("");
 }
 
@@ -535,7 +547,9 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
     // Add cc inputs for the requested amount.
     // first get the address of 1 of 2 cryptocondition output where the fund was deposited :
     char coinaddr[BITCOINADDRESS_BUFSIZE];
-    GetCCaddress1of2(cp, coinaddr, ownerPubkey, heirPubkey);
+    struct CCcontract_info *cpHeir, heirC;
+    cpHeir = CCinit(&heirC, EVAL_HEIR);
+    GetTokensCCaddress1of2(cpHeir, coinaddr, ownerPubkey, heirPubkey);
 
     // add inputs for this address with use of a custom function:
     int64_t inputs;
@@ -552,12 +566,13 @@ std::string HeirClaim(uint256 fundingtxid, int64_t amount)
         mtx.vout.push_back(MakeCC1of2vout(EVAL_HEIR, inputs - amount, ownerPubkey, heirPubkey));
 
     // use cc sdk functions to get user's private key and set cc contract variables to notify that 1 of 2 cryptocondition is in use
-    uint8_t mypriv[32];
-    Myprivkey(mypriv);
-    CCaddr1of2set(cp, ownerPubkey, heirPubkey, mypriv, coinaddr);
+    CCaddrTokens1of2set(cp, ownerPubkey, heirPubkey, coinaddr);
+
+    // pubkeys with which token vouts were created, currently required by token cc
+    std::vector<CPubKey> validationPubkeys{ ownerPubkey, heirPubkey };
 
     // Add normal change if any, add opreturn data and sign the transaction :
-    return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_HEIR << (uint8_t)'C' << fundingtxid << (myPubkey == heirPubkey ? (uint8_t)1 : hasHeirSpendingBegun)));
+    return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, EncodeTokenOpRet(tokenid, validationPubkeys, std::make_pair(OPRETID_HEIRDATA, EncodeHeirOpRet('C', fundingtxid, (myPubkey == heirPubkey ? (uint8_t)1 : hasHeirSpendingBegun)))));
     // in the opreturn we added a pair of standard ids: cc eval code and functional id plus the fundingtxid as the funding plan identifier
     // We use a special flag hasHeirSpendingBegun that is turned to 1 when the heir first time spends funds. 
     // That means that it is no need further in checking the owner's inactivity time
@@ -626,7 +641,7 @@ UniValue HeirInfo(uint256 fundingtxid)
     // get initial funding tx and set it as initial lasttx:
     if (GetTransaction(fundingtxid, fundingtx, hashBlock, false) && 
         fundingtx.vout.size() > 1 &&   // vout bound checking
-        DecodeHeirOpRet(fundingtx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, dummytxid, hasHeirSpendingBegun, tokenid) == 'F')
+        DecodeHeirTokenOpRet(fundingtx.vout.back().scriptPubKey, ownerPubkey, heirPubkey, inactivityTime, name, dummytxid, hasHeirSpendingBegun, tokenid) == 'F')
     {
         // call FindLatestOwnerTx function to get hasHeirSpendingBegun flag.
         uint256 latestFundingTxid = FindLatestOwnerTx(fundingtxid, ownerPubkey, heirPubkey, inactivityTime, name, hasHeirSpendingBegun, tokenid);

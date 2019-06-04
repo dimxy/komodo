@@ -7779,7 +7779,7 @@ UniValue getbalance64(const UniValue& params, bool fHelp)
 }
 
 // heirfund command rpc-level implementation
-UniValue heirfund(const UniValue& params, bool fHelp)
+UniValue heirfundtokens(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear(); // clear global error object
@@ -7792,8 +7792,8 @@ UniValue heirfund(const UniValue& params, bool fHelp)
     if (ensure_CCrequirements(EVAL_HEIR) < 0)
         throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet and Heir cc contract enabled\n");
     // output help message if asked or params count is incorrect:
-    if (fHelp || params.size() != 4 && params.size() != 5)
-        throw runtime_error("heirfund amount heirname heirpubkey inactivitytime [tokenid]\n");
+    if (fHelp || params.size() != 5)
+        throw runtime_error("heirfund amount heirname heirpubkey inactivitytime tokenid\n");
 
     // Lock the wallet
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -7802,28 +7802,18 @@ UniValue heirfund(const UniValue& params, bool fHelp)
     // Univalue params is actually an array of Univalue objects.
     // We still need to convert them into usual c / c++ language types and pass to the contract implementation.
     // Next let's convert the params from UniValue type to the basic c++ types.
-    CAmount amount;
-    if (params.size() == 4)
-        amount = atof(params[0].get_str().c_str()) * COIN;  // for coins conversion to satoshis by multiplication on 10E8
-    else
-        amount = atoll(params[0].get_str().c_str()); // for tokens value is taken as is
+    CAmount amount = atoll(params[0].get_str().c_str()); // for tokens value is taken as is
     std::string name = params[1].get_str();
     std::vector<uint8_t> vheirpubkey = ParseHex(params[2].get_str().c_str());
     CPubKey heirpk = pubkey2pk(vheirpubkey);
     int64_t inactivitytime = atoll(params[3].get_str().c_str());
     // parse tokenid from hex representation:
-    uint256 tokenid = zeroid;
-    if (params.size() == 5)
-        tokenid = Parseuint256(params[4].get_str().c_str());
+    uint256 tokenid = Parseuint256(params[4].get_str().c_str());
     // We still need to add checks that the converted param values are correct (what I ommitted in the sample), for example not negative or not exceeding some limit.
     // Note how to parse hex representation of the pubkey param and convert it to CPubKey object.
 
     // And now time to call the heir cc contract code and pass the returned created tx in hexademical representation to the caller, ready to be sent to the chain:
-    std::string hextx;
-    if( tokenid.IsNull() )
-        hextx = HeirFund<CoinHelper>(amount, name, heirpk, inactivitytime, tokenid);
-    else
-        hextx = HeirFund<TokenHelper>(amount, name, heirpk, inactivitytime, tokenid);
+    std::string hextx = HeirFundTokens(amount, name, heirpk, inactivitytime, tokenid);
     RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set in HeirFund()
     result.push_back(Pair("result", "success"));
     result.push_back(Pair("hextx", hextx));
