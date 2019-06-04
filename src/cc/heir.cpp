@@ -417,36 +417,48 @@ std::string HeirFundTokens(int64_t amount, std::string heirName, CPubKey heirPub
     const int64_t txfee = 10000;
     CPubKey myPubkey = pubkey2pk(Mypubkey());
 
-    // change AddNormalinputs on function adding token inputs
-    if( AddTokenCCInputs(cp, mtx, myPubkey, tokenid, amount + 2 * txfee, 60) > 0) {
-        // The parameters passed to the AddNormalinputs() are the tx itself, my pubkey, total value for the funding amount, marker and miners fee, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
+    // add satoshis for txfee and marker fee
+    if (AddNormalinputs(mtx, myPubkey, 2 * txfee, 3) > 0) 
+    {
+        int64_t inputs;
+        // AddNormalinputs changed to function adding token inputs
+        if ((inputs = AddTokenCCInputs(cp, mtx, myPubkey, tokenid, amount, 60)) > 0) 
+        // The parameters passed to the AddNormalinputs() are the tx itself, my pubkey, tokenid, total value for the funding amount, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
+        {
+            // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
+            // In this example we used two cc sdk functions for creating cryptocondition vouts.
+            // MakeTokensCC1of2vout (version for tokens) creates a vout with a threshold = 2 cryptocondition allowing to spend funds from this vout with 
+            // either myPubkey(which would be the pubkey of the funds owner) or heir pubkey.
+            mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
 
-        // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
-        // In this example we used two cc sdk functions for creating cryptocondition vouts.
-        // MakeTokensCC1of2vout (version for tokens) creates a vout with a threshold = 2 cryptocondition allowing to spend funds from this vout with 
-        // either myPubkey(which would be the pubkey of the funds owner) or heir pubkey.
-        mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
+            struct CCcontract_info *cpHeir, heirC;
+            cpHeir = CCinit(&heirC, EVAL_HEIR);
+            // MakeCC1vout creates a vout with a simple cryptocondition which sends a txfee to cc Heir contract global address(returned by GetUnspendable() function call).
+            // We need this output to be able to find all the created heir funding plans.
+            // You will always need some kind of marker for any cc contract at least for the initial transaction, otherwise you might lose contract's data in blockchain.
+            // We may call this as a 'marker pattern' in cc development.See more about the marker pattern later in the CC contract patterns section.
+            mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cpHeir, NULL)));   // this creates a 'marker' for the cc heir initial tx. See HeirList for its usage
 
-        struct CCcontract_info *cpHeir, heirC;
-        cpHeir = CCinit(&heirC, EVAL_HEIR);
-        // MakeCC1vout creates a vout with a simple cryptocondition which sends a txfee to cc Heir contract global address(returned by GetUnspendable() function call).
-        // We need this output to be able to find all the created heir funding plans.
-        // You will always need some kind of marker for any cc contract at least for the initial transaction, otherwise you might lose contract's data in blockchain.
-        // We may call this as a 'marker pattern' in cc development.See more about the marker pattern later in the CC contract patterns section.
-        mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cpHeir, NULL)));   // this creates a 'marker' for the cc heir initial tx. See HeirList for its usage
-        
-        // pubkeys with which token vouts were created, currently required by token cc
-        std::vector<CPubKey> validationPubkeys;
-        validationPubkeys.push_back(myPubkey); 
-        validationPubkeys.push_back(heirPubkey);
-    
-        // Finishing the creation of the transaction by calling FinalizeCCTx with params of the mtx object itself, the owner pubkey, txfee amount. 
-        // Also an opreturn object with the contract data is passed which is created by serializing the needed ids and variables to a CScript object.
-        // Note OPRETID_HEIRDATA for identification of heir data module in the opreturn
-        return FinalizeCCTx(0, cp, mtx, myPubkey, txfee,
-            EncodeTokenOpRet(tokenid, validationPubkeys, std::make_pair(OPRETID_HEIRDATA, EncodeHeirCreateOpRet('F', myPubkey, heirPubkey, inactivityTimeSec, heirName))));            
+            if (inputs > amount) {	// token change
+                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, inputs - amount, myPubkey));  // no evalcode
+            }
+
+            // pubkeys with which token vouts were created, currently required by token cc
+            std::vector<CPubKey> validationPubkeys;
+            validationPubkeys.push_back(myPubkey);
+            validationPubkeys.push_back(heirPubkey);
+
+            // Finishing the creation of the transaction by calling FinalizeCCTx with params of the mtx object itself, the owner pubkey, txfee amount. 
+            // Also an opreturn object with the contract data is passed which is created by serializing the needed ids and variables to a CScript object.
+            // Note OPRETID_HEIRDATA for identification of heir data module in the opreturn
+            return FinalizeCCTx(0, cp, mtx, myPubkey, txfee,
+                EncodeTokenOpRet(tokenid, validationPubkeys, std::make_pair(OPRETID_HEIRDATA, EncodeHeirCreateOpRet('F', myPubkey, heirPubkey, inactivityTimeSec, heirName))));
+        }
+        else
+            CCerror = "not enough tokens for requested amount";
     }
-    CCerror = "not enough coins for requested amount and txfee";
+    else
+        CCerror = "not enough coins for txfee and markerfee";
     return std::string("");
 }
 
@@ -480,22 +492,36 @@ std::string HeirAdd(uint256 fundingtxid, int64_t amount)
 
     const int64_t txfee = 10000;
     CPubKey myPubkey = pubkey2pk(Mypubkey());
-    // change AddNormalinputs on function adding token inputs
-    // The parameters passed to the AddTokenCCInputs() are the created tx itself, my pubkey, token id, total value for the funding amount, marker and miners fee, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
-    if (AddTokenCCInputs(cp, mtx, myPubkey, tokenid, amount + txfee, 60) > 0) {
 
-        // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
-        // using the function version for tokens
-        mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_HEIR, amount, ownerPubkey, heirPubkey));
+    // add satoshis for txfee
+    if (AddNormalinputs(mtx, myPubkey, txfee, 3) > 0)
+    {
+        int64_t inputs;
 
-        // pubkeys with which token vouts were created, currently required by token cc
-        std::vector<CPubKey> validationPubkeys{ ownerPubkey, heirPubkey };
+        // change AddNormalinputs on function adding token inputs
+        // The parameters passed to the AddTokenCCInputs() are the created tx itself, my pubkey, token id, total value for the funding amount, marker and miners fee, for which the function will add the necessary number of uxto from the user's wallet. The last parameter is the limit of uxto to add. 
+        if (AddTokenCCInputs(cp, mtx, myPubkey, tokenid, amount, 60) > 0) {
 
-        // Add normal change if any, add opreturn data and sign the transaction:
-        return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, EncodeTokenOpRet(tokenid, validationPubkeys, std::make_pair(OPRETID_HEIRDATA, EncodeHeirOpRet('A', fundingtxid, hasHeirSpendingBegun))));
-        // in the opreturn we added a pair of standard ids: cc eval code and functional id, the fundingtxid as the funding plan identifier and also passed further the hasHeirSpendingBegun flag
+            // Now let's add outputs to the transaction. Accordingly to our specification we need two outputs: for the funding deposit and marker
+            // using the function version for tokens
+            mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_HEIR, amount, ownerPubkey, heirPubkey));
+
+            if (inputs > amount) {	// token change
+                mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, inputs - amount, myPubkey));  // no evalcode
+            }
+
+            // pubkeys with which token vouts were created, currently required by token cc
+            std::vector<CPubKey> validationPubkeys{ ownerPubkey, heirPubkey };
+
+            // Add normal change if any, add opreturn data and sign the transaction:
+            return FinalizeCCTx(0, cp, mtx, myPubkey, txfee, EncodeTokenOpRet(tokenid, validationPubkeys, std::make_pair(OPRETID_HEIRDATA, EncodeHeirOpRet('A', fundingtxid, hasHeirSpendingBegun))));
+            // in the opreturn we added a pair of standard ids: cc eval code and functional id, the fundingtxid as the funding plan identifier and also passed further the hasHeirSpendingBegun flag
+        }
+        else
+            CCerror = "insufficient tokens for the amount";
     }
-    CCerror = "insufficient coins for the requested amount and txfee";
+    else
+        CCerror = "insufficient coins for txfee";
     return std::string("");
 }
 

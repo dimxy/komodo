@@ -7817,6 +7817,12 @@ UniValue heirfundtokens(const UniValue& params, bool fHelp)
     RETURN_IF_ERROR(CCerror);  // use a macro to throw runtime_error if CCerror is set in HeirFund()
     result.push_back(Pair("result", "success"));
     result.push_back(Pair("hextx", hextx));
+    result.push_back(Pair("tokens", amount));
+    result.push_back(Pair("name", name));
+    result.push_back(Pair("heir-pubkey", HexStr(heirpk)));
+    result.push_back(Pair("inactivity-time", inactivitytime));
+    result.push_back(Pair("tokenid", tokenid.GetHex()));
+
     return result;
 }
 
