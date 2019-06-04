@@ -7827,7 +7827,7 @@ UniValue heirfundtokens(const UniValue& params, bool fHelp)
 }
 
 // heirclaim command rpc-level implementation 
-UniValue heirclaim(const UniValue& params, bool fHelp)
+UniValue heirclaimtokens(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear(); // clear global error object
