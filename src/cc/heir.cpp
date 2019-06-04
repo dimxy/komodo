@@ -408,7 +408,7 @@ std::string HeirFundTokens(int64_t amount, std::string heirName, CPubKey heirPub
 
     // Declare and initialize an CCcontract_info object with heir cc contract variables like cc global address, global private key etc.
     struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_TOKENS);
+    cp = CCinit(&C, EVAL_HEIR);
 
     // Next we need to add some inputs to transaction that are enough to make deposit of the requested amount to the heir fund, some fee for the marker and for miners
     // Let's use a constant fee = 10000 sat.
@@ -426,7 +426,7 @@ std::string HeirFundTokens(int64_t amount, std::string heirName, CPubKey heirPub
         mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_HEIR, amount, myPubkey, heirPubkey));
         mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cp, NULL)));   // this creates a 'marker' for the cc heir initial tx. See HeirList for its usage
         // In this example we used two cc sdk functions for creating cryptocondition vouts.
-        // MakeCC1of2vout creates a vout with a threshold = 2 cryptocondition allowing to spend funds from this vout with 
+        // MakeTokensCC1of2vout creates a vout with a threshold = 2 cryptocondition allowing to spend funds from this vout with 
         // either myPubkey(which would be the pubkey of the funds owner) or heir pubkey.
         // MakeCC1vout creates a vout with a simple cryptocondition which sends a txfee to cc Heir contract global address(returned by GetUnspendable() function call).
         // We need this output to be able to find all the created heir funding plans.
@@ -438,7 +438,7 @@ std::string HeirFundTokens(int64_t amount, std::string heirName, CPubKey heirPub
 
         // Finishing the creation of the transaction by calling FinalizeCCTx with params of the mtx object itself, the owner pubkey, txfee amount. 
         // Also an opreturn object with the contract data is passed which is created by serializing the needed ids and variables to a CScript object.
-        // Note the cast to uint8_t for the constants EVAL_HEIR and 'F' funcid, this is important as it is supposed one-byte size for serialization of these values (otherwise they would be 'int').
+        // Note OPRETID_HEIRDATA for identification of heir data module in the opreturn
         return FinalizeCCTx(0, cp, mtx, myPubkey, txfee,
             EncodeTokenOpRet(tokenid, validationPubkeys, std::make_pair(OPRETID_HEIRDATA, EncodeHeirCreateOpRet('F', myPubkey, heirPubkey, inactivityTimeSec, heirName))));            
     }
