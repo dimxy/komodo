@@ -435,10 +435,11 @@ std::string HeirFundTokens(int64_t amount, std::string heirName, CPubKey heirPub
         // We may call this as a 'marker pattern' in cc development.See more about the marker pattern later in the CC contract patterns section.
         mtx.vout.push_back(MakeCC1vout(EVAL_HEIR, txfee, GetUnspendable(cpHeir, NULL)));   // this creates a 'marker' for the cc heir initial tx. See HeirList for its usage
         
-
         // pubkeys with which token vouts were created, currently required by token cc
-        std::vector<CPubKey> validationPubkeys{ myPubkey, heirPubkey };
-
+        std::vector<CPubKey> validationPubkeys;
+        validationPubkeys.push_back(myPubkey); 
+        validationPubkeys.push_back(heirPubkey);
+    
         // Finishing the creation of the transaction by calling FinalizeCCTx with params of the mtx object itself, the owner pubkey, txfee amount. 
         // Also an opreturn object with the contract data is passed which is created by serializing the needed ids and variables to a CScript object.
         // Note OPRETID_HEIRDATA for identification of heir data module in the opreturn
