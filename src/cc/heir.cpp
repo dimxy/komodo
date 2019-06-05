@@ -241,10 +241,10 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
 
     // check if this is heir claiming funds
     for (auto vout : tx.vout) {
-        // is this normal output?
-        if (vout.scriptPubKey.IsPayToPublicKey())   {
-            // is it to heir pubkey?
-            if (vout.scriptPubKey == CScript() << ParseHex(HexStr(heirPubkey)) << OP_CHECKSIG) {
+        // is this cc output?
+        if (vout.scriptPubKey.IsPayToCryptoCondition())   {
+            // is this cc tokens to heir pubkey?
+            if (vout == MakeTokensCC1vout(EVAL_TOKENS, vout.nValue, heirPubkey)) {
                 // check inactivity time
                 int32_t numBlocks;
                 if (lastHeirSpendingBegun || CCduration(numBlocks, latesttxid) > inactivityTime) {
@@ -273,7 +273,7 @@ bool CheckInactivityTime(struct CCcontract_info* cpHeir, Eval* eval, const CTran
             }
         }
     }
-    return eval->Invalid("no normal outputs found"); // if no any normal output not found then tx is incorrect
+    return eval->Invalid("no cc token outputs found"); // if no any normal output not found then tx is incorrect
 }
 
 // Tx validation entry function, it is a callback actually
