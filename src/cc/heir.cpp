@@ -550,6 +550,7 @@ std::string HeirClaimTokens(uint256 fundingtxid, int64_t amount)
     int32_t numBlocks; // not used
     bool isAllowedToHeir = (hasHeirSpendingBegun || CCduration(numBlocks, latesttxid) > inactivityTimeSec) ? true : false;
     CPubKey myPubkey = pubkey2pk(Mypubkey());  // pubkey2pk sdk function converts pubkey from byte array to high-level CPubKey object
+  
     if (myPubkey == heirPubkey && !isAllowedToHeir) {
         CCerror = "spending funds is not allowed for heir yet";
         return std::string("");
@@ -577,10 +578,10 @@ std::string HeirClaimTokens(uint256 fundingtxid, int64_t amount)
         return std::string("");
     }
 
-    // Now add an normal output to send claimed funds to and cc change output for the fund remainder:
-    mtx.vout.push_back(CTxOut(amount, CScript() << ParseHex(HexStr(myPubkey)) << OP_CHECKSIG));
+    // Now add an token output to send claimed funds to:
+    mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, amount, myPubkey));
 
-    // add cc change, if needed
+    // add cc change to the fund address, if needed
     if (inputs > amount)
         mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_HEIR, inputs - amount, ownerPubkey, heirPubkey));
 
