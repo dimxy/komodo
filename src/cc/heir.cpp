@@ -558,7 +558,7 @@ std::string HeirClaimTokens(uint256 fundingtxid, int64_t amount)
     // Let's create the claim transaction inputs and outputs:
 
     // add normal inputs for txfee amount:
-    if (AddNormalinputs(mtx, myPubkey, txfee, 3) <= txfee) {
+    if (AddNormalinputs(mtx, myPubkey, txfee, 3) < txfee) {
         CCerror = "not enough normal inputs for txfee";
         return std::string("");
     }
