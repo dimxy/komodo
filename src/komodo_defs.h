@@ -15,6 +15,7 @@
 
 #ifndef KOMODO_DEFS_H
 #define KOMODO_DEFS_H
+#include "chain.h"
 #include "komodo_nk.h"
 
 #define ASSETCHAINS_MINHEIGHT 128
