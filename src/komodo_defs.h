@@ -35,6 +35,8 @@
 #define KOMODO_SAPLING_DEADLINE 1550188800 // Feb 15th, 2019
 #define _COINBASE_MATURITY 100
 
+#define KOMODO_ADDRESS_BUFSIZE 64
+
 // KMD Notary Seasons 
 // 1: May 1st 2018 1530921600
 // 2: July 15th 2019 1563148800 -> estimated height 1444000
@@ -343,6 +345,19 @@ int32_t komodo_currentheight();
 int32_t komodo_notarized_bracket(struct notarized_checkpoint *nps[2],int32_t height);
 arith_uint256 komodo_adaptivepow_target(int32_t height,arith_uint256 bnTarget,uint32_t nTime);
 
+CBlockIndex *komodo_getblockindex(uint256 hash);
 uint256 Parseuint256(const char *hexstr);
+struct komodo_staking
+{
+    char address[64];
+    uint256 txid;
+    arith_uint256 hashval;
+    uint64_t nValue;
+    uint32_t segid32, txtime;
+    int32_t vout;
+    CScript scriptPubKey;
+};
+struct komodo_staking *komodo_addutxo(struct komodo_staking *array, int32_t *numkp, int32_t *maxkp, uint32_t txtime, uint64_t nValue, uint256 txid, int32_t vout, char *address, uint8_t *hashbuf, CScript pk);
+
 
 #endif
