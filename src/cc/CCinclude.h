@@ -109,11 +109,15 @@ struct CC_meta
     // followed by address destinations
 };
 
+// dimxy
+// class CCWrapper encapsulates and stores cryptocondition encoded in json
+// stored cc is used as probe in FinalizeCCtx to find vintx cc vout and make matching tx.vin.scriptSig
 class CCwrapper {
 public:
     CCwrapper() {}
 
-    // smart pointer variant (not to copy cc but use smart pointer with auto cc_free) - could use it if cc serialization to JSON fails. But serialization is more consistent
+    // smart pointer alternate variant (not to copy cc but use smart pointer with auto cc_free)
+    // we could use it if cc serialization to JSON fails. But serialization is more consistent
     // CCwrapper(CC *cond) : spcond(cond, [](CC* p) {cc_free(p); }) { }
     // CCwrapper(const CCwrapper &w) { spcond = w.spcond; }  // default copy constr
     // CC *get() { return spcond.get(); }
@@ -133,7 +137,7 @@ public:
      }
 
 private:
-    //std::shared_ptr<CC> spcond;
+    //std::shared_ptr<CC> spcond; // for smart pointer
     char *ccJsonString;
     size_t  cclen;
 };
@@ -175,7 +179,7 @@ struct CCcontract_info
     bool (*validate)(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);  // cc contract tx validation callback
     bool (*ismyvin)(CScript const& scriptSig);	// checks if evalcode is present in the scriptSig param
 
-    std::vector< struct CCVintxProbe > CCvintxprobes;
+    std::vector< struct CCVintxProbe > CCvintxprobes;  // stores probe cc's and privkeys to find vintx cc vouts and sign vins
 
     uint8_t didinit = 0;
 };
