@@ -41,7 +41,9 @@ If you don't see your idea listed, and you think it can contribute to Komodo, do
 * **If your contribution is minor,** such as a fixing a typo, open a pull request.
 * **If your contribution is major,** such as a new feature or bugfix, start by opening an issue first. That way, other contributors can weigh in on the discussion before you do any work.
 
-## Style guide
+## Code style and standard rules guide
+Please follow C++ 11 edition standard rules, with no specific compiler extensions allowed
+Consider your code should work in our supported enviroments: Linux, OS X, Windows Mingw framework 
 Write clear, clean and consistent code. Follow well-known and established style guidelines like [Google's C++ Style Guide](https://google.github.io/styleguide/cppguide.html) or [Bjarne Stroustrup's C++ Style FAQ](http://www.stroustrup.com/bs_faq2.html).
 
 ## Setting up your environment
@@ -50,7 +52,7 @@ The Komodo Core (komodod) is mainly written in C++ with specific modules written
 
 ## Contribution review process
 
-Our team and community will review your contribution and start a transparent testing and quality assurance process. As soon as your contribution has undergone sucessful review and QA signoff it gets merged into the Komodo sourcecode. 
+Our team and community will review your contribution and start a transparent testing and quality assurance process. As soon as your contribution has undergone successful review and QA signoff it gets merged into the Komodo sourcecode. 
 
 ## Community
 
