@@ -328,6 +328,9 @@ bool MarmaraPoScheck(char *destaddr, CScript opret, CTransaction staketx)
     return(0);
 }
 
+// enumerates mypk activated cc vouts
+// calls a callback allowing to do something with the utxos (add to staking utxo array)
+// TODO: maybe better to use AddMarmaraInputs with a callback for unification...
 template <class T>
 static void EnumMyActivated(T func)
 {
@@ -384,6 +387,9 @@ static void EnumMyActivated(T func)
     }
 }
 
+// enumerates mypk locked in loop cc vouts
+// calls a callback allowing to do something with the utxos (add to staking utxo array)
+// TODO: maybe better to use AddMarmaraInputs with a callback for unification...
 template <class T>
 static void EnumMyLockedInLoop(T func)
 {
@@ -442,7 +448,7 @@ static void EnumMyLockedInLoop(T func)
 
                         if (GetTransaction(txid, looptx, hashBlock, true) && (pindex = komodo_getblockindex(hashBlock)) != 0 && myIsutxo_spentinmempool(ignoretxid, ignorevin, txid, nvout) == 0)  // TODO: change to the non-locking version
                         {
-                            /*lock-in-loop cant be mined*/                      /* could be cc opret */
+                            /* lock-in-loop cant be mined */                   /* now it could be cc opret, not necessary OP_RETURN vout in the back */
                             if (!looptx.IsCoinBase() && looptx.vout.size() > 0 /* && looptx.vout.back().nValue == 0 */)  
                             {
                                 char utxoaddr[KOMODO_ADDRESS_BUFSIZE] = "";
@@ -720,6 +726,10 @@ int64_t AddMarmarainputs(bool (*CheckOpretFunc)(const CScript &, CPubKey &), CMu
         CTransaction tx;
 
         if (it->second.satoshis < threshold)
+            continue;
+
+        // check if vin might be already added to mtx:
+        if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](auto v) {return (v.prevout.hash == vintxid && v.prevout.n == vout); }) != mtx.vin.end())
             continue;
 
         if (GetTransaction(txid, tx, hashBlock, false) != 0 && tx.vout.size() > 0 && 
