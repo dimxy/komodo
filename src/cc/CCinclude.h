@@ -347,6 +347,7 @@ int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
 
 // bitcoin LogPrintStr with category "-debug" cmdarg support for C++ ostringstream:
+#define CCLOG_ERROR  (-1)
 #define CCLOG_INFO   0
 #define CCLOG_DEBUG1 1
 #define CCLOG_DEBUG2 2
@@ -357,13 +358,18 @@ void CCLogPrintStream(const char *category, int level, T print_to_stream)
 {
     std::ostringstream stream;
     print_to_stream(stream);
-    if (level < 0)
-        level = 0;
+    bool isError = false;
+
+    if (level < 0) {
+        LogPrintStr(stream.str());  // print error unconditionally
+        return;
+    }
     if (level > CCLOG_MAXLEVEL)
         level = CCLOG_MAXLEVEL;
+    // check if category accepted:
     for (int i = level; i <= CCLOG_MAXLEVEL; i++)
         if( LogAcceptCategory((std::string(category) + std::string("-") + std::to_string(i)).c_str())  ||     // '-debug=cctokens-0', '-debug=cctokens-1',...
-            i == 0 && LogAcceptCategory(std::string(category).c_str()) )  {                                  // also supporting '-debug=cctokens' for CCLOG_INFO
+            i == 0 && LogAcceptCategory(std::string(category).c_str()) )  {                                   // also supporting '-debug=cctokens' for CCLOG_INFO
             LogPrintStr(stream.str());
             break;
         }
