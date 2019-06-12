@@ -353,12 +353,12 @@ inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (s
 #define CCLOG_DEBUG2 2
 #define CCLOG_DEBUG3 3
 #define CCLOG_MAXLEVEL 3
-template <class T>
-void CCLogPrintStream(const char *category, int level, T print_to_stream)
+//template <class T>
+void CCLogPrintStream(const char *category, int level, const std::ostringstream &stream)
 {
-    std::ostringstream stream;
-    print_to_stream(stream);
-    bool isError = false;
+//    std::ostringstream stream;
+//    print_to_stream(stream);
+//    bool isError = false;
 
     if (level < 0) {
         LogPrintStr(stream.str());  // print error unconditionally
@@ -375,7 +375,7 @@ void CCLogPrintStream(const char *category, int level, T print_to_stream)
         }
 }
 // use: LOGSTREAM("yourcategory", your-debug-level, stream << "some log data" << data2 << data3 << ... << std::endl);
-#define LOGSTREAM(category, level, logoperator) CCLogPrintStream( category, level, [=](std::ostringstream &stream) {logoperator;} )
+#define LOGSTREAM(category, level, logoperator) { std::ostringstream stream; logoperator; CCLogPrintStream( category, level, stream /*[=](std::ostringstream &stream) {logoperator;}*/ ); }
 
 
 #endif
