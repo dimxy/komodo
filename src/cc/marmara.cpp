@@ -990,8 +990,15 @@ UniValue MarmaraLock(int64_t txfee, int64_t amount)
 int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mtx)
 {
     
-    uint256 txid, hashBlock; uint8_t *ptr; int32_t i, siglen, vout, numvouts; CTransaction tx; std::string rawtx; CPubKey mypk; std::vector<CPubKey> pubkeys; struct CCcontract_info *cp, C; int64_t txfee;
-    txfee = 10000;
+    uint256 txid, hashBlock; 
+    uint8_t *ptr; 
+    int32_t i, siglen, vout, numvouts; 
+    CTransaction tx; 
+    std::string rawtx; 
+    CPubKey mypk; std::vector<CPubKey> pubkeys; 
+    struct CCcontract_info *cp, C; 
+    int64_t txfee = 10000;
+
     vout = mtx.vin[0].prevout.n;
     if (GetTransaction(mtx.vin[0].prevout.hash, tx, hashBlock, false) != 0 && (numvouts = tx.vout.size()) > 1 && vout < numvouts)
     {
@@ -1008,7 +1015,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mtx)
             for (i = 0; i < siglen; i++)
             {
                 utxosig[i] = ptr[i];
-                debstream << std::hex << ptr[i];
+                debstream << std::hex << (int)ptr[i];
             }
             std::string strScriptSig = debstream.str();
 
