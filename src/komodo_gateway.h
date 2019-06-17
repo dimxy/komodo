@@ -28,6 +28,7 @@ int32_t dummy_linker_tricker()
 }*/
 
 int32_t MarmaraValidateCoinbase(int32_t height,CTransaction tx);
+void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & minersTransactions);
 
 int32_t pax_fiatstatus(uint64_t *available,uint64_t *deposited,uint64_t *issued,uint64_t *withdrawn,uint64_t *approved,uint64_t *redeemed,char *base)
 {
@@ -2802,4 +2803,14 @@ int32_t komodo_priceget(int64_t *buf64,int32_t ind,int32_t height,int32_t numblo
     }
     pthread_mutex_unlock(&pricemutex);
     return(retval);
+}
+
+// place to add miner's created transactions
+void komodo_createminerstransactions(int32_t nHeight, std::vector<CTransaction> minersTransactions)
+{
+
+    if(ASSETCHAINS_MARMARA != 0)   
+    {
+        MarmaraRunAutoSettlement(nHeight, minersTransactions);        // run Maramara autosettlement, returns settlement transactions
+    }
 }

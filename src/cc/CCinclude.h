@@ -347,12 +347,15 @@ int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
 
 // bitcoin LogPrintStr with category "-debug" cmdarg support for C++ ostringstream:
+
+// log levels:
 #define CCLOG_ERROR  (-1)
 #define CCLOG_INFO   0
 #define CCLOG_DEBUG1 1
 #define CCLOG_DEBUG2 2
 #define CCLOG_DEBUG3 3
 #define CCLOG_MAXLEVEL 3
+
 template <class T>
 void CCLogPrintStream(const char *category, int level, const char *functionName, T printToStream)
 {
@@ -375,8 +378,15 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
             break;
         }
 }
-// use: LOGSTREAM("yourcategory", your-debug-level, stream << "some log data" << data2 << data3 << ... << std::endl);
+
+// LOGSTREAM is a macro wrapper around utils.cpp LogPrintStr which allows to use c++ style '<<' operator for logging 
+// LOGSTREAM checks if logging category is enabled by -debug cmd arg
+// but CCLOG_ERROR level is always printed independently whether category enabled or not by -debug arg
+// use like: LOGSTREAM("yourcategory", your-debug-level, stream << "some data1=" << data1 << " data2=" << data2 << " some text" << ... << std::endl);
 #define LOGSTREAM(category, level, logoperator) CCLogPrintStream( category, level, NULL, [=](std::ostringstream &stream) {logoperator;} )
+
+// LOGSTREAMFN is a version of LOGSTREAM macro which adds calling function name with the standard define __func__ at the beginning of the printed string 
+// LOGSTREAMFN parameters are the same as in LOGSTREAM
 #define LOGSTREAMFN(category, level, logoperator) CCLogPrintStream( category, level, __func__, [=](std::ostringstream &stream) {logoperator;} )
 
 

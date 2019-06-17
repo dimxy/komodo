@@ -5557,11 +5557,7 @@ UniValue cclibinfo(const UniValue& params, bool fHelp)
 
 UniValue cclib(const UniValue& params, bool fHelp)
 {
-    struct CCcontract_info *cp,C; 
-    char *method, *jsonstr=0; 
-    uint8_t evalcode = EVAL_FIRSTUSER;
-    std::string vobjJsonSerialized;
-
+    struct CCcontract_info *cp,C; char *method, *jsonstr=0; uint8_t evalcode = EVAL_FIRSTUSER;
     if ( fHelp || params.size() > 3 )
         throw runtime_error("cclib method [evalcode] [JSON params]\n");
     if ( ASSETCHAINS_CCLIB.size() == 0 )
@@ -5581,13 +5577,7 @@ UniValue cclib(const UniValue& params, bool fHelp)
         }
         if ( params.size() == 3 )
         {
-            
-            if (params[2].getType() == UniValue::VOBJ) {
-                vobjJsonSerialized = params[2].write(0, 0);
-                jsonstr = (char *)vobjJsonSerialized.c_str();
-            }
-            else  // VSTR assumed
-                jsonstr = (char *)params[2].get_str().c_str();
+            jsonstr = (char *)params[2].get_str().c_str();
             //fprintf(stderr,"params.(%s %s %s)\n",params[0].get_str().c_str(),params[1].get_str().c_str(),jsonstr);
         }
     }
