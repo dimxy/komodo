@@ -5584,11 +5584,7 @@ UniValue cclibinfo(const UniValue& params, bool fHelp)
 
 UniValue cclib(const UniValue& params, bool fHelp)
 {
-    struct CCcontract_info *cp,C; 
-    char *method, *jsonstr=0; 
-    uint8_t evalcode = EVAL_FIRSTUSER;
-    std::string vobjJsonSerialized;
-
+    struct CCcontract_info *cp,C; char *method, *jsonstr=0; uint8_t evalcode = EVAL_FIRSTUSER;
     std::string vobjJsonSerialized;
 
     if ( fHelp || params.size() > 3 )
