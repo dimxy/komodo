@@ -1007,6 +1007,7 @@ void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::
 extern void CCLogPrintStr(const char *category, int level, const std::string &str);
 
 /// @private
+
 template <class T>
 void CCLogPrintStream(const char *category, int level, const char *functionName, T print_to_stream)
 {
