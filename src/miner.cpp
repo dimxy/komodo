@@ -453,7 +453,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             ti != minersTransactions.end(); ++ti)
         {
             const CTransaction& tx = *ti;
-            addTransactionsToVecPriority(tx);
+            //addTransactionsToVecPriority(tx);
         }
 
 
