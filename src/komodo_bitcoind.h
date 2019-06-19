@@ -704,7 +704,7 @@ int32_t komodo_isPoS2(CBlock *pblock)
     CBlockIndex *pindex = komodo_blockindex(pblock->GetHash());
     if ( pindex != 0 && pindex->segid >= -1 )
     {
-        //fprintf(stderr,"isPoSblock segid.%d\n",pindex->segid);
+        fprintf(stderr,"isPoSblock segid.%d\n",pindex->segid); //uncommented
         if ( pindex->segid == -1 )
             return(0);
         else return(1);
@@ -1337,7 +1337,7 @@ int8_t komodo_segid(int32_t nocache,int32_t height)
     if ( height > 0 && (pindex= komodo_chainactive(height)) != 0 )
     {
         if (nocache == 0 && pindex->segid >= -1) {
-            fprintf(stderr, "komodo_segid cached height.%d -> %d\n", height, pindex->segid);
+            fprintf(stderr, "komodo_segid set cached height.%d -> %d\n", height, pindex->segid); // added, comment
             return(pindex->segid);
         }
         if ( komodo_blockload(block,pindex) == 0 )
@@ -1355,11 +1355,15 @@ int8_t komodo_segid(int32_t nocache,int32_t height)
                     {
                         segid = komodo_segid32(voutaddr) & 0x3f;
                         pindex->segid = segid;
-                        fprintf(stderr,"komodo_segid calculated height.%d -> %d\n", height, pindex->segid);
+                        fprintf(stderr,"komodo_segid set calculated height.%d -> %d\n", height, pindex->segid);  //uncommnented
                     }
                 } else fprintf(stderr,"komodo_segid ht.%d couldnt extract voutaddress\n",height);
             }
         }
+    }
+    else
+    {
+        fprintf(stderr, "komodo_segid pindex==null ht.%d default value=%d\n", height, segid);
     }
     return(segid);
 }
@@ -1628,7 +1632,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
     pindex = it != mapBlockIndex.end() ? it->second : NULL;
     if ( pindex != 0 && pindex->segid >= -1 )
     {
-        //fprintf(stderr,"isPoSblock segid.%d\n",pindex->segid);
+        fprintf(stderr,"isPoSblock segid.%d\n",pindex->segid);  //uncommented
         if ( pindex->segid == -1 )
             return(0);
         else return(1);
@@ -1659,7 +1663,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
                 if ( pindex != 0 )
                 {
                     pindex->segid = -1;
-                    //fprintf(stderr,"PoW block detected set segid.%d <- %d\n",height,pindex->segid);
+                    fprintf(stderr,"PoW block detected set segid ht.%d <- %d\n",height,pindex->segid); //uncommented
                 }
             }
             else
@@ -1674,8 +1678,8 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
                 if ( pindex != 0 && segid >= 0 )
                 {
                     pindex->segid = segid;
-                    //fprintf(stderr,"PoS block set segid.%d <- %d\n",height,pindex->segid);
-                } //else fprintf(stderr,"unexpected null pindex for slowflag set ht.%d segid.%d:%d\n",height,pindex!=0?pindex->segid:-3,segid);
+                    fprintf(stderr,"PoS block set segid ht.%d <- %d\n",height,pindex->segid); // uncommented
+                } else fprintf(stderr,"unexpected null pindex for slowflag set ht.%d segid.%d:%d\n",height,pindex!=0?pindex->segid:-3,segid); //uncommented
             }
         } 
         else if ( slowflag == 0 ) // previous blocks are not seen yet, do the best approx
@@ -2303,7 +2307,7 @@ int32_t komodo_checkPOW(int32_t slowflag,CBlock *pblock,int32_t height)
                     pindex = it != mapBlockIndex.end() ? it->second : NULL;
                     if ( pindex != 0 && pindex->segid == -2 ) {
                         pindex->segid = -1;
-                        //fprintf(stderr,"PoW block detected set segid.%d <- %d\n",height,pindex->segid);
+                        fprintf(stderr,"PoW block detected set segid ht.%d <- %d\n",height,pindex->segid); //uncommented
                     }
                 }
             }
