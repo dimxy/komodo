@@ -411,7 +411,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
             dPriority = tx.ComputePriority(dPriority, nTxSize);
 
-            if (isMempoolTx) {  // dont do this for miner's txns
+            if (isMempoolTx) {  // dont do this for miner's txns (in any way ApplyDeltas will skip them)
                 uint256 hash = tx.GetHash();
                 mempool.ApplyDeltas(hash, dPriority, nTotalIn);
             }
@@ -517,7 +517,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             const uint256& hash = tx.GetHash();
             double dPriorityDelta = 0;
             CAmount nFeeDelta = 0;
-            mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
+            mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);  // ApplyDeltas will not find miner's transactions
             if (fSortedByFee && (dPriorityDelta <= 0) && (nFeeDelta <= 0) && (feeRate < ::minRelayTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
             {
                 //fprintf(stderr,"fee rate skip\n");
