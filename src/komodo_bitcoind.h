@@ -1336,8 +1336,10 @@ int8_t komodo_segid(int32_t nocache,int32_t height)
     CTxDestination voutaddress; CBlock block; CBlockIndex *pindex; uint64_t value; uint32_t txtime; char voutaddr[64],destaddr[64]; int32_t txn_count,vout; uint256 txid; CScript opret; int8_t segid = -1;
     if ( height > 0 && (pindex= komodo_chainactive(height)) != 0 )
     {
-        if ( nocache == 0 && pindex->segid >= -1 )
+        if (nocache == 0 && pindex->segid >= -1) {
+            fprintf(stderr, "komodo_segid cached height.%d -> %d\n", height, pindex->segid);
             return(pindex->segid);
+        }
         if ( komodo_blockload(block,pindex) == 0 )
         {
             txn_count = block.vtx.size();
@@ -1353,7 +1355,7 @@ int8_t komodo_segid(int32_t nocache,int32_t height)
                     {
                         segid = komodo_segid32(voutaddr) & 0x3f;
                         pindex->segid = segid;
-                        //fprintf(stderr,"komodo_segid.(%d) -> %d\n",height,pindex->segid);
+                        fprintf(stderr,"komodo_segid calculated height.%d -> %d\n", height, pindex->segid);
                     }
                 } else fprintf(stderr,"komodo_segid ht.%d couldnt extract voutaddress\n",height);
             }
