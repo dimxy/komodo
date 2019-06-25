@@ -32,7 +32,7 @@ extern bool fRequestShutdown;
 extern CScript KOMODO_EARLYTXID_SCRIPTPUB;
 
 int32_t MarmaraSignature(uint8_t *utxosig,CMutableTransaction &txNew);
-uint8_t DecodeMarmaraCoinbaseOpRet(const CScript scriptPubKey,CPubKey &pk,int32_t &height,int32_t &unlockht);
+uint8_t MarmaraDecodeCoinbaseOpret(const CScript scriptPubKey,CPubKey &pk,int32_t &height,int32_t &unlockht);
 struct komodo_staking *MarmaraGetStakingUtxos(struct komodo_staking *array, int32_t *numkp, int32_t *maxkp, uint8_t *hashbuf);
 int32_t MarmaraGetStakeMultiplier(const CTransaction & tx, int32_t nvout);
 
