@@ -6085,15 +6085,18 @@ UniValue marmara_settlement(const UniValue& params, bool fHelp)
     {
         // marmarasettlement 010ff7f9256cefe3b5dee3d72c0eeae9fc6f34884e6f32ffe5b60916df54a9be
         // marmarasettlement ff3e259869196f3da9b5ea3f9e088a76c4fc063cf36ab586b652e121d441a603
-        throw runtime_error("marmarasettlement batontxid (deprecated)\n");
+        throw runtime_error("marmarasettlement batontxid (discontinued)\n");
     }
     if ( ensure_CCrequirements(EVAL_MARMARA) < 0 )
         throw runtime_error("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n");
+
+    throw runtime_error("marmarasettlement is discontinued\n");
+    /*
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
     batontxid = Parseuint256((char *)params[0].get_str().c_str());
     CTransaction tx;
-    result = MarmaraSettlement(0,batontxid, tx);
+    result = MarmaraSettlement(0,batontxid, tx); */
     return(result);
 }
 
