@@ -603,6 +603,7 @@ uint64_t komodo_seed(int32_t height)
     return(seed);
 }
 
+// get previous staking utxo opret, address and txtime
 uint32_t komodo_txtime(CScript &opret,uint64_t *valuep,uint256 hash, int32_t n, char *destaddr)
 {
     CTxDestination address; CTransaction tx; uint256 hashBlock; int32_t numvouts;
@@ -620,8 +621,26 @@ uint32_t komodo_txtime(CScript &opret,uint64_t *valuep,uint256 hash, int32_t n, 
     //fprintf(stderr,"%s/v%d locktime.%u\n",hash.ToString().c_str(),n,(uint32_t)tx.nLockTime);
     if ( n < numvouts )
     {
+        CScript dummy;
+        std::vector< vscript_t > vParams;
+        bool isCCOpret = false;
+
         *valuep = tx.vout[n].nValue;
-        opret = tx.vout[numvouts-1].scriptPubKey;
+
+        // get staking utxo opret
+        // first try if cc opret exists
+        if (tx.vout[n].scriptPubKey.IsPayToCryptoCondition(&dummy, vParams)) {
+            if (vParams.size() > 0) {
+                COptCCParams p = COptCCParams(vParams[0]);
+                if (p.vData.size() > 0) {
+                    opret << OP_RETURN << p.vData[0];
+                    isCCOpret = true;
+                }
+            }
+        }
+        if (!isCCOpret)  
+            opret = tx.vout[numvouts-1].scriptPubKey;  // if no cc opret then use opret in the last vout 
+
         if (ExtractDestination(tx.vout[n].scriptPubKey, address))
             strcpy(destaddr,CBitcoinAddress(address).ToString().c_str());
     }
@@ -703,7 +722,7 @@ int32_t komodo_WhoStaked(CBlock *pblock, CTxDestination &addressout)
     return(0);
 }
 
-bool MarmaraPoScheck(char *destaddr,CScript opret,CTransaction staketx);
+int32_t MarmaraPoScheck(char *destaddr,CScript opret,CTransaction staketx);
 
 int32_t komodo_isPoS2(CBlock *pblock)
 {
@@ -718,6 +737,10 @@ int32_t komodo_isPoS2(CBlock *pblock)
     return (-1);
 }
 
+// checks if block is PoS: 
+// last tx should point to staking utxo (spent to self)
+// for Maramara cc there is an additional check of staking tx
+// returns 1 if this is PoS block and 0 if false 
 int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
 {
     int32_t n,vout,numvouts,ret; uint32_t txtime; uint64_t value; char voutaddr[64],destaddr[64]; CTxDestination voutaddress; uint256 txid; CScript opret;
@@ -735,14 +758,15 @@ int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
         //fprintf(stderr,"ht.%d check for PoS numtx.%d numvins.%d numvouts.%d\n",height,n,(int32_t)pblock->vtx[n-1].vin.size(),(int32_t)pblock->vtx[n-1].vout.size());
         if ( n > 1 && pblock->vtx[n-1].vin.size() == 1 && pblock->vtx[n-1].vout.size() == GetStakeTxVoutSize() )
         {
-            txid = pblock->vtx[n-1].vin[0].prevout.hash;
+            // get previous tx and check if it was spent to self
+            txid = pblock->vtx[n-1].vin[0].prevout.hash;  
             vout = pblock->vtx[n-1].vin[0].prevout.n;
-            txtime = komodo_txtime(opret,&value,txid,vout,destaddr);
-            if ( ExtractDestination(pblock->vtx[n-1].vout[0].scriptPubKey,voutaddress) )
+            txtime = komodo_txtime(opret,&value,txid,vout,destaddr);  // get previous tx opret
+            if ( ExtractDestination(pblock->vtx[n-1].vout[0].scriptPubKey,voutaddress) )  // get current tx vout address
             {
                 strcpy(voutaddr,CBitcoinAddress(voutaddress).ToString().c_str());
                 //fprintf(stderr,"voutaddr.%s vs destaddr.%s\n",voutaddr,destaddr);
-                if ( pblock->vtx[n-1].vout[0].nValue == value && strcmp(destaddr,voutaddr) == 0 )
+                if ( pblock->vtx[n-1].vout[0].nValue == value && strcmp(destaddr,voutaddr) == 0 )   // staking utxo should be spent to self
                 {
                     if ( ASSETCHAINS_MARMARA == 0 )
                         return(1);
