@@ -1694,7 +1694,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
             if ( komodo_isPoS(pblock,height,false) != 0 )
             {
                 eligible = komodo_stake(1,bnTarget,height,txid,vout,pblock->nTime,prevtime+27,(char *)"",PoSperc);
-                std::cout << __func__ << " eligible=" << eligible << " pblock->nTime" << pblock->nTime << std::endl;
+                std::cout << __func__ << " eligible=" << eligible << " pblock->nTime=" << pblock->nTime << std::endl;
             }
             if ( eligible == 0 || eligible > pblock->nTime )
             {
