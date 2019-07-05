@@ -738,8 +738,8 @@ int32_t komodo_isPoS2(CBlock *pblock)
 }
 
 // checks if block is PoS: 
-// last tx should point to staking utxo (spent to self)
-// for Maramara cc there is an additional check of staking tx
+// last tx should point to the previous staking utxo (that is spent to self)
+// for Marmara cc there is an additional check of staking tx (opret)
 // returns 1 if this is PoS block and 0 if false 
 int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
 {
@@ -755,7 +755,8 @@ int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
                 return (0);
         }
         n = pblock->vtx.size();
-        //fprintf(stderr,"ht.%d check for PoS numtx.%d numvins.%d numvouts.%d\n",height,n,(int32_t)pblock->vtx[n-1].vin.size(),(int32_t)pblock->vtx[n-1].vout.size());
+        
+        fprintf(stderr,"%s ht.%d check for PoS numtx.%d numvins.%d numvouts.%d GetStakeTxVoutSize()=%d\n", __func__, height,n,(int32_t)pblock->vtx[n-1].vin.size(),(int32_t)pblock->vtx[n-1].vout.size(), GetStakeTxVoutSize());
         if ( n > 1 && pblock->vtx[n-1].vin.size() == 1 && pblock->vtx[n-1].vout.size() == GetStakeTxVoutSize() )
         {
             // get previous tx and check if it was spent to self
@@ -765,17 +766,22 @@ int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
             if ( ExtractDestination(pblock->vtx[n-1].vout[0].scriptPubKey,voutaddress) )  // get current tx vout address
             {
                 strcpy(voutaddr,CBitcoinAddress(voutaddress).ToString().c_str());
-                //fprintf(stderr,"voutaddr.%s vs destaddr.%s\n",voutaddr,destaddr);
+                fprintf(stderr,"%s voutaddr.%s vs destaddr.%s\n", __func__,voutaddr,destaddr);
                 if ( pblock->vtx[n-1].vout[0].nValue == value && strcmp(destaddr,voutaddr) == 0 )   // staking utxo should be spent to self
                 {
                     if ( ASSETCHAINS_MARMARA == 0 )
                         return(1);
                     else
                     {
+                        std::cout << __func__ << " height=" << height << " pblock->vtx[n-1].vout.size()=" << pblock->vtx[n - 1].vout.size() << " GetStakeTxVoutSize()=" << GetStakeTxVoutSize() << std::endl;
+
                         if ( pblock->vtx[n-1].vout[0].scriptPubKey.IsPayToCryptoCondition() != 0 && (numvouts= pblock->vtx[n-1].vout.size()) == GetStakeTxVoutSize())
                         {
 //fprintf(stderr,"validate proper %s %s signature and unlockht preservation\n",voutaddr,destaddr);
-                            return(MarmaraPoScheck(destaddr,opret,pblock->vtx[n-1]));
+                            //return(MarmaraPoScheck(destaddr,opret,pblock->vtx[n-1]));
+                            int32_t r = MarmaraPoScheck(destaddr, opret, pblock->vtx[n - 1]);
+                            std::cout << __func__ << " MarmaraPoScheck=" << r << std::endl;
+                            return r;
                         }
                         else
                         {
@@ -787,6 +793,7 @@ int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
             }
         }
     }
+    std::cout << __func__ << " return = 0" << std::endl;
     return(0);
 }
 
@@ -1663,7 +1670,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
     pindex = it != mapBlockIndex.end() ? it->second : NULL;
     if ( pindex != 0 && pindex->segid >= -1 )
     {
-        //fprintf(stderr,"isPoSblock segid.%d\n",pindex->segid);  
+        fprintf(stderr,"%s isPoSblock segid.%d\n", __func__,pindex->segid);   //uncommented
         if ( pindex->segid == -1 )
             return(0);
         else return(1);
@@ -1672,7 +1679,8 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
     if ( slowflag != 0 )
         POWTarget = komodo_PoWtarget(&PoSperc,bnTarget,height,ASSETCHAINS_STAKED);
     txn_count = pblock->vtx.size();
-    //fprintf(stderr,"checkblock n.%d vins.%d vouts.%d %.8f %.8f\n",txn_count,(int32_t)pblock->vtx[txn_count-1].vin.size(),(int32_t)pblock->vtx[txn_count-1].vout.size(),(double)pblock->vtx[txn_count-1].vout[0].nValue/COIN,(double)pblock->vtx[txn_count-1].vout[1].nValue/COIN);
+    
+    fprintf(stderr,"%s checkblock n.%d vins.%d vouts.%d %.8f %.8f\n", __func__,txn_count,(int32_t)pblock->vtx[txn_count-1].vin.size(),(int32_t)pblock->vtx[txn_count-1].vout.size(),(double)pblock->vtx[txn_count-1].vout[0].nValue/COIN,(double)pblock->vtx[txn_count-1].vout[1].nValue/COIN); //uncommented
     if ( txn_count > 1 && pblock->vtx[txn_count-1].vin.size() == 1 && pblock->vtx[txn_count-1].vout.size() == GetStakeTxVoutSize())
     {
         it = mapBlockIndex.find(pblock->hashPrevBlock);
@@ -1694,7 +1702,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
                 if ( pindex != 0 )
                 {
                     pindex->segid = -1;
-                    //fprintf(stderr,"PoW block detected set segid ht.%d <- %d\n",height,pindex->segid); 
+                    fprintf(stderr,"%s PoW block detected set segid ht.%d <- %d\n", __func__,height,pindex->segid);  //uncommented
                 }
             }
             else
@@ -1709,8 +1717,10 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
                 if ( pindex != 0 && segid >= 0 )
                 {
                     pindex->segid = segid;
-                    //fprintf(stderr,"PoS block set segid ht.%d <- %d\n",height,pindex->segid); 
-                } else fprintf(stderr,"unexpected null pindex for slowflag set ht.%d segid.%d:%d\n",height,pindex!=0?pindex->segid:-3,segid); //uncommented
+                    fprintf(stderr,"%s PoS block set segid ht.%d <- %d\n", __func__,height,pindex->segid); //uncommented
+                } 
+                else 
+                    fprintf(stderr,"%s unexpected null pindex for slowflag set ht.%d segid.%d:%d\n", __func__,height,pindex!=0?pindex->segid:-3,segid); //uncommented
             }
         } 
         else if ( slowflag == 0 ) // previous blocks are not seen yet, do the best approx
@@ -1729,14 +1739,14 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
             {
                 if ( bhash < POWTarget )
                 {
-                    //fprintf(stderr,"ht.%d isPoS but meets PoW diff!\n",height);
+                    fprintf(stderr,"%s ht.%d isPoS but meets PoW diff!\n", __func__,height); //uncommented
                     isPoS = 0;
                 }
             }
         }
         //else return(-1);
     }
-    //fprintf(stderr,"slow.%d ht.%d isPoS.%d\n",slowflag,height,isPoS);
+    fprintf(stderr,"%s slow.%d ht.%d isPoS.%d\n", __func__,slowflag,height,isPoS);  //uncommented
     return(isPoS != 0);
 }
 
