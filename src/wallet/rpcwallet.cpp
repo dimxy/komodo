@@ -6128,6 +6128,31 @@ UniValue marmara_lock(const UniValue& params, bool fHelp)
     return(MarmaraLock(0,amount));
 }
 
+// generate new activated address and output its segid
+UniValue marmara_newaddress(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ); 
+    if (fHelp || params.size() != 0)
+    {
+        throw runtime_error("marmaranewaddress\n");
+    }
+    std::string strAccount;
+    const CKeyStore& keystore = *pwalletMain;
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    if (!pwalletMain->IsLocked())
+        pwalletMain->TopUpKeyPool();
+
+    // Generate a new key that is added to wallet
+    CPubKey newPubKey;
+    if (!pwalletMain->GetKeyFromPool(newPubKey))
+        throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
+    CKeyID keyID = newPubKey.GetID();
+
+    pwalletMain->SetAddressBook(keyID, strAccount, "receive");
+
+    return(MarmaraNewActivatedAddress(newPubKey));
+}
+
 UniValue channelslist(const UniValue& params, bool fHelp)
 {
     if ( fHelp || params.size() > 0 )
