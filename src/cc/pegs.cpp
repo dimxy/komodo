@@ -88,6 +88,7 @@ pegs CC is able to create a coin backed (by any supported coin with gateways CC 
 // start of consensus code
 #ifndef PEGS_THRESHOLDS
 #define PEGS_THRESHOLDS
+#define PEGS_ACCOUNT_MAX_DEBT 80
 #define PEGS_ACCOUNT_YELLOW_ZONE 60
 #define PEGS_ACCOUNT_THRESHOLD 90
 #define PEGS_GLOBAL_THRESHOLD 60
@@ -822,6 +823,12 @@ std::string PegsGet(uint64_t txfee,uint256 pegstxid, uint256 tokenid, int64_t am
     // coin issue
     vouts.push_back(CTxOut(amount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
     account.second+=amount;
+    if ((double)account.second*100/(account.first*PegsGetTokenPrice(tokenid))>PEGS_ACCOUNT_MAX_DEBT)
+    {
+        CCerror = strprintf("not possible to take more than %d%% of the deposit",PEGS_ACCOUNT_MAX_DEBT);
+        LOGSTREAM("pegscc",CCLOG_INFO, stream << CCerror << std::endl);
+        return(""); 
+    }
     LOGSTREAM("pegscc",CCLOG_DEBUG2, stream << "new account [deposit=" << account.first << ",debt=" << account.second << "]" << std::endl);
     // burn tx does not exist in pegs method but it must be created in order for import validation to pass
     // fictive burntx input of previous account state tx
