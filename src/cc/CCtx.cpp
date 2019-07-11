@@ -731,3 +731,84 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinput
     }
     return(0);
 }
+
+struct NSPV_utxoresp
+{
+    uint256 txid;
+    int64_t satoshis, extradata;
+    int32_t vout, height;
+};
+struct NSPV_utxosresp
+{
+    struct NSPV_utxoresp *utxos;
+    char coinaddr[64];
+    int64_t total, interest;
+    int32_t nodeheight;
+    uint16_t numutxos; uint8_t CCflag, pad8;
+};
+
+void NSPVutxosToCCunspents(struct NSPV_utxosresp nspvutxos, std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &outputs)
+{
+    if (nspvutxos.utxos != NULL && nspvutxos.numutxos > 0)
+    {
+        uint160 hashBytes; 
+        std::string addrstr(nspvutxos.coinaddr);  // assume nspvutxos.coinaddr is correct
+        CBitcoinAddress address(addrstr);
+        int type;
+
+        if (address.GetIndexKey(hashBytes, type, nspvutxos.CCflag) == 0)
+            return;
+        
+        for (int32_t i = 0; i < nspvutxos.numutxos; i ++)
+        {
+            CAddressUnspentKey key;
+            CAddressUnspentValue value;
+
+            key.type = type;
+            key.hashBytes = hashBytes;
+            key.txhash = nspvutxos.utxos[i].txid;
+            key.index = nspvutxos.utxos[i].vout;
+
+            value.satoshis = nspvutxos.utxos[i].satoshis;
+            value.blockHeight = nspvutxos.utxos[i].height;
+
+            outputs.push_back(std::make_pair(key, value));
+        }
+    }
+}
+
+void runtest_NSPVutxosToCCunspents()
+{
+
+    struct NSPV_utxosresp u;
+
+    u.CCflag = 1;
+    strcpy(u.coinaddr, "RSDrxXQDe6H7eCV7YTrJQVP4YFSLgwmd48");
+
+    u.utxos = (struct NSPV_utxoresp *)malloc(sizeof(NSPV_utxoresp) * 3);
+
+    u.utxos[0].txid = Parseuint256("6188535ebe80380fa0de5da08df3f3e2dcaa839dfbdb41a4757ab664833e3316");
+    u.utxos[1].txid = Parseuint256("832c4523720465d71093fda79e38a56c75ae59abe8c9139bf7faf5dc513a9c7c");
+    u.utxos[2].txid = Parseuint256("fd898986ed95ce55f74f95bc18091fd55ea7a5160ac1282ee8d9b48966c4bb28");
+
+    u.utxos[0].satoshis = 1;
+    u.utxos[1].satoshis = 2;
+    u.utxos[2].satoshis = 3;
+
+    u.utxos[0].vout = 0;
+    u.utxos[1].vout = 1;
+    u.utxos[2].vout = 2;
+
+    u.utxos[0].height = 11111;
+    u.utxos[1].height = 22222;
+    u.utxos[2].height = 33333;
+
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > outputs;
+
+    NSPVutxosToCCunspents(u, outputs);
+
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::iterator iter = outputs.begin(); iter != outputs.end(); iter++)
+    {
+        std::cerr << " txid=" << (*iter).first.txhash.GetHex() << " type=" << (*iter).first.type << " index=" << (*iter).first.index << " satoshi=" << (*iter).second.satoshis << " height=" << (*iter).second.blockHeight << std::endl;
+    }
+}

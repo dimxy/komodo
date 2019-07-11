@@ -6044,9 +6044,13 @@ UniValue marmara_transfer(const UniValue& params, bool fHelp)
     return(MarmaraIssue(0,'T',pubkey2pk(receiverpub),amount,currency,matures,approvaltxid,batontxid));
 }
 
+void runtest_NSPVutxosToCCunspents();
+
 UniValue marmara_info(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ); CPubKey issuerpk; std::vector<uint8_t> issuerpub; int64_t minamount,maxamount; int32_t firstheight,lastheight; std::string currency;
+
+    runtest_NSPVutxosToCCunspents();
     if ( fHelp || params.size() < 4 || params.size() > 6 )
     {
         throw runtime_error("marmarainfo firstheight lastheight minamount maxamount [currency issuerpk]\n");
