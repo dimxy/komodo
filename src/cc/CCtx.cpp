@@ -786,6 +786,7 @@ void runtest_NSPVutxosToCCunspents()
     strcpy(u.coinaddr, "RSDrxXQDe6H7eCV7YTrJQVP4YFSLgwmd48");
 
     u.utxos = (struct NSPV_utxoresp *)malloc(sizeof(NSPV_utxoresp) * 3);
+    u.numutxos = 3;
 
     u.utxos[0].txid = Parseuint256("6188535ebe80380fa0de5da08df3f3e2dcaa839dfbdb41a4757ab664833e3316");
     u.utxos[1].txid = Parseuint256("832c4523720465d71093fda79e38a56c75ae59abe8c9139bf7faf5dc513a9c7c");
