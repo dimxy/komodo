@@ -810,6 +810,6 @@ void runtest_NSPVutxosToCCunspents()
 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::iterator iter = outputs.begin(); iter != outputs.end(); iter++)
     {
-        std::cerr << " txid=" << (*iter).first.txhash.GetHex() << " type=" << (*iter).first.type << " index=" << (*iter).first.index << " satoshi=" << (*iter).second.satoshis << " height=" << (*iter).second.blockHeight << std::endl;
+        std::cerr << " hashBytes=" << (*iter).first.hashBytes.GetHex() << " txid=" << (*iter).first.txhash.GetHex() << " type=" << (*iter).first.type << " index=" << (*iter).first.index << " satoshi=" << (*iter).second.satoshis << " height=" << (*iter).second.blockHeight << std::endl;
     }
 }
