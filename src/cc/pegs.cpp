@@ -823,12 +823,12 @@ std::string PegsGet(uint64_t txfee,uint256 pegstxid, uint256 tokenid, int64_t am
     // coin issue
     vouts.push_back(CTxOut(amount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
     account.second+=amount;
-    // if ((double)account.second*100/(account.first*PegsGetTokenPrice(tokenid))>PEGS_ACCOUNT_MAX_DEBT)
-    // {
-    //     CCerror = strprintf("not possible to take more than %d%% of the deposit",PEGS_ACCOUNT_MAX_DEBT);
-    //     LOGSTREAM("pegscc",CCLOG_INFO, stream << CCerror << std::endl);
-    //     return(""); 
-    // }
+    if ((double)account.second*100/(account.first*PegsGetTokenPrice(tokenid))>PEGS_ACCOUNT_MAX_DEBT)
+    {
+        CCerror = strprintf("not possible to take more than %d%% of the deposit",PEGS_ACCOUNT_MAX_DEBT);
+        LOGSTREAM("pegscc",CCLOG_INFO, stream << CCerror << std::endl);
+        return(""); 
+    }
     LOGSTREAM("pegscc",CCLOG_DEBUG2, stream << "new account [deposit=" << account.first << ",debt=" << account.second << "]" << std::endl);
     // burn tx does not exist in pegs method but it must be created in order for import validation to pass
     // fictive burntx input of previous account state tx
