@@ -89,9 +89,9 @@ pegs CC is able to create a coin backed (by any supported coin with gateways CC 
 #ifndef PEGS_THRESHOLDS
 #define PEGS_THRESHOLDS
 #define PEGS_ACCOUNT_MAX_DEBT 80
+#define PEGS_GLOBAL_RED_ZONE 60
 #define PEGS_ACCOUNT_YELLOW_ZONE 60
-#define PEGS_ACCOUNT_THRESHOLD 90
-#define PEGS_GLOBAL_THRESHOLD 60
+#define PEGS_ACCOUNT_RED_ZONE 90
 #endif // PEGS_THRESHOLDS
 #define CC_MARKER_VALUE 10000
 
@@ -1166,9 +1166,9 @@ std::string PegsLiquidate(uint64_t txfee,uint256 pegstxid, uint256 tokenid, uint
         LOGSTREAM("pegscc",CCLOG_INFO, stream << CCerror << std::endl);
         return(""); 
     }
-    if (PegsGetAccountRatio(pegstxid,tokenid,liquidatetxid)<(ASSETCHAINS_PEGSCCPARAMS[0]?ASSETCHAINS_PEGSCCPARAMS[0]:PEGS_ACCOUNT_THRESHOLD) || PegsGetGlobalRatio(pegstxid)<(ASSETCHAINS_PEGSCCPARAMS[1]?ASSETCHAINS_PEGSCCPARAMS[1]:PEGS_GLOBAL_THRESHOLD))
+    if (PegsGetAccountRatio(pegstxid,tokenid,liquidatetxid)<(ASSETCHAINS_PEGSCCPARAMS[0]?ASSETCHAINS_PEGSCCPARAMS[0]:PEGS_ACCOUNT_RED_ZONE) || PegsGetGlobalRatio(pegstxid)<(ASSETCHAINS_PEGSCCPARAMS[1]?ASSETCHAINS_PEGSCCPARAMS[1]:PEGS_GLOBAL_RED_ZONE))
     {
-        CCerror = strprintf("not able to liquidate account until account ratio > %lu%% and global ratio > %lu%%",(ASSETCHAINS_PEGSCCPARAMS[0]?ASSETCHAINS_PEGSCCPARAMS[0]:PEGS_ACCOUNT_THRESHOLD),(ASSETCHAINS_PEGSCCPARAMS[1]?ASSETCHAINS_PEGSCCPARAMS[1]:PEGS_GLOBAL_THRESHOLD));
+        CCerror = strprintf("not able to liquidate account until account ratio > %lu%% and global ratio > %lu%%",(ASSETCHAINS_PEGSCCPARAMS[0]?ASSETCHAINS_PEGSCCPARAMS[0]:PEGS_ACCOUNT_RED_ZONE),(ASSETCHAINS_PEGSCCPARAMS[1]?ASSETCHAINS_PEGSCCPARAMS[1]:PEGS_GLOBAL_RED_ZONE));
         LOGSTREAM("pegscc",CCLOG_INFO, stream << CCerror << std::endl);
         return("");
     }
@@ -1332,7 +1332,7 @@ UniValue PegsWorstAccounts(uint256 pegstxid)
             PegsDecodeAccountTx(tx,pk,amount,account);
             if (account.first==0 || account.second==0 || PegsGetTokenPrice(tokenid)==0) ratio=0;
             else ratio=(double)account.second*100/(account.first*PegsGetTokenPrice(tokenid));
-            if (ratio>80)
+            if (ratio>PEGS_ACCOUNT_RED_ZONE)
             {
                 UniValue obj(UniValue::VOBJ);
                 obj.push_back(Pair("accounttxid",txid.GetHex()));

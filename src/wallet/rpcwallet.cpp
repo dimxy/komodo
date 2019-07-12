@@ -8084,7 +8084,7 @@ UniValue pegsredeem(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VOBJ); std::string hex; uint256 pegstxid,tokenid; int64_t amount;
 
     if ( fHelp || params.size()!=2)
-        throw runtime_error("pegsredem pegstxid tokenid\n");
+        throw runtime_error("pegsredeem pegstxid tokenid\n");
     if ( ensure_CCrequirements(EVAL_PEGS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     const CKeyStore& keystore = *pwalletMain;
@@ -8129,7 +8129,7 @@ UniValue pegsexchange(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VOBJ); std::string hex; uint256 pegstxid,tokenid,accounttxid; int64_t amount;
 
     if ( fHelp || params.size()!=3)
-        throw runtime_error("pegsliquidate pegstxid tokenid accounttxid\n");
+        throw runtime_error("pegsexchange pegstxid tokenid accounttxid\n");
     if ( ensure_CCrequirements(EVAL_PEGS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     const CKeyStore& keystore = *pwalletMain;
@@ -8143,7 +8143,7 @@ UniValue pegsexchange(const UniValue& params, bool fHelp)
     {
         result.push_back(Pair("result", "success"));
         result.push_back(Pair("hex", hex));
-    } else ERR_RESULT("couldnt pegsliquidate");
+    } else ERR_RESULT("couldnt pegsexchange");
     return(result);
 }
 
