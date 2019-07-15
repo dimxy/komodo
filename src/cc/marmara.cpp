@@ -1750,7 +1750,7 @@ UniValue MarmaraIssue(int64_t txfee, uint8_t funcid, CPubKey receiverpk, int64_t
             errorstr = "cant get request transaction or decode request tx opreturn data";
         else if (mypk != opretsenderpk)
             errorstr = "mypk does not match requested sender pk";
-        else if (opretamount != opretamount)
+        else if (amount != opretamount)
             errorstr = "amount does not match requested amount";
         else if (matures != opretmatures)
             errorstr = "mature height does not match requested mature height";
