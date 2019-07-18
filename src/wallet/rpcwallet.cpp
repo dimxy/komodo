@@ -8126,10 +8126,10 @@ UniValue pegsliquidate(const UniValue& params, bool fHelp)
 
 UniValue pegsexchange(const UniValue& params, bool fHelp)
 {
-    UniValue result(UniValue::VOBJ); std::string hex; uint256 pegstxid,tokenid,accounttxid; int64_t amount;
+    UniValue result(UniValue::VOBJ); std::string hex; uint256 pegstxid,tokenid; int64_t amount;
 
     if ( fHelp || params.size()!=3)
-        throw runtime_error("pegsexchange pegstxid tokenid accounttxid\n");
+        throw runtime_error("pegsexchange pegstxid tokenid amount\n");
     if ( ensure_CCrequirements(EVAL_PEGS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     const CKeyStore& keystore = *pwalletMain;
