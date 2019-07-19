@@ -310,6 +310,7 @@ libbitcoin_server_a_SOURCES = \
   cc/channels.cpp \
   cc/auction.cpp \
   cc/betprotocol.cpp \
+  cc/kogs.cpp \
   chain.cpp \
   checkpoints.cpp \
   crosschain.cpp \
@@ -343,6 +344,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/net.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
+  rpc/ccrpc.cpp \
   script/serverchecker.cpp \
   script/sigcache.cpp \
   timedata.cpp \
