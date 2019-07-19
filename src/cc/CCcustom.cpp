@@ -32,6 +32,7 @@
 #include "CCGateways.h"
 #include "CCtokens.h"
 #include "CCImportGateway.h"
+#include "CCKogs.h"
 
 /*
  CCcustom has most of the functions that need to be extended to create a new CC contract.
@@ -253,6 +254,17 @@ uint8_t ImportGatewayCCpriv[32] = { 0x65, 0xef, 0x27, 0xeb, 0x3d, 0xb0, 0xb4, 0x
 #undef FUNCNAME
 #undef EVALCODE
 
+// Kogs
+#define FUNCNAME IsKogsInput
+#define EVALCODE EVAL_KOGS
+const char *KogsCCaddr = "RXJT6CRAXHFuQ2UjqdxMj7EfrayF6UJpzZ";
+const char *KogsNormaladdr = "RNFRho63Ddz1Rh2eGPETykrU4fA8r67S4Y";
+char KogsCChexstr[67] = { "0397231cfe04ea32d5fafb2206773ec9fba6e15c5a4e86064468bca195f7542714" };
+uint8_t KogsCCpriv[32] = { 0x65, 0xef, 0x27, 0xeb, 0x3d, 0xb0, 0xb4, 0xae, 0x0f, 0xbc, 0x77, 0xdb, 0xf8, 0x40, 0x48, 0x90, 0x52, 0x20, 0x9e, 0x45, 0x3b, 0x49, 0xd8, 0x97, 0x60, 0x8c, 0x27, 0x4c, 0x59, 0x46, 0xe1, 0xdf };
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
     CPubKey pk; int32_t i; uint8_t pub33[33],check33[33],hash[32]; char CCaddr[64],checkaddr[64],str[67];
@@ -443,6 +455,14 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
 			cp->validate = ImportGatewayValidate;
 			cp->ismyvin = IsImportGatewayInput;
 			break;
+        case EVAL_KOGS:
+            strcpy(cp->unspendableCCaddr, KogsCCaddr);
+            strcpy(cp->normaladdr, KogsNormaladdr);
+            strcpy(cp->CChexstr, KogsCChexstr);
+            memcpy(cp->CCpriv, KogsCCpriv, 32);
+            cp->validate = KogsValidate;
+            cp->ismyvin = IsKogsInput;
+            break;
         default:
             if ( CClib_initcp(cp,evalcode) < 0 )
                 return(0);

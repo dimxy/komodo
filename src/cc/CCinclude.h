@@ -232,7 +232,8 @@ struct oracleprice_info
 /// \endcond
 
 
-typedef std::vector<uint8_t> vscript_t;
+typedef std::vector<uint8_t> vuint8_t;      // typdef for other cases (apart from oprets)
+
 extern struct NSPV_CCmtxinfo NSPV_U;  //!< global variable with info about mtx object and used utxo
 
 #ifdef ENABLE_WALLET
