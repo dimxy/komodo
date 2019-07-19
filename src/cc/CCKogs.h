@@ -244,5 +244,6 @@ std::vector<std::string> KogsCreateGameObjectNFTs(std::vector<KogsMatchObject> &
 std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv);
 std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptkey, vuint8_t iv);
 
+bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 
 #endif
