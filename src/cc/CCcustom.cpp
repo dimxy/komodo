@@ -258,8 +258,8 @@ uint8_t ImportGatewayCCpriv[32] = { 0x65, 0xef, 0x27, 0xeb, 0x3d, 0xb0, 0xb4, 0x
 #define FUNCNAME IsKogsInput
 #define EVALCODE EVAL_KOGS
 const char *KogsCCaddr = "RXJT6CRAXHFuQ2UjqdxMj7EfrayF6UJpzZ";
-const char *KogsNormaladdr = "RNFRho63Ddz1Rh2eGPETykrU4fA8r67S4Y";
-char KogsCChexstr[67] = { "0397231cfe04ea32d5fafb2206773ec9fba6e15c5a4e86064468bca195f7542714" };
+const char *KogsNormaladdr = "RVH1M8ZmT2nPB7MW6726RRsxjY7D5FKQHa";
+char KogsCChexstr[67] = { "03c27db737b92826d37fb43f3fda3d1b1d258cd28b68fe4be605457bf9dd9e0218" };
 uint8_t KogsCCpriv[32] = { 0x65, 0xef, 0x27, 0xeb, 0x3d, 0xb0, 0xb4, 0xae, 0x0f, 0xbc, 0x77, 0xdb, 0xf8, 0x40, 0x48, 0x90, 0x52, 0x20, 0x9e, 0x45, 0x3b, 0x49, 0xd8, 0x97, 0x60, 0x8c, 0x27, 0x4c, 0x59, 0x46, 0xe1, 0xdf };
 #include "CCcustom.inc"
 #undef FUNCNAME
