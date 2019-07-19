@@ -47,6 +47,27 @@
 
 using namespace std;
 
+int32_t ensure_CCrequirements(uint8_t evalcode);
+UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
+
+
+UniValue kogsaddress(const UniValue& params, bool fHelp)
+{
+    struct CCcontract_info *cp, C; 
+    std::vector<unsigned char> pubkey;
+    int error;
+
+    cp = CCinit(&C, EVAL_KOGS);
+    if (fHelp || params.size() > 1)
+        throw runtime_error("kogsaddress [pubkey]\n");
+    error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+    if (params.size() == 1)
+        pubkey = ParseHex(params[0].get_str().c_str());
+    return(CCaddress(cp, (char *)"Kogs", pubkey));
+}
+
 static UniValue KogsCreateGameObjects(const UniValue& params, bool isKogs)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
