@@ -38,6 +38,9 @@ void RegisterRawTransactionRPCCommands(CRPCTable &tableRPC);
 /** Register test transaction RPC commands */
 void RegisterTesttransactionsRPCCommands(CRPCTable &tableRPC);
 
+/** Register cc modules RPC commands */
+void RegisterCCRPCCommands(CRPCTable &tableRPC);
+
 
 static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
 {
@@ -49,6 +52,7 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
 #ifdef TESTMODE
     RegisterTesttransactionsRPCCommands(tableRPC);
 #endif
+	RegisterCCRPCCommands(tableRPC);
 }
 
 #endif

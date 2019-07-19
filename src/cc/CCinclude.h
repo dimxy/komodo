@@ -152,7 +152,9 @@ struct oracleprice_info
     int32_t height;
 };
 
-typedef std::vector<uint8_t> vscript_t;
+typedef std::vector<uint8_t> vscript_t;     // typedef for oprets
+typedef std::vector<uint8_t> vuint8_t;      // typdef for other cases (apart from oprets)
+
 extern struct NSPV_CCmtxinfo NSPV_U;
 
 #ifdef ENABLE_WALLET
