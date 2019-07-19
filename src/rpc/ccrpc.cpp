@@ -243,7 +243,9 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogscreatekogs",         &kogscreatekogs,          true },
     { "kogs",         "kogscreateslammers",     &kogscreateslammers,      true },
     { "kogs",         "kogscreatepack",         &kogscreatepack,          true },
-    { "kogs",         "kogsunsealpack",         &kogsunsealpack,          true }
+    { "kogs",         "kogsunsealpack",         &kogsunsealpack,          true },
+    { "kogs",         "kogsaddress",            &kogsaddress,             true }
+
 };
 
 void RegisterCCRPCCommands(CRPCTable &tableRPC)
