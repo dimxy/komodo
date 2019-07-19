@@ -92,7 +92,7 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
     // validate spending from token cc addr: allowed only for burned non-fungible tokens:
     if (ExtractTokensCCVinPubkeys(tx, vinTokenPubkeys) && std::find(vinTokenPubkeys.begin(), vinTokenPubkeys.end(), GetUnspendable(cp, NULL)) != vinTokenPubkeys.end()) {
         // validate spending from token unspendable cc addr:
-        int64_t burnedAmount = HasBurnedTokensvouts(cp, eval, tx, tokenid);
+        int64_t burnedAmount = HasBurnedTokensvouts(/*cp, eval,*/ tx, tokenid);
         if (burnedAmount > 0) {
             vscript_t vopretNonfungible;
             GetNonfungibleData(tokenid, vopretNonfungible);
@@ -699,7 +699,8 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 }
 
 // checks if any token vouts are sent to 'dead' pubkey
-int64_t HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, uint256 reftokenid)
+// TODO: check tokenid == tokenidOpret (to make the func be used outside)
+int64_t HasBurnedTokensvouts(/*struct CCcontract_info *cp, Eval* eval,*/ const CTransaction& tx, uint256 reftokenid)
 {
     uint8_t dummyEvalCode;
     uint256 tokenIdOpret;
@@ -725,6 +726,12 @@ int64_t HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTran
         LOGSTREAM((char *)"cctokens", CCLOG_INFO, stream << "HasBurnedTokensvouts() cannot parse opret DecodeTokenOpRet returned 0, txid=" << tx.GetHash().GetHex() << std::endl);
         return 0;
     }
+
+    if (reftokenid != tokenIdOpret) {
+        LOGSTREAM((char *)"cctokens", CCLOG_INFO, stream << "HasBurnedTokensvouts() not this tokenid, tokenIdOpret=" << tokenIdOpret.GetHex() << std::endl);
+        return 0;
+    }
+
 
     // get assets/channels/gateways token data:
     FilterOutNonCCOprets(oprets, vopretExtra);  // NOTE: only 1 additional evalcode in token opret is currently supported
