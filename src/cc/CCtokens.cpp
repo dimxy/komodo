@@ -970,7 +970,7 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 		return 0;
 	}
 
-    if (tokentx.vout.size() == 0 || DecodeTokenOpRet(tokentx.vout.back().scriptPubKey, evalcode, tokenid, pks, oprets) != 'C')
+    if (tokentx.vout.size() < 2 || DecodeTokenOpRet(tokentx.vout.back().scriptPubKey, evalcode, tokenid, pks, oprets) != 'c')
     {
         CCerror = strprintf("not a tokenid");
         return 0;
