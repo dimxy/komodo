@@ -202,9 +202,9 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp)
         throw runtime_error(std::string("encryption key length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
     vuint8_t enckey(enckeystr.begin(), enckeystr.end());
 
-    std::string ivstr = params[1].get_str();
+    std::string ivstr = params[2].get_str();
     if (ivstr.length() != WALLET_CRYPTO_SALT_SIZE)
-        throw runtime_error(std::string("ini vector length should be ") + std::to_string(WALLET_CRYPTO_SALT_SIZE) + std::string("\n"));
+        throw runtime_error(std::string("initvector length should be ") + std::to_string(WALLET_CRYPTO_SALT_SIZE) + std::string("\n"));
     vuint8_t iv(ivstr.begin(), ivstr.end());
 
     std::string hextx = KogsCreatePack(packsize, enckey, iv);
