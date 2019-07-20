@@ -365,7 +365,7 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
                 std::vector<std::pair<uint8_t, vscript_t>> oprets;
 
                 // get spent token tx
-                if (GetTransaction(vin.prevout.hash, prevtx, hashBlock, true) &&  // use non-locking ver as this func could be called from validation code
+                if (GetTransaction(vin.prevout.hash, prevtx, hashBlock, true) &&  
                     prevtx.vout.size() > 1 &&
                     DecodeTokenOpRet(prevtx.vout.back().scriptPubKey, evalcode, tokenIdOpret, pks, oprets) == 0)
                 {
@@ -403,17 +403,19 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
                     }
                 }
                 else
-                    CCerror = "can't lod or decode latest token tx";
+                {
+                    CCerror = "can't load or decode latest token tx";
+                    std::cerr << __func__ << " 1 CCerror=" << CCerror << std::endl;
+                }
                 break;
             }
         }
-
     }
     else
     {
         CCerror = "can't unseal, pack NFT not burned yet";
     }
-
+    std::cerr << __func__ << " 2 CCerror=" << CCerror << std::endl;
     return emptyresult;
 }
 
