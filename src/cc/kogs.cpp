@@ -367,7 +367,7 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
                 // get spent token tx
                 if (GetTransaction(vin.prevout.hash, prevtx, hashBlock, true) &&  
                     prevtx.vout.size() > 1 &&
-                    DecodeTokenOpRet(prevtx.vout.back().scriptPubKey, evalcode, tokenIdOpret, pks, oprets) == 0)
+                    DecodeTokenOpRet(prevtx.vout.back().scriptPubKey, evalcode, tokenIdOpret, pks, oprets) != 0)
                 {
                     for (int32_t v = 0; v < prevtx.vout.size(); v++)
                     {
@@ -405,7 +405,6 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
                 else
                 {
                     CCerror = "can't load or decode latest token tx";
-                    std::cerr << __func__ << " 1 CCerror=" << CCerror << std::endl;
                 }
                 break;
             }
@@ -415,7 +414,6 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
     {
         CCerror = "can't unseal, pack NFT not burned yet";
     }
-    std::cerr << __func__ << " 2 CCerror=" << CCerror << std::endl;
     return emptyresult;
 }
 
