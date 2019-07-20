@@ -5682,9 +5682,12 @@ UniValue CCaddress(struct CCcontract_info *cp,char *name,std::vector<unsigned ch
             result.push_back(Pair(str,destaddr));
             sprintf(str, "PubkeyCCbalance(%s)",name);
             result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,0))));
-            GetTokensCCaddress(cp, destaddr, pk);
-            sprintf(str, "PubkeyTokenCCAddress(%s)", name);
-            result.push_back(Pair(str, destaddr));
+            if (strcmp(name, "Tokens") != 0)
+            {   // add contract token address:
+                GetTokensCCaddress(cp, destaddr, pk);
+                sprintf(str, "PubkeyTokenCCAddress(%s)", name);
+                result.push_back(Pair(str, destaddr));
+            }
         }
     }
     if ( GetCCaddress(cp,destaddr,pubkey2pk(Mypubkey())) != 0 )
@@ -5693,9 +5696,12 @@ UniValue CCaddress(struct CCcontract_info *cp,char *name,std::vector<unsigned ch
         result.push_back(Pair(str,destaddr));
         sprintf(str, "myCCbalance(%s)",name);
         result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,1))));
-        GetTokensCCaddress(cp, destaddr, pubkey2pk(Mypubkey()));
-        sprintf(str, "myTokenCCAddress(%s)", name);
-        result.push_back(Pair(str, destaddr));
+        if (strcmp(name, "Tokens") != 0) 
+        {   // add contract token address:
+            GetTokensCCaddress(cp, destaddr, pubkey2pk(Mypubkey()));
+            sprintf(str, "myTokenCCAddress(%s)", name);
+            result.push_back(Pair(str, destaddr));
+        }
     }
     if ( Getscriptaddress(destaddr,(CScript() << Mypubkey() << OP_CHECKSIG)) != 0 )
     {
