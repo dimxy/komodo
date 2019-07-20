@@ -260,32 +260,21 @@ UniValue kogsburnobject(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
 
-    if (fHelp || (params.size() != 3))
+    if (fHelp || (params.size() != 1))
     {
         throw runtime_error(
             "kogsburnobject txid\n"
-            "admin feature burn game object spending its marker\n" "\n");
+            "burns a game object spending its marker (admin feature)\n" "\n");
     }
 
     uint256 txid = Parseuint256(params[0].get_str().c_str());
     if (txid.IsNull())
         throw runtime_error("txid incorrect\n");
 
-    std::string enckeystr = params[1].get_str();
-    if (enckeystr.length() != WALLET_CRYPTO_KEY_SIZE)
-        throw runtime_error(std::string("encryption key length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
-    vuint8_t enckey(enckeystr.begin(), enckeystr.end());
-
-    std::string ivstr = params[1].get_str();
-    if (ivstr.length() != WALLET_CRYPTO_SALT_SIZE)
-        throw runtime_error(std::string("init vector length should be ") + std::to_string(WALLET_CRYPTO_SALT_SIZE) + std::string("\n"));
-    vuint8_t iv(ivstr.begin(), ivstr.end());
-
     std::string hextx = KogsBurnObject(txid);
     RETURN_IF_ERROR(CCerror);
 
     result.push_back(std::make_pair("hextx", hextx));
-    
     return result;
 }
 
