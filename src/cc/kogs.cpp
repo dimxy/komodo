@@ -442,13 +442,11 @@ std::string KogsBurnNFT(uint256 tokenid)
             mtx.vin.push_back(CTxIn(tokenid, 0)); // spend token cc address marker
             CPubKey tokenGlobalPk = GetUnspendable(cpTokens, tokenpriv);
             GetCCaddress(cpTokens, unspendableTokenAddr, tokenGlobalPk);
-            CCaddr2set(cp, EVAL_TOKENS, tokenGlobalPk, tokenpriv, unspendableTokenAddr);  // add token privkey to spend token marker
+            CCaddr2set(cp, EVAL_TOKENS, tokenGlobalPk, tokenpriv, unspendableTokenAddr);  // add token privkey to spend token cc address marker
 
             mtx.vout.push_back(MakeTokensCC1vout(EVAL_KOGS, 1, pubkey2pk(ParseHex(CC_BURNPUBKEY))));    // burn tokens
 
-            mtx.vout.push_back(CTxOut(txfee, EncodeTokenOpRet(tokenid, empty, emptyoprets)));  //no opret needed in burn tx
-
-            std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript());
+            std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, empty, emptyoprets));
             if (!hextx.empty())
                 return hextx;
             else
