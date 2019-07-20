@@ -203,12 +203,14 @@ std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
         bool found = false;
         for (auto &p : packlist) {
             KogsPack *pack = (KogsPack *)p.get();
-            if (std::find(pack->tokenids.begin(), pack->tokenids.begin(), kog->txid) != pack->tokenids.end())
+            if (std::find(pack->tokenids.begin(), pack->tokenids.end(), kog->txid) != pack->tokenids.end())
                 found = true;
         }
         if (!found)
             freekogids.push_back(kog->txid);
     }
+
+    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "found free kogs num=" << freekogids.size() << std::endl);
 
     // check kogs are sufficient
     if (packsize > freekogids.size()) {
