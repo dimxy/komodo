@@ -281,7 +281,7 @@ UniValue kogsburnobject(const UniValue& params, bool fHelp)
         throw runtime_error(std::string("init vector length should be ") + std::to_string(WALLET_CRYPTO_SALT_SIZE) + std::string("\n"));
     vuint8_t iv(ivstr.begin(), ivstr.end());
 
-    std::vector<std::string> hextx = KogsBurnObject(txid);
+    std::string hextx = KogsBurnObject(txid);
     RETURN_IF_ERROR(CCerror);
 
     result.push_back(std::make_pair("hextx", hextx));
