@@ -245,6 +245,7 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
     vuint8_t iv(ivstr.begin(), ivstr.end());
 
     std::vector<std::string> hextxns = KogsUnsealPackToOwner(packid, enckey, iv);
+    std::cerr << __func__ << " CCerror=" << CCerror << std::endl;
     RETURN_IF_ERROR(CCerror);
 
     for (auto hextx : hextxns)
