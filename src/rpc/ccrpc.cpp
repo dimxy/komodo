@@ -249,7 +249,7 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
 
     for (auto hextx : hextxns)
     {
-        resarray.push_back(std::make_pair("hextx", hextx));
+        resarray.push_back(hextx);
     }
     result.push_back(std::make_pair("txns", resarray));
     return result;
