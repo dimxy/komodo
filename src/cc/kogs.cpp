@@ -94,6 +94,7 @@ static void KogsGameObjectList(uint8_t objectId, std::vector<std::shared_ptr<Kog
         if (obj != nullptr)
             list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
     }
+    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectId=" << (char)objectId << std::endl);
 }
 /*
 static void PackList(std::vector<KogsPack> &packlist)
