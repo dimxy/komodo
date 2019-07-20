@@ -260,10 +260,10 @@ UniValue kogsburnobject(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
 
-    if (fHelp || (params.size() != 1))
+    if (fHelp || (params.size() != 2))
     {
         throw runtime_error(
-            "kogsburnobject txid\n"
+            "kogsburnobject txid nvout\n"
             "burns a game object spending its marker (admin feature)\n" "\n");
     }
 
@@ -271,7 +271,9 @@ UniValue kogsburnobject(const UniValue& params, bool fHelp)
     if (txid.IsNull())
         throw runtime_error("txid incorrect\n");
 
-    std::string hextx = KogsBurnObject(txid);
+    int32_t nvout = atoi(params[1].get_str().c_str());
+
+    std::string hextx = KogsBurnObject(txid, nvout);
     RETURN_IF_ERROR(CCerror);
 
     result.push_back(std::make_pair("hextx", hextx));
