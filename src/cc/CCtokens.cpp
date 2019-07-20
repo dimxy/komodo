@@ -956,7 +956,7 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 	uint256 hashBlock;
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CTransaction tokentx;
-    uint8_t evalcode;
+    uint8_t evalcodeTokens;
     std::vector<CPubKey> pks;
     std::vector<std::pair<uint8_t, vscript_t>> oprets;
 
@@ -970,7 +970,7 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 		return 0;
 	}
 
-    if (tokentx.vout.size() < 2 || DecodeTokenOpRet(tokentx.vout.back().scriptPubKey, evalcode, tokenid, pks, oprets) != 'c')
+    if (tokentx.vout.size() < 2 || DecodeTokenOpRet(tokentx.vout.back().scriptPubKey, evalcodeTokens, tokenid, pks, oprets) != 'c')
     {
         CCerror = strprintf("not a tokenid");
         return 0;
