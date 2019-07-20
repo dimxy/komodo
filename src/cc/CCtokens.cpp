@@ -891,7 +891,7 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, vscript_t destpubkey, 
 
 	if (total < 0)	{
         CCerror = strprintf("negative total");
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << CCerror << "=" << total << std::endl);
+        LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << CCerror << "=" << total << std::endl);
 		return("");
 	}
 
@@ -913,7 +913,7 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, vscript_t destpubkey, 
 		{
 			if (inputs < total) {   //added dimxy
                 CCerror = strprintf("insufficient token inputs");
-                LOGSTREAM("cctokens", CCLOG_INFO, stream << "TokenTransfer() " << CCerror << std::endl);
+                LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << CCerror << std::endl);
 				return std::string("");
 			}
 
@@ -934,13 +934,13 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, vscript_t destpubkey, 
 		}
 		else {
             CCerror = strprintf("no token inputs");
-            LOGSTREAM("cctokens", CCLOG_INFO, stream << "TokenTransfer() " << CCerror << " for amount=" << total << std::endl);
+            LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << CCerror << " for amount=" << total << std::endl);
 		}
 		//} else fprintf(stderr,"numoutputs.%d != numamounts.%d\n",n,(int32_t)amounts.size());
 	}
 	else {
         CCerror = strprintf("insufficient normal inputs for tx fee");
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << "TokenTransfer() " << CCerror << std::endl);
+        LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << CCerror << std::endl);
 	}
 	return("");
 }
@@ -982,7 +982,7 @@ UniValue TokenInfo(uint256 tokenid)
 
 	if( !myGetTransaction(tokenid, tokenbaseTx, hashBlock) )
 	{
-		fprintf(stderr, "TokenInfo() cant find tokenid\n");
+        LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << "cant find tokenid" << std::endl);
 		result.push_back(Pair("result", "error"));
 		result.push_back(Pair("error", "cant find tokenid"));
 		return(result);
@@ -995,7 +995,7 @@ UniValue TokenInfo(uint256 tokenid)
 
 	if (tokenbaseTx.vout.size() > 0 && DecodeTokenCreateOpRet(tokenbaseTx.vout[tokenbaseTx.vout.size() - 1].scriptPubKey, origpubkey, name, description, oprets) != 'c')
 	{
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << "TokenInfo() passed tokenid isnt token creation txid" << std::endl);
+        LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << "passed tokenid isnt token creation txid" << std::endl);
 		result.push_back(Pair("result", "error"));
 		result.push_back(Pair("error", "tokenid isnt token creation txid"));
         return result;
