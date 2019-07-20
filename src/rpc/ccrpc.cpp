@@ -220,7 +220,7 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp)
 // rpc kogsunsealpack impl
 UniValue kogsunsealpack(const UniValue& params, bool fHelp)
 {
-    UniValue result(UniValue::VARR), jsonParams(UniValue::VOBJ);
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR), jsonParams(UniValue::VOBJ);
     CCerror.clear();
 
     if (fHelp || (params.size() != 3))
@@ -246,12 +246,13 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
 
     std::vector<std::string> hextxns = KogsUnsealPackToOwner(packid, enckey, iv);
     std::cerr << __func__ << " CCerror=" << CCerror << std::endl;
-    RETURN_IF_ERROR(CCerror);
+    RETURN_IF_ERROR(CCerror); 
 
     for (auto hextx : hextxns)
     {
-        result.push_back(std::make_pair("hextx", hextx));
+        resarray.push_back(std::make_pair("hextx", hextx));
     }
+    result.push_back(std::make_pair("txns", resarray));
     return result;
 }
 
