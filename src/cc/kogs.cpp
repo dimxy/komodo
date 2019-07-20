@@ -428,7 +428,7 @@ std::string KogsBurnObject(uint256 txid, int32_t nvout)
 
     if (AddNormalinputs(mtx, mypk, txfee, 4) > 0)
     {
-        mtx.vin.push_back(CTxIn(txid, nvout));
+        mtx.vin.push_back(CTxIn(txid, nvout, CScript()));
 
         mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
         std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript());
