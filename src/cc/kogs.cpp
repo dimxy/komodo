@@ -412,3 +412,32 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
 
     return emptyresult;
 }
+
+// temp burn error object by spending its eval_kog marker in vout=2
+std::string KogsBurnObject(uint256 txid)
+{
+    const std::string emptyresult;
+
+    // create burn tx
+    const CAmount  txfee = 10000;
+    CPubKey mypk = pubkey2pk(Mypubkey());
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    struct CCcontract_info *cp, C;
+
+    cp = CCinit(&C, EVAL_KOGS);
+
+    if (AddNormalinputs(mtx, mypk, txfee, 4) > 0)
+    {
+        mtx.vin.push_back(CTxIn(txid, 2));
+
+        mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+        std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript());
+        if (!hextx.empty())
+            return hextx;
+        else
+            CCerror = "can't finalize or sign burn tx";
+    }
+    else
+        CCerror = "can't find normals for txfee";
+    return emptyresult;
+}
