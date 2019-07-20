@@ -162,7 +162,7 @@ UniValue kogscreatekogs(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 1))
     {
         throw runtime_error(
-            "kogscreatekogs '{\"kogs\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}]}'\n"
+            "kogscreatekogs '{\"kogs\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}'\n"
             "creates array of kog NFT creation transactions to be sent via sendrawtransaction rpc\n" "\n");
     }
     return KogsCreateGameObjects(params, true);
@@ -175,7 +175,7 @@ UniValue kogscreateslammers(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 1))
     {
         throw runtime_error(
-            "kogscreateslammers '{\"slammers\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}]}'\n"
+            "kogscreateslammers '{\"slammers\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}'\n"
             "creates array of slammer NFT creation transactions to be sent via sendrawtransaction rpc\n" "\n");
     }
     return KogsCreateGameObjects(params, false);
