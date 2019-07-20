@@ -953,6 +953,9 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 	uint256 hashBlock;
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CTransaction tokentx;
+    uint8_t evalcode;
+    std::vector<CPubKey> pks;
+    std::vector<std::pair<uint8_t, vscript_t>> oprets;
 
 	// CCerror = strprintf("obsolete, cannot return correct value without eval");
 	// return 0;
@@ -963,6 +966,12 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 		CCerror = strprintf("cant find tokenid");
 		return 0;
 	}
+
+    if (tokentx.vout.size() == 0 || DecodeTokenOpRet(tokentx.vout.back().scriptPubKey, evalcode, tokenid, pks, oprets) != 'C')
+    {
+        CCerror = strprintf("not a tokenid");
+        return 0;
+    }
 
 	struct CCcontract_info *cp, C;
 	cp = CCinit(&C, EVAL_TOKENS);
