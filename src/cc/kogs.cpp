@@ -423,6 +423,7 @@ std::string KogsBurnNFT(uint256 tokenid)
     // create burn tx
     const CAmount  txfee = 10000;
     CPubKey mypk = pubkey2pk(Mypubkey());
+    CPubKey burnpk = pubkey2pk(ParseHex(CC_BURNPUBKEY));
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     struct CCcontract_info *cp, C;
 
@@ -433,7 +434,7 @@ std::string KogsBurnNFT(uint256 tokenid)
         if (AddTokenCCInputs(cp, mtx, mypk, tokenid, 1, 1) > 0)
         {
             std::vector<std::pair<uint8_t, vscript_t>>  emptyoprets;
-            std::vector<CPubKey> empty;
+            std::vector<CPubKey> voutPks;
             char unspendableTokenAddr[64]; uint8_t tokenpriv[32];
             struct CCcontract_info *cpTokens, tokensC;
 
@@ -444,9 +445,9 @@ std::string KogsBurnNFT(uint256 tokenid)
             GetCCaddress(cpTokens, unspendableTokenAddr, tokenGlobalPk);
             CCaddr2set(cp, EVAL_TOKENS, tokenGlobalPk, tokenpriv, unspendableTokenAddr);  // add token privkey to spend token cc address marker
 
-            mtx.vout.push_back(MakeTokensCC1vout(EVAL_KOGS, 1, pubkey2pk(ParseHex(CC_BURNPUBKEY))));    // burn tokens
-
-            std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, empty, emptyoprets));
+            mtx.vout.push_back(MakeTokensCC1vout(EVAL_KOGS, 1, burnpk));    // burn tokens
+            voutPks.push_back(burnpk);
+            std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPks, emptyoprets));
             if (!hextx.empty())
                 return hextx;
             else
