@@ -254,8 +254,32 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
     return result;
 }
 
-// rpc kogsburnobject impl
-UniValue kogsburnobject(const UniValue& params, bool fHelp)
+// rpc kogsburntoken impl (to burn nft objects)
+UniValue kogsburntoken(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 1))
+    {
+        throw runtime_error(
+            "kogsburnotoken tokenid\n"
+            "burns a game object NFT\n" "\n");
+    }
+
+    uint256 tokenid = Parseuint256(params[0].get_str().c_str());
+    if (tokenid.IsNull())
+        throw runtime_error("tokenid incorrect\n");
+
+    std::string hextx = KogsBurnNFT(tokenid);
+    RETURN_IF_ERROR(CCerror);
+
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
+}
+
+// rpc kogsremoveobject impl (to remove objects with errors)
+UniValue kogsremoveobject(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -264,7 +288,7 @@ UniValue kogsburnobject(const UniValue& params, bool fHelp)
     {
         throw runtime_error(
             "kogsburnobject txid nvout\n"
-            "burns a game object spending its marker (admin feature)\n" "\n");
+            "removes a game object spending its marker (admin feature)\n" "\n");
     }
 
     uint256 txid = Parseuint256(params[0].get_str().c_str());
@@ -273,7 +297,7 @@ UniValue kogsburnobject(const UniValue& params, bool fHelp)
 
     int32_t nvout = atoi(params[1].get_str().c_str());
 
-    std::string hextx = KogsBurnObject(txid, nvout);
+    std::string hextx = KogsRemoveObject(txid, nvout);
     RETURN_IF_ERROR(CCerror);
 
     result.push_back(std::make_pair("hextx", hextx));
@@ -289,7 +313,8 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogscreatepack",         &kogscreatepack,          true },
     { "kogs",         "kogsunsealpack",         &kogsunsealpack,          true },
     { "kogs",         "kogsaddress",            &kogsaddress,             true },
-    { "kogs",         "kogsburnobject",         &kogsburnobject,          true }
+    { "kogs",         "kogsburntoken",          &kogsburntoken,           true },
+    { "kogs",         "kogsremoveobject",       &kogsremoveobject,          true }
 
 
 };
