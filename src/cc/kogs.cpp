@@ -226,7 +226,7 @@ std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
     }
 
     // encrypt new pack content with nft list
-    if (newpack.EncryptContent(encryptkey, iv))
+    if (!newpack.EncryptContent(encryptkey, iv))
     {
         CCerror = "cant encrypt new pack";
         return emptyresult;
