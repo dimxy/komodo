@@ -98,7 +98,15 @@ Details.
 /// @see EncodeTokenCreateOpRet(uint8_t funcid, std::vector<uint8_t> origpubkey, std::string name, std::string description, std::vector<std::pair<uint8_t, vscript_t>> oprets)
 /// @see GetOpretBlob
 enum opretid : uint8_t {
-    // cc contracts data:
+// token transfer opret structure:
+// EVAL_TOKENS 't' tokenid <datablob-1> <datablob-2> ...
+// datablob structure:
+// OPRETID_XXXDATA <opret>
+// opret structure is usual:
+// EVAL_XXX funcid data
+// token opret additional datablob ids:    // cc contracts data (with eval codes)
+    // their eval codes are added in cc vouts as the eval cryptocondition
+    // so they are used in IsTokensvout cc vout validation
     OPRETID_NONFUNGIBLEDATA = 0x11, //!< NFT data id
     OPRETID_ASSETSDATA = 0x12,      //!< assets contract data id
     OPRETID_GATEWAYSDATA = 0x13,    //!< gateways contract data id
@@ -109,11 +117,17 @@ enum opretid : uint8_t {
 
     /*! \cond INTERNAL */
     // non cc contract data:
-    OPRETID_FIRSTNONCCDATA = 0x80,
+    // non-cc contract data blob ids start from 0x80
+    // such datablobs do not have eval code at their beginnings 
+    // so for them eval cryptoconditions are not added into token vouts 
+    // and they are not used in IsTokensvout checking    OPRETID_FIRSTNONCCDATA = 0x80,
     /*! \endcond */
     OPRETID_BURNDATA = 0x80,        //!< burned token data id
     OPRETID_IMPORTDATA = 0x81       //!< imported token data id
 };
+// we need this OPRETID_XXX identifier (and could not use only evalcode for this purpose)
+// because there could be datablobs like 'serialized burn transaction', which do not have a dedicated eval code
+// to cover all such cases we introduced OPRETID_XXXs
 
 /// finds opret blob data by opretid in the vector of oprets
 /// @param oprets vector of oprets
