@@ -64,6 +64,11 @@ struct KogsMatchObject : public KogsBaseObject {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) 
     {
+        if (ser_action.ForRead()) {
+            evalcode = 0;
+            objectId = 0;
+            version = 0;
+        }
         READWRITE(evalcode);
         READWRITE(objectId);
         READWRITE(version);
@@ -114,6 +119,11 @@ struct KogsPack : public KogsBaseObject {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action)
     {
+        if (ser_action.ForRead()) {
+            evalcode = 0;
+            objectId = 0;
+            version = 0;
+        }
         READWRITE(evalcode);
         READWRITE(objectId);
         READWRITE(version);
@@ -228,12 +238,10 @@ public:
         case KOGSID_KOG:
         case KOGSID_SLAMMER:
             o = new KogsMatchObject();
-            //o->InitGameObject(objectId);
             return (KogsBaseObject*)o;
 
         case KOGSID_PACK:
             p = new KogsPack();
-            //p->InitPack();
             return (KogsBaseObject*)p;
         }
         return nullptr;
