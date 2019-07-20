@@ -428,12 +428,12 @@ std::string KogsBurnObject(uint256 txid, int32_t nvout)
 
     if (AddNormalinputs(mtx, mypk, txfee, 4) > 0)
     {
-        char unspendableKogsAddr[64]; uint8_t kogspriv[32]; 
+        /*char unspendableKogsAddr[64]; uint8_t kogspriv[32]; 
         CPubKey unspKogsPk = GetUnspendable(cp, kogspriv);
-        GetCCaddress(cp, unspendableKogsAddr, unspKogsPk);
+        GetCCaddress(cp, unspendableKogsAddr, unspKogsPk);*/
      
         mtx.vin.push_back(CTxIn(txid, nvout));
-        CCaddr2set(cp, EVAL_KOGS, unspKogsPk, kogspriv, unspendableKogsAddr);
+        //CCaddr2set(cp, EVAL_KOGS, unspKogsPk, kogspriv, unspendableKogsAddr);
 
         mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
         std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript());
