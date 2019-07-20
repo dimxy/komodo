@@ -5678,18 +5678,24 @@ UniValue CCaddress(struct CCcontract_info *cp,char *name,std::vector<unsigned ch
     {
         if ( GetCCaddress(cp,destaddr,pubkey2pk(pubkey)) != 0 )
         {
-            sprintf(str,"PubkeyCCaddress(%s)",name);
+            sprintf(str, "PubkeyCCaddress(%s)",name);
             result.push_back(Pair(str,destaddr));
-            sprintf(str,"PubkeyCCbalance(%s)",name);
+            sprintf(str, "PubkeyCCbalance(%s)",name);
             result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,0))));
+            GetTokensCCaddress(cp, destaddr, pk);
+            sprintf(str, "PubkeyTokenCCAddress(%s)", name);
+            result.push_back(Pair(str, destaddr));
         }
     }
     if ( GetCCaddress(cp,destaddr,pubkey2pk(Mypubkey())) != 0 )
     {
-        sprintf(str,"myCCAddress(%s)",name);
+        sprintf(str, "myCCAddress(%s)",name);
         result.push_back(Pair(str,destaddr));
-        sprintf(str,"myCCbalance(%s)",name);
+        sprintf(str, "myCCbalance(%s)",name);
         result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,1))));
+        GetTokensCCaddress(cp, destaddr, pubkey2pk(Mypubkey()));
+        sprintf(str, "myTokenCCAddress(%s)", name);
+        result.push_back(Pair(str, destaddr));
     }
     if ( Getscriptaddress(destaddr,(CScript() << Mypubkey() << OP_CHECKSIG)) != 0 )
     {
@@ -7589,7 +7595,11 @@ UniValue mytokenorders(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
 UniValue tokenbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
-    UniValue result(UniValue::VOBJ); uint256 tokenid; uint64_t balance; std::vector<unsigned char> pubkey; struct CCcontract_info *cp,C;
+    UniValue result(UniValue::VOBJ); 
+    uint256 tokenid; 
+    CAmount balance; 
+    std::vector<uint8_t> pubkey; 
+    struct CCcontract_info *cp, C;
 	CCerror.clear();
 
     if ( fHelp || params.size() > 2 )
@@ -7600,7 +7610,7 @@ UniValue tokenbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
 	LOCK(cs_main);
 
     tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    if ( params.size() == 2 )
+    if (params.size() == 2) 
         pubkey = ParseHex(params[1].get_str().c_str());
     else 
 		pubkey = Mypubkey();
