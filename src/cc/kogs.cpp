@@ -414,7 +414,7 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
 }
 
 // temp burn error object by spending its eval_kog marker in vout=2
-std::string KogsBurnObject(uint256 txid)
+std::string KogsBurnObject(uint256 txid, int32_t nvout)
 {
     const std::string emptyresult;
 
@@ -428,7 +428,7 @@ std::string KogsBurnObject(uint256 txid)
 
     if (AddNormalinputs(mtx, mypk, txfee, 4) > 0)
     {
-        mtx.vin.push_back(CTxIn(txid, 2));
+        mtx.vin.push_back(CTxIn(txid, nvout));
 
         mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
         std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript());
