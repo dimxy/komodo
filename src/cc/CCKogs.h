@@ -79,7 +79,7 @@ struct KogsMatchObject : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << " incorrect NFT evalcode=" << (int)evalcode << " or not a gameobject NFT objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect NFT evalcode=" << (int)evalcode << " or not a match object NFT objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
