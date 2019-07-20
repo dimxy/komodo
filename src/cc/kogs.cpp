@@ -264,15 +264,17 @@ std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
 
 static bool IsNFTBurned(uint256 tokenid, CTransaction &burntx)
 {
-    const int32_t nvout = 1;
+    
     uint256 txid, spenttxid;
     int32_t vini, height;
     uint256 hashBlock;
-   
+    int32_t nvout = 1;
+    
     txid = tokenid;
-    while (CCgetspenttxid(spenttxid, vini, height, tokenid, nvout) == 0)
+    while (CCgetspenttxid(spenttxid, vini, height, txid, nvout) == 0)
     {
         txid = spenttxid;
+        nvout = 0;
     }
 
     if (txid != tokenid && myGetTransaction(txid, burntx, hashBlock) &&  // use non-locking ver as this func could be called from validation code
