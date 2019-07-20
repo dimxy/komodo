@@ -47,7 +47,7 @@
 bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn)
 {
 	static uint256 zero;
-	CTxDestination address; CTransaction vinTx, createTx; uint256 hashBlock, tokenid, tokenid2;
+	CTxDestination address; CTransaction vinTx, createTx; uint256 hashBlock, tokenid = zeroid, tokenid2;
 	int32_t i, starti, numvins, numvouts, preventCCvins, preventCCvouts;
 	int64_t remaining_price, nValue, tokenoshis, outputs, inputs, tmpprice, totalunits, ignore; 
     std::vector<std::pair<uint8_t, vscript_t>>  oprets;
@@ -82,10 +82,10 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
         if (tokenid == zeroid)
             return eval->Invalid("illegal tokenid");
 		else if (!TokensExactAmounts(true, cp, inputs, outputs, eval, tx, tokenid)) {
-			if (!eval->Valid())
-				return false;  //TokenExactAmounts must call eval->Invalid()!
+			if (eval->state.IsInvalid())
+				return false;  //TokenExactAmounts has already called eval->Invalid()
 			else
-				return eval->Invalid("tokens cc inputs != cc outputs");
+				return eval->Invalid("tokens cc inputs != cc outputs"); 
 		}
 	}
 
@@ -600,7 +600,7 @@ void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
     uint256 hashBlock;
 
     if (!myGetTransaction(tokenid, tokenbasetx, hashBlock)) {
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << "GetNonfungibleData() cound not load token creation tx=" << tokenid.GetHex() << std::endl);
+        LOGSTREAM("cctokens", CCLOG_INFO, stream << "GetNonfungibleData() could not load token creation tx=" << tokenid.GetHex() << std::endl);
         return;
     }
 
@@ -957,6 +957,7 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CTransaction tokentx;
     uint8_t evalcodeTokens;
+    uint256 tokenidInOpret;
     std::vector<CPubKey> pks;
     std::vector<std::pair<uint8_t, vscript_t>> oprets;
 
@@ -970,7 +971,7 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 		return 0;
 	}
 
-    if (tokentx.vout.size() < 2 || DecodeTokenOpRet(tokentx.vout.back().scriptPubKey, evalcodeTokens, tokenid, pks, oprets) != 'c')
+    if (tokentx.vout.size() < 2 || DecodeTokenOpRet(tokentx.vout.back().scriptPubKey, evalcodeTokens, tokenidInOpret, pks, oprets) != 'c')
     {
         CCerror = strprintf("not a tokenid");
         return 0;

@@ -191,7 +191,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCodeTokens, ui
 
     GetOpReturnData(scriptPubKey, vopret);
     script = (uint8_t *)vopret.data();
-    tokenid = zeroid;
+    // tokenid = zeroid; this was incorrect: cleared the passed tokenid if creation tx
     oprets.clear();
 
     if (script != NULL && vopret.size() > 2)
@@ -211,7 +211,7 @@ uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint8_t &evalCodeTokens, ui
             return DecodeTokenCreateOpRet(scriptPubKey, dummyPubkey, dummyName, dummyDescription, oprets);
 
         case 't':
-           
+            tokenid = zeroid; // tokenid clearance is moved here
             // compatibility with old-style rogue or assets data (with no opretid):
             // try to unmarshal old-style rogue or assets data:
             foundOldstyle = E_UNMARSHAL(vopret, ss >> dummyEvalCode; ss >> dummyFuncId; ss >> tokenid; ss >> ccType;
