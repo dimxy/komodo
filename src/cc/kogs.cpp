@@ -87,6 +87,7 @@ static void KogsGameObjectList(uint8_t objectId, std::vector<std::shared_ptr<Kog
 
     cp = CCinit(&C, EVAL_KOGS);
 
+    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectId=" << (char)objectId << std::endl);
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr marker
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) {
         struct KogsBaseObject *obj = LoadGameObject(objectId, it->first.txhash); // sort out gameobjects 
@@ -187,7 +188,7 @@ std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
     // decrypt the packs content
     for (auto &p : packlist) {
         KogsPack *pack = (KogsPack*)p.get();
-        if (pack->DecryptContent(encryptkey, iv)) {
+        if (!pack->DecryptContent(encryptkey, iv)) {
             CCerror = "cant decrypt pack";
             return emptyresult;
         }
