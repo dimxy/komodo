@@ -79,7 +79,7 @@ struct KogsMatchObject : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << " incorrect NFT evalcode=" << (int)evalcode << " or not a gameobject NFT objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << " incorrect NFT evalcode=" << (int)evalcode << " or not a gameobject NFT objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -124,7 +124,7 @@ struct KogsPack : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "incorrect evalcode=" << (int)evalcode << "not a pack objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect evalcode=" << (int)evalcode << " or not a pack objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -145,7 +145,7 @@ struct KogsPack : public KogsBaseObject {
     virtual bool Unmarshal(vscript_t v) { return E_UNMARSHAL(v, ss >> (*this)); };
 
     // serialize pack content (with magic string) and encrypt
-    bool EncryptContent(std::vector<uint8_t> keystring, std::vector<uint8_t> iv)
+    bool EncryptContent(vuint8_t keystring, vuint8_t iv)
     {
         CCrypter crypter;
         CKeyingMaterial enckey(keystring.begin(), keystring.end());
