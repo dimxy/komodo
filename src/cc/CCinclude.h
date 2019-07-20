@@ -72,9 +72,17 @@ one other technical note is that komodod has the insight-explorer extensions bui
 
 #include "../komodo_cJSON.h"
 
-// token opret additional data block ids:
+// token transfer opret structure:
+// EVAL_TOKENS 't' tokenid <datablob-1> <datablob-2> ...
+// datablob structure:
+// OPRETID_XXXDATA <opret>
+// opret structure is usual:
+// EVAL_XXX funcid data
+// token opret additional datablob ids:
  enum opretid : uint8_t {
-    // cc contracts data:
+    // cc contracts data (with eval codes)
+    // their eval codes are added in cc vouts as the eval cryptocondition
+    // so they are used in IsTokensvout cc vout validation
     OPRETID_NONFUNGIBLEDATA = 0x11, 
     OPRETID_ASSETSDATA = 0x12,
     OPRETID_GATEWAYSDATA = 0x13,
@@ -83,11 +91,17 @@ one other technical note is that komodod has the insight-explorer extensions bui
     OPRETID_ROGUEGAMEDATA = 0x16,
     OPRETID_PEGSDATA = 0x17,
 
-    // non cc contract data:
+    // non-cc contract data blob ids start from 0x80
+    // such datablobs do not have eval code at their beginnings 
+    // so for them eval cryptoconditions are not added into token vouts 
+    // and they are not used in IsTokensvout checking
     OPRETID_FIRSTNONCCDATA = 0x80,
     OPRETID_BURNDATA = 0x80,    
     OPRETID_IMPORTDATA = 0x81
 };
+// we need this OPRETID_XXX identifier (and could not use only evalcode for this purpose)
+// because there could be datablobs like 'serialized burn transaction', which do not have a dedicated eval code
+// to cover all such cases we introduced OPRETID_XXXs
 
  // find opret blob by opretid
  inline bool GetOpretBlob(const std::vector<std::pair<uint8_t, std::vector<uint8_t>>>  &oprets, uint8_t id, std::vector<uint8_t> &vopret)    {   
