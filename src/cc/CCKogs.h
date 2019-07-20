@@ -251,8 +251,8 @@ public:
 std::vector<std::string> KogsCreateGameObjectNFTs(std::vector<KogsMatchObject> & newkogs);
 std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv);
 std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptkey, vuint8_t iv);
-std::string KogsBurnObject(uint256 txid, int32_t nvout);
-
+std::string KogsRemoveObject(uint256 txid, int32_t nvout);
+std::string KogsBurnNFT(uint256 tokenid);
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 

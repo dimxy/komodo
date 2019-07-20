@@ -341,8 +341,6 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
     return empty;
 }
 
-
-
 // create txns to unseal pack and send NFTs to pack owner address
 std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptkey, vuint8_t iv)
 {
@@ -418,7 +416,54 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
 }
 
 // temp burn error object by spending its eval_kog marker in vout=2
-std::string KogsBurnObject(uint256 txid, int32_t nvout)
+std::string KogsBurnNFT(uint256 tokenid)
+{
+    const std::string emptyresult;
+
+    // create burn tx
+    const CAmount  txfee = 10000;
+    CPubKey mypk = pubkey2pk(Mypubkey());
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    struct CCcontract_info *cp, C;
+
+    cp = CCinit(&C, EVAL_TOKENS);
+
+    if (AddNormalinputs(mtx, mypk, txfee, 4) > 0)
+    {
+        if (AddTokenCCInputs(cp, mtx, mypk, tokenid, 1, 1) > 0)
+        {
+            std::vector<std::pair<uint8_t, vscript_t>>  emptyoprets;
+            std::vector<CPubKey> empty;
+            char unspendableTokenAddr[64]; uint8_t tokenpriv[32];
+            struct CCcontract_info *cpTokens, tokensC;
+
+            cpTokens = CCinit(&tokensC, EVAL_TOKENS);
+
+            mtx.vin.push_back(CTxIn(tokenid, 0)); // spend token cc address marker
+            CPubKey tokenGlobalPk = GetUnspendable(cpTokens, tokenpriv);
+            GetCCaddress(cpTokens, unspendableTokenAddr, tokenGlobalPk);
+            CCaddr2set(cp, EVAL_TOKENS, tokenGlobalPk, tokenpriv, unspendableTokenAddr);  // add token privkey to spend token marker
+
+            mtx.vout.push_back(MakeTokensCC1vout(EVAL_KOGS, 1, pubkey2pk(ParseHex(CC_BURNPUBKEY))));    // burn tokens
+
+            mtx.vout.push_back(CTxOut(txfee, EncodeTokenOpRet(tokenid, empty, emptyoprets)));  //no opret needed in burn tx
+
+            std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript());
+            if (!hextx.empty())
+                return hextx;
+            else
+                CCerror = "can't finalize or sign burn tx";
+        }
+        else
+            CCerror = "can't find token inputs";
+    }
+    else
+        CCerror = "can't find normals for txfee";
+    return emptyresult;
+}
+
+// special feature to burn error object by spending its eval_kog marker in vout=2
+std::string KogsRemoveObject(uint256 txid, int32_t nvout)
 {
     const std::string emptyresult;
 
@@ -432,13 +477,7 @@ std::string KogsBurnObject(uint256 txid, int32_t nvout)
 
     if (AddNormalinputs(mtx, mypk, txfee, 4) > 0)
     {
-        /*char unspendableKogsAddr[64]; uint8_t kogspriv[32]; 
-        CPubKey unspKogsPk = GetUnspendable(cp, kogspriv);
-        GetCCaddress(cp, unspendableKogsAddr, unspKogsPk);*/
-     
         mtx.vin.push_back(CTxIn(txid, nvout));
-        //CCaddr2set(cp, EVAL_KOGS, unspKogsPk, kogspriv, unspendableKogsAddr);
-
         mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
         std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript());
         if (!hextx.empty())
