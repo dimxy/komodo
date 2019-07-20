@@ -73,10 +73,10 @@ static UniValue KogsCreateGameObjects(const UniValue& params, bool isKogs)
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
 
-    if (params[1].getType() == UniValue::VOBJ)
-        jsonParams = params[1].get_obj();
-    else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '{...}'
-        jsonParams.read(params[1].get_str().c_str());
+    if (params[0].getType() == UniValue::VOBJ)
+        jsonParams = params[0].get_obj();
+    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[0].get_str().c_str());
     if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
         throw runtime_error("parameter 1 must be object\n");
     std::cerr << __func__ << " test output jsonParams=" << jsonParams.write(0, 0) << std::endl;
@@ -101,29 +101,41 @@ static UniValue KogsCreateGameObjects(const UniValue& params, bool isKogs)
             struct KogsMatchObject gameobj;
             gameobj.InitGameObject(isKogs ? KOGSID_KOG : KOGSID_SLAMMER); // set basic ids
 
-            int paramcount = 0;
+            int reqparamcount = 0;
             // parse json array item with kog data:
 
             iter = std::find(ikeys.begin(), ikeys.end(), "nameId");
             if (iter != ikeys.end()) {
                 gameobj.nameId = jsonArray[i][iter - ikeys.begin()].get_str();
                 std::cerr << __func__ << " test output gameobj.nameId=" << gameobj.nameId << std::endl;
-                paramcount++;
+                reqparamcount++;
             }
             iter = std::find(ikeys.begin(), ikeys.end(), "descriptionId");
             if (iter != ikeys.end()) {
                 gameobj.descriptionId = jsonArray[i][iter - ikeys.begin()].get_str();
                 std::cerr << __func__ << " test output gameobj.descriptionId=" << gameobj.descriptionId << std::endl;
-                paramcount++;
+                reqparamcount++;
             }
             iter = std::find(ikeys.begin(), ikeys.end(), "imageId");
             if (iter != ikeys.end()) {
                 gameobj.imageId = jsonArray[i][iter - ikeys.begin()].get_str();
                 std::cerr << __func__ << " test output gameobj.imageId=" << gameobj.imageId << std::endl;
-                paramcount++;
+                reqparamcount++;
+            }
+            iter = std::find(ikeys.begin(), ikeys.end(), "setId");
+            if (iter != ikeys.end()) {
+                gameobj.setId = jsonArray[i][iter - ikeys.begin()].get_str();
+                std::cerr << __func__ << " test output gameobj.setId=" << gameobj.setId << std::endl;
+                reqparamcount++;
+            }
+            iter = std::find(ikeys.begin(), ikeys.end(), "subsetId");
+            if (iter != ikeys.end()) {
+                gameobj.subsetId = jsonArray[i][iter - ikeys.begin()].get_str();
+                std::cerr << __func__ << " test output gameobj.subsetId=" << gameobj.subsetId << std::endl;
+                reqparamcount++;
             }
 
-            if (paramcount < 3)
+            if (reqparamcount < 4)
                 throw runtime_error("not all required game object data passed\n");
 
             gameobjects.push_back(gameobj);
