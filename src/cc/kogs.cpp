@@ -232,6 +232,7 @@ std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
         return emptyresult;
     }
 
+    /*
     // create pack tx
     const CAmount  txfee = 10000;
     CPubKey mypk = pubkey2pk(Mypubkey());
@@ -252,9 +253,9 @@ std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
             CCerror = "can't finalize or sign pack tx";
     }
     else
-        CCerror = "can't find normals for 2 txfee";
+        CCerror = "can't find normals for 2 txfee"; */
 
-    return emptyresult;
+    return CreateGameObjectNFT(&newpack);
 }
 
 static bool IsNFTBurned(uint256 tokenid, CTransaction &burntx)
