@@ -388,7 +388,7 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsburntoken",          &kogsburntoken,           true },
     { "kogs",         "kogspacklist",           &kogspacklist,            true },
     { "kogs",         "kogskoglist",            &kogskoglist,             true },
-    { "kogs",         "kogskoglist",            &kogsslammerlist,         true },
+    { "kogs",         "kogsslammerlist",            &kogsslammerlist,         true },
     { "kogs",         "kogsremoveobject",       &kogsremoveobject,        true }
 
 
