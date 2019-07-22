@@ -26,6 +26,9 @@ const uint8_t KOGSID_KOG = 'K';
 const uint8_t KOGSID_SLAMMER = 'S';
 const uint8_t KOGSID_PACK = 'P';
 
+#define TOKEN_MARKER_VOUT   0
+#define KOGS_MARKER_VOUT    2
+
 struct KogsBaseObject {
     std::string nameId;
     std::string descriptionId;
@@ -253,6 +256,7 @@ std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv);
 std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptkey, vuint8_t iv);
 std::string KogsRemoveObject(uint256 txid, int32_t nvout);
 std::string KogsBurnNFT(uint256 tokenid);
+void KogsTokensList(uint8_t objectId, std::vector<uint256> &tokenids);
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 

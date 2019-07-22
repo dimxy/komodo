@@ -96,39 +96,21 @@ static void KogsGameObjectList(uint8_t objectId, std::vector<std::shared_ptr<Kog
     }
     LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectId=" << (char)objectId << std::endl);
 }
-/*
-static void PackList(std::vector<KogsPack> &packlist)
+
+// returns all pack tokenids
+void KogsTokensList(uint8_t objectId, std::vector<uint256> &tokenids)
 {
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+    std::vector<std::shared_ptr<KogsBaseObject>> objlist;
 
-    struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_KOGS);
+    // get all packs
+    KogsGameObjectList(objectId, objlist);
 
-    auto addPackFunc = [&](uint256 txid) 
+    for (auto &o : objlist)
     {
-        uint256 hashBlock;
-        CTransaction vintx;
-        if (myGetTransaction(txid, vintx, hashBlock) != 0) 
-        {
-            vscript_t vopret;
-            if (vintx.vout.size() > 0 && GetOpReturnData(vintx.vout.back().scriptPubKey, vopret) && vopret.size() > 2 && vopret.begin()[0] == EVAL_KOGS && vopret.begin()[1] == 'P') 
-            {
-                struct KogsPack obj;
-                if (E_UNMARSHAL(vopret, ss >> obj))
-                    packlist.push_back(obj);
-                else
-                    LOGSTREAM("kogs", CCLOG_INFO, stream << "cant unmarshal kogs pack" << std::endl); // correct eval objectId version but incorrect pack
-            }
-            else
-                LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "not a kogs pack" << std::endl); // not a pack
-        }
-    };
-
-    SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // get all tx on cc addr
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) {
-        addPackFunc(it->first.txhash);  // sort out packs
+        tokenids.push_back(o->txid);
     }
-} */
+} 
+
 
 // consensus code
 
@@ -268,13 +250,13 @@ static bool IsNFTBurned(uint256 tokenid, CTransaction &burntx)
     uint256 txid, spenttxid;
     int32_t vini, height;
     uint256 hashBlock;
-    int32_t nvout = 1;
+    int32_t nvout = 1; // cc vout with token value in the tokenbase tx
     
     txid = tokenid;
     while (CCgetspenttxid(spenttxid, vini, height, txid, nvout) == 0)
     {
         txid = spenttxid;
-        nvout = 0;
+        nvout = 0; // cc vout with token value in the subsequent txns
     }
 
     if (txid != tokenid && myGetTransaction(txid, burntx, hashBlock) &&  // use non-locking ver as this func could be called from validation code
@@ -343,13 +325,21 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
     return empty;
 }
 
+static bool IsGameObjectDeleted(uint256 tokenid)
+{
+    uint256 spenttxid;
+    int32_t vini, height;
+
+    return CCgetspenttxid(spenttxid, vini, height, tokenid, KOGS_MARKER_VOUT) == 0;
+}
+
 // create txns to unseal pack and send NFTs to pack owner address
 std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptkey, vuint8_t iv)
 {
     const std::vector<std::string> emptyresult;
     CTransaction burntx, prevtx;
 
-    if (IsNFTBurned(packid, burntx))
+    if (IsNFTBurned(packid, burntx) && !IsGameObjectDeleted(packid))
     {
         struct CCcontract_info *cp, C;
         cp = CCinit(&C, EVAL_TOKENS);
@@ -390,10 +380,19 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
 
                             std::vector<std::string> hextxns;
 
-                            // send kog NFTs to pack's vout address:
+                            // create txns sending the pack's kog NFTs to pack's vout address:
                             for (auto tokenid : pack->tokenids)
                             {
                                 std::string hextx = TokenTransferSpk(0, tokenid, prevtx.vout[v].scriptPubKey, 1, pks);
+                                if (hextx.empty())
+                                    return emptyresult;
+                                hextxns.push_back(hextx);
+                            }
+
+                            if (hextxns.size() > 0)
+                            {
+                                // create tx removing pack by spending the kogs marker
+                                std::string hextx = KogsRemoveObject(packid, KOGS_MARKER_VOUT);
                                 if (hextx.empty())
                                     return emptyresult;
                                 hextxns.push_back(hextx);
