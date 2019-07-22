@@ -305,17 +305,91 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp)
     return result;
 }
 
+// rpc kogskoglist impl (to return all kog tokenids)
+UniValue kogskoglist(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR), jsonParams(UniValue::VOBJ);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 0))
+    {
+        throw runtime_error(
+            "kogskoglist\n"
+            "returns all kog tokenids\n" "\n");
+    }
+
+    std::vector<uint256> tokenids;
+    KogsTokensList(KOGSID_KOG, tokenids);
+    RETURN_IF_ERROR(CCerror);
+
+    for (auto t : tokenids)
+        resarray.push_back(t.GetHex());
+
+    result.push_back(std::make_pair("kogids", resarray));
+    return result;
+}
+
+// rpc kogsslammerlist impl (to return all slammer tokenids)
+UniValue kogsslammerlist(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR), jsonParams(UniValue::VOBJ);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 0))
+    {
+        throw runtime_error(
+            "kogsslammerlist\n"
+            "returns all slammer tokenids\n" "\n");
+    }
+
+    std::vector<uint256> tokenids;
+    KogsTokensList(KOGSID_SLAMMER, tokenids);
+    RETURN_IF_ERROR(CCerror);
+
+    for (auto t : tokenids)
+        resarray.push_back(t.GetHex());
+
+    result.push_back(std::make_pair("slammerids", resarray));
+    return result;
+}
+
+// rpc kogspacklist impl (to return all pack tokenids)
+UniValue kogspacklist(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR), jsonParams(UniValue::VOBJ);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 0))
+    {
+        throw runtime_error(
+            "kogspacklist\n"
+            "returns all pack tokenids\n" "\n");
+    }
+
+    std::vector<uint256> tokenids;
+    KogsTokensList(KOGSID_PACK, tokenids);
+    RETURN_IF_ERROR(CCerror);
+
+    for (auto t : tokenids)
+        resarray.push_back(t.GetHex());
+
+    result.push_back(std::make_pair("packids", resarray));
+    return result;
+}
 
 static const CRPCCommand commands[] =
-{ //  category              name                      actor (function)         okSafeMode
-  //  --------------------- ------------------------  -----------------------  ----------
+{ //  category              name                actor (function)        okSafeMode
+  //  -------------- ------------------------  -----------------------  ----------
     { "kogs",         "kogscreatekogs",         &kogscreatekogs,          true },
     { "kogs",         "kogscreateslammers",     &kogscreateslammers,      true },
     { "kogs",         "kogscreatepack",         &kogscreatepack,          true },
     { "kogs",         "kogsunsealpack",         &kogsunsealpack,          true },
     { "kogs",         "kogsaddress",            &kogsaddress,             true },
     { "kogs",         "kogsburntoken",          &kogsburntoken,           true },
-    { "kogs",         "kogsremoveobject",       &kogsremoveobject,          true }
+    { "kogs",         "kogspacklist",           &kogspacklist,            true },
+    { "kogs",         "kogskoglist",            &kogskoglist,             true },
+    { "kogs",         "kogskoglist",            &kogsslammerlist,         true },
+    { "kogs",         "kogsremoveobject",       &kogsremoveobject,        true }
 
 
 };
