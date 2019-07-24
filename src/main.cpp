@@ -2269,8 +2269,7 @@ bool myGetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlo
             }
             hashBlock = header.GetHash();
             if (txOut.GetHash() != hash)
-//            return error("%s: txid mismatch", __func__);
-                return error("%s: txid mismatch on disk=%s param=%s", __func__, txOut.GetHash().GetHex().c_str(), hash.GetHex().c_str());   //dimxy added
+                return error("%s: txid mismatch", __func__);
             //fprintf(stderr,"found on disk %s\n",hash.GetHex().c_str());
             return true;
         }
@@ -2326,9 +2325,7 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
             }
             hashBlock = header.GetHash();
             if (txOut.GetHash() != hash)
-    //            return error("%s: txid mismatch", __func__);
-                return error("%s: txid mismatch on disk=%s param=%s", __func__, txOut.GetHash().GetHex().c_str(), hash.GetHex().c_str());   //dimxy added
-
+                return error("%s: txid mismatch", __func__);
             return true;
         }
     }
