@@ -28,6 +28,9 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *gameobj)
 {
     vscript_t vnftdata = gameobj->Marshal(); // E_MARSHAL(ss << gameobj);
 
+    if (!isLockUtxoActive())
+        ActivateUtxoLock();
+
     return CreateTokenExt(0, 1, gameobj->nameId, gameobj->descriptionId, vnftdata, EVAL_KOGS);
 }
 

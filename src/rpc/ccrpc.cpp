@@ -133,7 +133,6 @@ static UniValue KogsCreateGameObjects(const UniValue& params, bool isKogs)
             if (iter != ikeys.end()) {
                 gameobj.subsetId = jsonArray[i][iter - ikeys.begin()].get_str();
                 std::cerr << __func__ << " test output gameobj.subsetId=" << gameobj.subsetId << std::endl;
-                reqparamcount++;
             }
 
             if (reqparamcount < 4)
