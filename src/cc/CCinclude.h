@@ -1053,6 +1053,13 @@ void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::
 /// @returns 0 if okay or -1
 int32_t ensure_CCrequirements(uint8_t evalcode);
 
+// locking utxo functions (to prevent adding utxo to several mtx objects:
+void ActivateUtxoLock();
+void DeactivateUtxoLock();
+bool isLockUtxoActive();
+bool isUtxoLocked(uint256 txid, int32_t nvout);
+void LockUtxo(uint256 txid, int32_t nvout);
+
 /*! \cond INTERNAL */
 UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
 /*! \endcond */
