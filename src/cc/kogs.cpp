@@ -393,8 +393,10 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
                             for (auto tokenid : pack->tokenids)
                             {
                                 std::string hextx = TokenTransferSpk(0, tokenid, prevtx.vout[v].scriptPubKey, 1, pks);
-                                if (hextx.empty())
+                                if (hextx.empty()) {
                                     hextxns.push_back("error: can't create transfer tx (nft could be already sent!): " + CCerror);
+                                    CCerror.clear(); // clear used CCerror
+                                }
                                 else
                                     hextxns.push_back(hextx);
                             }
@@ -403,14 +405,15 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
                             {
                                 // create tx removing pack by spending the kogs marker
                                 std::string hextx = KogsRemoveObject(packid, KOGS_MARKER_VOUT);
-                                if (hextx.empty())
+                                if (hextx.empty()) {
                                     hextxns.push_back("error: can't create pack removal tx: " + CCerror);
+                                    CCerror.clear(); // clear used CCerror
+                                }
                                 else
                                     hextxns.push_back(hextx);
                             }
 
                             DeactivateUtxoLock();
-                            CCerror.clear(); // hide possible some tx creation errors
                             return hextxns;
                         }
                     }
@@ -425,7 +428,7 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
     }
     else
     {
-        CCerror = "can't unseal, pack NFT not burned yet";
+        CCerror = "can't unseal, pack NFT not burned yet or already removed";
     }
     return emptyresult;
 }
