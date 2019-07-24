@@ -57,7 +57,7 @@ bool isLockUtxoActive()
 // checks if utxo is locked (added to a mtx object)
 bool isUtxoLocked(uint256 txid, int32_t nvout)
 {
-    return std::find_if(locked.vutxos.begin(), locked.vutxos.end(), [&](auto u) {return (u.first == txid && u.second == nvout); }) != locked.vutxos.end();
+    return std::find_if(locked.vutxos.begin(), locked.vutxos.end(), [&](std::pair<uint256, int32_t> u) {return (u.first == txid && u.second == nvout); }) != locked.vutxos.end();
 }
 // lock utxo
 void LockUtxo(uint256 txid, int32_t nvout)
