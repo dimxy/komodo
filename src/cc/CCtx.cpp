@@ -19,7 +19,62 @@
 std::vector<CPubKey> NULL_pubkeys;
 struct NSPV_CCmtxinfo NSPV_U;
 
-/* see description to function definition in CCinclude.h */
+// support for creation multiple mtx object in one rpc call:
+// locks normal inputs added to a mtx.vin until deactivated or until thread ends
+// you should call ActivateUtxoLock() to begin utxo locking
+// you might not call DeactivateUtxoLock() and the locked object ends its life with the thread
+// you might also call DeactivateUtxoLock() explicitly if you do not need utxo locking any more
+
+static thread_local struct vLockedUtxos {
+    std::vector<std::pair<uint256, int32_t>> vutxos;
+    bool isActive;
+    vLockedUtxos() {
+        isActive = false;
+        vutxos.reserve(64);
+        std::cerr << __func__ << " locked object created" << std::endl;
+    }
+    ~vLockedUtxos() {
+        std::cerr << __func__ << " locked object deleted" << std::endl;
+    }
+} locked;
+
+// activate locking, Addnormalinputs begins lock utxos and skip locked utxos
+void ActivateUtxoLock()
+{
+    locked.isActive = true;
+}
+// Addnormalinputs stops locking and check utxos
+void DeactivateUtxoLock()
+{
+    locked.vutxos.clear();
+    locked.isActive = false;
+}
+// returns if utxo locking is active
+bool isLockUtxoActive()
+{
+    return locked.isActive;
+}
+// checks if utxo is locked (added to a mtx object)
+bool isUtxoLocked(uint256 txid, int32_t nvout)
+{
+    return std::find_if(locked.vutxos.begin(), locked.vutxos.end(), [&](auto u) {return (u.first == txid && u.second == nvout); }) != locked.vutxos.end();
+}
+// lock utxo
+void LockUtxo(uint256 txid, int32_t nvout)
+{
+    if (!isUtxoLocked(txid, nvout))
+        locked.vutxos.push_back(std::make_pair(txid, nvout));
+}
+
+
+/*
+ FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and the opreturn.
+
+ This allows the contract transaction functions to create the appropriate vins and vouts and have FinalizeCCTx create a properly signed transaction.
+
+ By using -addressindex=1, it allows tracking of all the CC addresses
+ */
+
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey)
 {
 #ifdef ENABLE_WALLET
@@ -657,10 +712,14 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
     sum = 0;
     BOOST_FOREACH(const COutput& out, vecOutputs)
     {
-        if ( out.fSpendable != 0 && (vecOutputs.size() < maxinputs || out.tx->vout[out.i].nValue >= threshold) )
+        if ( out.fSpendable != 0 /*&& out.tx->vout[out.i].nValue >= threshold threshold is not used any more*/ )
         {
             txid = out.tx->GetHash();
             vout = out.i;
+
+            if (isLockUtxoActive() && isUtxoLocked(txid, vout))
+                continue;   // if the utxo has been already added to another mtx object
+
             if ( myGetTransaction(txid,tx,hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0 )
             {
                 //fprintf(stderr,"check %.8f to vins array.%d of %d %s/v%d\n",(double)out.tx->vout[out.i].nValue/COIN,n,maxutxos,txid.GetHex().c_str(),(int32_t)vout);
@@ -716,6 +775,10 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
         }
         up = &utxos[ind];
         mtx.vin.push_back(CTxIn(up->txid,up->vout,CScript()));
+
+        if (isLockUtxoActive())
+            LockUtxo(up->txid, up->vout); // lock utxo to prevent adding it to other mtx objects
+
         totalinputs += up->nValue;
         remains -= up->nValue;
         utxos[ind] = utxos[--n];
@@ -747,7 +810,7 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
     int32_t abovei,belowi,ind,vout,i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; char coinaddr[64]; uint256 txid,hashBlock; CTransaction tx; struct CC_utxo *utxos,*up;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
     if ( KOMODO_NSPV_SUPERLITE )
-        return(NSPV_AddNormalinputs(mtx,mypk,total,maxinputs,&NSPV_U));
+        return(NSPV_AddNormalinputs(mtx,mypk,total,maxinputs,&NSPV_U));   // TODO: add utxo locking to NSPV_AddNormalinputs
     utxos = (struct CC_utxo *)calloc(CC_MAXVINS,sizeof(*utxos));
     if ( maxinputs > CC_MAXVINS )
         maxinputs = CC_MAXVINS;
@@ -761,8 +824,13 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
     {
         txid = it->first.txhash;
         vout = (int32_t)it->first.index;
-        if ( it->second.satoshis < threshold )
-            continue;
+
+        //if ( it->second.satoshis < threshold ) // threshold is not used any more
+        //    continue;
+
+        if (isLockUtxoActive() && isUtxoLocked(txid, vout))
+            continue;   // if the utxo has been already added to another mtx object
+
         if ( myGetTransaction(txid,tx,hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0 )
         {
             //fprintf(stderr,"check %.8f to vins array.%d of %d %s/v%d\n",(double)out.tx->vout[out.i].nValue/COIN,n,maxutxos,txid.GetHex().c_str(),(int32_t)vout);
@@ -817,6 +885,10 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
         }
         up = &utxos[ind];
         mtx.vin.push_back(CTxIn(up->txid,up->vout,CScript()));
+
+        if (isLockUtxoActive())
+            LockUtxo(up->txid, up->vout); // lock utxo to prevent adding it to other mtx objects
+
         totalinputs += up->nValue;
         remains -= up->nValue;
         utxos[ind] = utxos[--n];
