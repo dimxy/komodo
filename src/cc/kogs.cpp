@@ -394,7 +394,7 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
                             {
                                 std::string hextx = TokenTransferSpk(0, tokenid, prevtx.vout[v].scriptPubKey, 1, pks);
                                 if (hextx.empty())
-                                    hextxns.push_back("error: can't create transfer tx (maybe nft was already sent)");
+                                    hextxns.push_back("error: can't create transfer tx (nft could be already sent!): " + CCerror);
                                 else
                                     hextxns.push_back(hextx);
                             }
@@ -404,13 +404,13 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
                                 // create tx removing pack by spending the kogs marker
                                 std::string hextx = KogsRemoveObject(packid, KOGS_MARKER_VOUT);
                                 if (hextx.empty())
-                                    hextxns.push_back("error: can't create pack removal tx");
+                                    hextxns.push_back("error: can't create pack removal tx: " + CCerror);
                                 else
                                     hextxns.push_back(hextx);
                             }
 
                             DeactivateUtxoLock();
-
+                            CCerror.clear(); // hide possible some tx creation errors
                             return hextxns;
                         }
                     }
