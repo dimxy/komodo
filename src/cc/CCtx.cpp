@@ -36,16 +36,16 @@ static thread_local struct vLockedUtxos {
     ~vLockedUtxos() {
         std::cerr << __func__ << " utxoslocked object deleted" << std::endl;
     }
-} utxoslocked;
+} utxoslocked;  // will be created in each thread at the first usage
 
-// activate locking, Addnormalinputs begins lock utxos and skip locked utxos
+// activate locking, Addnormalinputs begins locking utxos and skipping locked utxos
 void ActivateUtxoLock()
 {
     std::cerr << __func__ << " func entered" << std::endl;
     utxoslocked.isActive = true;
     std::cerr << __func__ << " utxoslocked object activated" << std::endl;
 }
-// Addnormalinputs stops locking and check utxos
+// Addnormalinputs stops locking and checking utxos, unlocks all locked utxos
 void DeactivateUtxoLock()
 {
     utxoslocked.vutxos.clear();
@@ -60,13 +60,18 @@ bool isLockUtxoActive()
 // checks if utxo is locked (added to a mtx object)
 bool isUtxoLocked(uint256 txid, int32_t nvout)
 {
-    return std::find_if(utxoslocked.vutxos.begin(), utxoslocked.vutxos.end(), [&](std::pair<uint256, int32_t> u) {return (u.first == txid && u.second == nvout); }) != utxoslocked.vutxos.end();
+    bool ret = std::find_if(utxoslocked.vutxos.begin(), utxoslocked.vutxos.end(), [&](std::pair<uint256, int32_t> u) {return (u.first == txid && u.second == nvout); }) != utxoslocked.vutxos.end();
+    if (ret)
+        std::cerr << __func__ << " this utxo was locked!" << std::endl;
+    return ret;
 }
 // lock utxo
 void LockUtxo(uint256 txid, int32_t nvout)
 {
-    if (!isUtxoLocked(txid, nvout))
+    if (!isUtxoLocked(txid, nvout)) {
         utxoslocked.vutxos.push_back(std::make_pair(txid, nvout));
+        std::cerr << __func__ << " now this utxo is locked!" << std::endl;
+    }
 }
 
 
