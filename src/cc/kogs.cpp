@@ -535,6 +535,8 @@ UniValue KogsObjectInfo(uint256 tokenid)
     info.push_back(std::make_pair("result", "success"));
     info.push_back(std::make_pair("objectId", std::string(1, (char)baseobj->objectId)));
     info.push_back(std::make_pair("version", std::to_string(baseobj->version)));
+    info.push_back(std::make_pair("nameId", packobj->nameId));
+    info.push_back(std::make_pair("descriptionId", packobj->descriptionId));
 
     switch (baseobj->objectId)
     {
@@ -552,7 +554,6 @@ UniValue KogsObjectInfo(uint256 tokenid)
 
     case 'P':
         packobj = (KogsPack*)baseobj;
-        info.push_back(std::make_pair("nameId", packobj->nameId));
         break;
 
     default:
