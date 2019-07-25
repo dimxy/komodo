@@ -518,7 +518,7 @@ std::string KogsRemoveObject(uint256 txid, int32_t nvout)
 // special feature to hide object by spending its cc eval kog marker (for nfts it is in vout=2)
 UniValue KogsObjectInfo(uint256 tokenid)
 {
-    UniValue info, err;
+    UniValue info(UniValue::VOBJ), err(UniValue::VOBJ);
     KogsMatchObject *matchobj;
     KogsPack *packobj;
     KogsBaseObject *baseobj = LoadGameObject(tokenid);
