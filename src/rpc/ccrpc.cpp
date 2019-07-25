@@ -189,28 +189,33 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
 
-    if (fHelp || (params.size() != 3))
+    if (fHelp || (params.size() != 5))
     {
         throw runtime_error(
-            "kogscreatepack packsize encryptkey initvector\n"
+            "kogscreatepack name description packsize encryptkey initvector\n"
             "creates a pack with the 'number' of randomly selected kogs. The pack content is encrypted (to decrypt it later after purchasing)\n" "\n");
     }
 
-    int32_t packsize = atoi(params[0].get_str());
+    KogsPack newpack;
+    newpack.InitPack();
+    newpack.nameId = params[0].get_str();
+    newpack.descriptionId = params[1].get_str();
+
+    int32_t packsize = atoi(params[2].get_str());
     if (packsize <= 0)
         throw runtime_error("packsize should be positive number\n");
 
-    std::string enckeystr = params[1].get_str();
+    std::string enckeystr = params[3].get_str();
     if (enckeystr.length() != WALLET_CRYPTO_KEY_SIZE)
         throw runtime_error(std::string("encryption key length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
     vuint8_t enckey(enckeystr.begin(), enckeystr.end());
 
-    std::string ivstr = params[2].get_str();
+    std::string ivstr = params[4].get_str();
     if (ivstr.length() != WALLET_CRYPTO_KEY_SIZE)
         throw runtime_error(std::string("initvector length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
     vuint8_t iv(ivstr.begin(), ivstr.end());
 
-    std::string hextx = KogsCreatePack(packsize, enckey, iv);
+    std::string hextx = KogsCreatePack(newpack, packsize, enckey, iv);
     RETURN_IF_ERROR(CCerror);
 
     return hextx;
