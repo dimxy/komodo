@@ -376,6 +376,29 @@ UniValue kogspacklist(const UniValue& params, bool fHelp)
     return result;
 }
 
+// rpc kogsobjectinfo impl (to return info about a game object based on its tokenid)
+UniValue kogsobjectinfo(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 1))
+    {
+        throw runtime_error(
+            "kogsobjectinfo tokenid\n"
+            "returns info about game object\n" "\n");
+    }
+
+    uint256 tokenid = Parseuint256(params[0].get_str().c_str());
+    if (tokenid.IsNull())
+        throw runtime_error("tokenid incorrect\n");
+
+    result = KogsObjectInfo(tokenid);
+    RETURN_IF_ERROR(CCerror);
+
+    return result;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
@@ -387,10 +410,9 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsburntoken",          &kogsburntoken,           true },
     { "kogs",         "kogspacklist",           &kogspacklist,            true },
     { "kogs",         "kogskoglist",            &kogskoglist,             true },
-    { "kogs",         "kogsslammerlist",            &kogsslammerlist,         true },
-    { "kogs",         "kogsremoveobject",       &kogsremoveobject,        true }
-
-
+    { "kogs",         "kogsslammerlist",        &kogsslammerlist,         true },
+    { "kogs",         "kogsremoveobject",       &kogsremoveobject,        true },
+    { "kogs",         "kogsobjectinfo",         &kogsobjectinfo,        true }
 };
 
 void RegisterCCRPCCommands(CRPCTable &tableRPC)

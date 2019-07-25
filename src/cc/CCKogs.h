@@ -26,6 +26,8 @@ const uint8_t KOGSID_KOG = 'K';
 const uint8_t KOGSID_SLAMMER = 'S';
 const uint8_t KOGSID_PACK = 'P';
 
+const uint8_t KOGS_VERSION = 1;
+
 #define TOKEN_MARKER_VOUT   0
 #define KOGS_MARKER_VOUT    2
 
@@ -36,6 +38,11 @@ struct KogsBaseObject {
     uint8_t objectId;
     uint8_t version;
     uint256 txid;
+
+    static void DecodeObjectHeader(vscript_t vopret, uint8_t &evalcode, uint8_t &objectId, uint8_t &version) {
+        evalcode = objectId = version = (uint8_t)0;
+        E_UNMARSHAL(vopret, ss >> evalcode; ss >> objectId; ss >> version);
+    }
 
     virtual vscript_t Marshal() = 0;
     virtual bool Unmarshal(vscript_t v) = 0;
@@ -50,11 +57,6 @@ struct KogsBaseObject {
 
 // gameobject: kog or slammer
 struct KogsMatchObject : public KogsBaseObject {
-    //std::string nameId;
-    //std::string descriptionId;
-    //uint8_t evalcode;
-    //uint8_t objectId;
-    //uint8_t version;
     std::string imageId;
     std::string setId;
     std::string subsetId;
@@ -75,7 +77,7 @@ struct KogsMatchObject : public KogsBaseObject {
         READWRITE(evalcode);
         READWRITE(objectId);
         READWRITE(version);
-        if (evalcode == EVAL_KOGS && (objectId == KOGSID_KOG || objectId == KOGSID_SLAMMER) && version == 1)
+        if (evalcode == EVAL_KOGS && (objectId == KOGSID_KOG || objectId == KOGSID_SLAMMER) && version == KOGS_VERSION)
         {
             READWRITE(imageId);
             READWRITE(setId);
@@ -108,10 +110,6 @@ struct KogsMatchObject : public KogsBaseObject {
 
 // pack with encrypted content
 struct KogsPack : public KogsBaseObject {
-    //std::string nameId;
-    //uint8_t evalcode;
-    //uint8_t objectId;
-    //uint8_t version;
     std::vector<uint256> tokenids;
     vuint8_t encrypted;
     //bool fEncrypted, fDecrypted;
@@ -130,7 +128,7 @@ struct KogsPack : public KogsBaseObject {
         READWRITE(evalcode);
         READWRITE(objectId);
         READWRITE(version);
-        if (evalcode == EVAL_KOGS && objectId == KOGSID_PACK && version == 1)
+        if (evalcode == EVAL_KOGS && objectId == KOGSID_PACK && version == KOGS_VERSION)
         {
             READWRITE(nameId);
             READWRITE(encrypted);
@@ -246,6 +244,9 @@ public:
         case KOGSID_PACK:
             p = new KogsPack();
             return (KogsBaseObject*)p;
+
+        default:
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "unsupported objectId=" << (int)objectId << std::endl);
         }
         return nullptr;
     }
@@ -257,6 +258,7 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
 std::string KogsRemoveObject(uint256 txid, int32_t nvout);
 std::string KogsBurnNFT(uint256 tokenid);
 void KogsTokensList(uint8_t objectId, std::vector<uint256> &tokenids);
+UniValue KogsObjectInfo(uint256 tokenid);
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 
