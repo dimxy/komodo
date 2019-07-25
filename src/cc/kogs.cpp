@@ -171,7 +171,7 @@ std::vector<std::string> KogsCreateGameObjectNFTs(std::vector<KogsMatchObject> &
 }
 
 // create pack of 'packsize' kog ids and encrypt its content
-std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
+std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
 {
     const std::string emptyresult;
     std::vector<std::shared_ptr<KogsBaseObject>> koglist;
@@ -192,7 +192,7 @@ std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
         }
     }
 
-    // calculate list of kogs txids that are not in any pack
+    // find list of kogs txids that are not in any pack
     std::vector<uint256> freekogids;
     for (auto &k : koglist)
     {
@@ -216,8 +216,6 @@ std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
     }
 
     // randomly get kogs txids
-    KogsPack newpack;
-    newpack.InitPack();
     srand(time(NULL));
     while (packsize--)
     {
