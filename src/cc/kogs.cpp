@@ -39,7 +39,7 @@ static std::string CreatePackNFT(const struct KogsMatchObject &gameobj)
     return CreateToken(0, 1, gameobj.nameId, gameobj.descriptionId, vnftdata);
 } */
 
-static struct KogsBaseObject *LoadGameObject(uint8_t objectId, uint256 txid)
+static struct KogsBaseObject *LoadGameObject(uint256 txid)
 {
     uint256 hashBlock;
     CTransaction vintx;
@@ -54,6 +54,14 @@ static struct KogsBaseObject *LoadGameObject(uint8_t objectId, uint256 txid)
             vscript_t vnftopret;
             if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
             {
+                uint8_t evalcode, objectId, version;
+                KogsBaseObject::DecodeObjectHeader(vnftopret, evalcode, objectId, version);
+
+                if (evalcode != EVAL_KOGS || version != KOGS_VERSION) {
+                    LOGSTREAM("kogs", CCLOG_INFO, stream << "incorrect game object evalcode or version" << std::endl);
+                    return nullptr;
+                }
+
                 KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
                 if (obj == nullptr)
                     return nullptr;
@@ -90,8 +98,8 @@ static void KogsGameObjectList(uint8_t objectId, std::vector<std::shared_ptr<Kog
     LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectId=" << (char)objectId << std::endl);
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr marker
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) {
-        struct KogsBaseObject *obj = LoadGameObject(objectId, it->first.txhash); // sort out gameobjects 
-        if (obj != nullptr)
+        struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // sort out gameobjects 
+        if (obj != nullptr && obj->objectId == objectId)
             list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
     }
     LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectId=" << (char)objectId << std::endl);
@@ -371,10 +379,10 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
                         if (IsTokensvout(false, true, cp, NULL, prevtx, v, packid))  // find token vout
                         {
                             // load pack:
-                            KogsBaseObject *obj = LoadGameObject(KOGSID_PACK, packid);
-                            if (obj == nullptr)
+                            KogsBaseObject *obj = LoadGameObject(packid);
+                            if (obj == nullptr || obj->objectId != KOGSID_PACK)
                             {
-                                CCerror = "can't load pack NFT";
+                                CCerror = "can't load pack NFT or not a pack";
                                 return emptyresult;
                             }
 
@@ -479,7 +487,7 @@ std::string KogsBurnNFT(uint256 tokenid)
     return emptyresult;
 }
 
-// special feature to burn error object by spending its eval_kog marker in vout=2
+// special feature to hide object by spending its cc eval kog marker (for nfts it is in vout=2)
 std::string KogsRemoveObject(uint256 txid, int32_t nvout)
 {
     const std::string emptyresult;
@@ -500,9 +508,60 @@ std::string KogsRemoveObject(uint256 txid, int32_t nvout)
         if (!hextx.empty())
             return hextx;
         else
-            CCerror = "can't finalize or sign burn tx";
+            CCerror = "can't finalize or sign removal tx";
     }
     else
         CCerror = "can't find normals for txfee";
     return emptyresult;
+}
+
+// special feature to hide object by spending its cc eval kog marker (for nfts it is in vout=2)
+UniValue KogsObjectInfo(uint256 tokenid)
+{
+    UniValue info, err;
+    KogsMatchObject *matchobj;
+    KogsPack *packobj;
+    KogsBaseObject *baseobj = LoadGameObject(tokenid);
+    if (baseobj == nullptr) {
+        err.push_back(std::make_pair("result", "error"));
+        err.push_back(std::make_pair("error", "can't load object"));
+        return err;
+    }
+
+    if (baseobj->evalcode != EVAL_KOGS || baseobj->version != KOGS_VERSION) {
+        err.push_back(std::make_pair("result", "error"));
+        err.push_back(std::make_pair("error", "not a kogs object or unsupported version"));
+        return err;
+    }
+
+    info.push_back(std::make_pair("result", "success"));
+    info.push_back(std::make_pair("objectId", std::string(1, (char)baseobj->objectId)));
+    info.push_back(std::make_pair("version", std::to_string(baseobj->version)));
+
+    switch (baseobj->objectId)
+    {
+    case 'K':
+    case 'S':
+        matchobj = (KogsMatchObject*)baseobj;
+        info.push_back(std::make_pair("imageId", matchobj->imageId));
+        info.push_back(std::make_pair("setId", matchobj->setId));
+        info.push_back(std::make_pair("subsetId", matchobj->subsetId));
+        info.push_back(std::make_pair("printId", std::to_string(matchobj->printId)));
+        info.push_back(std::make_pair("appearanceId", std::to_string(matchobj->appearanceId)));
+        if (baseobj->objectId == KOGSID_SLAMMER)
+            info.push_back(std::make_pair("appearanceId", std::to_string(matchobj->borderId)));
+        break;
+
+    case 'P':
+        packobj = (KogsPack*)baseobj;
+        info.push_back(std::make_pair("nameId", packobj->nameId));
+        break;
+
+    default:
+        err.push_back(std::make_pair("result", "error"));
+        err.push_back(std::make_pair("error", "unsupported objectId"));
+        return err;
+    }
+
+    return info;
 }
