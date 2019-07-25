@@ -141,7 +141,7 @@ struct KogsPack : public KogsBaseObject {
 
     KogsPack() : KogsBaseObject() { /*fEncrypted = fDecrypted = false;*/}
 
-    // special init function for the structure created in memory for serialization
+    // special init function for the structure created in memory for serialization on disk
     void InitPack()
     {
         evalcode = EVAL_KOGS;
@@ -253,7 +253,7 @@ public:
 };
 
 std::vector<std::string> KogsCreateGameObjectNFTs(std::vector<KogsMatchObject> & newkogs);
-std::string KogsCreatePack(int32_t packsize, vuint8_t encryptkey, vuint8_t iv);
+std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv);
 std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptkey, vuint8_t iv);
 std::string KogsRemoveObject(uint256 txid, int32_t nvout);
 std::string KogsBurnNFT(uint256 tokenid);
