@@ -268,7 +268,7 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
 
 // create container for passed tokenids
 // check for duplicated
-std::string KogsCreateContainer(KogsContainer newcontainer, const std::vector<uint256> &tokenids, std::vector<uint256> &duptokenids)
+std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint256> &tokenids, std::vector<uint256> &duptokenids)
 {
     const std::string emptyresult;
     //std::vector<std::shared_ptr<KogsBaseObject>> koglist;
