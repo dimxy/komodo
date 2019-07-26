@@ -54,18 +54,20 @@ UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned 
 UniValue kogsaddress(const UniValue& params, bool fHelp)
 {
     struct CCcontract_info *cp, C; 
-    std::vector<unsigned char> pubkey;
+    std::vector<unsigned char> vpubkey;
     int error;
 
     cp = CCinit(&C, EVAL_KOGS);
     if (fHelp || params.size() > 1)
         throw runtime_error("kogsaddress [pubkey]\n");
+
     error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
     if (params.size() == 1)
-        pubkey = ParseHex(params[0].get_str().c_str());
-    return(CCaddress(cp, (char *)"Kogs", pubkey));
+        vpubkey = ParseHex(params[0].get_str().c_str());
+    return(CCaddress(cp, (char *)"Kogs", vpubkey));
 }
 
 // helper function
@@ -160,6 +162,10 @@ UniValue kogscreatekogs(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
 
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
     if (fHelp || (params.size() != 1))
     {
         throw runtime_error(
@@ -174,6 +180,10 @@ UniValue kogscreateslammers(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
 
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
     if (fHelp || (params.size() != 1))
     {
         throw runtime_error(
@@ -186,8 +196,12 @@ UniValue kogscreateslammers(const UniValue& params, bool fHelp)
 // rpc kogscreatepack impl
 UniValue kogscreatepack(const UniValue& params, bool fHelp)
 {
-    UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
+    UniValue result(UniValue::VOBJ);
     CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
     if (fHelp || (params.size() != 5))
     {
@@ -218,7 +232,9 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp)
     std::string hextx = KogsCreatePack(newpack, packsize, enckey, iv);
     RETURN_IF_ERROR(CCerror);
 
-    return hextx;
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
 }
 
 // rpc kogsunsealpack impl
@@ -226,6 +242,10 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR), jsonParams(UniValue::VOBJ);
     CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
     if (fHelp || (params.size() != 3))
     {
@@ -249,7 +269,7 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
     vuint8_t iv(ivstr.begin(), ivstr.end());
 
     std::vector<std::string> hextxns = KogsUnsealPackToOwner(packid, enckey, iv);
-    RETURN_IF_ERROR(CCerror); 
+    RETURN_IF_ERROR(CCerror);
 
     for (auto hextx : hextxns)
     {
@@ -259,11 +279,191 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
     return result;
 }
 
+// rpc kogscreatecontainer impl
+UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ);
+    CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+    if (fHelp || (params.size() < 4))
+    {
+        throw runtime_error(
+            "kogscreatecontainer name description tokenid1, tokenid2,...\n"
+            "creates a container with the passed 40 kog ids and one slammer id\n" "\n");
+    }
+
+    KogsContainer newcontainer;
+    newcontainer.InitContainer();
+    newcontainer.nameId = params[0].get_str();
+    newcontainer.descriptionId = params[1].get_str();
+
+    std::set<uint256> tokenids;
+    std::vector<uint256> duptokenids;
+
+    for (int i = 2; i < params.size(); i++)
+    {
+        uint256 tokenid;
+        if (!(tokenid = Parseuint256(params[i].get_str().c_str())).IsNull())
+            tokenids.insert(tokenid);
+        else
+            throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
+    }
+
+    if (tokenids.size() != params.size() - 2)
+        throw runtime_error("duplicate tokenids in params\n");
+
+    std::string hextx = KogsCreateContainer(newcontainer, tokenids, duptokenids);
+    RETURN_IF_ERROR(CCerror);
+
+    if (!duptokenids.empty()) 
+    {
+        result.push_back(std::make_pair("result", "error"));
+        result.push_back(std::make_pair("error", "tokenids already included in other containers"));
+        UniValue resarray(UniValue::VARR);
+        for (auto d : duptokenids)
+            resarray.push_back(d.GetHex());
+        result.push_back(std::make_pair("duplicates", resarray));
+        return result;
+    }
+
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
+}
+
+
+// rpc kogsdepositcontainer impl
+UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ);
+    CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+    if (fHelp || (params.size() != 2))
+    {
+        throw runtime_error(
+            "kogsdepositcontainer containerid destpubkey\n"
+            "deposit container to the system pk (to be changed: the system pk should be taken from the system tx)\n" "\n");
+    }
+
+    uint256 containerId = Parseuint256(params[0].get_str().c_str());
+
+    if (containerId.IsNull())
+        throw runtime_error("incorrect containerid\n");
+
+    std::vector<unsigned char> vpubkey = ParseHex(params[1].get_str().c_str());
+    CPubKey destpk = pubkey2pk(vpubkey);
+    if (destpk.size() != 33)
+        throw runtime_error("incorrect pubkey\n");
+    
+    std::string hextx = KogsDepositContainer(0, containerId, destpk);
+    RETURN_IF_ERROR(CCerror);
+
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
+}
+
+// rpc kogsaddkogstocontainer impl
+UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ);
+    CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+    if (fHelp || (params.size() != 2))
+    {
+        throw runtime_error(
+            "kogsaddkogstocontainer containerid tokenid1, tokenid2, ...\n"
+            "adds kog tokenids to container\n" "\n");
+    }
+
+    uint256 containerId = Parseuint256(params[0].get_str().c_str());
+
+    if (containerId.IsNull())
+        throw runtime_error("incorrect containerid\n");
+
+    std::set<uint256> tokenids;
+    for (int i = 1; i < params.size(); i++)
+    {
+        uint256 tokenid;
+        if (!(tokenid = Parseuint256(params[i].get_str().c_str())).IsNull())
+            tokenids.insert(tokenid);
+        else
+            throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
+    }
+    if (tokenids.size() != params.size() - 1)
+        throw runtime_error("duplicate tokenids in params\n");
+
+    std::string hextx = KogsAddKogsToContainer(0, containerId, tokenids);
+    RETURN_IF_ERROR(CCerror);
+
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
+}
+
+// rpc kogsremovekogsfromcontainer impl
+UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ);
+    CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+    if (fHelp || (params.size() != 2))
+    {
+        throw runtime_error(
+            "kogsaddkogstocontainer containerid tokenid1, tokenid2, ...\n"
+            "adds kog tokenids to container\n" "\n");
+    }
+
+    uint256 containerId = Parseuint256(params[0].get_str().c_str());
+
+    if (containerId.IsNull())
+        throw runtime_error("incorrect containerid\n");
+
+    std::set<uint256> tokenids;
+    for (int i = 1; i < params.size(); i++)
+    {
+        uint256 tokenid;
+        if (!(tokenid = Parseuint256(params[i].get_str().c_str())).IsNull())
+            tokenids.insert(tokenid);
+        else
+            throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
+    }
+    if (tokenids.size() != params.size() - 1)
+        throw runtime_error("duplicate tokenids in params\n");
+
+    std::string hextx = KogsRemoveKogsFromContainer(0, containerId, tokenids);
+    RETURN_IF_ERROR(CCerror);
+
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
+}
+
 // rpc kogsburntoken impl (to burn nft objects)
 UniValue kogsburntoken(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
     if (fHelp || (params.size() != 1))
     {
@@ -288,6 +488,10 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
     if (fHelp || (params.size() != 2))
     {
@@ -411,13 +615,17 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogscreateslammers",     &kogscreateslammers,      true },
     { "kogs",         "kogscreatepack",         &kogscreatepack,          true },
     { "kogs",         "kogsunsealpack",         &kogsunsealpack,          true },
+    { "kogs",         "kogscreatecontainer",    &kogscreatecontainer,     true },
+    { "kogs",         "kogsdepositcontainer",   &kogsdepositcontainer,    true },
+    { "kogs",         "kogsaddkogstocontainer",   &kogsaddkogstocontainer,    true },
+    { "kogs",         "kogsremovekogsfromcontainer",   &kogsremovekogsfromcontainer,    true },
     { "kogs",         "kogsaddress",            &kogsaddress,             true },
     { "kogs",         "kogsburntoken",          &kogsburntoken,           true },
     { "kogs",         "kogspacklist",           &kogspacklist,            true },
     { "kogs",         "kogskoglist",            &kogskoglist,             true },
     { "kogs",         "kogsslammerlist",        &kogsslammerlist,         true },
     { "kogs",         "kogsremoveobject",       &kogsremoveobject,        true },
-    { "kogs",         "kogsobjectinfo",         &kogsobjectinfo,        true }
+    { "kogs",         "kogsobjectinfo",         &kogsobjectinfo,          true }
 };
 
 void RegisterCCRPCCommands(CRPCTable &tableRPC)

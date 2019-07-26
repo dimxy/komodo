@@ -24,6 +24,7 @@ static int32_t AppearanceIdCount(int32_t appearanceId)
     return 0;
 }
 
+// create game object NFT by calling token cc function
 static std::string CreateGameObjectNFT(struct KogsBaseObject *gameobj)
 {
     vscript_t vnftdata = gameobj->Marshal(); // E_MARSHAL(ss << gameobj);
@@ -31,58 +32,89 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *gameobj)
     return CreateTokenExt(0, 1, gameobj->nameId, gameobj->descriptionId, vnftdata, EVAL_KOGS);
 }
 
-/*
-static std::string CreatePackNFT(const struct KogsMatchObject &gameobj)
+// create kogs cc container tx (not a token)
+static std::string CreateContainerTx(const KogsContainer &container)
 {
-    vscript_t vnftdata = E_MARSHAL(ss << gameobj);
+    const CAmount  txfee = 10000;
+    CPubKey mypk = pubkey2pk(Mypubkey());
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    struct CCcontract_info *cp, C;
 
-    return CreateToken(0, 1, gameobj.nameId, gameobj.descriptionId, vnftdata);
-} */
+    cp = CCinit(&C, EVAL_KOGS);
 
-static struct KogsBaseObject *LoadGameObject(uint256 txid)
+    if (AddNormalinputs(mtx, mypk, 2 * txfee, 4) > 0)
+    {
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // container spendable vout for transferring it
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, txfee, GetUnspendable(cp, NULL)));  // kogs cc marker
+        CScript opret;
+        opret << OP_RETURN << E_MARSHAL(ss << container);
+        std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret);
+        if (!hextx.empty())
+            return hextx;
+        else
+            CCerror = "can't finalize or sign pack tx";
+    }
+    else
+        CCerror = "can't find normals for 2 txfee";
+    return std::string();
+}
+
+// load any kogs game object for the creation txid
+static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
 {
     uint256 hashBlock;
-    CTransaction vintx;
-    if (myGetTransaction(txid, vintx, hashBlock) != 0)
+    CTransaction createtx;
+    if (myGetTransaction(creationtxid, createtx, hashBlock) != 0)
     {
         std::vector<uint8_t> origpubkey;
         std::string name, description;
         std::vector<std::pair<uint8_t, vscript_t>> oprets;
 
-        if (vintx.vout.size() > 0 && DecodeTokenCreateOpRet(vintx.vout.back().scriptPubKey, origpubkey, name, description, oprets) != 0)
+        if (createtx.vout.size() > 0) 
         {
-            vscript_t vnftopret;
-            if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
+            if (DecodeTokenCreateOpRet(createtx.vout.back().scriptPubKey, origpubkey, name, description, oprets) != 0)
             {
-                uint8_t evalcode, objectId, version;
-                KogsBaseObject::DecodeObjectHeader(vnftopret, evalcode, objectId, version);
-
-                if (evalcode != EVAL_KOGS || version != KOGS_VERSION) {
-                    LOGSTREAM("kogs", CCLOG_INFO, stream << "incorrect game object evalcode or version" << std::endl);
-                    return nullptr;
-                }
-
-                KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
-                if (obj == nullptr)
-                    return nullptr;
-                if (obj->Unmarshal(vnftopret))
+                vscript_t vnftopret;
+                if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
                 {
-                    if (obj->evalcode == EVAL_KOGS && obj->objectId == objectId)
-                    {
-                        obj->txid = txid;
+                    uint8_t objectId;
+                    if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectId))
+                        return nullptr;
+
+                    KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
+                    if (obj == nullptr)
+                        return nullptr;
+                    if (obj->Unmarshal(vnftopret, creationtxid))
                         return obj;
-                    }
                     else
-                        LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "nft opret has incorrect evalcode=" << obj->evalcode << " or objectId=" << obj->objectId << std::endl);
+                        LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant unmarshal nft to GameObject" << std::endl);
                 }
                 else
-                    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant unmarshal nft to GameObject" << std::endl);
+                    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant find nft opret in token opret" << std::endl);
             }
             else
-                LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant find nft opret in token opret" << std::endl);
+            {
+                vscript_t vopret;
+                uint8_t objectId;
+
+                GetOpReturnData(createtx.vout.back().scriptPubKey, vopret);
+                if (!KogsBaseObject::DecodeObjectHeader(vopret, objectId))
+                    return nullptr;
+
+                if (objectId == KOGSID_CONTAINER)
+                {
+                    KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
+                    if (obj == nullptr)
+                        return nullptr;
+                    if (obj->Unmarshal(vopret, creationtxid))
+                        return obj;
+                    else
+                        LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant unmarshal kogs object to GameObject" << std::endl);
+                }
+            }
         }
         else
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant decode token opret" << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "no opret in tx" << std::endl);
     }
     return nullptr;
 }
@@ -98,7 +130,7 @@ static void KogsGameObjectList(uint8_t objectId, std::vector<std::shared_ptr<Kog
     LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectId=" << (char)objectId << std::endl);
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr marker
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) {
-        struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // sort out gameobjects 
+        struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectId and unmarshal corresponding gameobject
         if (obj != nullptr && obj->objectId == objectId)
             list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
     }
@@ -115,7 +147,7 @@ void KogsTokensList(uint8_t objectId, std::vector<uint256> &tokenids)
 
     for (auto &o : objlist)
     {
-        tokenids.push_back(o->txid);
+        tokenids.push_back(o->creationtxid);
     }
 } 
 
@@ -200,16 +232,16 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
         bool found = false;
         for (auto &p : packlist) {
             KogsPack *pack = (KogsPack *)p.get();
-            if (std::find(pack->tokenids.begin(), pack->tokenids.end(), kog->txid) != pack->tokenids.end())
+            if (std::find(pack->tokenids.begin(), pack->tokenids.end(), kog->creationtxid) != pack->tokenids.end())
                 found = true;
         }
         if (!found)
-            freekogids.push_back(kog->txid);
+            freekogids.push_back(kog->creationtxid);
     }
 
     LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "found free kogs num=" << freekogids.size() << std::endl);
 
-    // check kogs are sufficient
+    // check the kogs num is sufficient
     if (packsize > freekogids.size()) {
         CCerror = "requested kogs num not available";
         return emptyresult;
@@ -231,35 +263,141 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
         return emptyresult;
     }
 
-    /*
-    // create pack tx
-    const CAmount  txfee = 10000;
-    CPubKey mypk = pubkey2pk(Mypubkey());
-    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    struct CCcontract_info *cp, C;
+    return CreateGameObjectNFT(&newpack);
+}
 
+// create container for passed tokenids
+// check for duplicated
+std::string KogsCreateContainer(KogsContainer newcontainer, const std::vector<uint256> &tokenids, std::vector<uint256> &duptokenids)
+{
+    const std::string emptyresult;
+    //std::vector<std::shared_ptr<KogsBaseObject>> koglist;
+    std::vector<std::shared_ptr<KogsBaseObject>> containerlist;
+
+    // get all kogs gameobject
+    //KogsGameObjectList(KOGSID_KOG, koglist);
+
+    // get all containers
+    KogsGameObjectList(KOGSID_CONTAINER, containerlist);
+
+    duptokenids.clear();
+    // check tokens that are not in any container
+    for (auto &t : tokenids)
+    {
+        //KogsMatchObject *kog = (KogsMatchObject *)k.get();
+        bool found = false;
+        for (auto &c : containerlist) {
+            KogsContainer *container = (KogsContainer *)c.get();
+            if (std::find(container->tokenids.begin(), container->tokenids.end(), t) != container->tokenids.end())  // token found in other container. TODO: check for allowed n-duplicates
+                found = true;
+        }
+        if (found)
+            duptokenids.push_back(t);
+    }
+
+    if (duptokenids.size() > 0)
+        return emptyresult;
+
+    return CreateContainerTx(newcontainer);
+}
+
+// transfer container to destination pubkey
+static std::string SpendContainer(int64_t txfee, KogsContainer container, CPubKey destpk)
+{
+    const std::string empty;
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+    struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    if (AddNormalinputs(mtx, mypk, 2 * txfee, 4) > 0)
+    CPubKey mypk = pubkey2pk(Mypubkey());
+    if (AddNormalinputs(mtx, mypk, txfee, 4) > 0)
     {
-        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, txfee, GetUnspendable(cp, NULL)));
+        if (container.latesttxid.IsNull()) {
+            CCerror = strprintf("incorrect latesttx in container");
+            return empty;
+        }
+
+        mtx.vin.push_back(CTxIn(container.latesttxid, 0));
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, destpk));  // container has value = 1
+
         CScript opret;
-        opret << OP_RETURN << E_MARSHAL(ss << newpack);
+        opret << OP_RETURN << container.Marshal();
         std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret);
-        if (!hextx.empty())
-            return hextx;
-        else
-            CCerror = "can't finalize or sign pack tx";
+        if (hextx.empty())
+            CCerror = strprintf("could not finalize transfer container tx");
+        return hextx;
+
     }
     else
-        CCerror = "can't find normals for 2 txfee"; */
+    {
+        CCerror = "insufficient normal inputs for tx fee";
+    }
+    return empty;
+}
 
-    return CreateGameObjectNFT(&newpack);
+// deposit (send) container to destination pubkey
+std::string KogsDepositContainer(int64_t txfee, uint256 containerid, CPubKey destpk)
+{
+    KogsBaseObject *baseobj = LoadGameObject(containerid);
+
+    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
+        CCerror = "can't load container";
+        return std::string("");
+    }
+    std::string hextx = SpendContainer(txfee, *(KogsContainer*)baseobj, destpk);
+    return hextx;
+}
+
+// add kogs to the container and send the changed container to self
+std::string KogsAddKogsToContainer(int64_t txfee, uint256 containerid, std::set<uint256> tokenids)
+{
+    KogsBaseObject *baseobj = LoadGameObject(containerid);
+    CPubKey mypk = pubkey2pk(Mypubkey());
+
+    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
+        CCerror = "can't load container";
+        return std::string("");
+    }
+
+    KogsContainer *containerobj = (KogsContainer*)baseobj;
+    //str1.erase(std::remove(str1.begin(), str1.end(), ' '),
+    //    str1.end());
+    // add in not 
+    for (auto t : tokenids)
+        containerobj->tokenids.insert(t);
+
+    std::string hextx = SpendContainer(txfee, *containerobj, mypk);
+    return hextx;
+}
+
+// delete kogs from the container and send the changed container to self
+std::string KogsRemoveKogsFromContainer(int64_t txfee, uint256 containerid, std::set<uint256> tokenids)
+{
+    KogsBaseObject *baseobj = LoadGameObject(containerid);
+    CPubKey mypk = pubkey2pk(Mypubkey());
+
+    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
+        CCerror = "can't load container";
+        return std::string("");
+    }
+
+    KogsContainer *containerobj = (KogsContainer*)baseobj;
+    // remove tokens from container 
+    for (auto t : tokenids)
+    {
+        std::set<uint256>::iterator found;
+        if ((found = containerobj->tokenids.find(t)) != containerobj->tokenids.end())
+            containerobj->tokenids.erase(found);
+    }
+
+
+    std::string hextx = SpendContainer(txfee, *containerobj, mypk);
+    return hextx;
 }
 
 static bool IsNFTBurned(uint256 tokenid, CTransaction &burntx)
 {
-    
     uint256 txid, spenttxid;
     int32_t vini, height;
     uint256 hashBlock;
@@ -343,7 +481,7 @@ static bool IsGameObjectDeleted(uint256 tokenid)
     uint256 spenttxid;
     int32_t vini, height;
 
-    return CCgetspenttxid(spenttxid, vini, height, tokenid, KOGS_MARKER_VOUT) == 0;
+    return CCgetspenttxid(spenttxid, vini, height, tokenid, TOKEN_KOGS_MARKER_VOUT) == 0;
 }
 
 // create txns to unseal pack and send NFTs to pack owner address
@@ -410,7 +548,7 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
                             if (hextxns.size() > 0)
                             {
                                 // create tx removing pack by spending the kogs marker
-                                std::string hextx = KogsRemoveObject(packid, KOGS_MARKER_VOUT);
+                                std::string hextx = KogsRemoveObject(packid, TOKEN_KOGS_MARKER_VOUT);
                                 if (hextx.empty()) {
                                     hextxns.push_back("error: can't create pack removal tx: " + CCerror);
                                     CCerror.clear(); // clear used CCerror
@@ -516,9 +654,11 @@ std::string KogsRemoveObject(uint256 txid, int32_t nvout)
 // special feature to hide object by spending its cc eval kog marker (for nfts it is in vout=2)
 UniValue KogsObjectInfo(uint256 tokenid)
 {
-    UniValue info(UniValue::VOBJ), err(UniValue::VOBJ);
+    UniValue info(UniValue::VOBJ), err(UniValue::VOBJ), infotokenids(UniValue::VARR);
     KogsMatchObject *matchobj;
     KogsPack *packobj;
+    KogsContainer *containerobj;
+
     KogsBaseObject *baseobj = LoadGameObject(tokenid);
     if (baseobj == nullptr) {
         err.push_back(std::make_pair("result", "error"));
@@ -535,8 +675,8 @@ UniValue KogsObjectInfo(uint256 tokenid)
     info.push_back(std::make_pair("result", "success"));
     info.push_back(std::make_pair("objectId", std::string(1, (char)baseobj->objectId)));
     info.push_back(std::make_pair("version", std::to_string(baseobj->version)));
-    info.push_back(std::make_pair("nameId", packobj->nameId));
-    info.push_back(std::make_pair("descriptionId", packobj->descriptionId));
+    info.push_back(std::make_pair("nameId", baseobj->nameId));
+    info.push_back(std::make_pair("descriptionId", baseobj->descriptionId));
 
     switch (baseobj->objectId)
     {
@@ -549,11 +689,20 @@ UniValue KogsObjectInfo(uint256 tokenid)
         info.push_back(std::make_pair("printId", std::to_string(matchobj->printId)));
         info.push_back(std::make_pair("appearanceId", std::to_string(matchobj->appearanceId)));
         if (baseobj->objectId == KOGSID_SLAMMER)
-            info.push_back(std::make_pair("appearanceId", std::to_string(matchobj->borderId)));
+            info.push_back(std::make_pair("borderId", std::to_string(matchobj->borderId)));
         break;
 
     case 'P':
         packobj = (KogsPack*)baseobj;
+        break;
+
+    case 'C':
+        containerobj = (KogsContainer*)baseobj;
+        for (auto t : containerobj->tokenids)
+        {
+            infotokenids.push_back(t.GetHex());
+        }
+        info.push_back(std::make_pair("tokenids", infotokenids));
         break;
 
     default:
