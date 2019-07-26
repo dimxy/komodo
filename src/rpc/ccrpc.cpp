@@ -306,8 +306,8 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
 
     for (int i = 2; i < params.size(); i++)
     {
-        uint256 tokenid;
-        if (!(tokenid = Parseuint256(params[i].get_str().c_str())).IsNull())
+        uint256 tokenid = Parseuint256(params[i].get_str().c_str());
+        if (!tokenid.IsNull())
             tokenids.insert(tokenid);
         else
             throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
@@ -396,8 +396,8 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
     std::set<uint256> tokenids;
     for (int i = 1; i < params.size(); i++)
     {
-        uint256 tokenid;
-        if (!(tokenid = Parseuint256(params[i].get_str().c_str())).IsNull())
+        uint256 tokenid = Parseuint256(params[i].get_str().c_str());
+        if (!tokenid.IsNull())
             tokenids.insert(tokenid);
         else
             throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
@@ -438,8 +438,8 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
     std::set<uint256> tokenids;
     for (int i = 1; i < params.size(); i++)
     {
-        uint256 tokenid;
-        if (!(tokenid = Parseuint256(params[i].get_str().c_str())).IsNull())
+        uint256 tokenid = Parseuint256(params[i].get_str().c_str());
+        if (!tokenid.IsNull())
             tokenids.insert(tokenid);
         else
             throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
