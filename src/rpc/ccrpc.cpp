@@ -527,7 +527,7 @@ UniValue kogskoglist(const UniValue& params, bool fHelp)
     }
 
     std::vector<uint256> tokenids;
-    KogsTokensList(KOGSID_KOG, tokenids);
+    KogsCreationTxidList(KOGSID_KOG, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (auto t : tokenids)
@@ -551,7 +551,7 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp)
     }
 
     std::vector<uint256> tokenids;
-    KogsTokensList(KOGSID_SLAMMER, tokenids);
+    KogsCreationTxidList(KOGSID_SLAMMER, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (auto t : tokenids)
@@ -575,7 +575,7 @@ UniValue kogspacklist(const UniValue& params, bool fHelp)
     }
 
     std::vector<uint256> tokenids;
-    KogsTokensList(KOGSID_PACK, tokenids);
+    KogsCreationTxidList(KOGSID_PACK, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (auto t : tokenids)

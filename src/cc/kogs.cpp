@@ -33,7 +33,7 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *gameobj)
 }
 
 // create kogs cc container tx (not a token)
-static std::string CreateContainerTx(const KogsContainer &container)
+static std::string CreateEnclosureTx(const KogsEnclosure &enc)
 {
     const CAmount  txfee = 10000;
     CPubKey mypk = pubkey2pk(Mypubkey());
@@ -47,7 +47,7 @@ static std::string CreateContainerTx(const KogsContainer &container)
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // container spendable vout for transferring it
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, txfee, GetUnspendable(cp, NULL)));  // kogs cc marker
         CScript opret;
-        opret << OP_RETURN << E_MARSHAL(ss << container);
+        opret << OP_RETURN << enc.EncodeOpret();
         std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret);
         if (!hextx.empty())
             return hextx;
@@ -64,11 +64,13 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
 {
     uint256 hashBlock;
     CTransaction createtx;
-    if (myGetTransaction(creationtxid, createtx, hashBlock) != 0)
+
+    if (myGetTransaction(creationtxid, createtx, hashBlock) != 0)  //use non-locking version
     {
         std::vector<uint8_t> origpubkey;
         std::string name, description;
         std::vector<std::pair<uint8_t, vscript_t>> oprets;
+        KogsEnclosure enc(zeroid);
 
         if (createtx.vout.size() > 0) 
         {
@@ -84,7 +86,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
                     KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
                     if (obj == nullptr)
                         return nullptr;
-                    if (obj->Unmarshal(vnftopret, creationtxid))
+                    if (obj->Unmarshal(vnftopret))
                         return obj;
                     else
                         LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant unmarshal nft to GameObject" << std::endl);
@@ -92,13 +94,12 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
                 else
                     LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant find nft opret in token opret" << std::endl);
             }
-            else
+            else if(KogsEnclosure::DecodeOpret(createtx, enc))
             {
                 vscript_t vopret;
                 uint8_t objectId;
 
-                GetOpReturnData(createtx.vout.back().scriptPubKey, vopret);
-                if (!KogsBaseObject::DecodeObjectHeader(vopret, objectId))
+                if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectId))
                     return nullptr;
 
                 //if (objectId == KOGSID_CONTAINER)
@@ -106,7 +107,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
                 KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
                 if (obj == nullptr)
                     return nullptr;
-                if (obj->Unmarshal(vopret, creationtxid))
+                if (obj->Unmarshal(vopret))
                     return obj;
                 else
                     LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant unmarshal non-nft kogs object to GameObject" << std::endl);
@@ -137,17 +138,17 @@ static void KogsGameObjectList(uint8_t objectId, std::vector<std::shared_ptr<Kog
     LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectId=" << (char)objectId << std::endl);
 }
 
-// returns all pack tokenids
-void KogsTokensList(uint8_t objectId, std::vector<uint256> &tokenids)
+// returns all objects' creationtxid (tokenids or kog object creation txid) for the object with objectId
+void KogsCreationTxidList(uint8_t objectId, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
 
-    // get all packs
+    // get all objects with this objectId
     KogsGameObjectList(objectId, objlist);
 
     for (auto &o : objlist)
     {
-        tokenids.push_back(o->creationtxid);
+        creationtxids.push_back(o->creationtxid);
     }
 } 
 
@@ -273,9 +274,7 @@ std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint2
     const std::string emptyresult;
     //std::vector<std::shared_ptr<KogsBaseObject>> koglist;
     std::vector<std::shared_ptr<KogsBaseObject>> containerlist;
-
-    // get all kogs gameobject
-    //KogsGameObjectList(KOGSID_KOG, koglist);
+    KogsEnclosure enc(zeroid);  //for creation
 
     // get all containers
     KogsGameObjectList(KOGSID_CONTAINER, containerlist);
@@ -284,7 +283,6 @@ std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint2
     // check tokens that are not in any container
     for (auto &t : tokenids)
     {
-        //KogsMatchObject *kog = (KogsMatchObject *)k.get();
         bool found = false;
         for (auto &c : containerlist) {
             KogsContainer *container = (KogsContainer *)c.get();
@@ -298,11 +296,12 @@ std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint2
     if (duptokenids.size() > 0)
         return emptyresult;
 
-    return CreateContainerTx(newcontainer);
+    enc.vdata = newcontainer.Marshal();
+    return CreateEnclosureTx(enc);
 }
 
 // transfer container to destination pubkey
-static std::string SpendContainer(int64_t txfee, KogsContainer container, CPubKey destpk)
+static std::string SpendEnclosure(int64_t txfee, KogsEnclosure enc, CPubKey destpk)
 {
     const std::string empty;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -313,16 +312,16 @@ static std::string SpendContainer(int64_t txfee, KogsContainer container, CPubKe
     CPubKey mypk = pubkey2pk(Mypubkey());
     if (AddNormalinputs(mtx, mypk, txfee, 4) > 0)
     {
-        if (container.latesttxid.IsNull()) {
+        if (enc.latesttxid.IsNull()) {
             CCerror = strprintf("incorrect latesttx in container");
             return empty;
         }
 
-        mtx.vin.push_back(CTxIn(container.latesttxid, 0));
+        mtx.vin.push_back(CTxIn(enc.latesttxid, 0));
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, destpk));  // container has value = 1
 
         CScript opret;
-        opret << OP_RETURN << container.Marshal();
+        opret << OP_RETURN << enc.EncodeOpret();
         std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret);
         if (hextx.empty())
             CCerror = strprintf("could not finalize transfer container tx");
@@ -340,12 +339,17 @@ static std::string SpendContainer(int64_t txfee, KogsContainer container, CPubKe
 std::string KogsDepositContainer(int64_t txfee, uint256 containerid, CPubKey destpk)
 {
     KogsBaseObject *baseobj = LoadGameObject(containerid);
-
+    
+    
     if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return std::string("");
     }
-    std::string hextx = SpendContainer(txfee, *(KogsContainer*)baseobj, destpk);
+
+    KogsContainer *containerobj = (KogsContainer*)baseobj;
+    KogsEnclosure enc(containerid);
+    enc.vdata = containerobj->Marshal();
+    std::string hextx = SpendEnclosure(txfee, enc, destpk);
     return hextx;
 }
 
@@ -361,13 +365,14 @@ std::string KogsAddKogsToContainer(int64_t txfee, uint256 containerid, std::set<
     }
 
     KogsContainer *containerobj = (KogsContainer*)baseobj;
-    //str1.erase(std::remove(str1.begin(), str1.end(), ' '),
-    //    str1.end());
-    // add in not 
+    
+    // add new tokenids 
     for (auto t : tokenids)
         containerobj->tokenids.insert(t);
 
-    std::string hextx = SpendContainer(txfee, *containerobj, mypk);
+    KogsEnclosure enc(containerid);
+    enc.vdata = containerobj->Marshal();
+    std::string hextx = SpendEnclosure(txfee, enc, mypk);
     return hextx;
 }
 
@@ -383,16 +388,17 @@ std::string KogsRemoveKogsFromContainer(int64_t txfee, uint256 containerid, std:
     }
 
     KogsContainer *containerobj = (KogsContainer*)baseobj;
-    // remove tokens from container 
+    // remove tokenids from container 
     for (auto t : tokenids)
     {
-        std::set<uint256>::iterator found;
-        if ((found = containerobj->tokenids.find(t)) != containerobj->tokenids.end())
-            containerobj->tokenids.erase(found);
+        std::set<uint256>::iterator itfound;
+        if ((itfound = containerobj->tokenids.find(t)) != containerobj->tokenids.end())
+            containerobj->tokenids.erase(itfound);
     }
 
-
-    std::string hextx = SpendContainer(txfee, *containerobj, mypk);
+    KogsEnclosure enc(containerid);
+    enc.vdata = containerobj->Marshal();
+    std::string hextx = SpendEnclosure(txfee, enc, mypk);
     return hextx;
 }
 
