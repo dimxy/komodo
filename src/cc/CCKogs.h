@@ -48,7 +48,8 @@ struct KogsBaseObject {
         uint8_t evalcode = (uint8_t)0;
         uint8_t version = (uint8_t)0;
 
-        if (!E_UNMARSHAL(vopret, ss >> evalcode; ss >> objectId; ss >> version) || evalcode != EVAL_KOGS || version != KOGS_VERSION) {
+        E_UNMARSHAL(vopret, ss >> evalcode; ss >> objectId; ss >> version);
+        if (evalcode != EVAL_KOGS || version != KOGS_VERSION) {
             LOGSTREAM("kogs", CCLOG_INFO, stream << "incorrect game object evalcode or version" << std::endl);
             return false;
         }
