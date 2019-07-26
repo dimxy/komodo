@@ -101,16 +101,16 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
                 if (!KogsBaseObject::DecodeObjectHeader(vopret, objectId))
                     return nullptr;
 
-                if (objectId == KOGSID_CONTAINER)
-                {
-                    KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
-                    if (obj == nullptr)
-                        return nullptr;
-                    if (obj->Unmarshal(vopret, creationtxid))
-                        return obj;
-                    else
-                        LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant unmarshal kogs object to GameObject" << std::endl);
-                }
+                //if (objectId == KOGSID_CONTAINER)
+                //{
+                KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
+                if (obj == nullptr)
+                    return nullptr;
+                if (obj->Unmarshal(vopret, creationtxid))
+                    return obj;
+                else
+                    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant unmarshal non-nft kogs object to GameObject" << std::endl);
+                //}
             }
         }
         else
