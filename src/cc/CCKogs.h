@@ -25,11 +25,15 @@
 const uint8_t KOGSID_KOG = 'K';
 const uint8_t KOGSID_SLAMMER = 'S';
 const uint8_t KOGSID_PACK = 'P';
+const uint8_t KOGSID_CONTAINER = 'C';
+
 
 const uint8_t KOGS_VERSION = 1;
 
-#define TOKEN_MARKER_VOUT   0
-#define KOGS_MARKER_VOUT    2
+#define TOKEN_MARKER_VOUT           0   // token global address basic cc marker vout num
+#define TOKEN_KOGS_MARKER_VOUT      2   // additional kogs global address marker vout num for tokens
+
+#define KOGS_MARKER_VOUT            1   // marker vout num for kogs tx in kogs global address
 
 struct KogsBaseObject {
     std::string nameId;
@@ -37,21 +41,30 @@ struct KogsBaseObject {
     uint8_t evalcode;
     uint8_t objectId;
     uint8_t version;
-    uint256 txid;
+    uint256 creationtxid;
 
-    static void DecodeObjectHeader(vscript_t vopret, uint8_t &evalcode, uint8_t &objectId, uint8_t &version) {
-        evalcode = objectId = version = (uint8_t)0;
-        E_UNMARSHAL(vopret, ss >> evalcode; ss >> objectId; ss >> version);
+    // check basic data in opret (evalcode & version), return objectId
+    static bool DecodeObjectHeader(vscript_t vopret, uint8_t &objectId) {
+        uint8_t evalcode = (uint8_t)0;
+        uint8_t version = (uint8_t)0;
+
+        if (!E_UNMARSHAL(vopret, ss >> evalcode; ss >> objectId; ss >> version) || evalcode != EVAL_KOGS || version != KOGS_VERSION) {
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "incorrect game object evalcode or version" << std::endl);
+            return false;
+        }
+        else
+            return true;
     }
 
     virtual vscript_t Marshal() = 0;
-    virtual bool Unmarshal(vscript_t v) = 0;
+    virtual bool Unmarshal(vscript_t v, uint256 creationtxid) = 0;
 
     KogsBaseObject()
     {
-        evalcode = 0;
+        evalcode = EVAL_KOGS;
         objectId = 0;
-        version = 0;
+        version = KOGS_VERSION;
+        creationtxid = zeroid;
     }
 };
 
@@ -94,7 +107,10 @@ struct KogsMatchObject : public KogsBaseObject {
     }
 
     virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); };
-    virtual bool Unmarshal(vscript_t v) { return E_UNMARSHAL(v, ss >> (*this)); };
+    virtual bool Unmarshal(vscript_t v, uint256 creationtxid_) {
+        creationtxid = creationtxid_;
+        return E_UNMARSHAL(v, ss >> (*this)); 
+    };
 
     KogsMatchObject() : KogsBaseObject() {}
 
@@ -153,7 +169,10 @@ struct KogsPack : public KogsBaseObject {
     }
 
     virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); };
-    virtual bool Unmarshal(vscript_t v) { return E_UNMARSHAL(v, ss >> (*this)); };
+    virtual bool Unmarshal(vscript_t v, uint256 creationtxid_) {
+        creationtxid = creationtxid_;
+        return E_UNMARSHAL(v, ss >> (*this)); 
+    };
 
     // serialize pack content (with magic string) and encrypt
     bool EncryptContent(vuint8_t keystring, vuint8_t iv)
@@ -225,6 +244,130 @@ struct KogsPack : public KogsBaseObject {
     }
 };
 
+// container for kogs
+// it is not a token cause should change its content
+// exists in kogs evalcode
+struct KogsContainer : public KogsBaseObject {
+
+    uint8_t funcId;
+    uint256 containerId;
+    uint256 latesttxid;
+
+    std::set<uint256> tokenids;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {
+            funcId = 0;
+            evalcode = 0;
+            objectId = 0;
+            version = 0;
+        }
+        if (!ser_action.ForRead()) {
+            if (containerId.IsNull()) // new object
+                funcId = 'c';
+            else
+                funcId = 't';
+        }
+
+        READWRITE(funcId);
+        READWRITE(evalcode);
+        READWRITE(objectId);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && objectId == KOGSID_CONTAINER && version == KOGS_VERSION)
+        {
+            if (funcId == 'c')
+            {
+                READWRITE(nameId);
+                READWRITE(descriptionId);
+            }
+            else if (funcId == 't')
+            {
+                READWRITE(containerId);  // almost like in tokens data has the creation txid
+            }
+            else
+            {
+                LOGSTREAM("kogs", CCLOG_INFO, stream << "incorrect funcid containerId=" << containerId.GetHex() << std::endl);
+                return;
+            }
+
+            if (ser_action.ForRead())
+                tokenids.clear();
+            uint32_t vsize = tokenids.size();
+
+            READWRITE(vsize);
+            for (std::set<uint256>::iterator it = tokenids.begin(); it != tokenids.end(); it ++)
+            {
+                uint256 txid;
+                if (ser_action.ForRead())
+                    txid = *it;
+                READWRITE(txid);
+                if (!ser_action.ForRead())
+                    tokenids.insert(txid);
+            }
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "not a container object evalcode=" << (int)evalcode << " objectId=" << (int)objectId  << " version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); };
+    virtual bool Unmarshal(vscript_t v, uint256 creationtxid_) 
+    { 
+        creationtxid = creationtxid_;
+        bool result = E_UNMARSHAL(v, ss >> (*this)); 
+        if (result)
+        {
+            uint256 txid = creationtxid;
+            uint256 spenttxid, hashBlock;
+            int32_t vini, height;
+            const int32_t nvout = 0;  // contaner cc value vout
+            CTransaction latesttx;
+            vscript_t vLatestTxOpret;
+
+            // update object vars with the data from last tx opret:
+            while (CCgetspenttxid(spenttxid, vini, height, txid, nvout) == 0)
+            {
+                txid = spenttxid;
+            }
+
+            if (txid != creationtxid)
+            {
+                if (myGetTransaction(txid, latesttx, hashBlock) &&  // use non-locking ver as this func could be called from validation code
+                    latesttx.vout.size() > 1 &&
+                    GetOpReturnData(latesttx.vout.back().scriptPubKey, vLatestTxOpret) &&
+                    E_UNMARSHAL(vLatestTxOpret, ss >> (*this)))
+                {
+                    latesttxid = txid;
+                    return true;
+                }
+                else
+                {
+                    LOGSTREAM("kogs", CCLOG_INFO, stream << "could not unmarshal container last tx opret txid=" << txid.GetHex() << std::endl);
+                    return false;
+                }
+            }
+        }
+        return result;
+    }
+
+    // special init function for the container created for serialization on disk
+    void InitContainer()
+    {
+        evalcode = EVAL_KOGS;
+        objectId = KOGSID_CONTAINER;
+        version = KOGS_VERSION;
+        tokenids.clear();
+        containerId = zeroid;
+    }
+
+    KogsContainer() : KogsBaseObject() { }
+};
+
 // simple factory for Kogs game objects
 class KogsFactory
 {
@@ -233,6 +376,7 @@ public:
     {
         struct KogsMatchObject *o;
         struct KogsPack *p;
+        struct KogsContainer *c;
 
         switch (objectId)
         {
@@ -245,8 +389,12 @@ public:
             p = new KogsPack();
             return (KogsBaseObject*)p;
 
+        case KOGSID_CONTAINER:
+            c = new KogsContainer();
+            return (KogsBaseObject*)c;
+
         default:
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "unsupported objectId=" << (int)objectId << std::endl);
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "requested to create unsupported objectId=" << (int)objectId << std::endl);
         }
         return nullptr;
     }
@@ -255,6 +403,10 @@ public:
 std::vector<std::string> KogsCreateGameObjectNFTs(std::vector<KogsMatchObject> & newkogs);
 std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv);
 std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptkey, vuint8_t iv);
+std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint256> &tokenids, std::vector<uint256> &duptokenids);
+std::string KogsDepositContainer(int64_t txfee, uint256 containerid, CPubKey destpk);
+std::string KogsAddKogsToContainer(int64_t txfee, uint256 containerid, std::set<uint256> tokenids);
+std::string KogsRemoveKogsFromContainer(int64_t txfee, uint256 containerid, std::set<uint256> tokenids);
 std::string KogsRemoveObject(uint256 txid, int32_t nvout);
 std::string KogsBurnNFT(uint256 tokenid);
 void KogsTokensList(uint8_t objectId, std::vector<uint256> &tokenids);
