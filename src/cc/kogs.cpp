@@ -383,6 +383,8 @@ std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const
     const std::vector<std::string> emptyresult;
     std::vector<std::string> result;
     
+    ActivateUtxoLock();
+
     std::string containerhextx = CreateGameObjectNFT(&newcontainer);
     if (containerhextx.empty())
         return emptyresult;
@@ -408,11 +410,14 @@ std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const
     for (auto t : tokenids)
     {
         std::string transferhextx = TokenTransferExt(0, t, std::vector<std::pair<CC*,uint8_t*>>(), std::vector<CPubKey> {kogsPk, createtxidPk}, 1);
-        if (transferhextx.empty())
-            return emptyresult;
-
+        if (transferhextx.empty()) {
+            result = emptyresult;
+            break;
+        }
         result.push_back(transferhextx);
     }
+
+    DeactivateUtxoLock();
     return result;
 }
 
@@ -583,14 +588,18 @@ std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 gameid,
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey containertxidPk = CCtxidaddr(txidaddr, containerid);
+    ActivateUtxoLock();
 
     for (auto tokenid : tokenids)
     {
         std::string hextx = TokenTransferExt(0, tokenid, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, containertxidPk }, 1); // amount = 1 always for NFTs
-        if (hextx.empty())
-            return emptyresult;
+        if (hextx.empty()) {
+            result = emptyresult;
+            break;
+        }
         result.push_back(hextx);
     }
+    DeactivateUtxoLock();
     return result;
 }
 
@@ -647,6 +656,7 @@ std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 ga
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey createtxidPk = CCtxidaddr(txidaddr, containerid);
     CC *probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, createtxidPk);
+    ActivateUtxoLock();
 
     for (auto tokenid : tokenids)
     {
@@ -657,7 +667,7 @@ std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 ga
         }
         result.push_back(hextx);
     }
-
+    DeactivateUtxoLock();
     cc_free(probeCond);
     return result;
 }
