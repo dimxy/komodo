@@ -618,17 +618,25 @@ void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
 }
 
 
-// overload, adds inputs from token cc addr
+// overload for fungible tokens, adds token inputs from pubkey
 int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs) {
     vscript_t vopretNonfungibleDummy;
     return AddTokenCCInputs(cp, mtx, pk, tokenid, total, maxinputs, vopretNonfungibleDummy);
 }
 
-// adds inputs from token cc addr and returns non-fungible opret payload if present
-// also sets evalcode in cp, if needed
+// overload for non-fungible tokens, adds token inputs from pubkey
 int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible)
 {
-	char tokenaddr[64], destaddr[64]; 
+    char tokenaddr[64];
+    GetTokensCCaddress(cp, tokenaddr, pk);
+    return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs, vopretNonfungible);
+}
+
+
+// overload, adds inputs from token cc addr and returns non-fungible opret payload if present
+// also sets evalcode in cp, if needed
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible)
+{
 	int64_t threshold, nValue, price, totalinputs = 0;  
 	int32_t n = 0;
 	std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
@@ -637,7 +645,6 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
     if (vopretNonfungible.size() > 0)
         cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];
 
-	GetTokensCCaddress(cp, tokenaddr, pk);
 	SetCCunspents(unspentOutputs, tokenaddr,true);
 
 
@@ -666,10 +673,11 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 
 		if (myGetTransaction(vintxid, vintx, hashBlock) != 0)
 		{
+            char destaddr[64];
 			Getscriptaddress(destaddr, vintx.vout[vout].scriptPubKey);
-			if (strcmp(destaddr, tokenaddr) != 0 && 
+			if (strcmp(destaddr, tokenaddr) != 0 /*&& 
                 strcmp(destaddr, cp->unspendableCCaddr) != 0 &&   // TODO: check why this. Should not we add token inputs from unspendable cc addr if mypubkey is used?
-                strcmp(destaddr, cp->unspendableaddr2) != 0)      // or the logic is to allow to spend all available tokens (what about unspendableaddr3)?
+                strcmp(destaddr, cp->unspendableaddr2) != 0*/)      // or the logic is to allow to spend all available tokens (what about unspendableaddr3)?
 				continue;
 			
             LOGSTREAM("cctokens", CCLOG_DEBUG1, stream << "AddTokenCCInputs() check vintx vout destaddress=" << destaddr << " amount=" << vintx.vout[vout].nValue << std::endl);
@@ -901,7 +909,7 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, CPubKey destpubkey, in
 // destpubkeys - if size=1 then it is the dest pubkey, if size=2 then the dest address is 1of2 addr
 // total - token amount to transfer
 // returns: signed transfer tx in hex
-std::string TokenTransferExt(int64_t txfee, uint256 tokenid, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total)
+std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CPubKey mypk; uint64_t mask; int64_t CCchange = 0, inputs = 0;  struct CCcontract_info *cp, C;
@@ -927,7 +935,7 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, std::vector<std::pa
 	{
 		mask = ~((1LL << mtx.vin.size()) - 1);  // seems, mask is not used anymore
         
-		if ((inputs = AddTokenCCInputs(cp, mtx, mypk, tokenid, total, 60, vopretNonfungible)) > 0)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
+		if ((inputs = AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, 60, vopretNonfungible)) > 0)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
 		{
 			if (inputs < total) {   //added dimxy
                 CCerror = strprintf("insufficient token inputs");
