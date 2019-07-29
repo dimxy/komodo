@@ -614,11 +614,12 @@ static int CheckIsMyContainer(uint256 gameid, uint256 containerid)
         CCerror = "incorrect nft last tx";
         return -1;
     }
-    if (lasttx.vout[0] != MakeCC1vout(EVAL_TOKENS, 1, mypk)) {
-        CCerror = "this is not your container to remove kogs";
-        return 0;
-    }
-    return 1;
+    for(auto v : lasttx.vout)
+        if (v == MakeCC1vout(EVAL_TOKENS, 1, mypk)) 
+            return 1;
+    
+    CCerror = "this is not your container to remove kogs";
+    return 0;
 }
 
 // add kogs to the container by sending kogs to container 1of2 address
