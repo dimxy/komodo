@@ -568,7 +568,7 @@ static bool IsContainerDeposited(KogsGame game, KogsContainer container)
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey gametxidPk = CCtxidaddr(txidaddr, game.creationtxid);
-    if (lasttx.vout[0] == MakeTokensCC1of2vout(EVAL_KOGS, 1, kogsPk, gametxidPk))
+    if (lasttx.vout[0] == MakeCC1of2vout(EVAL_TOKENS, 1, kogsPk, gametxidPk))
         return true;
     return false;
 }
@@ -615,7 +615,7 @@ static int CheckIsMyContainer(uint256 gameid, uint256 containerid)
         return -1;
     }
     for(auto v : lasttx.vout)
-        if (v == MakeCC1vout(EVAL_TOKENS, 1, mypk)) 
+        if (v == MakeTokensCC1vout(EVAL_KOGS, 1, mypk)) 
             return 1;
     
     CCerror = "this is not your container to remove kogs";
