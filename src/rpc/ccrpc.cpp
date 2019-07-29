@@ -676,7 +676,7 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
 
     std::vector<std::string> hextxns = KogsRemoveKogsFromContainerV2(0, gameid, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
-    for (auto hextx : hextxns)
+    for (auto &hextx : hextxns)
     {
         resarray.push_back(hextx);
     }
