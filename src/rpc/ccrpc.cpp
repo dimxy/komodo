@@ -460,6 +460,7 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
 UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
+    UniValue resarray(UniValue::VARR);
     CCerror.clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
@@ -493,10 +494,15 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
     if (tokenids.size() != params.size() - 2)
         throw runtime_error("duplicate tokenids in params\n");
 
-    std::string hextx = KogsCreateContainer(newcontainer, tokenids, duptokenids);
+    std::vector<std::string> hextxns = KogsCreateContainerV2(newcontainer, tokenids);
     RETURN_IF_ERROR(CCerror);
 
-    if (!duptokenids.empty()) 
+    for (auto hextx : hextxns)
+    {
+        resarray.push_back(hextx);
+    }
+
+    /*if (!duptokenids.empty()) 
     {
         result.push_back(std::make_pair("result", "error"));
         result.push_back(std::make_pair("error", "tokenids already included in other containers"));
@@ -505,10 +511,10 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
             resarray.push_back(d.GetHex());
         result.push_back(std::make_pair("duplicates", resarray));
         return result;
-    }
+    }*/
 
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
+    result.push_back(std::make_pair("hextxns", resarray));
     return result;
 }
 
@@ -595,7 +601,7 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
         resarray.push_back(hextx);
     }
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("txns", resarray));
+    result.push_back(std::make_pair("hextxns", resarray));
     return result;
 }
 
@@ -644,7 +650,7 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
         resarray.push_back(hextx);
     }
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("txns", resarray));
+    result.push_back(std::make_pair("hextxns", resarray));
     return result;
 }
 
