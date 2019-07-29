@@ -15,6 +15,10 @@
 
 #include "CCKogs.h"
 
+#ifndef KOMODO_ADDRESS_BUFSIZE
+#define KOMODO_ADDRESS_BUFSIZE 64
+#endif
+
 // helpers
 
 // calculate how many kogs exist with this appearanceId
@@ -24,12 +28,49 @@ static int32_t AppearanceIdCount(int32_t appearanceId)
     return 0;
 }
 
-// create game object NFT by calling token cc function
-static std::string CreateGameObjectNFT(struct KogsBaseObject *gameobj)
+// get NFT unspent transaction
+static bool GetNFTUnspentTx(uint256 tokenid, CTransaction &unspenttx)
 {
-    vscript_t vnftdata = gameobj->Marshal(); // E_MARSHAL(ss << gameobj);
+    uint256 txid, spenttxid;
+    int32_t vini, height;
+    uint256 hashBlock;
+    int32_t nvout = 1; // cc vout with token value in the tokenbase tx
 
-    return CreateTokenExt(0, 1, gameobj->nameId, gameobj->descriptionId, vnftdata, EVAL_KOGS);
+    txid = tokenid;
+    while (CCgetspenttxid(spenttxid, vini, height, txid, nvout) == 0)
+    {
+        txid = spenttxid;
+        nvout = 0; // cc vout with token value in the subsequent txns
+    }
+
+    if (txid != tokenid && myGetTransaction(txid, unspenttx, hashBlock))  // use non-locking ver as this func could be called from validation code
+        return true;
+    else
+        return false;
+}
+
+// check if token has been burned
+static bool IsNFTBurned(uint256 tokenid, CTransaction &burntx)
+{
+    if (GetNFTUnspentTx(tokenid, burntx) &&
+        burntx.vout.size() > 1 &&
+        HasBurnedTokensvouts(burntx, tokenid) > 0)
+        return true;
+    else
+        return false;
+}
+
+// create game object NFT by calling token cc function
+static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
+{
+    vscript_t vnftdata = baseobj->Marshal(); // E_MARSHAL(ss << baseobj);
+    if (vnftdata.empty())
+    {
+        CCerror = std::string("can't marshal object with id=") + std::string(1, (char)baseobj->objectId);
+        return std::string();
+    }
+
+    return CreateTokenExt(0, 1, baseobj->nameId, baseobj->descriptionId, vnftdata, EVAL_KOGS);
 }
 
 // create kogs cc container tx (not a token)
@@ -80,7 +121,11 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
                 if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
                 {
                     uint8_t objectId;
+                    CTransaction burntx;
                     if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectId))
+                        return nullptr;
+
+                    if (IsNFTBurned(creationtxid, burntx))
                         return nullptr;
 
                     KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
@@ -89,10 +134,10 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
                     if (obj->Unmarshal(vnftopret))
                         return obj;
                     else
-                        LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant unmarshal nft to GameObject" << std::endl);
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal nft to GameObject" << std::endl);
                 }
                 else
-                    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant find nft opret in token opret" << std::endl);
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant find nft opret in token opret" << std::endl);
             }
             else if(KogsEnclosure::DecodeOpret(createtx, enc))
             {
@@ -110,12 +155,12 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
                 if (obj->Unmarshal(vopret))
                     return obj;
                 else
-                    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "cant unmarshal non-nft kogs object to GameObject" << std::endl);
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal non-nft kogs object to GameObject" << std::endl);
                 //}
             }
         }
         else
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "no opret in tx" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no opret in tx" << std::endl);
     }
     return nullptr;
 }
@@ -125,17 +170,16 @@ static void KogsGameObjectList(uint8_t objectId, std::vector<std::shared_ptr<Kog
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
 
     struct CCcontract_info *cp, C; 
-
     cp = CCinit(&C, EVAL_KOGS);
 
-    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectId=" << (char)objectId << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectId=" << (char)objectId << std::endl);
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr marker
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) {
         struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectId and unmarshal corresponding gameobject
         if (obj != nullptr && obj->objectId == objectId)
             list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
     }
-    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectId=" << (char)objectId << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectId=" << (char)objectId << std::endl);
 }
 
 // returns all objects' creationtxid (tokenids or kog object creation txid) for the object with objectId
@@ -204,6 +248,11 @@ std::vector<std::string> KogsCreateGameObjectNFTs(std::vector<KogsMatchObject> &
 }
 
 // create pack of 'packsize' kog ids and encrypt its content
+// pack content is tokenid list (encrypted)
+// pack use case:
+// when pack is purchased, the pack's NFT is sent to the purchaser
+// then the purchaser burns the pack NFT and this means he unseals it.
+// after this the system user sends NFTs inside the pack to the puchaser.
 std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
 {
     const std::string emptyresult;
@@ -240,7 +289,7 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
             freekogids.push_back(kog->creationtxid);
     }
 
-    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "found free kogs num=" << freekogids.size() << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found free kogs num=" << freekogids.size() << std::endl);
 
     // check the kogs num is sufficient
     if (packsize > freekogids.size()) {
@@ -267,8 +316,31 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
     return CreateGameObjectNFT(&newpack);
 }
 
+// create game config object
+std::string KogsCreateGameConfig(KogsGameConfig newgameconfig)
+{
+    const std::string emptyresult;
+    KogsEnclosure enc(zeroid);  //'zeroid' means 'for creation'
+
+    enc.vdata = newgameconfig.Marshal();
+    return CreateEnclosureTx(enc);
+}
+
+// create player object with player's params
+std::string KogsCreatePlayer(KogsPlayer newplayer)
+{
+    const std::string emptyresult;
+    KogsEnclosure enc(zeroid);  //'zeroid' means 'for creation'
+
+    enc.vdata = newplayer.Marshal();
+    return CreateEnclosureTx(enc);
+}
+
 // create container for passed tokenids
 // check for duplicated
+// container content is tokenid list
+// this is not a very good container impl: to deposit container we would need also to deposit all tokens inside it.
+// (hmm, but I have done packs impl in a similar way. And I have to do this: pack content should be encrypted..)
 std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint256> &tokenids, std::vector<uint256> &duptokenids)
 {
     const std::string emptyresult;
@@ -298,6 +370,50 @@ std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint2
 
     enc.vdata = newcontainer.Marshal();
     return CreateEnclosureTx(enc);
+}
+
+// another impl for container: its an NFT token
+// to add tokens to it we just send them to container 1of2 addr (kogs-global, container-create-txid)
+// it's better for managing NFTs inside the container, easy to deposit: if container NFT is sent to some adddr that would mean all nfts inside it are also on this addr
+// and the kogs validation code would allow to spend nfts from 1of2 addr to whom who owns the container nft
+// simply and effective
+// returns hextx list of container creation tx and token transfer tx
+std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const std::set<uint256> &tokenids)
+{
+    const std::vector<std::string> emptyresult;
+    std::vector<std::string> result;
+    
+    std::string containerhextx = CreateGameObjectNFT(&newcontainer);
+    if (containerhextx.empty())
+        return emptyresult;
+
+    result.push_back(containerhextx);
+
+    // unmarshal tx to get it txid;
+    vuint8_t vtx = ParseHex(containerhextx);
+    CTransaction containertx;
+    if (!E_UNMARSHAL(vtx, ss >> containertx)) {
+        CCerror = "can't unmarshal container tx";
+        return emptyresult;
+    }
+    
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
+
+    uint256 containertxid = containertx.GetHash();
+    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey createtxidPk = CCtxidaddr(txidaddr, containertxid);
+
+    for (auto t : tokenids)
+    {
+        std::string transferhextx = TokenTransferExt(0, t, std::vector<std::pair<CC*,uint8_t*>>(), std::vector<CPubKey> {kogsPk, createtxidPk}, 1);
+        if (transferhextx.empty())
+            return emptyresult;
+
+        result.push_back(transferhextx);
+    }
+    return result;
 }
 
 // transfer container to destination pubkey
@@ -402,27 +518,152 @@ std::string KogsRemoveKogsFromContainer(int64_t txfee, uint256 containerid, std:
     return hextx;
 }
 
-static bool IsNFTBurned(uint256 tokenid, CTransaction &burntx)
+
+// deposit (send) container to destination pubkey
+std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 containerid)
 {
-    uint256 txid, spenttxid;
-    int32_t vini, height;
-    uint256 hashBlock;
-    int32_t nvout = 1; // cc vout with token value in the tokenbase tx
-    
-    txid = tokenid;
-    while (CCgetspenttxid(spenttxid, vini, height, txid, nvout) == 0)
-    {
-        txid = spenttxid;
-        nvout = 0; // cc vout with token value in the subsequent txns
+    KogsBaseObject *baseobj = LoadGameObject(gameid);
+    if (baseobj == nullptr || baseobj->objectId != KOGSID_GAME) {
+        CCerror = "can't load game data";
+        return std::string("");
     }
 
-    if (txid != tokenid && myGetTransaction(txid, burntx, hashBlock) &&  // use non-locking ver as this func could be called from validation code
-        burntx.vout.size() > 1 &&
-        HasBurnedTokensvouts(burntx, tokenid) > 0)
-        return true;
-    else
-        return false;
+    baseobj = LoadGameObject(containerid);
+    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
+        CCerror = "can't load container";
+        return std::string("");
+    }
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
+
+    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
+
+    std::string hextx = TokenTransferExt(0, containerid, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, gametxidPk }, 1); // amount = 1 always for NFTs
+    return hextx;
 }
+
+// check if container NFT is on 1of2 address (kogsPk, gametxidpk)
+static bool IsContainerDeposited(KogsGame game, KogsContainer container)
+{
+    CTransaction lasttx;
+    if (!GetNFTUnspentTx(container.creationtxid, lasttx))  // TODO: optimize getting lasttx vout in LoadGameObject()
+        return false;
+    if (lasttx.vout.size() < 1)
+        return false;
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
+
+    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey gametxidPk = CCtxidaddr(txidaddr, game.creationtxid);
+    if (lasttx.vout[0] == MakeCC1of2vout(EVAL_TOKENS, 1, kogsPk, gametxidPk))
+        return true;
+    return false;
+}
+
+// add kogs to the container by sending kogs to container 1of2 address
+std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids)
+{
+    const std::vector<std::string> emptyresult;
+    std::vector<std::string> result;
+
+    KogsBaseObject *baseobj = LoadGameObject(containerid);
+    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
+        CCerror = "can't load container";
+        return emptyresult;
+    }
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
+
+    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey containertxidPk = CCtxidaddr(txidaddr, containerid);
+
+    for (auto tokenid : tokenids)
+    {
+        std::string hextx = TokenTransferExt(0, tokenid, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, containertxidPk }, 1); // amount = 1 always for NFTs
+        if (hextx.empty())
+            return emptyresult;
+        result.push_back(hextx);
+    }
+    return result;
+}
+
+// remove kogs from the container by sending kogs from the container 1of2 address to self
+std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids)
+{
+    const std::vector<std::string> emptyresult;
+    std::vector<std::string> result;
+    KogsBaseObject *baseobj;
+    KogsGame *pgame;
+    KogsContainer *pcontainer;
+
+    baseobj = LoadGameObject(gameid);
+    if (baseobj == nullptr || baseobj->objectId != KOGSID_GAME) {
+        CCerror = "can't load container";
+        return emptyresult;
+    }
+    pgame = (KogsGame *)baseobj;
+
+    baseobj = LoadGameObject(containerid);
+    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
+        CCerror = "can't load container";
+        return emptyresult;
+    }
+    pcontainer = (KogsContainer *)baseobj;
+
+    CPubKey mypk = pubkey2pk(Mypubkey());
+    if (IsContainerDeposited(*pgame, *pcontainer)) {
+        if (mypk != pgame->origpk) {
+            CCerror = "can't remove kogs: container is deposited and you are not the game creator";
+            return emptyresult;
+        }
+    }
+    else {
+        CTransaction lasttx;
+        if (!GetNFTUnspentTx(containerid, lasttx)) {
+            CCerror = "container is already burned";
+            return emptyresult;
+        }
+        if (lasttx.vout.size() < 1) {
+            CCerror = "incorrect nft last tx";
+            return emptyresult;
+        }
+        if (lasttx.vout[0] != MakeCC1vout(EVAL_TOKENS, 1, mypk)) {
+            CCerror = "this is not your container to remove kogs";
+            return emptyresult;
+        }
+    }
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+    uint8_t kogspriv[32];
+    CPubKey kogsPk = GetUnspendable(cp, kogspriv);
+    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey createtxidPk = CCtxidaddr(txidaddr, containerid);
+    CC *probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, createtxidPk);
+
+    for (auto tokenid : tokenids)
+    {
+        std::string hextx = TokenTransferExt(0, tokenid, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogspriv) }, std::vector<CPubKey>{ mypk }, 1); // amount = 1 always for NFTs
+        if (hextx.empty()) {
+            result = emptyresult;
+            break;
+        }
+        result.push_back(hextx);
+    }
+
+    cc_free(probeCond);
+    return result;
+}
+
+
+
 
 // transfer token to scriptPubKey
 static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
@@ -438,7 +679,7 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
 
     if (total < 0) {
         CCerror = strprintf("negative total");
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << CCerror << "=" << total << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << "=" << total << std::endl);
         return("");
     }
     if (txfee == 0)
@@ -451,7 +692,7 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
         {
             if (inputs < total) {  
                 CCerror = strprintf("insufficient token inputs");
-                LOGSTREAM("cctokens", CCLOG_INFO, stream << "TokenTransferSpk() " << CCerror << std::endl);
+                LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "TokenTransferSpk() " << CCerror << std::endl);
                 return std::string("");
             }
 
@@ -471,13 +712,13 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
         }
         else {
             CCerror = strprintf("no token inputs");
-            LOGSTREAM("cctokens", CCLOG_INFO, stream << "TokenTransferSpk() " << CCerror << " for amount=" << total << std::endl);
+            LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "TokenTransferSpk() " << CCerror << " for amount=" << total << std::endl);
         }
     }
     else 
     {
         CCerror = "insufficient normal inputs for tx fee";
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << "TokenTransferSpk() " << CCerror << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "TokenTransferSpk() " << CCerror << std::endl);
     }
     return empty;
 }
@@ -501,6 +742,7 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
         struct CCcontract_info *cp, C;
         cp = CCinit(&C, EVAL_TOKENS);
 
+        // find who burned the pack and send to him the tokens from the pack
         for (auto vin : burntx.vin)
         {
             if (cp->ismyvin(vin.scriptSig))

@@ -59,7 +59,8 @@ UniValue kogsaddress(const UniValue& params, bool fHelp)
 
     cp = CCinit(&C, EVAL_KOGS);
     if (fHelp || params.size() > 1)
-        throw runtime_error("kogsaddress [pubkey]\n");
+        throw runtime_error("kogsaddress [pubkey]\n"
+                            "returns addresses for kogs module for the pubkey parameter or the mypubkey if omitted\n");
 
     error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -70,8 +71,185 @@ UniValue kogsaddress(const UniValue& params, bool fHelp)
     return(CCaddress(cp, (char *)"Kogs", vpubkey));
 }
 
+// rpc kogscreategameconfig impl
+UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
+    CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+    if (fHelp || (params.size() < 4))
+    {
+        throw runtime_error(
+            "kogscreategameconfig name description '{ param1, param2, ... }'\n"
+            "creates a game configuration\n"
+            "returns gameconfig transaction to be sent via sendrawtransaction rpc\n" "\n");
+    }
+
+    KogsGameConfig newgameconfig;
+    newgameconfig.nameId = params[0].get_str();
+    newgameconfig.descriptionId = params[1].get_str();
+
+    if (params[0].getType() == UniValue::VOBJ)
+        jsonParams = params[0].get_obj();
+    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[0].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
+        throw runtime_error("parameter 1 must be object\n");
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output jsonParams=" << jsonParams.write(0, 0) << std::endl);
+
+    // parse json object with game config params:
+
+    std::vector<std::string> ikeys = jsonParams.getKeys();
+    std::vector<std::string>::const_iterator iter;
+
+    int reqparamcount = 0;
+
+    iter = std::find(ikeys.begin(), ikeys.end(), "KogsInContainer");
+    UniValue param;
+    if (iter != ikeys.end()) {
+        param = jsonParams[iter - ikeys.begin()];
+        newgameconfig.numKogsInContainer = param.isNum() ? param.get_int() : atoi(param.get_str());
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newgameconfig.numKogsInContainer=" << newgameconfig.numKogsInContainer << std::endl);
+        if (newgameconfig.numKogsInContainer < 1 || newgameconfig.numKogsInContainer > 100)
+            throw runtime_error("KogsInContainer param is incorrect\n");
+
+        reqparamcount++;
+    }
+       
+    //if (reqparamcount < 1)
+    //    throw runtime_error("not all required game object data passed\n");
+    std::string hextx = KogsCreateGameConfig(newgameconfig);
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
+}
+
+
+// rpc kogscreateplayer impl
+UniValue kogscreateplayer(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
+    CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+    if (fHelp || (params.size() < 4))
+    {
+        throw runtime_error(
+            "kogscreateplayer name description '{ param1, param2, ... }'\n"
+            "creates a player object\n"
+            "returns player object transaction to be sent via sendrawtransaction rpc\n" "\n");
+    }
+
+    KogsPlayer newplayer;
+    newplayer.nameId = params[0].get_str();
+    newplayer.descriptionId = params[1].get_str();
+
+    if (params[0].getType() == UniValue::VOBJ)
+        jsonParams = params[0].get_obj();
+    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[0].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
+        throw runtime_error("parameter 1 must be object\n");
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output jsonParams=" << jsonParams.write(0, 0) << std::endl);
+
+    // parse json object with game config params:
+
+    std::vector<std::string> ikeys = jsonParams.getKeys();
+    std::vector<std::string>::const_iterator iter;
+
+    int reqparamcount = 0;
+
+    iter = std::find(ikeys.begin(), ikeys.end(), "param1");
+    UniValue param;
+    if (iter != ikeys.end()) {
+        param = jsonParams[iter - ikeys.begin()];
+        newplayer.param1 = param.isNum() ? param.get_int() : atoi(param.get_str());
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newplayer.param1=" << newplayer.param1 << std::endl);
+        //if (newplayer.param1 < 1 || newplayer.param1 > 100)
+        //    throw runtime_error("param1 param is incorrect\n");
+
+        reqparamcount++;
+    }
+
+    //if (reqparamcount < 1)
+    //    throw runtime_error("not all required game object data passed\n");
+
+
+    std::string hextx = KogsCreatePlayer(newplayer);
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
+}
+
+// rpc kogsstartgame impl
+UniValue kogsstartgame(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
+    CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+    if (fHelp || (params.size() < 4))
+    {
+        throw runtime_error(
+            "kogsstartgame gameconfigid playerid1, playerid2, ...\n"
+            "starts a new game with 2 or more players\n"
+            "returns game transaction to be sent via sendrawtransaction rpc\n" "\n");
+    }
+
+    KogsPlayer newplayer;
+    newplayer.nameId = params[0].get_str();
+    newplayer.descriptionId = params[1].get_str();
+
+    if (params[0].getType() == UniValue::VOBJ)
+        jsonParams = params[0].get_obj();
+    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[0].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
+        throw runtime_error("parameter 1 must be object\n");
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output jsonParams=" << jsonParams.write(0, 0) << std::endl);
+
+    // parse json object with game config params:
+
+    std::vector<std::string> ikeys = jsonParams.getKeys();
+    std::vector<std::string>::const_iterator iter;
+
+    int reqparamcount = 0;
+
+    iter = std::find(ikeys.begin(), ikeys.end(), "param1");
+    UniValue param;
+    if (iter != ikeys.end()) {
+        param = jsonParams[iter - ikeys.begin()];
+        newplayer.param1 = param.isNum() ? param.get_int() : atoi(param.get_str());
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newplayer.param1=" << newplayer.param1 << std::endl);
+        //if (newplayer.param1 < 1 || newplayer.param1 > 100)
+        //    throw runtime_error("param1 param is incorrect\n");
+
+        reqparamcount++;
+    }
+
+    //if (reqparamcount < 1)
+    //    throw runtime_error("not all required game object data passed\n");
+
+
+    std::string hextx = KogsCreatePlayer(newplayer);
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
+}
+
+
 // helper function
-static UniValue KogsCreateGameObjects(const UniValue& params, bool isKogs)
+static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -82,7 +260,7 @@ static UniValue KogsCreateGameObjects(const UniValue& params, bool isKogs)
         jsonParams.read(params[0].get_str().c_str());
     if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
         throw runtime_error("parameter 1 must be object\n");
-    std::cerr << __func__ << " test output jsonParams=" << jsonParams.write(0, 0) << std::endl;
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << jsonParams.write(0, 0) << std::endl);
 
     std::vector<KogsMatchObject> gameobjects;
     std::vector<std::string> paramkeys = jsonParams.getKeys();
@@ -96,13 +274,12 @@ static UniValue KogsCreateGameObjects(const UniValue& params, bool isKogs)
         if (jsonArray.size() == 0)
             throw runtime_error("'kogs' or 'slammers' array is empty\n");
 
-
         for (int i = 0; i < jsonArray.size(); i++)
         {
             std::vector<std::string> ikeys = jsonArray[i].getKeys();
             
-            struct KogsMatchObject gameobj;
-            gameobj.InitGameObject(isKogs ? KOGSID_KOG : KOGSID_SLAMMER); // set basic ids
+            struct KogsMatchObject gameobj(isKogs ? KOGSID_KOG : KOGSID_SLAMMER);
+            gameobj.InitGameObject(); // set basic ids
 
             int reqparamcount = 0;
             // parse json array item with kog data:
@@ -172,7 +349,7 @@ UniValue kogscreatekogs(const UniValue& params, bool fHelp)
             "kogscreatekogs '{\"kogs\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}'\n"
             "creates array of kog NFT creation transactions to be sent via sendrawtransaction rpc\n" "\n");
     }
-    return KogsCreateGameObjects(params, true);
+    return CreateMatchObjects(params, true);
 }
 
 // rpc kogscreateslammers impl
@@ -190,7 +367,7 @@ UniValue kogscreateslammers(const UniValue& params, bool fHelp)
             "kogscreateslammers '{\"slammers\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}'\n"
             "creates array of slammer NFT creation transactions to be sent via sendrawtransaction rpc\n" "\n");
     }
-    return KogsCreateGameObjects(params, false);
+    return CreateMatchObjects(params, false);
 }
 
 // rpc kogscreatepack impl
@@ -349,21 +526,22 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 2))
     {
         throw runtime_error(
-            "kogsdepositcontainer containerid destpubkey\n"
-            "deposit container to the system pk (to be changed: the system pk should be taken from the system tx)\n" "\n");
+            "kogsdepositcontainer gameid containerid\n"
+            "deposits container to the system game address\n"
+            "parameters:\n"
+            "gameid - id of the transaction created by kogsstartgame rpc"
+            "containerid - id of container creation transaction\n" "\n");
     }
 
-    uint256 containerId = Parseuint256(params[0].get_str().c_str());
+    uint256 gameid = Parseuint256(params[0].get_str().c_str());
+    if (gameid.IsNull())
+        throw runtime_error("incorrect gameid\n");
 
-    if (containerId.IsNull())
+    uint256 containerid = Parseuint256(params[1].get_str().c_str());
+    if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
-
-    std::vector<unsigned char> vpubkey = ParseHex(params[1].get_str().c_str());
-    CPubKey destpk = pubkey2pk(vpubkey);
-    if (destpk.size() != 33)
-        throw runtime_error("incorrect pubkey\n");
     
-    std::string hextx = KogsDepositContainer(0, containerId, destpk);
+    std::string hextx = KogsDepositContainerV2(0, gameid, containerid);
     RETURN_IF_ERROR(CCerror);
 
     result.push_back(std::make_pair("result", "success"));
@@ -375,6 +553,7 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
 UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
+    UniValue resarray(UniValue::VARR);
     CCerror.clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
@@ -384,17 +563,20 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 2))
     {
         throw runtime_error(
-            "kogsaddkogstocontainer containerid tokenid1, tokenid2, ...\n"
+            "kogsaddkogstocontainer gameid containerid tokenid1, tokenid2, ...\n"
             "adds kog tokenids to container\n" "\n");
     }
 
-    uint256 containerId = Parseuint256(params[0].get_str().c_str());
+    uint256 gameid = Parseuint256(params[0].get_str().c_str());
+    if (gameid.IsNull())
+        throw runtime_error("incorrect gameid\n");
 
-    if (containerId.IsNull())
+    uint256 containerid = Parseuint256(params[1].get_str().c_str());
+    if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
     std::set<uint256> tokenids;
-    for (int i = 1; i < params.size(); i++)
+    for (int i = 2; i < params.size(); i++)
     {
         uint256 tokenid = Parseuint256(params[i].get_str().c_str());
         if (!tokenid.IsNull())
@@ -402,14 +584,18 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
         else
             throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
     }
-    if (tokenids.size() != params.size() - 1)
+    if (tokenids.size() != params.size() - 2)
         throw runtime_error("duplicate tokenids in params\n");
 
-    std::string hextx = KogsAddKogsToContainer(0, containerId, tokenids);
+    std::vector<std::string> hextxns = KogsAddKogsToContainerV2(0, gameid, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
 
+    for (auto hextx : hextxns)
+    {
+        resarray.push_back(hextx);
+    }
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
+    result.push_back(std::make_pair("txns", resarray));
     return result;
 }
 
@@ -417,6 +603,7 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
 UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
+    UniValue resarray(UniValue::VARR);
     CCerror.clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
@@ -426,17 +613,20 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 2))
     {
         throw runtime_error(
-            "kogsaddkogstocontainer containerid tokenid1, tokenid2, ...\n"
-            "adds kog tokenids to container\n" "\n");
+            "kogsremovekogsfromcontainer gameid containerid tokenid1, tokenid2, ...\n"
+            "remove kog tokenids to container\n" "\n");
     }
 
-    uint256 containerId = Parseuint256(params[0].get_str().c_str());
+    uint256 gameid = Parseuint256(params[0].get_str().c_str());
+    if (gameid.IsNull())
+        throw runtime_error("incorrect gameid\n");
 
-    if (containerId.IsNull())
+    uint256 containerid = Parseuint256(params[1].get_str().c_str());
+    if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
     std::set<uint256> tokenids;
-    for (int i = 1; i < params.size(); i++)
+    for (int i = 2; i < params.size(); i++)
     {
         uint256 tokenid = Parseuint256(params[i].get_str().c_str());
         if (!tokenid.IsNull())
@@ -444,14 +634,17 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
         else
             throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
     }
-    if (tokenids.size() != params.size() - 1)
+    if (tokenids.size() != params.size() - 2)
         throw runtime_error("duplicate tokenids in params\n");
 
-    std::string hextx = KogsRemoveKogsFromContainer(0, containerId, tokenids);
+    std::vector<std::string> hextxns = KogsRemoveKogsFromContainerV2(0, gameid, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
-
+    for (auto hextx : hextxns)
+    {
+        resarray.push_back(hextx);
+    }
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
+    result.push_back(std::make_pair("txns", resarray));
     return result;
 }
 
@@ -611,6 +804,9 @@ UniValue kogsobjectinfo(const UniValue& params, bool fHelp)
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
+    { "kogs",         "kogscreategameconfig",   &kogscreategameconfig,    true },
+    { "kogs",         "kogscreateplayer",       &kogscreateplayer,        true },
+    { "kogs",         "kogsstartgame",          &kogsstartgame,          true },
     { "kogs",         "kogscreatekogs",         &kogscreatekogs,          true },
     { "kogs",         "kogscreateslammers",     &kogscreateslammers,      true },
     { "kogs",         "kogscreatepack",         &kogscreatepack,          true },
