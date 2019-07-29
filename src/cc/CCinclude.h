@@ -163,6 +163,46 @@ struct CC_meta
 };
 /// \endcond
 
+// dimxy
+// class CCWrapper encapsulates and stores cryptocondition encoded in json
+// such stored conds are used as a probe cond in FinalizeCCtx to find out vin tx cc vout and make the matching tx.vin.scriptSig
+class CCwrapper {
+public:
+    CCwrapper() {}
+
+    // smart pointer alternate variant (not to copy cc but use smart pointer with auto cc_free)
+    // we could use it if cc serialization to JSON fails. But serialization is more consistent
+    // CCwrapper(CC *cond) : spcond(cond, [](CC* p) {cc_free(p); }) { }
+    // CCwrapper(const CCwrapper &w) { spcond = w.spcond; }  // default copy constr
+    // CC *get() { return spcond.get(); }
+
+    void set(CC *cond) {
+        ccJsonString = cc_conditionToJSONString(cond); // serialize cc to store it and allow caller to cc_free the cond
+    }
+
+    CC *get() {
+        char err[1024] = "";
+        CC *cond = cc_conditionFromJSONString(ccJsonString, err);  // dont forget to cc_free it
+
+                                                                   // debug logging if parse not successful:
+                                                                   // std::cerr << "CCwrapper ccJsonString=" << ccJsonString << "\nerr=" << err << std::endl;  
+                                                                   // if( cond ) std::cerr << "CCwrapper serialized=" << cc_conditionToJSONString(cond) << std::endl;  //see how it is serialized back
+        return cond;
+    }
+
+private:
+    //std::shared_ptr<CC> spcond; // for smart pointer
+    char *ccJsonString;
+    size_t  cclen;
+};
+
+// struct with cc and privkey 
+// cc is used as a probe to detect vintx cc vouts in FinalizeCCtx
+// CCVintxCond is passed inside a vector of probe cc
+struct CCVintxProbe {
+    CCwrapper CCwrapped;
+    uint8_t   CCpriv[32];
+};
 /// CC contract (Antara module) info structure that contains data used for signing and validation of cc contract transactions
 struct CCcontract_info
 {
@@ -219,8 +259,37 @@ struct CCcontract_info
     /// \endcode
     bool (*ismyvin)(CScript const& scriptSig);	
 
+	std::vector< struct CCVintxProbe > CCvintxprobes;  //!< stores probe cryptoconditions and privkeys to find vintx cc vouts and sign vins
+
     /// @private
     uint8_t didinit;
+
+    void init_to_zeros() {
+        // init to zeros:
+        evalcode = 0;
+        additionalTokensEvalcode2 = 0;
+
+        memset(CCpriv, '\0', sizeof(CCpriv) / sizeof(CCpriv[0]));
+
+        strcpy(unspendableCCaddr, "");
+        strcpy(CChexstr, "");
+        strcpy(normaladdr, "");
+
+        memset(coins1of2priv, '\0', sizeof(coins1of2priv) / sizeof(coins1of2priv[0]));
+        strcpy(coins1of2addr, "");
+        strcpy(tokens1of2addr, "");
+
+        unspendableEvalcode2 = 0;
+        unspendableEvalcode3 = 0;
+        strcpy(unspendableaddr2, "");
+        strcpy(unspendableaddr3, "");
+        memset(unspendablepriv2, '\0', sizeof(unspendablepriv2) / sizeof(unspendablepriv2[0]));
+        memset(unspendablepriv3, '\0', sizeof(unspendablepriv3) / sizeof(unspendablepriv3[0]));
+
+        ismyvin = NULL;
+        validate = NULL;
+        didinit = 0;
+    }
 };
 
 /// init CCcontract_info structure with global pubkey, privkey and address for the contract identified by the passed evalcode.\n
@@ -933,6 +1002,8 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
 /// @param CCflag if true the function searches for cc output, otherwise for normal output
 /// @returns utxo value or 0 if utxo not found
 int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCflag);
+/// @private
+void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, uint8_t *priv = NULL);
 
 /// @private
 int32_t CC_vinselect(int32_t *aboveip, int64_t *abovep, int32_t *belowip, int64_t *belowp, struct CC_utxo utxos[], int32_t numunspents, int64_t value);
@@ -985,6 +1056,7 @@ void LockUtxo(uint256 txid, int32_t nvout);
 extern void CCLogPrintStr(const char *category, int level, const std::string &str);
 
 /// @private
+
 template <class T>
 void CCLogPrintStream(const char *category, int level, const char *functionName, T print_to_stream)
 {
