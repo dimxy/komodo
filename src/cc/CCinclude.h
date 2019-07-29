@@ -128,6 +128,47 @@ struct CC_meta
     // followed by address destinations
 };
 
+// dimxy
+// class CCWrapper encapsulates and stores cryptocondition encoded in json
+// such stored conds are used as a probe cond in FinalizeCCtx to find out vin tx cc vout and make the matching tx.vin.scriptSig
+class CCwrapper {
+public:
+    CCwrapper() {}
+
+    // smart pointer alternate variant (not to copy cc but use smart pointer with auto cc_free)
+    // we could use it if cc serialization to JSON fails. But serialization is more consistent
+    // CCwrapper(CC *cond) : spcond(cond, [](CC* p) {cc_free(p); }) { }
+    // CCwrapper(const CCwrapper &w) { spcond = w.spcond; }  // default copy constr
+    // CC *get() { return spcond.get(); }
+
+    void set(CC *cond) {
+        ccJsonString = cc_conditionToJSONString(cond); // serialize cc to store it and allow caller to cc_free the cond
+    }
+
+    CC *get() {
+        char err[1024] = "";
+        CC *cond = cc_conditionFromJSONString(ccJsonString, err);  // dont forget to cc_free it
+
+                                                                   // debug logging if parse not successful:
+                                                                   // std::cerr << "CCwrapper ccJsonString=" << ccJsonString << "\nerr=" << err << std::endl;  
+                                                                   // if( cond ) std::cerr << "CCwrapper serialized=" << cc_conditionToJSONString(cond) << std::endl;  //see how it is serialized back
+        return cond;
+    }
+
+private:
+    //std::shared_ptr<CC> spcond; // for smart pointer
+    char *ccJsonString;
+    size_t  cclen;
+};
+
+// struct with cc and privkey 
+// cc is used as a probe to detect vintx cc vouts in FinalizeCCtx
+// CCVintxCond is passed inside a vector of probe cc
+struct CCVintxProbe {
+    CCwrapper CCwrapped;
+    uint8_t   CCpriv[32];
+};
+
 struct CCcontract_info
 {
 	// this is for spending from 'unspendable' CC address
@@ -155,7 +196,36 @@ struct CCcontract_info
     bool (*validate)(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);  // cc contract tx validation callback
     bool (*ismyvin)(CScript const& scriptSig);	// checks if evalcode is present in the scriptSig param
 
+    std::vector< struct CCVintxProbe > CCvintxprobes;  // stores probe cryptoconditions and privkeys to find vintx cc vouts and sign vins
+
     uint8_t didinit;
+
+    void init_to_zeros() {
+        // init to zeros:
+        evalcode = 0;
+        additionalTokensEvalcode2 = 0;
+
+        memset(CCpriv, '\0', sizeof(CCpriv) / sizeof(CCpriv[0]));
+
+        strcpy(unspendableCCaddr, "");
+        strcpy(CChexstr, "");
+        strcpy(normaladdr, "");
+
+        memset(coins1of2priv, '\0', sizeof(coins1of2priv) / sizeof(coins1of2priv[0]));
+        strcpy(coins1of2addr, "");
+        strcpy(tokens1of2addr, "");
+
+        unspendableEvalcode2 = 0;
+        unspendableEvalcode3 = 0;
+        strcpy(unspendableaddr2, "");
+        strcpy(unspendableaddr3, "");
+        memset(unspendablepriv2, '\0', sizeof(unspendablepriv2) / sizeof(unspendablepriv2[0]));
+        memset(unspendablepriv3, '\0', sizeof(unspendablepriv3) / sizeof(unspendablepriv3[0]));
+
+        ismyvin = NULL;
+        validate = NULL;
+        didinit = 0;
+    }
 };
 struct CCcontract_info *CCinit(struct CCcontract_info *cp,uint8_t evalcode);
 
@@ -312,6 +382,7 @@ int64_t NSPV_AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total
 int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs);
 int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinputs);
 int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCflag);
+void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, uint8_t *priv = NULL);
 bool NSPV_SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey,uint32_t nTime);
 
 // curve25519 and sha256
@@ -334,29 +405,46 @@ bool isUtxoLocked(uint256 txid, int32_t nvout);
 void LockUtxo(uint256 txid, int32_t nvout);
 
 // bitcoin LogPrintStr with category "-debug" cmdarg support for C++ ostringstream:
+
+// log levels:
+#define CCLOG_ERROR  (-1)
 #define CCLOG_INFO   0
 #define CCLOG_DEBUG1 1
 #define CCLOG_DEBUG2 2
 #define CCLOG_DEBUG3 3
 #define CCLOG_MAXLEVEL 3
+
 template <class T>
-void CCLogPrintStream(const char *category, int level, T print_to_stream)
+void CCLogPrintStream(const char *category, int level, const char *functionName, T printToStream)
 {
     std::ostringstream stream;
-    print_to_stream(stream);
-    if (level < 0)
-        level = 0;
+    if (functionName != NULL)
+        stream << functionName << " ";
+    printToStream(stream);
+
+    if (level < 0) {
+        LogPrintStr(stream.str());  // print error unconditionally
+        return;
+    }
     if (level > CCLOG_MAXLEVEL)
         level = CCLOG_MAXLEVEL;
+    // check if category accepted:
     for (int i = level; i <= CCLOG_MAXLEVEL; i++)
-        if( LogAcceptCategory((std::string(category) + std::string("-") + std::to_string(i)).c_str())  ||     // '-debug=cctokens-0', '-debug=cctokens-1',...
-            i == 0 && LogAcceptCategory(std::string(category).c_str()) )  {                                  // also supporting '-debug=cctokens' for CCLOG_INFO
+        if (LogAcceptCategory((std::string(category) + std::string("-") + std::to_string(i)).c_str()) ||     // '-debug=cctokens-0', '-debug=cctokens-1',...
+            i == 0 && LogAcceptCategory(std::string(category).c_str())) {                                    // also supports '-debug=cctokens' for CCLOG_INFO
             LogPrintStr(stream.str());
             break;
         }
 }
-// use: LOGSTREAM("yourcategory", your-debug-level, stream << "some log data" << data2 << data3 << ... << std::endl);
-#define LOGSTREAM(category, level, logoperator) CCLogPrintStream( category, level, [=](std::ostringstream &stream) {logoperator;} )
 
+// LOGSTREAM is a macro wrapper around utils.cpp LogPrintStr which allows to use c++ style '<<' operator for logging 
+// LOGSTREAM checks if logging category is enabled by -debug cmd arg
+// but CCLOG_ERROR level is always printed independently whether category enabled or not by -debug arg
+// use like: LOGSTREAM("yourcategory", your-debug-level, stream << "some data1=" << data1 << " data2=" << data2 << " some text" << ... << std::endl);
+#define LOGSTREAM(category, level, logoperator) CCLogPrintStream( category, level, NULL, [=](std::ostringstream &stream) {logoperator;} )
+
+// LOGSTREAMFN is a version of LOGSTREAM macro which adds calling function name with the standard define __func__ at the beginning of the printed string 
+// LOGSTREAMFN parameters are the same as in LOGSTREAM
+#define LOGSTREAMFN(category, level, logoperator) CCLogPrintStream( category, level, __func__, [=](std::ostringstream &stream) {logoperator;} )
 
 #endif

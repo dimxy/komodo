@@ -7490,9 +7490,8 @@ UniValue tokentransfer(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
     
     tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    std::vector<unsigned char> pubkey(ParseHex(params[1].get_str().c_str()));
-    //amount = atol(params[2].get_str().c_str());
-	amount = atoll(params[2].get_str().c_str()); // dimxy changed to prevent loss of significance
+    std::vector<uint8_t> vpubkey(ParseHex(params[1].get_str().c_str()));
+	amount = atoll(params[2].get_str().c_str()); 
     if( tokenid == zeroid )    {
         ERR_RESULT("invalid tokenid");
         return(result);
@@ -7502,15 +7501,11 @@ UniValue tokentransfer(const UniValue& params, bool fHelp)
         return(result);
     }
 
-    hex = TokenTransfer(0, tokenid, pubkey, amount);
+    hex = TokenTransfer(0, tokenid, pubkey2pk(vpubkey), amount);
+    RETURN_IF_ERROR(CCerror);
 
-    if( !CCerror.empty() )   {
-        ERR_RESULT(CCerror);
-    }
-    else {
-        result.push_back(Pair("result", "success"));
-        result.push_back(Pair("hex", hex));
-    }
+    result.push_back(Pair("result", "success"));
+    result.push_back(Pair("hex", hex));
     return(result);
 }
 

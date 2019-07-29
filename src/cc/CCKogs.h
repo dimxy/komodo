@@ -22,6 +22,9 @@
 #include "../wallet/crypter.h"
 
 // object ids:
+const uint8_t KOGSID_GAMECONFIG = 'M';
+const uint8_t KOGSID_GAME = 'G';
+const uint8_t KOGSID_PLAYER = 'W';
 const uint8_t KOGSID_KOG = 'K';
 const uint8_t KOGSID_SLAMMER = 'S';
 const uint8_t KOGSID_PACK = 'P';
@@ -43,6 +46,7 @@ struct KogsBaseObject {
     uint8_t version;
 
     uint256 creationtxid;
+    CTxOut vout; // vout where the object is currently sent to
 
     // check basic data in opret (evalcode & version), return objectId
     static bool DecodeObjectHeader(vscript_t vopret, uint8_t &objectId) {
@@ -70,7 +74,156 @@ struct KogsBaseObject {
     }
 };
 
-// gameobject: kog or slammer
+
+// game configuration object
+struct KogsGameConfig : public KogsBaseObject {
+
+    int32_t numKogsInContainer;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {  // clear to zeros to indicate if could not read
+            evalcode = 0;
+            objectId = 0;
+            version = 0;
+        }
+
+        READWRITE(evalcode);
+        READWRITE(objectId);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && objectId == KOGSID_GAMECONFIG && version == KOGS_VERSION)
+        {
+            READWRITE(numKogsInContainer);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not gameconfig objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); };
+    virtual bool Unmarshal(vscript_t v) {
+        return E_UNMARSHAL(v, ss >> (*this));
+    };
+
+    KogsGameConfig() : KogsBaseObject() 
+    {
+        objectId = KOGSID_GAMECONFIG;
+        numKogsInContainer = 40;
+    }
+
+    // special init function for GameObject structure created in memory for serialization 
+    // (for reading from HDD it should not be called, these values should be read from HDD and checked)
+    void InitGameConfig()
+    {
+    }
+};
+
+// player object
+struct KogsPlayer : public KogsBaseObject {
+
+    int32_t param1;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {  // clear to zeros to indicate if could not read
+            evalcode = 0;
+            objectId = 0;
+            version = 0;
+        }
+        READWRITE(evalcode);
+        READWRITE(objectId);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && objectId == KOGSID_PLAYER && version == KOGS_VERSION)
+        {
+            READWRITE(param1);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not player objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); };
+    virtual bool Unmarshal(vscript_t v) {
+        return E_UNMARSHAL(v, ss >> (*this));
+    };
+
+    KogsPlayer() : KogsBaseObject()
+    {
+        objectId = KOGSID_GAMECONFIG;
+        param1 = 1;
+    }
+
+    // special init function for runtime init (after all services like wallet available)
+    void InitPlayer()
+    {
+    }
+};
+
+
+// game object
+struct KogsGame : public KogsBaseObject {
+
+    CPubKey origpk;
+    uint256 gameconfigid;
+    std::vector<uint256> playerids;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {  // clear to zeros to indicate if could not read
+            evalcode = 0;
+            objectId = 0;
+            version = 0;
+        }
+        READWRITE(evalcode);
+        READWRITE(objectId);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && objectId == KOGSID_GAME && version == KOGS_VERSION)
+        {
+            READWRITE(origpk);
+            READWRITE(gameconfigid);
+            READWRITE(playerids);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not game objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() { 
+        if (gameconfigid == zeroid) return vscript_t{}; 
+        return E_MARSHAL(ss << (*this)); 
+    }
+    virtual bool Unmarshal(vscript_t v) {
+        return E_UNMARSHAL(v, ss >> (*this));
+    }
+
+    KogsGame() : KogsBaseObject()
+    {
+        objectId = KOGSID_GAME;
+    }
+
+    // special init function for GameObject structure created in memory for serialization 
+    // (for reading from HDD it should not be called, these values should be read from HDD and checked)
+    void InitPlayer(uint256 gameconfigid_, std::vector<uint256> playerids_)
+    {
+        gameconfigid = gameconfigid_;
+        playerids = playerids_;
+        origpk = pubkey2pk(Mypubkey());
+    }
+};
+
+// match object: kog or slammer
 struct KogsMatchObject : public KogsBaseObject {
     std::string imageId;
     std::string setId;
@@ -108,20 +261,20 @@ struct KogsMatchObject : public KogsBaseObject {
         }
     }
 
-    virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); };
+    virtual vscript_t Marshal() { 
+        return E_MARSHAL(ss << (*this)); 
+    }
     virtual bool Unmarshal(vscript_t v) {
         return E_UNMARSHAL(v, ss >> (*this)); 
-    };
+    }
 
-    KogsMatchObject() : KogsBaseObject() {}
+    KogsMatchObject(uint8_t _objectId) : KogsBaseObject() { objectId = _objectId; }
+    KogsMatchObject() = delete;  // remove default, alwayd require objectId
 
     // special init function for GameObject structure created in memory for serialization 
     // (for reading from HDD it should not be called, these values should be read from HDD and checked)
-    void InitGameObject(uint8_t _objectId)
+    void InitGameObject()
     {
-        evalcode = EVAL_KOGS;
-        objectId = _objectId;
-        version = 1;
     }
 };
 
@@ -156,14 +309,11 @@ struct KogsPack : public KogsBaseObject {
         }
     }
 
-    KogsPack() : KogsBaseObject() { /*fEncrypted = fDecrypted = false;*/}
+    KogsPack() : KogsBaseObject() { objectId = KOGSID_PACK; }
 
     // special init function for the structure created in memory for serialization on disk
     void InitPack()
     {
-        evalcode = EVAL_KOGS;
-        objectId = KOGSID_PACK;
-        version = 1;
         //fEncrypted = fDecrypted = false;
         tokenids.clear();
         encrypted.clear();
@@ -320,7 +470,7 @@ struct KogsEnclosure {
             uint256 txid = enc.creationtxid;
             uint256 spenttxid, hashBlock;
             int32_t vini, height;
-            const int32_t nvout = 0;  // contaner cc value vout
+            const int32_t nvout = 0;  // container cc value vout
             CTransaction latesttx;
             vscript_t vLatestTxOpret;
 
@@ -404,24 +554,23 @@ struct KogsContainer : public KogsBaseObject {
         }
     }
 
-    virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); };
+    virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); }
     virtual bool Unmarshal(vscript_t v) 
     { 
         bool result = E_UNMARSHAL(v, ss >> (*this)); 
-        
         return result;
     }
 
-    // special init function for the container created for serialization on disk
-    void InitContainer()
-    {
-        evalcode = EVAL_KOGS;
+
+    KogsContainer() : KogsBaseObject() {
         objectId = KOGSID_CONTAINER;
-        version = KOGS_VERSION;
-        tokenids.clear();
     }
 
-    KogsContainer() : KogsBaseObject() { }
+    // special function for the container for runtime init
+    void InitContainer()
+    {
+        tokenids.clear();
+    }
 };
 
 // simple factory for Kogs game objects
@@ -438,7 +587,7 @@ public:
         {
         case KOGSID_KOG:
         case KOGSID_SLAMMER:
-            o = new KogsMatchObject();
+            o = new KogsMatchObject(objectId);
             return (KogsBaseObject*)o;
 
         case KOGSID_PACK:
@@ -456,13 +605,15 @@ public:
     }
 };
 
+std::string KogsCreateGameConfig(KogsGameConfig newgameconfig);
+std::string KogsCreatePlayer(KogsPlayer newplayer);
 std::vector<std::string> KogsCreateGameObjectNFTs(std::vector<KogsMatchObject> & newkogs);
 std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv);
 std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptkey, vuint8_t iv);
 std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint256> &tokenids, std::vector<uint256> &duptokenids);
-std::string KogsDepositContainer(int64_t txfee, uint256 containerid, CPubKey destpk);
-std::string KogsAddKogsToContainer(int64_t txfee, uint256 containerid, std::set<uint256> tokenids);
-std::string KogsRemoveKogsFromContainer(int64_t txfee, uint256 containerid, std::set<uint256> tokenids);
+std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 containerid);
+std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 gameid,  uint256 containerid, std::set<uint256> tokenids);
+std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids);
 std::string KogsRemoveObject(uint256 txid, int32_t nvout);
 std::string KogsBurnNFT(uint256 tokenid);
 void KogsCreationTxidList(uint8_t objectId, std::vector<uint256> &tokenids);

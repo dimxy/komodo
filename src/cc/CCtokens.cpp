@@ -828,19 +828,19 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
 
 	if (tokensupply < 0)	{
         CCerror = "negative tokensupply";
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << CCerror << "=" << tokensupply << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << "=" << tokensupply << std::endl);
 		return std::string("");
 	}
     if (!nonfungibleData.empty() && tokensupply != 1) {
         CCerror = "for non-fungible tokens tokensupply should be equal to 1";
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << CCerror << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << std::endl);
         return std::string("");
     }
 
 	cp = CCinit(&C, EVAL_TOKENS);
 	if (name.size() > 32 || description.size() > 4096)  // this is also checked on rpc level
 	{
-        LOGSTREAM("cctokens", CCLOG_DEBUG1, stream << __func__ << " " << "name len=" << name.size() << " or description len=" << description.size() << " is too big" << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << "name len=" << name.size() << " or description len=" << description.size() << " is too big" << std::endl);
         CCerror = "name should be <= 32, description should be <= 4096";
 		return("");
 	}
@@ -882,13 +882,26 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
 	}
 
     CCerror = "cant find normal inputs";
-    LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " <<  CCerror << std::endl);
+    LOGSTREAMFN("cctokens", CCLOG_INFO, stream <<  CCerror << std::endl);
     return std::string("");
 }
 
 // transfer tokens to another pubkey
 // param additionalEvalCode allows transfer of dual-eval non-fungible tokens
-std::string TokenTransfer(int64_t txfee, uint256 tokenid, vscript_t destpubkey, int64_t total)
+std::string TokenTransfer(int64_t txfee, uint256 tokenid, CPubKey destpubkey, int64_t total)
+{
+    return TokenTransferExt(txfee, tokenid, std::vector<std::pair<CC*, uint8_t*>>(), std::vector<CPubKey> {destpubkey}, total);
+}
+
+// token transfer extended version
+// params:
+// txfee - transaction fee, assumed 10000 if 0
+// tokenid - token creation tx id
+// probeconds - vector of pair of vintx cond and privkey (if null then global priv key will be used) to pick vouts to sign in vin transactions
+// destpubkeys - if size=1 then it is the dest pubkey, if size=2 then the dest address is 1of2 addr
+// total - token amount to transfer
+// returns: signed transfer tx in hex
+std::string TokenTransferExt(int64_t txfee, uint256 tokenid, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CPubKey mypk; uint64_t mask; int64_t CCchange = 0, inputs = 0;  struct CCcontract_info *cp, C;
@@ -896,7 +909,7 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, vscript_t destpubkey, 
 
 	if (total < 0)	{
         CCerror = strprintf("negative total");
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << CCerror << "=" << total << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << "=" << total << std::endl);
 		return("");
 	}
 
@@ -918,7 +931,7 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, vscript_t destpubkey, 
 		{
 			if (inputs < total) {   //added dimxy
                 CCerror = strprintf("insufficient token inputs");
-                LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << CCerror << std::endl);
+                LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << std::endl);
 				return std::string("");
 			}
 
@@ -928,24 +941,43 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, vscript_t destpubkey, 
             
 			if (inputs > total)
 				CCchange = (inputs - total);
-			mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, total, pubkey2pk(destpubkey)));  // if destEvalCode == EVAL_TOKENS then it is actually MakeCC1vout(EVAL_TOKENS,...)
+            if (destpubkeys.size() == 1)
+			    mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, total, destpubkeys[0]));  // if destEvalCode == EVAL_TOKENS then it is actually equal to MakeCC1vout(EVAL_TOKENS,...)
+            else if (destpubkeys.size() == 2)
+                mtx.vout.push_back(MakeTokensCC1of2vout(destEvalCode, total, destpubkeys[0], destpubkeys[1])); 
+            else
+            {
+                CCerror = "0 or unsupported pk number";
+                return std::string("");
+            }
+
+
 			if (CCchange != 0)
 				mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, CCchange, mypk));
 
+            // add probe pubkeys to detect token vouts in tx 
 			std::vector<CPubKey> voutTokenPubkeys;
-			voutTokenPubkeys.push_back(pubkey2pk(destpubkey));  // dest pubkey for validating vout
+            for(auto pk : destpubkeys)
+			    voutTokenPubkeys.push_back(pk);  // dest pubkey(s) added to opret for validating the vout as token vout (in IsTokensvout() func)
 
+            // add optional probe conds to non-usual sign vins
+            for (auto p : probeconds)
+                CCAddVintxCond(cp, p.first, p.second);
+
+            // TODO maybe add also opret blobs form vintx
+            // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
 			return FinalizeCCTx(mask, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutTokenPubkeys, std::make_pair((uint8_t)0, vopretEmpty))); 
+                                                                                                                                                   
 		}
 		else {
             CCerror = strprintf("no token inputs");
-            LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << CCerror << " for amount=" << total << std::endl);
+            LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << " for amount=" << total << std::endl);
 		}
 		//} else fprintf(stderr,"numoutputs.%d != numamounts.%d\n",n,(int32_t)amounts.size());
 	}
 	else {
         CCerror = strprintf("insufficient normal inputs for tx fee");
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << CCerror << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << std::endl);
 	}
 	return("");
 }
@@ -966,7 +998,7 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 
 	if (myGetTransaction(tokenid, tokentx, hashBlock) == 0)
 	{
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << "cant find tokenid" << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "cant find tokenid" << std::endl);
 		CCerror = strprintf("cant find tokenid");
 		return 0;
 	}
@@ -997,7 +1029,7 @@ UniValue TokenInfo(uint256 tokenid)
 
 	if( !myGetTransaction(tokenid, tokenbaseTx, hashBlock) )
 	{
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << "cant find tokenid" << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "cant find tokenid" << std::endl);
 		result.push_back(Pair("result", "error"));
 		result.push_back(Pair("error", "cant find tokenid"));
 		return(result);
@@ -1010,7 +1042,7 @@ UniValue TokenInfo(uint256 tokenid)
 
 	if (tokenbaseTx.vout.size() > 0 && DecodeTokenCreateOpRet(tokenbaseTx.vout[tokenbaseTx.vout.size() - 1].scriptPubKey, origpubkey, name, description, oprets) != 'c')
 	{
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << __func__ << " " << "passed tokenid isnt token creation txid" << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "passed tokenid isnt token creation txid" << std::endl);
 		result.push_back(Pair("result", "error"));
 		result.push_back(Pair("error", "tokenid isnt token creation txid"));
         return result;
