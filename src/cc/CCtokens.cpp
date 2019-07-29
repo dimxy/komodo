@@ -981,7 +981,10 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
-			return FinalizeCCTx(mask, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutTokenPubkeys, std::make_pair((uint8_t)0, vopretEmpty))); 
+			std::string hextx = FinalizeCCTx(mask, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutTokenPubkeys, std::make_pair((uint8_t)0, vopretEmpty))); 
+            if (hextx.empty())
+                CCerror = "could not finalize tx";
+            return hextx;
                                                                                                                                                    
 		}
 		else {

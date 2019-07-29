@@ -105,7 +105,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
     int32_t i,flag,mgret,utxovout,n,err = 0;
 	char myaddr[64], destaddr[64], unspendable[64], mytokensaddr[64], mysingletokensaddr[64], unspendabletokensaddr[64],CC1of2CCaddr[64];
     uint8_t *privkey, myprivkey[32], unspendablepriv[32], /*tokensunspendablepriv[32],*/ *msg32 = 0;
-	CC *mycond=0, *othercond=0, *othercond2=0,*othercond4=0, *othercond3=0, *othercond1of2=NULL, *othercond1of2tokens = NULL, *cond=0,  *condCC2=0,*mytokenscond = NULL, *mysingletokenscond = NULL, *othertokenscond = NULL;
+	CC *mycond=0, *othercond=0, *othercond2=0,*othercond4=0, *othercond3=0, *othercond1of2=NULL, *othercond1of2tokens = NULL, *cond=0,  *condCC2=0,*mytokenscond = NULL, *mysingletokenscond = NULL, *othertokenscond = NULL, *vectcond = NULL;
 	CPubKey unspendablepk /*, tokensunspendablepk*/;
 	struct CCcontract_info *cpTokens, tokensC;
     globalpk = GetUnspendable(cp,0);
@@ -334,6 +334,29 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                         }
                     } //else  privkey = myprivkey;
 
+                    if (flag == 0)
+                    {
+                        // use vector of dest addresses and conds to probe vintxconds
+                        for (auto &t : cp->CCvintxprobes) {
+                            char coinaddr[64];
+
+                            if (vectcond != NULL)
+                                cc_free(vectcond);  // free prev used cond
+                            vectcond = t.CCwrapped.get();  // Note: need to cc_free at the function exit
+                            Getscriptaddress(coinaddr, CCPubKey(vectcond));
+                            // std::cerr << __func__ << " destaddr=" << destaddr << " coinaddr=" << coinaddr << std::endl;
+                            if (strcmp(destaddr, coinaddr) == 0) {
+                                if (t.CCpriv[0])
+                                    privkey = t.CCpriv;
+                                else
+                                    privkey = myprivkey;
+                                flag = 1;
+                                cond = vectcond;
+                                break;
+                            }
+                        }
+                    }
+
                     if ( flag == 0 )
                     {
                         fprintf(stderr,"CC signing error: vini.%d has unknown CC address.(%s)\n",i,destaddr);
@@ -387,6 +410,8 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
         cc_free(mysingletokenscond);   
     if ( othertokenscond != 0 )
         cc_free(othertokenscond);   
+    if (vectcond != 0)
+        cc_free(vectcond);
     memset(myprivkey,0,sizeof(myprivkey));
     std::string strHex = EncodeHexTx(mtx);
     if ( strHex.size() > 0 )
