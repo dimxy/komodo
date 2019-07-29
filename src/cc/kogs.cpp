@@ -405,14 +405,18 @@ std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
     CPubKey kogsPk = GetUnspendable(cp, NULL);
+    CPubKey mypk = pubkey2pk(Mypubkey());
 
     uint256 containertxid = containertx.GetHash();
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey createtxidPk = CCtxidaddr(txidaddr, containertxid);
 
+    char tokenaddr[64];
+    GetTokensCCaddress(cp, tokenaddr, mypk);
+
     for (auto t : tokenids)
     {
-        std::string transferhextx = TokenTransferExt(0, t, std::vector<std::pair<CC*,uint8_t*>>(), std::vector<CPubKey> {kogsPk, createtxidPk}, 1);
+        std::string transferhextx = TokenTransferExt(0, t, tokenaddr, std::vector<std::pair<CC*,uint8_t*>>(), std::vector<CPubKey> {kogsPk, createtxidPk}, 1);
         if (transferhextx.empty()) {
             result = emptyresult;
             break;
@@ -545,11 +549,15 @@ std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 contai
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
     CPubKey kogsPk = GetUnspendable(cp, NULL);
+    CPubKey mypk = pubkey2pk(Mypubkey());
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
 
-    std::string hextx = TokenTransferExt(0, containerid, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, gametxidPk }, 1); // amount = 1 always for NFTs
+    char tokenaddr[64];
+    GetTokensCCaddress(cp, tokenaddr, mypk);
+
+    std::string hextx = TokenTransferExt(0, containerid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, gametxidPk }, 1); // amount = 1 always for NFTs
     return hextx;
 }
 
@@ -634,14 +642,18 @@ std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 contain
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
     CPubKey kogsPk = GetUnspendable(cp, NULL);
+    CPubKey mypk = pubkey2pk(Mypubkey());
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey containertxidPk = CCtxidaddr(txidaddr, containerid);
     ActivateUtxoLock();
 
+    char tokenaddr[64];
+    GetTokensCCaddress(cp, tokenaddr, mypk);
+
     for (auto tokenid : tokenids)
     {
-        std::string hextx = TokenTransferExt(0, tokenid, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, containertxidPk }, 1); // amount = 1 always for NFTs
+        std::string hextx = TokenTransferExt(0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, containertxidPk }, 1); // amount = 1 always for NFTs
         if (hextx.empty()) {
             result = emptyresult;
             break;
@@ -672,11 +684,13 @@ std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 ga
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey createtxidPk = CCtxidaddr(txidaddr, containerid);
     CC *probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, createtxidPk);
+    char tokenaddr[64];
+    GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, createtxidPk);
     ActivateUtxoLock();
 
     for (auto tokenid : tokenids)
     {
-        std::string hextx = TokenTransferExt(0, tokenid, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogspriv) }, std::vector<CPubKey>{ mypk }, 1); // amount = 1 always for NFTs
+        std::string hextx = TokenTransferExt(0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogspriv) }, std::vector<CPubKey>{ mypk }, 1); // amount = 1 always for NFTs
         if (hextx.empty()) {
             result = emptyresult;
             break;
