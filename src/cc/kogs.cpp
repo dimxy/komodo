@@ -748,7 +748,10 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
             if (CCchange != 0)
                 mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, CCchange, mypk));
 
-            return FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vopretEmpty)));
+            std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vopretEmpty)));
+            if (hextx.empty())
+                CCerror = "could not finalize tx";
+            return hextx;
         }
         else {
             CCerror = strprintf("no token inputs");
