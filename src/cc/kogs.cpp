@@ -43,18 +43,18 @@ static bool GetNFTUnspentTx(uint256 tokenid, CTransaction &unspenttx)
         nvout = 0; // cc vout with token value in the subsequent txns
     }
 
-    if (txid != tokenid && myGetTransaction(txid, unspenttx, hashBlock))  // use non-locking ver as this func could be called from validation code
+    if (/*txid != tokenid && */ myGetTransaction(txid, unspenttx, hashBlock))  // use non-locking ver as this func could be called from validation code
         return true;
     else
         return false;
 }
 
 // check if token has been burned
-static bool IsNFTBurned(uint256 tokenid, CTransaction &burntx)
+static bool IsNFTBurned(uint256 tokenid, CTransaction &lasttx)
 {
-    if (GetNFTUnspentTx(tokenid, burntx) &&
-        burntx.vout.size() > 1 &&
-        HasBurnedTokensvouts(burntx, tokenid) > 0)
+    if (GetNFTUnspentTx(tokenid, lasttx) &&
+        lasttx.vout.size() > 1 &&
+        HasBurnedTokensvouts(lasttx, tokenid) > 0)
         return true;
     else
         return false;
