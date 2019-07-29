@@ -31,7 +31,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t
 std::string CreateToken(int64_t txfee, int64_t assetsupply, std::string name, std::string description, std::vector<uint8_t> nonfungibleData);
 std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t markerEvalCode);
 std::string TokenTransfer(int64_t txfee, uint256 assetid, CPubKey destpk, int64_t total);
-std::string TokenTransferExt(int64_t txfee, uint256 tokenid, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total);
+std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total);
 int64_t HasBurnedTokensvouts(/*struct CCcontract_info *cp, Eval* eval,*/ const CTransaction& tx, uint256 reftokenid);
 CPubKey GetTokenOriginatorPubKey(CScript scriptPubKey);
 bool IsTokenMarkerVout(CTxOut vout);
