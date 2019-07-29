@@ -30,7 +30,6 @@ const uint8_t KOGSID_SLAMMER = 'S';
 const uint8_t KOGSID_PACK = 'P';
 const uint8_t KOGSID_CONTAINER = 'C';
 
-
 const uint8_t KOGS_VERSION = 1;
 
 #define TOKEN_MARKER_VOUT           0   // token global address basic cc marker vout num
@@ -41,6 +40,7 @@ const uint8_t KOGS_VERSION = 1;
 struct KogsBaseObject {
     std::string nameId;
     std::string descriptionId;
+    CPubKey origpk;
     uint8_t evalcode;
     uint8_t objectId;
     uint8_t version;
@@ -171,7 +171,6 @@ struct KogsPlayer : public KogsBaseObject {
 // game object
 struct KogsGame : public KogsBaseObject {
 
-    CPubKey origpk;
     uint256 gameconfigid;
     std::vector<uint256> playerids;
 
@@ -190,7 +189,6 @@ struct KogsGame : public KogsBaseObject {
         READWRITE(version);
         if (evalcode == EVAL_KOGS && objectId == KOGSID_GAME && version == KOGS_VERSION)
         {
-            READWRITE(origpk);
             READWRITE(gameconfigid);
             READWRITE(playerids);
         }
@@ -507,9 +505,7 @@ struct KogsEnclosure {
         version = KOGS_VERSION;
         creationtxid = creationtxid_;
     }
-
     KogsEnclosure() = delete;  // cannot allow to create without explicit creationtxid
-
 };
 
 
@@ -533,6 +529,7 @@ struct KogsContainer : public KogsBaseObject {
         READWRITE(version);
         if (evalcode == EVAL_KOGS && objectId == KOGSID_CONTAINER && version == KOGS_VERSION)
         {
+            /* ver1 container content:
             if (ser_action.ForRead())
                 tokenids.clear();
             uint32_t vsize = tokenids.size();
@@ -546,7 +543,7 @@ struct KogsContainer : public KogsBaseObject {
                 READWRITE(txid);
                 if (!ser_action.ForRead())
                     tokenids.insert(txid);
-            }
+            }*/
         }
         else
         {
@@ -560,7 +557,6 @@ struct KogsContainer : public KogsBaseObject {
         bool result = E_UNMARSHAL(v, ss >> (*this)); 
         return result;
     }
-
 
     KogsContainer() : KogsBaseObject() {
         objectId = KOGSID_CONTAINER;
@@ -613,7 +609,7 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
 //std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint256> &tokenids, std::vector<uint256> &duptokenids);
 std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const std::set<uint256> &tokenids);
 std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 containerid);
-std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 gameid,  uint256 containerid, std::set<uint256> tokenids);
+std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 containerid, std::set<uint256> tokenids);
 std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids);
 std::string KogsRemoveObject(uint256 txid, int32_t nvout);
 std::string KogsBurnNFT(uint256 tokenid);

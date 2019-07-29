@@ -108,7 +108,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
 
     if (myGetTransaction(creationtxid, createtx, hashBlock) != 0)  //use non-locking version
     {
-        std::vector<uint8_t> origpubkey;
+        vuint8_t origpubkey;
         std::string name, description;
         std::vector<std::pair<uint8_t, vscript_t>> oprets;
         KogsEnclosure enc(zeroid);
@@ -121,16 +121,19 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
                 if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
                 {
                     uint8_t objectId;
-                    CTransaction burntx;
+                    CTransaction dummytx;
                     if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectId))
                         return nullptr;
 
-                    if (IsNFTBurned(creationtxid, burntx))
+                    if (IsNFTBurned(creationtxid, dummytx))
                         return nullptr;
 
                     KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
                     if (obj == nullptr)
                         return nullptr;
+                    obj->nameId = name;
+                    obj->descriptionId = description;
+                    obj->origpk = pubkey2pk(origpubkey);
                     if (obj->Unmarshal(vnftopret))
                         return obj;
                     else
@@ -570,17 +573,62 @@ static bool IsContainerDeposited(KogsGame game, KogsContainer container)
     return false;
 }
 
-// add kogs to the container by sending kogs to container 1of2 address
-std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids)
+// checks if container deposited to gamepk and gamepk is mypk or if it is not deposited and on mypk
+static int CheckIsMyContainer(uint256 gameid, uint256 containerid)
 {
-    const std::vector<std::string> emptyresult;
-    std::vector<std::string> result;
+    CPubKey mypk = pubkey2pk(Mypubkey());
 
     KogsBaseObject *baseobj = LoadGameObject(containerid);
     if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
         CCerror = "can't load container";
-        return emptyresult;
+        return -1;
     }
+    KogsContainer *pcontainer = (KogsContainer *)baseobj;
+
+    if (!gameid.IsNull())
+    {
+        KogsBaseObject *baseobj = LoadGameObject(gameid);
+        if (baseobj == nullptr || baseobj->objectId != KOGSID_GAME) {
+            CCerror = "can't load container";
+            return -1;
+        }
+        KogsGame *pgame = (KogsGame *)baseobj;
+
+        if (IsContainerDeposited(*pgame, *pcontainer)) 
+        {
+            if (mypk != pgame->origpk) {
+                CCerror = "can't remove kogs: container is deposited and you are not the game creator";
+                return 0;
+            }
+            else
+                return 1;
+        }
+    }
+    
+    CTransaction lasttx;
+    if (!GetNFTUnspentTx(containerid, lasttx)) {
+        CCerror = "container is already burned";
+        return -1;
+    }
+    if (lasttx.vout.size() < 1) {
+        CCerror = "incorrect nft last tx";
+        return -1;
+    }
+    if (lasttx.vout[0] != MakeCC1vout(EVAL_TOKENS, 1, mypk)) {
+        CCerror = "this is not your container to remove kogs";
+        return 0;
+    }
+    return 1;
+}
+
+// add kogs to the container by sending kogs to container 1of2 address
+std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 containerid, std::set<uint256> tokenids)
+{
+    const std::vector<std::string> emptyresult;
+    std::vector<std::string> result;
+
+    if (CheckIsMyContainer(zeroid, containerid) <= 0)
+        return emptyresult;
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -603,51 +651,18 @@ std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 gameid,
     return result;
 }
 
+
 // remove kogs from the container by sending kogs from the container 1of2 address to self
 std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids)
 {
     const std::vector<std::string> emptyresult;
     std::vector<std::string> result;
     KogsBaseObject *baseobj;
-    KogsGame *pgame;
-    KogsContainer *pcontainer;
-
-    baseobj = LoadGameObject(gameid);
-    if (baseobj == nullptr || baseobj->objectId != KOGSID_GAME) {
-        CCerror = "can't load container";
-        return emptyresult;
-    }
-    pgame = (KogsGame *)baseobj;
-
-    baseobj = LoadGameObject(containerid);
-    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
-        CCerror = "can't load container";
-        return emptyresult;
-    }
-    pcontainer = (KogsContainer *)baseobj;
 
     CPubKey mypk = pubkey2pk(Mypubkey());
-    if (IsContainerDeposited(*pgame, *pcontainer)) {
-        if (mypk != pgame->origpk) {
-            CCerror = "can't remove kogs: container is deposited and you are not the game creator";
-            return emptyresult;
-        }
-    }
-    else {
-        CTransaction lasttx;
-        if (!GetNFTUnspentTx(containerid, lasttx)) {
-            CCerror = "container is already burned";
-            return emptyresult;
-        }
-        if (lasttx.vout.size() < 1) {
-            CCerror = "incorrect nft last tx";
-            return emptyresult;
-        }
-        if (lasttx.vout[0] != MakeCC1vout(EVAL_TOKENS, 1, mypk)) {
-            CCerror = "this is not your container to remove kogs";
-            return emptyresult;
-        }
-    }
+
+    if (CheckIsMyContainer(gameid, containerid) <= 0)
+        return emptyresult;
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
