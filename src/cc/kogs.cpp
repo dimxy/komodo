@@ -683,7 +683,7 @@ std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 ga
     CPubKey kogsPk = GetUnspendable(cp, kogspriv);
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey createtxidPk = CCtxidaddr(txidaddr, containerid);
-    CC *probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, createtxidPk);
+    CC *probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, createtxidPk);
     char tokenaddr[64];
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, createtxidPk);
     ActivateUtxoLock();
