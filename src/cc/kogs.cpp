@@ -344,7 +344,7 @@ std::string KogsCreatePlayer(KogsPlayer newplayer)
 // container content is tokenid list
 // this is not a very good container impl: to deposit container we would need also to deposit all tokens inside it.
 // (hmm, but I have done packs impl in a similar way. And I have to do this: pack content should be encrypted..)
-std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint256> &tokenids, std::vector<uint256> &duptokenids)
+std::string KogsCreateContainerNotUsed(KogsContainer newcontainer, const std::set<uint256> &tokenids, std::vector<uint256> &duptokenids)
 {
     const std::string emptyresult;
     //std::vector<std::shared_ptr<KogsBaseObject>> koglist;
@@ -568,7 +568,7 @@ static bool IsContainerDeposited(KogsGame game, KogsContainer container)
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey gametxidPk = CCtxidaddr(txidaddr, game.creationtxid);
-    if (lasttx.vout[0] == MakeCC1of2vout(EVAL_TOKENS, 1, kogsPk, gametxidPk))
+    if (lasttx.vout[0] == MakeTokensCC1of2vout(EVAL_KOGS, 1, kogsPk, gametxidPk))
         return true;
     return false;
 }
