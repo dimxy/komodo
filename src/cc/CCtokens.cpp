@@ -898,14 +898,21 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
 // param additionalEvalCode allows transfer of dual-eval non-fungible tokens
 std::string TokenTransfer(int64_t txfee, uint256 tokenid, CPubKey destpubkey, int64_t total)
 {
-    return TokenTransferExt(txfee, tokenid, std::vector<std::pair<CC*, uint8_t*>>(), std::vector<CPubKey> {destpubkey}, total);
+    char tokenaddr[64];
+    CPubKey mypk = pubkey2pk(Mypubkey());
+    struct CCcontract_info *cp, C;
+
+    cp = CCinit(&C, EVAL_TOKENS);
+    GetTokensCCaddress(cp, tokenaddr, mypk);
+    return TokenTransferExt(txfee, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>(), std::vector<CPubKey> {destpubkey}, total);
 }
 
 // token transfer extended version
 // params:
 // txfee - transaction fee, assumed 10000 if 0
 // tokenid - token creation tx id
-// probeconds - vector of pair of vintx cond and privkey (if null then global priv key will be used) to pick vouts to sign in vin transactions
+// tokenaddr - address where unspent token inputs to search
+// probeconds - vector of pair of vintx cond and privkey (if null then global priv key will be used) to pick vintx token vouts to sign mtx vins
 // destpubkeys - if size=1 then it is the dest pubkey, if size=2 then the dest address is 1of2 addr
 // total - token amount to transfer
 // returns: signed transfer tx in hex
