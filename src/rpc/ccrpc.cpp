@@ -569,20 +569,16 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 2))
     {
         throw runtime_error(
-            "kogsaddkogstocontainer gameid containerid tokenid1, tokenid2, ...\n"
+            "kogsaddkogstocontainer containerid tokenid1, tokenid2, ...\n"
             "adds kog tokenids to container\n" "\n");
     }
 
-    uint256 gameid = Parseuint256(params[0].get_str().c_str());
-    if (gameid.IsNull())
-        throw runtime_error("incorrect gameid\n");
-
-    uint256 containerid = Parseuint256(params[1].get_str().c_str());
+    uint256 containerid = Parseuint256(params[0].get_str().c_str());
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
     std::set<uint256> tokenids;
-    for (int i = 2; i < params.size(); i++)
+    for (int i = 1; i < params.size(); i++)
     {
         uint256 tokenid = Parseuint256(params[i].get_str().c_str());
         if (!tokenid.IsNull())
@@ -590,10 +586,10 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
         else
             throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
     }
-    if (tokenids.size() != params.size() - 2)
+    if (tokenids.size() != params.size() - 1)
         throw runtime_error("duplicate tokenids in params\n");
 
-    std::vector<std::string> hextxns = KogsAddKogsToContainerV2(0, gameid, containerid, tokenids);
+    std::vector<std::string> hextxns = KogsAddKogsToContainerV2(0, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (auto hextx : hextxns)
@@ -609,6 +605,7 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
 UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
+    UniValue jsonParams(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
     CCerror.clear();
 
@@ -619,29 +616,63 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 2))
     {
         throw runtime_error(
-            "kogsremovekogsfromcontainer gameid containerid tokenid1, tokenid2, ...\n"
-            "remove kog tokenids to container\n" "\n");
+            "kogsremovekogsfromcontainer '{ \"containerid\":\"id\", \"gameid\":\"id\", \"tokenids\" : [tokenid1, tokenid2, ...] }'\n"
+            "removes kog tokenids from container\n" 
+            "gameid is optional and is passed when container is deposited to the game\n" "\n");
+
     }
 
-    uint256 gameid = Parseuint256(params[0].get_str().c_str());
-    if (gameid.IsNull())
-        throw runtime_error("incorrect gameid\n");
+    // parse json object:
+    if (params[0].getType() == UniValue::VOBJ)
+        jsonParams = params[0].get_obj();
+    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[0].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
+        throw runtime_error("parameter 1 must be object\n");
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << jsonParams.write(0, 0) << std::endl);
 
-    uint256 containerid = Parseuint256(params[1].get_str().c_str());
-    if (containerid.IsNull())
-        throw runtime_error("incorrect containerid\n");
+    std::vector<std::string> paramkeys = jsonParams.getKeys();
+    std::vector<std::string>::const_iterator iter;
+
+    uint256 containerid = zeroid; 
+    iter = std::find(paramkeys.begin(), paramkeys.end(), "containerid");
+    if (iter != paramkeys.end()) {
+        containerid = Parseuint256(jsonParams[iter - paramkeys.begin()].get_str().c_str());
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << " test output containerid=" << containerid.GetHex() << std::endl);
+    }
+
+    uint256 gameid = zeroid; 
+    iter = std::find(paramkeys.begin(), paramkeys.end(), "gameid");
+    if (iter != paramkeys.end()) {
+        containerid = Parseuint256(jsonParams[iter - paramkeys.begin()].get_str().c_str());
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << " test output gameid=" << gameid.GetHex() << std::endl);
+    }
 
     std::set<uint256> tokenids;
-    for (int i = 2; i < params.size(); i++)
-    {
-        uint256 tokenid = Parseuint256(params[i].get_str().c_str());
-        if (!tokenid.IsNull())
+    iter = std::find(paramkeys.begin(), paramkeys.end(), "tokenids");
+    if (iter != paramkeys.end()) {
+        
+        UniValue jsonArray = jsonParams[iter - paramkeys.begin()].get_array();
+        if (!jsonArray.isArray())
+            throw runtime_error("tokenids element is not an array\n");
+        if (jsonArray.size() == 0)
+            throw runtime_error("tokenids array is empty\n");
+
+        for (int i = 0; i < jsonArray.size(); i++)
+        {
+            uint256 tokenid = Parseuint256(jsonArray[i].get_str().c_str());
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << " test output tokenid=" << tokenid.GetHex() << std::endl);
+            if (tokenid.IsNull())
+                throw runtime_error(std::string("incorrect tokenid=") + jsonArray[i].get_str() + std::string("\n"));
+            
             tokenids.insert(tokenid);
-        else
-            throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
+        }
+        if (tokenids.size() != jsonArray.size())
+            throw runtime_error("duplicate tokenids in params\n");
     }
-    if (tokenids.size() != params.size() - 2)
-        throw runtime_error("duplicate tokenids in params\n");
+
+    if (containerid.IsNull())
+        throw runtime_error("incorrect containerid\n");
 
     std::vector<std::string> hextxns = KogsRemoveKogsFromContainerV2(0, gameid, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
