@@ -168,7 +168,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
     return nullptr;
 }
 
-static void KogsGameObjectList(uint8_t objectId, std::vector<std::shared_ptr<KogsBaseObject>> &list)
+static void ListGameObjects(uint8_t objectId, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
 
@@ -185,13 +185,34 @@ static void KogsGameObjectList(uint8_t objectId, std::vector<std::shared_ptr<Kog
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectId=" << (char)objectId << std::endl);
 }
 
+// loads tokenids from 1of2 address (kogsPk, containertxidPk) and adds the tokenids to container object
+static void ListContainerTokenids(KogsContainer &container)
+{
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
+    CPubKey mypk = pubkey2pk(Mypubkey());
+
+    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey createtxidPk = CCtxidaddr(txidaddr, container.creationtxid);
+
+    SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr marker
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) {
+        struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectId and unmarshal corresponding gameobject
+        if (obj != nullptr && KOGS_IS_MATCH_OBJECT(obj->objectId))
+            container.tokenids.insert(obj->creationtxid);
+    }
+}
+
+
 // returns all objects' creationtxid (tokenids or kog object creation txid) for the object with objectId
 void KogsCreationTxidList(uint8_t objectId, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
 
     // get all objects with this objectId
-    KogsGameObjectList(objectId, objlist);
+    ListGameObjects(objectId, objlist);
 
     for (auto &o : objlist)
     {
@@ -263,10 +284,10 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
     std::vector<std::shared_ptr<KogsBaseObject>> packlist;
 
     // get all kogs gameobject
-    KogsGameObjectList(KOGSID_KOG, koglist);
+    ListGameObjects(KOGSID_KOG, koglist);
 
     // get all packs
-    KogsGameObjectList(KOGSID_PACK, packlist);
+    ListGameObjects(KOGSID_PACK, packlist);
 
     // decrypt the packs content
     for (auto &p : packlist) {
@@ -352,7 +373,7 @@ std::string KogsCreateContainerNotUsed(KogsContainer newcontainer, const std::se
     KogsEnclosure enc(zeroid);  //for creation
 
     // get all containers
-    KogsGameObjectList(KOGSID_CONTAINER, containerlist);
+    ListGameObjects(KOGSID_CONTAINER, containerlist);
 
     duptokenids.clear();
     // check tokens that are not in any container
@@ -989,6 +1010,7 @@ UniValue KogsObjectInfo(uint256 tokenid)
 
     case 'C':
         containerobj = (KogsContainer*)baseobj;
+        ListContainerTokenids(*containerobj);
         for (auto t : containerobj->tokenids)
         {
             infotokenids.push_back(t.GetHex());
