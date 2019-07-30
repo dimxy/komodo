@@ -81,7 +81,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 4))
+    if (fHelp || (params.size() != 3))
     {
         throw runtime_error(
             "kogscreategameconfig name description '{ param1, param2, ... }'\n"
@@ -93,11 +93,11 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
     newgameconfig.nameId = params[0].get_str();
     newgameconfig.descriptionId = params[1].get_str();
 
-    if (params[0].getType() == UniValue::VOBJ)
-        jsonParams = params[0].get_obj();
-    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
-        jsonParams.read(params[0].get_str().c_str());
-    if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
+    if (params[2].getType() == UniValue::VOBJ)
+        jsonParams = params[2].get_obj();
+    else if (params[2].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[2].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VOBJ /*|| jsonParams.empty()*/)
         throw runtime_error("parameter 1 must be object\n");
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output jsonParams=" << jsonParams.write(0, 0) << std::endl);
 
