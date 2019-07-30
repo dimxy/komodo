@@ -139,7 +139,7 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 4))
+    if (fHelp || (params.size() != 3))
     {
         throw runtime_error(
             "kogscreateplayer name description '{ param1, param2, ... }'\n"
@@ -151,11 +151,11 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp)
     newplayer.nameId = params[0].get_str();
     newplayer.descriptionId = params[1].get_str();
 
-    if (params[0].getType() == UniValue::VOBJ)
-        jsonParams = params[0].get_obj();
-    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
-        jsonParams.read(params[0].get_str().c_str());
-    if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
+    if (params[2].getType() == UniValue::VOBJ)
+        jsonParams = params[2].get_obj();
+    else if (params[2].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[2].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VOBJ /*|| jsonParams.empty()*/)
         throw runtime_error("parameter 1 must be object\n");
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output jsonParams=" << jsonParams.write(0, 0) << std::endl);
 
@@ -198,7 +198,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 4))
+    if (fHelp || (params.size() < 3))
     {
         throw runtime_error(
             "kogsstartgame gameconfigid playerid1, playerid2, ...\n"
@@ -206,42 +206,25 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp)
             "returns game transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
 
-    KogsPlayer newplayer;
-    newplayer.nameId = params[0].get_str();
-    newplayer.descriptionId = params[1].get_str();
+    KogsGame newgame;
+    newgame.gameconfigid = Parseuint256(params[0].get_str().c_str());
+    if (newgame.gameconfigid.IsNull())
+        throw runtime_error("incorrect gameconfigid param\n");
 
-    if (params[0].getType() == UniValue::VOBJ)
-        jsonParams = params[0].get_obj();
-    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
-        jsonParams.read(params[0].get_str().c_str());
-    if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
-        throw runtime_error("parameter 1 must be object\n");
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output jsonParams=" << jsonParams.write(0, 0) << std::endl);
-
-    // parse json object with game config params:
-
-    std::vector<std::string> ikeys = jsonParams.getKeys();
-    std::vector<std::string>::const_iterator iter;
-
-    int reqparamcount = 0;
-
-    iter = std::find(ikeys.begin(), ikeys.end(), "param1");
-    UniValue param;
-    if (iter != ikeys.end()) {
-        param = jsonParams[iter - ikeys.begin()];
-        newplayer.param1 = param.isNum() ? param.get_int() : atoi(param.get_str());
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newplayer.param1=" << newplayer.param1 << std::endl);
-        //if (newplayer.param1 < 1 || newplayer.param1 > 100)
-        //    throw runtime_error("param1 param is incorrect\n");
-
-        reqparamcount++;
+    for (int i = 2; i < params.size(); i++)
+    {
+        uint256 playerid = Parseuint256(params[i].get_str().c_str());
+        if (!playerid.IsNull())
+            newgame.playerids.insert(playerid);
+        else
+            throw runtime_error(std::string("incorrect playerid=") + params[i].get_str() + std::string("\n"));
     }
 
-    //if (reqparamcount < 1)
-    //    throw runtime_error("not all required game object data passed\n");
+    if (newgame.playerids.size() != params.size() - 2)
+        throw runtime_error("duplicate playerids in params\n");
 
 
-    std::string hextx = KogsCreatePlayer(newplayer);
+    std::string hextx = kogs(newgame);
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextx", hextx));
     return result;
@@ -321,7 +304,7 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
         }
     }
 
-    std::vector<std::string> hextxns = KogsCreateGameObjectNFTs(gameobjects);
+    std::vector<std::string> hextxns = KogsCreateMatchObjectNFTs(gameobjects);
     if (CCerror.empty())
         RETURN_IF_ERROR(CCerror);
 

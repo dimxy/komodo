@@ -270,15 +270,10 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
     return true;
 }
 
-// rpcs
+// rpc impl:
 
-// maybe not needed
-//UniValue KogsCreatePlayer()
-//{
-//}
-
-// iterate game object param list and call NFT creation function
-std::vector<std::string> KogsCreateGameObjectNFTs(std::vector<KogsMatchObject> & gameobjects)
+// iterate match object params and call NFT creation function
+std::vector<std::string> KogsCreateMatchObjectNFTs(std::vector<KogsMatchObject> & matchobjects)
 {
     std::vector<std::string> result;
     const std::vector<std::string> emptyresult;
@@ -286,7 +281,7 @@ std::vector<std::string> KogsCreateGameObjectNFTs(std::vector<KogsMatchObject> &
     ActivateUtxoLock();
 
     srand(time(NULL));
-    for (auto &obj : gameobjects) {
+    for (auto &obj : matchobjects) {
 
         int32_t borderColor = rand() % 26 + 1; // 1..26
         int32_t borderGraphic = rand() % 13;   // 0..12
@@ -402,6 +397,17 @@ std::string KogsCreatePlayer(KogsPlayer newplayer)
     return CreateEnclosureTx(enc);
 }
 
+std::string KogsStartGame(KogsGame newgame)
+{
+    KogsBaseObject *baseobj = LoadGameObject(newgame.gameconfigid);
+    if (baseobj == nullptr || baseobj->objectId != KOGSID_GAME)
+    {
+        CCerror = "can't load game config";
+        return std::string();
+    }
+
+    return CreateGameObjectNFT(&newgame);
+}
 // create container for passed tokenids
 // check for duplicated
 // container content is tokenid list
