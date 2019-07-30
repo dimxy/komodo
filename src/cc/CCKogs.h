@@ -588,6 +588,9 @@ public:
         struct KogsMatchObject *o;
         struct KogsPack *p;
         struct KogsContainer *c;
+        struct KogsGameConfig *f;
+        struct KogsPlayer *r;
+        struct KogsGame *g;
 
         switch (objectId)
         {
@@ -603,6 +606,18 @@ public:
         case KOGSID_CONTAINER:
             c = new KogsContainer();
             return (KogsBaseObject*)c;
+
+        case KOGSID_GAMECONFIG:
+            f = new KogsGameConfig();
+            return (KogsBaseObject*)f;
+
+        case KOGSID_PLAYER:
+            r = new KogsPlayer();
+            return (KogsBaseObject*)r;
+
+        case KOGSID_GAME:
+            g = new KogsGame();
+            return (KogsBaseObject*)g;
 
         default:
             LOGSTREAM("kogs", CCLOG_INFO, stream << "requested to create unsupported objectId=" << (int)objectId << std::endl);
