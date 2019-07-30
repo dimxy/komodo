@@ -479,18 +479,18 @@ struct KogsEnclosure {
                 CTransaction latesttx;
                 vscript_t vLatestTxOpret;
 
-                // update object vars with the data from last tx opret:
+                // find the last unspent tx 
                 while (CCgetspenttxid(spenttxid, vini, height, txid, nvout) == 0)
                 {
                     txid = spenttxid;
                 }
 
-                if (txid != enc.creationtxid)
+                if (txid != enc.creationtxid)  // no need to parse opret for create tx as we have already done this
                 {
                     if (myGetTransaction(txid, latesttx, hashBlock) &&  // use non-locking ver as this func could be called from validation code
                         latesttx.vout.size() > 1 &&
                         GetOpReturnData(latesttx.vout.back().scriptPubKey, vLatestTxOpret) &&
-                        E_UNMARSHAL(vLatestTxOpret, ss >> enc))
+                        E_UNMARSHAL(vLatestTxOpret, ss >> enc))      // update enclosure object with the data from last tx opret
                     {
                         enc.latesttxid = txid;
                         return true;

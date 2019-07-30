@@ -228,16 +228,19 @@ static void ListGameObjects(uint8_t objectId, std::vector<std::shared_ptr<KogsBa
 static void ListContainerTokenids(KogsContainer &container)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
-    CPubKey kogsPk = GetUnspendable(cp, NULL);
-    CPubKey mypk = pubkey2pk(Mypubkey());
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey createtxidPk = CCtxidaddr(txidaddr, container.creationtxid);
+    char tokenaddr[64];
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
+    CPubKey containertxidPk = CCtxidaddr(txidaddr, container.creationtxid);
+    GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, containertxidPk);
 
-    SetCCunspents(addressUnspents, txidaddr, true);    // look all tx on 1of2 addr
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) {
+    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
+    {
         struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // load and unmarshal gameobject for this txid
         if (obj != nullptr && KOGS_IS_MATCH_OBJECT(obj->objectId))
             container.tokenids.insert(obj->creationtxid);
