@@ -127,7 +127,7 @@ static bool LoadTokenData(const CTransaction &tx, uint256 &creationtxid, vuint8_
                 creationtxid = createtx.GetHash();
             }
 
-            if (!createtx.IsNull() && DecodeTokenCreateOpRet(tx.vout.back().scriptPubKey, vorigpubkey, name, description, oprets) == 'c') 
+            if (!createtx.IsNull() && DecodeTokenCreateOpRet(createtx.vout.back().scriptPubKey, vorigpubkey, name, description, oprets) == 'c') 
             {    
                 return true;
             }
