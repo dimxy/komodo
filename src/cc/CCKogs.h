@@ -42,7 +42,7 @@ const uint8_t KOGS_VERSION = 1;
 struct KogsBaseObject {
     std::string nameId;
     std::string descriptionId;
-    CPubKey origpk;
+    CPubKey encOrigPk;
     uint8_t evalcode;
     uint8_t objectId;
     uint8_t version;
@@ -219,7 +219,6 @@ struct KogsGame : public KogsBaseObject {
     {
         gameconfigid = gameconfigid_;
         playerids = playerids_;
-        origpk = pubkey2pk(Mypubkey());
     }
 };
 
