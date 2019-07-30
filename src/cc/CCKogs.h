@@ -643,7 +643,7 @@ std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 contain
 std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids);
 std::string KogsRemoveObject(uint256 txid, int32_t nvout);
 std::string KogsBurnNFT(uint256 tokenid);
-void KogsCreationTxidList(uint8_t objectId, std::vector<uint256> &tokenids);
+void KogsCreationTxidList(uint8_t objectId, bool onlymy, std::vector<uint256> &tokenids);
 UniValue KogsObjectInfo(uint256 tokenid);
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
