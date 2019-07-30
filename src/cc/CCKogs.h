@@ -404,6 +404,8 @@ struct KogsEnclosure {
     uint8_t version;
     uint256 creationtxid;
 
+    std::string name;
+    std::string description;
     CPubKey origpk;
     uint256 latesttxid;
 
@@ -434,8 +436,10 @@ struct KogsEnclosure {
         {
             if (funcId == 'c')
             {
-                if (!ser_action.ForRead()) 
-                    origpk = pubkey2pk(Mypubkey());
+                READWRITE(name);
+                READWRITE(description);
+                if (!ser_action.ForRead())  // if 'for write' ...
+                    origpk = pubkey2pk(Mypubkey()); // ... then store mypk
                 READWRITE(origpk);
 
             }
