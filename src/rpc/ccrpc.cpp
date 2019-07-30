@@ -224,7 +224,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp)
         throw runtime_error("duplicate playerids in params\n");
 
 
-    std::string hextx = kogs(newgame);
+    std::string hextx = KogsStartGame(newgame);
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextx", hextx));
     return result;
