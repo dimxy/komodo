@@ -839,7 +839,6 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey mypk; 
     int64_t CCchange = 0, inputs = 0;  
-    vscript_t vopretNonfungible, vopretEmpty;
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_TOKENS);
@@ -854,7 +853,7 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
 
     if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
     {
-        if ((inputs = AddTokenCCInputs(cp, mtx, mypk, tokenid, total, 60, vopretNonfungible)) > 0)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
+        if ((inputs = AddTokenCCInputs(cp, mtx, mypk, tokenid, total, 60)) > 0)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
         {
             if (inputs < total) {  
                 CCerror = strprintf("insufficient token inputs");
@@ -862,10 +861,12 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
             }
 
             uint8_t destEvalCode = EVAL_TOKENS;
+            if (cp->additionalTokensEvalcode2 != 0)
+                destEvalCode = cp->additionalTokensEvalcode2; // this is NFT
 
             // check if it is NFT
-            if (vopretNonfungible.size() > 0)
-                destEvalCode = vopretNonfungible.begin()[0];
+            //if (vopretNonfungible.size() > 0)
+            //    destEvalCode = vopretNonfungible.begin()[0];
 
             if (inputs > total)
                 CCchange = (inputs - total);
@@ -873,7 +874,7 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
             if (CCchange != 0)
                 mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, CCchange, mypk));
 
-            std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vopretEmpty)));
+            std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vscript_t())));
             if (hextx.empty())
                 CCerror = "could not finalize tx";
             return hextx;
