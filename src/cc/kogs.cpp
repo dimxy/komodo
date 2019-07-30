@@ -213,6 +213,8 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
                     return nullptr;
                 if (obj->Unmarshal(enc.vdata)) {
                     obj->creationtxid = creationtxid;
+                    obj->nameId = enc.name;
+                    obj->descriptionId = enc.description;
                     obj->encOrigPk = enc.origpk;
                     return obj;
                 }
