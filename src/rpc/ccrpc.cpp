@@ -734,15 +734,19 @@ UniValue kogskoglist(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
-    if (fHelp || (params.size() != 0))
+    if (fHelp || (params.size() > 1))
     {
         throw runtime_error(
             "kogskoglist\n"
             "returns all kog tokenids\n" "\n");
     }
 
+    bool onlymy = false;
+    if (params.size() == 1 && params[0].get_str() == "my")
+        onlymy = true;
+
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(KOGSID_KOG, tokenids);
+    KogsCreationTxidList(KOGSID_KOG, onlymy, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (auto t : tokenids)
@@ -758,15 +762,19 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
-    if (fHelp || (params.size() != 0))
+    if (fHelp || (params.size() > 1))
     {
         throw runtime_error(
-            "kogsslammerlist\n"
+            "kogsslammerlist [my]\n"
             "returns all slammer tokenids\n" "\n");
     }
 
+    bool onlymy = false;
+    if (params.size() == 1 && params[0].get_str() == "my")
+        onlymy = true;
+
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(KOGSID_SLAMMER, tokenids);
+    KogsCreationTxidList(KOGSID_SLAMMER, onlymy, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (auto t : tokenids)
@@ -790,7 +798,7 @@ UniValue kogspacklist(const UniValue& params, bool fHelp)
     }
 
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(KOGSID_PACK, tokenids);
+    KogsCreationTxidList(KOGSID_PACK, false, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (auto t : tokenids)
@@ -806,15 +814,19 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
-    if (fHelp || (params.size() != 0))
+    if (fHelp || (params.size() > 1))
     {
         throw runtime_error(
-            "kogscontainerlist\n"
+            "kogscontainerlist [my]\n"
             "returns all container tokenids\n" "\n");
     }
 
+    bool onlymy = false;
+    if (params.size() == 1 && params[0].get_str() == "my")
+        onlymy = true;
+
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(KOGSID_CONTAINER, tokenids);
+    KogsCreationTxidList(KOGSID_CONTAINER, onlymy, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (auto t : tokenids)
@@ -838,7 +850,7 @@ UniValue kogsplayerlist(const UniValue& params, bool fHelp)
     }
 
     std::vector<uint256> creationids;
-    KogsCreationTxidList(KOGSID_PLAYER, creationids);
+    KogsCreationTxidList(KOGSID_PLAYER, false, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (auto i : creationids)
@@ -862,7 +874,7 @@ UniValue kogsgameconfiglist(const UniValue& params, bool fHelp)
     }
 
     std::vector<uint256> creationids;
-    KogsCreationTxidList(KOGSID_GAMECONFIG, creationids);
+    KogsCreationTxidList(KOGSID_GAMECONFIG, false, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (auto i : creationids)
@@ -886,7 +898,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp)
     }
 
     std::vector<uint256> creationids;
-    KogsCreationTxidList(KOGSID_GAME, creationids);
+    KogsCreationTxidList(KOGSID_GAME, false, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (auto i : creationids)
