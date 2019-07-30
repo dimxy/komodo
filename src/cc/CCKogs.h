@@ -159,7 +159,7 @@ struct KogsPlayer : public KogsBaseObject {
 
     KogsPlayer() : KogsBaseObject()
     {
-        objectId = KOGSID_GAMECONFIG;
+        objectId = KOGSID_PLAYER;
         param1 = 1;
     }
 
