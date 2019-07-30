@@ -342,7 +342,7 @@ std::string CreateSell(int64_t txfee,int64_t askamount,uint256 assetid,int64_t p
         mask = ~((1LL << mtx.vin.size()) - 1);
 		// add single-eval tokens (or non-fungible tokens):
         cpTokens = CCinit(&tokensC, EVAL_TOKENS);  // NOTE: adding inputs only from EVAL_TOKENS cc
-        if ((inputs = AddTokenCCInputs(cpTokens, mtx, mypk, assetid, askamount, 60, vopretNonfungible)) > 0)
+        if ((inputs = AddTokenCCInputs(cpTokens, mtx, mypk, assetid, askamount, 60)) > 0)
         {
 			if (inputs < askamount) {
 				//was: askamount = inputs;
@@ -351,19 +351,14 @@ std::string CreateSell(int64_t txfee,int64_t askamount,uint256 assetid,int64_t p
 				return ("");
 			}
 
-            // if this is non-fungible tokens:
-            if( !vopretNonfungible.empty() )
-                // set its evalcode
-                cpAssets->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];
-
 			CPubKey unspendableAssetsPubkey = GetUnspendable(cpAssets, NULL);
-            mtx.vout.push_back(MakeTokensCC1vout(EVAL_ASSETS, cpAssets->additionalTokensEvalcode2, askamount, unspendableAssetsPubkey));
+            mtx.vout.push_back(MakeTokensCC1vout(EVAL_ASSETS, cpTokens->additionalTokensEvalcode2, askamount, unspendableAssetsPubkey));
             mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, txfee, mypk));  //marker (seems, it is not for tokenorders)
             if (inputs > askamount)
                 CCchange = (inputs - askamount);
             if (CCchange != 0)
                 // change to single-eval or non-fungible token vout (although for non-fungible token change currently is not possible)
-                mtx.vout.push_back(MakeTokensCC1vout((cpAssets->additionalTokensEvalcode2) ? cpAssets->additionalTokensEvalcode2 : EVAL_TOKENS, CCchange, mypk));	
+                mtx.vout.push_back(MakeTokensCC1vout((cpTokens->additionalTokensEvalcode2 !=0) ? cpTokens->additionalTokensEvalcode2 : EVAL_TOKENS, CCchange, mypk));	
 
 			std::vector<CPubKey> voutTokenPubkeys;
 			voutTokenPubkeys.push_back(unspendableAssetsPubkey);   
@@ -601,8 +596,7 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
           
 			mtx.vin.push_back(CTxIn(bidtxid, bidvout, CScript()));					// Coins on Assets unspendable
             
-            std::vector<uint8_t> vopretNonfungible;
-            if ((inputs = AddTokenCCInputs(cpTokens, mtx, mypk, assetid, fillamount, 60, vopretNonfungible)) > 0)
+            if ((inputs = AddTokenCCInputs(cpTokens, mtx, mypk, assetid, fillamount, 60)) > 0)
             {
 				if (inputs < fillamount) {
 					std::cerr << "FillBuyOffer(): insufficient tokens to fill buy offer" << std::endl;
@@ -611,11 +605,7 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
 				}
                 
 				SetBidFillamounts(paid_amount, remaining_required, bidamount, fillamount, origprice);
-
-                uint8_t additionalTokensEvalcode2 = 0;
-                if (vopretNonfungible.size() > 0)
-                    additionalTokensEvalcode2 = vopretNonfungible.begin()[0];
-                
+   
 				if (inputs > fillamount)
                     CCchange = (inputs - fillamount);
                 
@@ -625,7 +615,7 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
 
 				mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, bidamount - paid_amount, unspendableAssetsPk));     // vout0 coins remainder
                 mtx.vout.push_back(CTxOut(paid_amount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));		// vout1 coins to normal
-                mtx.vout.push_back(MakeTokensCC1vout(additionalTokensEvalcode2 == 0 ? EVAL_TOKENS : additionalTokensEvalcode2, fillamount, pubkey2pk(origpubkey)));	// vout2 single-eval tokens sent to the originator
+                mtx.vout.push_back(MakeTokensCC1vout(cpTokens->additionalTokensEvalcode2 == 0 ? EVAL_TOKENS : cpTokens->additionalTokensEvalcode2, fillamount, pubkey2pk(origpubkey)));	// vout2 single-eval tokens sent to the originator
                 mtx.vout.push_back(MakeCC1vout(EVAL_ASSETS, txfee, origpubkey));                                // vout3 marker to origpubkey
                 
 				if (CCchange != 0)
