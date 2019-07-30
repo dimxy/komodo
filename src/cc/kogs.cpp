@@ -21,6 +21,36 @@
 
 // helpers
 
+static CPubKey GetSystemPubKey()
+{
+    std::string spubkey = GetArg("-kogssyspk", "");
+    if (!spubkey.empty())
+    {
+        vuint8_t vpubkey = ParseHex(spubkey.c_str());
+        CPubKey pk = pubkey2pk(vpubkey);
+        if (pk.size() == 33)
+            return pk;
+    }
+    return CPubKey();
+}
+
+static bool CheckSysPubKey()
+{
+    CPubKey mypk = pubkey2pk(Mypubkey());
+    CPubKey syspk = GetSystemPubKey();
+    if (!syspk.IsValid() || syspk.size() != 33)
+    {
+        CCerror = "invalid kogssyspk";
+        return false;
+    }
+    if (mypk != syspk)
+    {
+        CCerror = "operation disabled for your pubkey";
+        return false;
+    }
+    return true;
+}
+
 // calculate how many kogs exist with this appearanceId
 static int32_t AppearanceIdCount(int32_t appearanceId)
 {
@@ -309,6 +339,9 @@ std::vector<std::string> KogsCreateMatchObjectNFTs(std::vector<KogsMatchObject> 
     std::vector<std::string> result;
     const std::vector<std::string> emptyresult;
 
+    if (!CheckSysPubKey())
+        return emptyresult;
+    
     ActivateUtxoLock();
 
     srand(time(NULL));
@@ -350,6 +383,9 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
     const std::string emptyresult;
     std::vector<std::shared_ptr<KogsBaseObject>> koglist;
     std::vector<std::shared_ptr<KogsBaseObject>> packlist;
+
+    if (!CheckSysPubKey())
+        return emptyresult;
 
     // get all kogs gameobject
     ListGameObjects(KOGSID_KOG, koglist);
@@ -411,12 +447,17 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
 // create game config object
 std::string KogsCreateGameConfig(KogsGameConfig newgameconfig)
 {
+    if (!CheckSysPubKey())
+        return std::string();
+
     return CreateEnclosureTx(&newgameconfig);
 }
 
 // create player object with player's params
 std::string KogsCreatePlayer(KogsPlayer newplayer)
 {
+    if (!CheckSysPubKey())
+        return std::string();
     return CreateEnclosureTx(&newplayer);
 }
 
@@ -554,10 +595,9 @@ static std::string SpendEnclosure(int64_t txfee, KogsEnclosure enc, CPubKey dest
 }
 
 // deposit (send) container to destination pubkey
-std::string KogsDepositContainer(int64_t txfee, uint256 containerid, CPubKey destpk)
+std::string KogsDepositContainerNotUsed(int64_t txfee, uint256 containerid, CPubKey destpk)
 {
     KogsBaseObject *baseobj = LoadGameObject(containerid);
-    
     
     if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
         CCerror = "can't load container";
@@ -792,9 +832,6 @@ std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 ga
     return result;
 }
 
-
-
-
 // transfer token to scriptPubKey
 static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
 {
@@ -809,8 +846,7 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
 
     if (total < 0) {
         CCerror = strprintf("negative total");
-        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << "=" << total << std::endl);
-        return("");
+        return empty;
     }
     if (txfee == 0)
         txfee = 10000;
@@ -822,8 +858,7 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
         {
             if (inputs < total) {  
                 CCerror = strprintf("insufficient token inputs");
-                LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "TokenTransferSpk() " << CCerror << std::endl);
-                return std::string("");
+                return empty;
             }
 
             uint8_t destEvalCode = EVAL_TOKENS;
@@ -845,13 +880,11 @@ static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk,
         }
         else {
             CCerror = strprintf("no token inputs");
-            LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "TokenTransferSpk() " << CCerror << " for amount=" << total << std::endl);
         }
     }
     else 
     {
         CCerror = "insufficient normal inputs for tx fee";
-        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "TokenTransferSpk() " << CCerror << std::endl);
     }
     return empty;
 }
