@@ -73,15 +73,22 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
     return CreateTokenExt(0, 1, baseobj->nameId, baseobj->descriptionId, vnftdata, EVAL_KOGS);
 }
 
-// create kogs cc container tx (not a token)
-static std::string CreateEnclosureTx(const KogsEnclosure &enc)
+// create enclosure tx (similar but not exactly like NFT as enclosure could be changed) with game object inside
+static std::string CreateEnclosureTx(KogsBaseObject *baseobj)
 {
     const CAmount  txfee = 10000;
     CPubKey mypk = pubkey2pk(Mypubkey());
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    struct CCcontract_info *cp, C;
 
+    struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
+
+    const std::string emptyresult;
+    KogsEnclosure enc(zeroid);  //'zeroid' means 'for creation'
+
+    enc.vdata = baseobj->Marshal();
+    enc.name = baseobj->nameId;
+    enc.description = baseobj->descriptionId;
 
     if (AddNormalinputs(mtx, mypk, 2 * txfee, 4) > 0)
     {
@@ -404,21 +411,13 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
 // create game config object
 std::string KogsCreateGameConfig(KogsGameConfig newgameconfig)
 {
-    const std::string emptyresult;
-    KogsEnclosure enc(zeroid);  //'zeroid' means 'for creation'
-
-    enc.vdata = newgameconfig.Marshal();
-    return CreateEnclosureTx(enc);
+    return CreateEnclosureTx(&newgameconfig);
 }
 
 // create player object with player's params
 std::string KogsCreatePlayer(KogsPlayer newplayer)
 {
-    const std::string emptyresult;
-    KogsEnclosure enc(zeroid);  //'zeroid' means 'for creation'
-
-    enc.vdata = newplayer.Marshal();
-    return CreateEnclosureTx(enc);
+    return CreateEnclosureTx(&newplayer);
 }
 
 std::string KogsStartGame(KogsGame newgame)
@@ -442,7 +441,6 @@ std::string KogsCreateContainerNotUsed(KogsContainer newcontainer, const std::se
     const std::string emptyresult;
     //std::vector<std::shared_ptr<KogsBaseObject>> koglist;
     std::vector<std::shared_ptr<KogsBaseObject>> containerlist;
-    KogsEnclosure enc(zeroid);  //for creation
 
     // get all containers
     ListGameObjects(KOGSID_CONTAINER, containerlist);
@@ -464,8 +462,7 @@ std::string KogsCreateContainerNotUsed(KogsContainer newcontainer, const std::se
     if (duptokenids.size() > 0)
         return emptyresult;
 
-    enc.vdata = newcontainer.Marshal();
-    return CreateEnclosureTx(enc);
+    return CreateEnclosureTx(&newcontainer);
 }
 
 // another impl for container: its an NFT token
