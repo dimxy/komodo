@@ -731,7 +731,7 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp)
 // rpc kogskoglist impl (to return all kog tokenids)
 UniValue kogskoglist(const UniValue& params, bool fHelp)
 {
-    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR), jsonParams(UniValue::VOBJ);
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
     if (fHelp || (params.size() != 0))
@@ -755,7 +755,7 @@ UniValue kogskoglist(const UniValue& params, bool fHelp)
 // rpc kogsslammerlist impl (to return all slammer tokenids)
 UniValue kogsslammerlist(const UniValue& params, bool fHelp)
 {
-    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR), jsonParams(UniValue::VOBJ);
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
     if (fHelp || (params.size() != 0))
@@ -779,7 +779,7 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp)
 // rpc kogspacklist impl (to return all pack tokenids)
 UniValue kogspacklist(const UniValue& params, bool fHelp)
 {
-    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR), jsonParams(UniValue::VOBJ);
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
     if (fHelp || (params.size() != 0))
@@ -797,6 +797,102 @@ UniValue kogspacklist(const UniValue& params, bool fHelp)
         resarray.push_back(t.GetHex());
 
     result.push_back(std::make_pair("packids", resarray));
+    return result;
+}
+
+// rpc kogscontainerlist impl (to return all container tokenids)
+UniValue kogscontainerlist(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 0))
+    {
+        throw runtime_error(
+            "kogscontainerlist\n"
+            "returns all container tokenids\n" "\n");
+    }
+
+    std::vector<uint256> tokenids;
+    KogsCreationTxidList(KOGSID_CONTAINER, tokenids);
+    RETURN_IF_ERROR(CCerror);
+
+    for (auto t : tokenids)
+        resarray.push_back(t.GetHex());
+
+    result.push_back(std::make_pair("containerids", resarray));
+    return result;
+}
+
+// rpc kogsplayerlist impl (to return all player creationids)
+UniValue kogsplayerlist(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 0))
+    {
+        throw runtime_error(
+            "kogsplayerlist\n"
+            "returns all player creationids\n" "\n");
+    }
+
+    std::vector<uint256> creationids;
+    KogsCreationTxidList(KOGSID_PLAYER, creationids);
+    RETURN_IF_ERROR(CCerror);
+
+    for (auto i : creationids)
+        resarray.push_back(i.GetHex());
+
+    result.push_back(std::make_pair("playerids", resarray));
+    return result;
+}
+
+// rpc kogsgameconfiglist impl (to return all gameconfig creationids)
+UniValue kogsgameconfiglist(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 0))
+    {
+        throw runtime_error(
+            "kogsgameconfiglist\n"
+            "returns all gameconfig creationids\n" "\n");
+    }
+
+    std::vector<uint256> creationids;
+    KogsCreationTxidList(KOGSID_GAMECONFIG, creationids);
+    RETURN_IF_ERROR(CCerror);
+
+    for (auto i : creationids)
+        resarray.push_back(i.GetHex());
+
+    result.push_back(std::make_pair("gameconfigids", resarray));
+    return result;
+}
+
+// rpc kogsgamelist impl (to return all game creationids)
+UniValue kogsgamelist(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 0))
+    {
+        throw runtime_error(
+            "kogsplayerlist\n"
+            "returns all game creationids\n" "\n");
+    }
+
+    std::vector<uint256> creationids;
+    KogsCreationTxidList(KOGSID_GAME, creationids);
+    RETURN_IF_ERROR(CCerror);
+
+    for (auto i : creationids)
+        resarray.push_back(i.GetHex());
+
+    result.push_back(std::make_pair("gameids", resarray));
     return result;
 }
 
@@ -842,6 +938,10 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogspacklist",           &kogspacklist,            true },
     { "kogs",         "kogskoglist",            &kogskoglist,             true },
     { "kogs",         "kogsslammerlist",        &kogsslammerlist,         true },
+    { "kogs",         "kogscontainerlist",      &kogscontainerlist,       true },
+    { "kogs",         "kogsplayerlist",         &kogsplayerlist,          true },
+    { "kogs",         "kogsgameconfiglist",     &kogsgameconfiglist,      true },
+    { "kogs",         "kogsgamelist",           &kogsgamelist,            true },
     { "kogs",         "kogsremoveobject",       &kogsremoveobject,        true },
     { "kogs",         "kogsobjectinfo",         &kogsobjectinfo,          true }
 };
