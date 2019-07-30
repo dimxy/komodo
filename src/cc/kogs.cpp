@@ -203,7 +203,6 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
             // parse kogs enclosure:
             if (KogsEnclosure::DecodeOpret(tx, enc))
             {
-                vscript_t vopret;
                 uint8_t objectId;
 
                 if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectId))
@@ -212,7 +211,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
                 KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
                 if (obj == nullptr)
                     return nullptr;
-                if (obj->Unmarshal(vopret)) {
+                if (obj->Unmarshal(enc.vdata)) {
                     obj->creationtxid = creationtxid;
                     obj->encOrigPk = enc.origpk;
                     return obj;
