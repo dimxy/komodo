@@ -131,11 +131,14 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
                     KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
                     if (obj == nullptr)
                         return nullptr;
-                    obj->nameId = name;
-                    obj->descriptionId = description;
-                    obj->origpk = pubkey2pk(origpubkey);
-                    if (obj->Unmarshal(vnftopret))
+                    
+                    if (obj->Unmarshal(vnftopret)) {
+                        obj->creationtxid = creationtxid;
+                        obj->nameId = name;
+                        obj->descriptionId = description;
+                        obj->encOrigPk = pubkey2pk(origpubkey);
                         return obj;
+                    }
                     else
                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal nft to GameObject" << std::endl);
                 }
@@ -155,8 +158,11 @@ static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
                 KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
                 if (obj == nullptr)
                     return nullptr;
-                if (obj->Unmarshal(vopret))
+                if (obj->Unmarshal(vopret)) {
+                    obj->creationtxid = creationtxid;
+                    obj->encOrigPk = enc.origpk;
                     return obj;
+                }
                 else
                     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal non-nft kogs object to GameObject" << std::endl);
                 //}
@@ -197,9 +203,9 @@ static void ListContainerTokenids(KogsContainer &container)
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey createtxidPk = CCtxidaddr(txidaddr, container.creationtxid);
 
-    SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr marker
+    SetCCunspents(addressUnspents, txidaddr, true);    // look all tx on 1of2 addr
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) {
-        struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectId and unmarshal corresponding gameobject
+        struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // load and unmarshal gameobject for this txid
         if (obj != nullptr && KOGS_IS_MATCH_OBJECT(obj->objectId))
             container.tokenids.insert(obj->creationtxid);
     }
@@ -625,7 +631,7 @@ static int CheckIsMyContainer(uint256 gameid, uint256 containerid)
 
         if (IsContainerDeposited(*pgame, *pcontainer)) 
         {
-            if (mypk != pgame->origpk) {
+            if (mypk != pgame->encOrigPk) {
                 CCerror = "can't remove kogs: container is deposited and you are not the game creator";
                 return 0;
             }
