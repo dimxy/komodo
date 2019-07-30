@@ -629,7 +629,7 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
     uint256 gameid = zeroid; 
     iter = std::find(paramkeys.begin(), paramkeys.end(), "gameid");
     if (iter != paramkeys.end()) {
-        containerid = Parseuint256(jsonParams[iter - paramkeys.begin()].get_str().c_str());
+        gameid = Parseuint256(jsonParams[iter - paramkeys.begin()].get_str().c_str());
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << " test output gameid=" << gameid.GetHex() << std::endl);
     }
 
