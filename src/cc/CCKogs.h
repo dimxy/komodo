@@ -174,7 +174,7 @@ struct KogsPlayer : public KogsBaseObject {
 struct KogsGame : public KogsBaseObject {
 
     uint256 gameconfigid;
-    std::vector<uint256> playerids;
+    std::set<uint256> playerids;
 
     ADD_SERIALIZE_METHODS;
 
@@ -215,7 +215,7 @@ struct KogsGame : public KogsBaseObject {
 
     // special init function for GameObject structure created in memory for serialization 
     // (for reading from HDD it should not be called, these values should be read from HDD and checked)
-    void InitPlayer(uint256 gameconfigid_, std::vector<uint256> playerids_)
+    void InitPlayer(uint256 gameconfigid_, std::set<uint256> playerids_)
     {
         gameconfigid = gameconfigid_;
         playerids = playerids_;
@@ -613,7 +613,8 @@ public:
 
 std::string KogsCreateGameConfig(KogsGameConfig newgameconfig);
 std::string KogsCreatePlayer(KogsPlayer newplayer);
-std::vector<std::string> KogsCreateGameObjectNFTs(std::vector<KogsMatchObject> & newkogs);
+std::string KogsStartGame(KogsGame newgame);
+std::vector<std::string> KogsCreateMatchObjectNFTs(std::vector<KogsMatchObject> & newkogs);
 std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv);
 std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptkey, vuint8_t iv);
 //std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint256> &tokenids, std::vector<uint256> &duptokenids);
