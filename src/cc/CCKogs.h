@@ -32,6 +32,8 @@ const uint8_t KOGSID_CONTAINER = 'C';
 
 const uint8_t KOGS_VERSION = 1;
 
+#define KOGS_IS_MATCH_OBJECT(objectId) (objectId == KOGSID_SLAMMER || objectId == KOGSID_KOG)
+
 #define TOKEN_MARKER_VOUT           0   // token global address basic cc marker vout num
 #define TOKEN_KOGS_MARKER_VOUT      2   // additional kogs global address marker vout num for tokens
 
