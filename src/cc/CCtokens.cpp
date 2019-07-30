@@ -631,7 +631,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 
     GetNonfungibleData(tokenid, vopretNonfungible);
     if (vopretNonfungible.size() > 0)
-        cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode for cc responsible for NFT
+        cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT
     GetTokensCCaddress(cp, tokenaddr, pk);  // GetTokensCCaddress will use 'additionalTokensEvalcode2'
 
     return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs, vopretNonfungible);
@@ -640,11 +640,17 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 
 // overload, adds inputs from token cc addr and returns non-fungible opret payload if present
 // also sets evalcode in cp, if needed
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs)
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible)
 {
 	int64_t threshold, nValue, price, totalinputs = 0;  
 	int32_t n = 0;
 	std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+
+    if (vopretNonfungible.size() == 0) { // if NFT data was not loaded in the caller overload
+        GetNonfungibleData(tokenid, vopretNonfungible); //load NFT data 
+        if (vopretNonfungible.size() > 0)
+            cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT, for signing
+    }
 
 	SetCCunspents(unspentOutputs, tokenaddr,true);
 
@@ -886,7 +892,6 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
             cp2 = CCinit(&C2, markerEvalCode);
             mtx.vout.push_back(MakeCC1vout(markerEvalCode, txfee, GetUnspendable(cp2, NULL)));
         }
-
 		return(FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', Mypubkey(), name, description, nonfungibleData)));
 	}
 
