@@ -628,25 +628,25 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible)
 {
     char tokenaddr[64];
-    GetTokensCCaddress(cp, tokenaddr, pk);
+
+    GetNonfungibleData(tokenid, vopretNonfungible);
+    if (vopretNonfungible.size() > 0)
+        cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode for cc responsible for NFT
+    GetTokensCCaddress(cp, tokenaddr, pk);  // GetTokensCCaddress will use 'additionalTokensEvalcode2'
+
     return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs, vopretNonfungible);
 }
 
 
 // overload, adds inputs from token cc addr and returns non-fungible opret payload if present
 // also sets evalcode in cp, if needed
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible)
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs)
 {
 	int64_t threshold, nValue, price, totalinputs = 0;  
 	int32_t n = 0;
 	std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
 
-    GetNonfungibleData(tokenid, vopretNonfungible);
-    if (vopretNonfungible.size() > 0)
-        cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];
-
 	SetCCunspents(unspentOutputs, tokenaddr,true);
-
 
     if (unspentOutputs.empty()) {
         LOGSTREAM("cctokens", CCLOG_INFO, stream << "AddTokenCCInputs() no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->additionalTokensEvalcode2 << std::endl);
@@ -684,7 +684,8 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 
 			if ((nValue = IsTokensvout(true, true/*<--add only valid token uxtos */, cp, NULL, vintx, vout, tokenid)) > 0 && myIsutxo_spentinmempool(ignoretxid,ignorevin,vintxid, vout) == 0)
 			{
-				//for non-fungible tokens check payload:
+                /* no need in this check: we already have vopretNonfungible from tokenid opret
+                //for non-fungible tokens check payload:
                 if (!vopretNonfungible.empty()) {
                     vscript_t vopret;
 
@@ -695,7 +696,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
                         continue;
                     }
                     // non-fungible evalCode2 cc contract should also check if there exists only one non-fungible vout with amount = 1
-                }
+                } */
 
                 
                 if (total != 0 && maxinputs != 0)  // if it is not just to calc amount...
