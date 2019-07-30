@@ -79,6 +79,25 @@ static bool GetNFTUnspentTx(uint256 tokenid, CTransaction &unspenttx)
         return false;
 }
 
+
+// check if token has been burned
+static bool IsNFTmine(uint256 tokenid)
+{
+    CTransaction lasttx;
+    CPubKey mypk = pubkey2pk(Mypubkey());
+
+    if (GetNFTUnspentTx(tokenid, lasttx) &&
+        lasttx.vout.size() > 1)
+    {
+        for (const auto &v : lasttx.vout)
+        {
+            if (v == MakeTokensCC1vout(EVAL_KOGS, v.nValue, mypk))
+                return true;
+        }
+    }
+    return false;
+}
+
 // check if token has been burned
 static bool IsNFTBurned(uint256 tokenid, CTransaction &lasttx)
 {
@@ -270,9 +289,10 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
     return nullptr;
 }
 
-static void ListGameObjects(uint8_t objectId, std::vector<std::shared_ptr<KogsBaseObject>> &list)
+static void ListGameObjects(uint8_t objectId, bool onlymy, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+    CPubKey mypk = pubkey2pk(Mypubkey());
 
     struct CCcontract_info *cp, C; 
     cp = CCinit(&C, EVAL_KOGS);
@@ -281,7 +301,7 @@ static void ListGameObjects(uint8_t objectId, std::vector<std::shared_ptr<KogsBa
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr marker
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) {
         struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectId and unmarshal corresponding gameobject
-        if (obj != nullptr && obj->objectId == objectId)
+        if (obj != nullptr && obj->objectId == objectId && (!onlymy || IsNFTmine(obj->creationtxid)))
             list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
     }
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectId=" << (char)objectId << std::endl);
@@ -312,12 +332,12 @@ static void ListContainerTokenids(KogsContainer &container)
 
 
 // returns all objects' creationtxid (tokenids or kog object creation txid) for the object with objectId
-void KogsCreationTxidList(uint8_t objectId, std::vector<uint256> &creationtxids)
+void KogsCreationTxidList(uint8_t objectId, bool onlymy, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
 
     // get all objects with this objectId
-    ListGameObjects(objectId, objlist);
+    ListGameObjects(objectId, onlymy, objlist);
 
     for (auto &o : objlist)
     {
@@ -390,10 +410,10 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
         return emptyresult;
 
     // get all kogs gameobject
-    ListGameObjects(KOGSID_KOG, koglist);
+    ListGameObjects(KOGSID_KOG, false, koglist);
 
     // get all packs
-    ListGameObjects(KOGSID_PACK, packlist);
+    ListGameObjects(KOGSID_PACK, false, packlist);
 
     // decrypt the packs content
     for (auto &p : packlist) {
@@ -486,7 +506,7 @@ std::string KogsCreateContainerNotUsed(KogsContainer newcontainer, const std::se
     std::vector<std::shared_ptr<KogsBaseObject>> containerlist;
 
     // get all containers
-    ListGameObjects(KOGSID_CONTAINER, containerlist);
+    ListGameObjects(KOGSID_CONTAINER, false, containerlist);
 
     duptokenids.clear();
     // check tokens that are not in any container
