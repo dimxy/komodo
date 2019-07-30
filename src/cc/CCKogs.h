@@ -479,7 +479,7 @@ struct KogsEnclosure {
                 uint256 txid = enc.creationtxid;
                 uint256 spenttxid, hashBlock;
                 int32_t vini, height;
-                const int32_t nvout = 0;  // container cc value vout
+                const int32_t nvout = 0;  // enclosure cc value vout
                 CTransaction latesttx;
                 vscript_t vLatestTxOpret;
 
