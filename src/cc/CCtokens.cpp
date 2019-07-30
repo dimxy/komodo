@@ -629,16 +629,16 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs)
 {
     char tokenaddr[64];
-    vscript_t vopretNonfungible;
 
     if (cp->additionalTokensEvalcode2 == 0)  // not set yet
     {
         // check if this is a NFT
+        vscript_t vopretNonfungible;
         GetNonfungibleData(tokenid, vopretNonfungible);
         if (vopretNonfungible.size() > 0)
             cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT
-        GetTokensCCaddress(cp, tokenaddr, pk);  // GetTokensCCaddress will use 'additionalTokensEvalcode2'
     }
+    GetTokensCCaddress(cp, tokenaddr, pk);  // GetTokensCCaddress will use 'additionalTokensEvalcode2'
     return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs);
 }
 
@@ -651,7 +651,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 	int32_t n = 0;
 	std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
 
-    if (cp->additionalTokensEvalcode2 == 0)  // not set yet
+    if (cp->additionalTokensEvalcode2 == 0)  // if not set yet (in TransferToken or this func overload)
     {
         // check if this is a NFT
         vscript_t vopretNonfungible;
@@ -660,8 +660,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
             cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT, for signing
     }
 
-	SetCCunspents(unspentOutputs, tokenaddr,true);
-
+	SetCCunspents(unspentOutputs, tokenaddr, true);
     if (unspentOutputs.empty()) {
         LOGSTREAM("cctokens", CCLOG_INFO, stream << "AddTokenCCInputs() no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->additionalTokensEvalcode2 << std::endl);
     }
@@ -944,7 +943,7 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 	if (total < 0)	{
         CCerror = strprintf("negative total");
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << "=" << total << std::endl);
-		return("");
+		return std::string();
 	}
 
 	cp = CCinit(&C, EVAL_TOKENS);
@@ -966,28 +965,26 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 			if (inputs < total) {   //added dimxy
                 CCerror = strprintf("insufficient token inputs");
                 LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << std::endl);
-				return std::string("");
+				return std::string();
 			}
 
             uint8_t destEvalCode = EVAL_TOKENS;
-            if (cp->additionalTokensEvalcode2 == 0)  // not set yet
+            if (cp->additionalTokensEvalcode2 != 0)  // if set in AddTokenCCInputs
             {
-                vscript_t vopretNonfungible;
-                GetNonfungibleData(tokenid, vopretNonfungible);
-                if (vopretNonfungible.size() > 0)
-                    destEvalCode = vopretNonfungible.begin()[0];
+                destEvalCode = cp->additionalTokensEvalcode2;
             }
             
 			if (inputs > total)
 				CCchange = (inputs - total);
+
             if (destpubkeys.size() == 1)
 			    mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, total, destpubkeys[0]));  // if destEvalCode == EVAL_TOKENS then it is actually equal to MakeCC1vout(EVAL_TOKENS,...)
             else if (destpubkeys.size() == 2)
                 mtx.vout.push_back(MakeTokensCC1of2vout(destEvalCode, total, destpubkeys[0], destpubkeys[1])); 
             else
             {
-                CCerror = "0 or unsupported pk number";
-                return std::string("");
+                CCerror = "zero or unsupported destination pk count";
+                return std::string();
             }
 
 
@@ -1021,7 +1018,7 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
         CCerror = strprintf("insufficient normal inputs for tx fee");
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << std::endl);
 	}
-	return("");
+	return std::string();
 }
 
 
