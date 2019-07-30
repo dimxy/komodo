@@ -619,34 +619,42 @@ void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
 
 
 // overload for fungible tokens, adds token inputs from pubkey
+/*
 int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs) {
     vscript_t vopretNonfungibleDummy;
     return AddTokenCCInputs(cp, mtx, pk, tokenid, total, maxinputs, vopretNonfungibleDummy);
-}
+} */
 
 // overload for non-fungible tokens, adds token inputs from pubkey
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible)
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs)
 {
     char tokenaddr[64];
+    vscript_t vopretNonfungible;
 
-    GetNonfungibleData(tokenid, vopretNonfungible);
-    if (vopretNonfungible.size() > 0)
-        cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT
-    GetTokensCCaddress(cp, tokenaddr, pk);  // GetTokensCCaddress will use 'additionalTokensEvalcode2'
-
-    return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs, vopretNonfungible);
+    if (cp->additionalTokensEvalcode2 == 0)  // not set yet
+    {
+        // check if this is a NFT
+        GetNonfungibleData(tokenid, vopretNonfungible);
+        if (vopretNonfungible.size() > 0)
+            cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT
+        GetTokensCCaddress(cp, tokenaddr, pk);  // GetTokensCCaddress will use 'additionalTokensEvalcode2'
+    }
+    return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs);
 }
 
 
 // overload, adds inputs from token cc addr and returns non-fungible opret payload if present
 // also sets evalcode in cp, if needed
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible)
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs)
 {
 	int64_t threshold, nValue, price, totalinputs = 0;  
 	int32_t n = 0;
 	std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
 
-    if (vopretNonfungible.size() == 0) { // if NFT data was not loaded in the caller overload
+    if (cp->additionalTokensEvalcode2 == 0)  // not set yet
+    {
+        // check if this is a NFT
+        vscript_t vopretNonfungible;
         GetNonfungibleData(tokenid, vopretNonfungible); //load NFT data 
         if (vopretNonfungible.size() > 0)
             cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT, for signing
@@ -900,16 +908,22 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
     return std::string("");
 }
 
-// transfer tokens to another pubkey
-// param additionalEvalCode allows transfer of dual-eval non-fungible tokens
+// transfer tokens from mypk to another pubkey
+// param additionalEvalCode2 allows transfer of dual-eval non-fungible tokens
 std::string TokenTransfer(int64_t txfee, uint256 tokenid, CPubKey destpubkey, int64_t total)
 {
     char tokenaddr[64];
     CPubKey mypk = pubkey2pk(Mypubkey());
-    struct CCcontract_info *cp, C;
 
+    struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_TOKENS);
+
+    vscript_t vopretNonfungible;
+    GetNonfungibleData(tokenid, vopretNonfungible);
+    if (vopretNonfungible.size() > 0)
+        cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT
     GetTokensCCaddress(cp, tokenaddr, mypk);
+
     return TokenTransferExt(txfee, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>(), std::vector<CPubKey> {destpubkey}, total);
 }
 
@@ -926,8 +940,7 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CPubKey mypk; uint64_t mask; int64_t CCchange = 0, inputs = 0;  struct CCcontract_info *cp, C;
-	vscript_t vopretNonfungible, vopretEmpty;
-
+    
 	if (total < 0)	{
         CCerror = strprintf("negative total");
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << "=" << total << std::endl);
@@ -948,7 +961,7 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 	{
 		mask = ~((1LL << mtx.vin.size()) - 1);  // seems, mask is not used anymore
         
-		if ((inputs = AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, 60, vopretNonfungible)) > 0)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
+		if ((inputs = AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, 60)) > 0)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
 		{
 			if (inputs < total) {   //added dimxy
                 CCerror = strprintf("insufficient token inputs");
@@ -957,8 +970,13 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 			}
 
             uint8_t destEvalCode = EVAL_TOKENS;
-            if (vopretNonfungible.size() > 0) 
-                destEvalCode = vopretNonfungible.begin()[0];
+            if (cp->additionalTokensEvalcode2 == 0)  // not set yet
+            {
+                vscript_t vopretNonfungible;
+                GetNonfungibleData(tokenid, vopretNonfungible);
+                if (vopretNonfungible.size() > 0)
+                    destEvalCode = vopretNonfungible.begin()[0];
+            }
             
 			if (inputs > total)
 				CCchange = (inputs - total);
@@ -987,7 +1005,7 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
-			std::string hextx = FinalizeCCTx(mask, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutTokenPubkeys, std::make_pair((uint8_t)0, vopretEmpty))); 
+			std::string hextx = FinalizeCCTx(mask, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutTokenPubkeys, std::make_pair((uint8_t)0, vscript_t()))); 
             if (hextx.empty())
                 CCerror = "could not finalize tx";
             return hextx;
