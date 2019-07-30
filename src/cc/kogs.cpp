@@ -1040,6 +1040,9 @@ UniValue KogsObjectInfo(uint256 tokenid)
     KogsMatchObject *matchobj;
     KogsPack *packobj;
     KogsContainer *containerobj;
+    KogsGame *gameobj;
+    KogsGameConfig *gameconfigobj;
+    KogsPlayer *playerobj;
 
     KogsBaseObject *baseobj = LoadGameObject(tokenid);
     if (baseobj == nullptr) {
@@ -1062,8 +1065,8 @@ UniValue KogsObjectInfo(uint256 tokenid)
 
     switch (baseobj->objectId)
     {
-    case 'K':
-    case 'S':
+    case KOGSID_KOG:
+    case KOGSID_SLAMMER:
         matchobj = (KogsMatchObject*)baseobj;
         info.push_back(std::make_pair("imageId", matchobj->imageId));
         info.push_back(std::make_pair("setId", matchobj->setId));
@@ -1074,11 +1077,11 @@ UniValue KogsObjectInfo(uint256 tokenid)
             info.push_back(std::make_pair("borderId", std::to_string(matchobj->borderId)));
         break;
 
-    case 'P':
+    case KOGSID_PACK:
         packobj = (KogsPack*)baseobj;
         break;
 
-    case 'C':
+    case KOGSID_CONTAINER:
         containerobj = (KogsContainer*)baseobj;
         ListContainerTokenids(*containerobj);
         for (auto t : containerobj->tokenids)
@@ -1086,6 +1089,21 @@ UniValue KogsObjectInfo(uint256 tokenid)
             infotokenids.push_back(t.GetHex());
         }
         info.push_back(std::make_pair("tokenids", infotokenids));
+        break;
+
+    case KOGSID_GAME:
+        gameobj = (KogsGame*)baseobj;
+        info.push_back(std::make_pair("originatorPubKey", HexStr(gameobj->encOrigPk)));
+        break;
+
+    case KOGSID_GAMECONFIG:
+        gameconfigobj = (KogsGameConfig*)baseobj;
+        info.push_back(std::make_pair("KogsInContainer", gameconfigobj->numKogsInContainer));
+        break;
+
+    case KOGSID_PLAYER:
+        playerobj = (KogsPlayer*)baseobj;
+        info.push_back(std::make_pair("originatorPubKey", HexStr(playerobj->encOrigPk)));
         break;
 
     default:
