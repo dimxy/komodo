@@ -115,7 +115,7 @@ static bool LoadTokenData(const CTransaction &tx, uint256 &creationtxid, vuint8_
             {
                 uint256 hashBlock;
 
-                if (!myGetTransaction(tokenid, createtx, hashBlock) || !hashBlock.IsNull())  //use non-locking version, check that tx not in mempool
+                if (!myGetTransaction(tokenid, createtx, hashBlock) || hashBlock.IsNull())  //use non-locking version, check that tx not in mempool
                 {
                     return false;
                 }
@@ -145,7 +145,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
     uint256 hashBlock;
     CTransaction tx;
 
-    if (myGetTransaction(txid, tx, hashBlock) != 0)  //use non-locking version
+    if (myGetTransaction(txid, tx, hashBlock))  //use non-locking version
     {
         vuint8_t vorigpubkey;
         std::string name, description;
@@ -153,7 +153,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
         KogsEnclosure enc(zeroid);
         uint256 creationtxid;
 
-        if (LoadTokenData(tx, creationtxid, vorigpubkey, name, description, oprets) != 0)
+        if (LoadTokenData(tx, creationtxid, vorigpubkey, name, description, oprets))
         {
             vscript_t vnftopret;
             if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
