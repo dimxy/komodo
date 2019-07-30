@@ -423,7 +423,7 @@ std::string KogsCreatePlayer(KogsPlayer newplayer)
 std::string KogsStartGame(KogsGame newgame)
 {
     KogsBaseObject *baseobj = LoadGameObject(newgame.gameconfigid);
-    if (baseobj == nullptr || baseobj->objectId != KOGSID_GAME)
+    if (baseobj == nullptr || baseobj->objectId != KOGSID_GAMECONFIG)
     {
         CCerror = "can't load game config";
         return std::string();

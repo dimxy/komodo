@@ -123,6 +123,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
     //if (reqparamcount < 1)
     //    throw runtime_error("not all required game object data passed\n");
     std::string hextx = KogsCreateGameConfig(newgameconfig);
+    RETURN_IF_ERROR(CCerror);
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextx", hextx));
     return result;
@@ -183,6 +184,7 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp)
 
 
     std::string hextx = KogsCreatePlayer(newplayer);
+    RETURN_IF_ERROR(CCerror);
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextx", hextx));
     return result;
@@ -225,6 +227,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp)
 
 
     std::string hextx = KogsStartGame(newgame);
+    RETURN_IF_ERROR(CCerror);
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextx", hextx));
     return result;
@@ -305,8 +308,7 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
     }
 
     std::vector<std::string> hextxns = KogsCreateMatchObjectNFTs(gameobjects);
-    if (CCerror.empty())
-        RETURN_IF_ERROR(CCerror);
+    RETURN_IF_ERROR(CCerror);
 
     UniValue resarray(UniValue::VARR);
     for (int i = 0; i < hextxns.size(); i++)
