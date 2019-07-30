@@ -100,76 +100,109 @@ static std::string CreateEnclosureTx(const KogsEnclosure &enc)
     return std::string();
 }
 
-// load any kogs game object for the creation txid
-static struct KogsBaseObject *LoadGameObject(uint256 creationtxid)
+static bool LoadTokenData(const CTransaction &tx, uint256 &creationtxid, vuint8_t &vorigpubkey, std::string &name, std::string &description, std::vector<std::pair<uint8_t, vscript_t>> &oprets)
 {
-    uint256 hashBlock;
+    uint256 tokenid;
+    uint8_t funcid, evalcode;
+    std::vector<CPubKey> pubkeys;
     CTransaction createtx;
 
-    if (myGetTransaction(creationtxid, createtx, hashBlock) != 0)  //use non-locking version
+    if (tx.vout.size() > 0)
     {
-        vuint8_t origpubkey;
+        if ((funcid = DecodeTokenOpRet(tx.vout.back().scriptPubKey, evalcode, tokenid, pubkeys, oprets)) != 0)
+        {
+            if (funcid == 't')
+            {
+                uint256 hashBlock;
+
+                if (!myGetTransaction(tokenid, createtx, hashBlock) || !hashBlock.IsNull())  //use non-locking version, check that tx not in mempool
+                {
+                    return false;
+                }
+                creationtxid = tokenid;
+            }
+            else if (funcid == 'c')
+            {
+                createtx = tx;
+                creationtxid = createtx.GetHash();
+            }
+
+            if (!createtx.IsNull() && DecodeTokenCreateOpRet(tx.vout.back().scriptPubKey, vorigpubkey, name, description, oprets) == 'c') 
+            {    
+                return true;
+            }
+        }
+    }
+    else
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no opret in token tx" << std::endl);
+    return false;
+}
+
+
+// load any kogs game object for the creation txid
+static struct KogsBaseObject *LoadGameObject(uint256 txid)
+{
+    uint256 hashBlock;
+    CTransaction tx;
+
+    if (myGetTransaction(txid, tx, hashBlock) != 0)  //use non-locking version
+    {
+        vuint8_t vorigpubkey;
         std::string name, description;
         std::vector<std::pair<uint8_t, vscript_t>> oprets;
         KogsEnclosure enc(zeroid);
+        uint256 creationtxid;
 
-        if (createtx.vout.size() > 0) 
+        if (LoadTokenData(tx, creationtxid, vorigpubkey, name, description, oprets) != 0)
         {
-            if (DecodeTokenCreateOpRet(createtx.vout.back().scriptPubKey, origpubkey, name, description, oprets) != 0)
+            vscript_t vnftopret;
+            if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
             {
-                vscript_t vnftopret;
-                if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
-                {
-                    uint8_t objectId;
-                    CTransaction dummytx;
-                    if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectId))
-                        return nullptr;
-
-                    if (IsNFTBurned(creationtxid, dummytx))
-                        return nullptr;
-
-                    KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
-                    if (obj == nullptr)
-                        return nullptr;
-                    
-                    if (obj->Unmarshal(vnftopret)) {
-                        obj->creationtxid = creationtxid;
-                        obj->nameId = name;
-                        obj->descriptionId = description;
-                        obj->encOrigPk = pubkey2pk(origpubkey);
-                        return obj;
-                    }
-                    else
-                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal nft to GameObject" << std::endl);
-                }
-                else
-                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant find nft opret in token opret" << std::endl);
-            }
-            else if(KogsEnclosure::DecodeOpret(createtx, enc))
-            {
-                vscript_t vopret;
                 uint8_t objectId;
-
-                if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectId))
+                CTransaction dummytx;
+                if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectId))
                     return nullptr;
 
-                //if (objectId == KOGSID_CONTAINER)
-                //{
+                if (IsNFTBurned(creationtxid, dummytx))
+                    return nullptr;
+
                 KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
                 if (obj == nullptr)
                     return nullptr;
-                if (obj->Unmarshal(vopret)) {
+                    
+                if (obj->Unmarshal(vnftopret)) {
                     obj->creationtxid = creationtxid;
-                    obj->encOrigPk = enc.origpk;
+                    obj->nameId = name;
+                    obj->descriptionId = description;
+                    obj->encOrigPk = pubkey2pk(vorigpubkey);
                     return obj;
                 }
                 else
-                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal non-nft kogs object to GameObject" << std::endl);
-                //}
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal nft to GameObject" << std::endl);
             }
+            else
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant find nft opret in token opret" << std::endl);
         }
-        else
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no opret in tx" << std::endl);
+        else if(KogsEnclosure::DecodeOpret(tx, enc))
+        {
+            vscript_t vopret;
+            uint8_t objectId;
+
+            if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectId))
+                return nullptr;
+
+            KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
+            if (obj == nullptr)
+                return nullptr;
+            if (obj->Unmarshal(vopret)) {
+                obj->creationtxid = creationtxid;
+                obj->encOrigPk = enc.origpk;
+                return obj;
+            }
+            else
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal non-nft kogs object to GameObject" << std::endl);
+        }
+        
     }
     return nullptr;
 }
