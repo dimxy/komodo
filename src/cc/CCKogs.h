@@ -419,7 +419,7 @@ struct KogsEnclosure {
             evalcode = 0;
             version = 0;
         }
-        if (!ser_action.ForRead()) {
+        if (!ser_action.ForRead()) {  // if for write
             if (creationtxid.IsNull()) // new object
                 funcId = 'c';  // creation
             else
@@ -457,45 +457,54 @@ struct KogsEnclosure {
     }
 
     vscript_t EncodeOpret() const { return E_MARSHAL(ss << (*this)); };
-    static bool DecodeOpret(const CTransaction &createtx, KogsEnclosure &enc)
+    static bool DecodeOpret(const CTransaction &tx, KogsEnclosure &enc)
     {
         vscript_t v;
-        enc.creationtxid = createtx.GetHash();
-        GetOpReturnData(createtx.vout.back().scriptPubKey, v);
-        bool result = E_UNMARSHAL(v, ss >> enc);
-        if (result)
+        bool result = false;
+
+        if (tx.vout.size() > 0)
         {
-            // go for the opret data from the last/unspent tx 't'
-            uint256 txid = enc.creationtxid;
-            uint256 spenttxid, hashBlock;
-            int32_t vini, height;
-            const int32_t nvout = 0;  // container cc value vout
-            CTransaction latesttx;
-            vscript_t vLatestTxOpret;
-
-            // update object vars with the data from last tx opret:
-            while (CCgetspenttxid(spenttxid, vini, height, txid, nvout) == 0)
+            GetOpReturnData(tx.vout.back().scriptPubKey, v);
+            result = E_UNMARSHAL(v, ss >> enc);
+            if (result)
             {
-                txid = spenttxid;
-            }
+                if (enc.funcId == 'c')
+                    enc.creationtxid = tx.GetHash();
 
-            if (txid != enc.creationtxid)
-            {
-                if (myGetTransaction(txid, latesttx, hashBlock) &&  // use non-locking ver as this func could be called from validation code
-                    latesttx.vout.size() > 1 &&
-                    GetOpReturnData(latesttx.vout.back().scriptPubKey, vLatestTxOpret) &&
-                    E_UNMARSHAL(vLatestTxOpret, ss >> enc))
+                // go for the opret data from the last/unspent tx 't'
+                uint256 txid = enc.creationtxid;
+                uint256 spenttxid, hashBlock;
+                int32_t vini, height;
+                const int32_t nvout = 0;  // container cc value vout
+                CTransaction latesttx;
+                vscript_t vLatestTxOpret;
+
+                // update object vars with the data from last tx opret:
+                while (CCgetspenttxid(spenttxid, vini, height, txid, nvout) == 0)
                 {
-                    enc.latesttxid = txid;
-                    return true;
+                    txid = spenttxid;
                 }
-                else
+
+                if (txid != enc.creationtxid)
                 {
-                    LOGSTREAM("kogs", CCLOG_INFO, stream << "could not unmarshal container last tx opret txid=" << txid.GetHex() << std::endl);
-                    return false;
+                    if (myGetTransaction(txid, latesttx, hashBlock) &&  // use non-locking ver as this func could be called from validation code
+                        latesttx.vout.size() > 1 &&
+                        GetOpReturnData(latesttx.vout.back().scriptPubKey, vLatestTxOpret) &&
+                        E_UNMARSHAL(vLatestTxOpret, ss >> enc))
+                    {
+                        enc.latesttxid = txid;
+                        return true;
+                    }
+                    else
+                    {
+                        LOGSTREAM("kogs", CCLOG_INFO, stream << "could not unmarshal container last tx opret txid=" << txid.GetHex() << std::endl);
+                        return false;
+                    }
                 }
             }
         }
+        else
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no opret in enclosure tx" << std::endl);
         return result;
     }
 
@@ -504,7 +513,7 @@ struct KogsEnclosure {
     KogsEnclosure(uint256 creationtxid_)  { 
         evalcode = EVAL_KOGS;
         version = KOGS_VERSION;
-        creationtxid = creationtxid_;
+        creationtxid = creationtxid_;  // should be zeroid for new object for writing
     }
     KogsEnclosure() = delete;  // cannot allow to create without explicit creationtxid
 };
