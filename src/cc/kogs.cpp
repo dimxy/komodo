@@ -214,8 +214,10 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
                     if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectId))
                         return nullptr;
 
-                    if (IsNFTBurned(creationtxid, dummytx))
-                        return nullptr;
+                    // TODO: why to check here whether nft is burned?
+                    // we need to load burned nfts too!
+                    // if (IsNFTBurned(creationtxid, dummytx))
+                    //    return nullptr;
 
                     KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
                     if (obj == nullptr)

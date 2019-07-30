@@ -338,7 +338,6 @@ std::string CreateSell(int64_t txfee,int64_t askamount,uint256 assetid,int64_t p
     mypk = pubkey2pk(Mypubkey());
     if (AddNormalinputs(mtx, mypk, 2*txfee, 3) > 0)
     {
-        std::vector<uint8_t> vopretNonfungible;
         mask = ~((1LL << mtx.vin.size()) - 1);
 		// add single-eval tokens (or non-fungible tokens):
         cpTokens = CCinit(&tokensC, EVAL_TOKENS);  // NOTE: adding inputs only from EVAL_TOKENS cc
