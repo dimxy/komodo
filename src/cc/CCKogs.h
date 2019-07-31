@@ -216,7 +216,7 @@ struct KogsGame : public KogsBaseObject {
 
     // special init function for GameObject structure created in memory for serialization 
     // (for reading from HDD it should not be called, these values should be read from HDD and checked)
-    void InitPlayer(uint256 gameconfigid_, std::set<uint256> playerids_)
+    void InitPlayer(uint256 gameconfigid_, std::vector<uint256> playerids_)
     {
         gameconfigid = gameconfigid_;
         playerids = playerids_;
