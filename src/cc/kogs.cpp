@@ -1257,6 +1257,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, baton, pplayer->encOrigPk);  // send baton to player pubkey;
                         if (batontx.IsNull())
                             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << it->first.txhash.GetHex() << std::endl);
+                        else
+                            minersTransactions.push_back(batontx);
                     }
                     else
                         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't load player with id=" << pgame->playerids[turn].GetHex() << std::endl);
@@ -1264,6 +1266,6 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
             }   
         }
     }
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created" << minersTransactions.size() << " games" << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created=" << minersTransactions.size() << " batons" << std::endl);
 
 }
