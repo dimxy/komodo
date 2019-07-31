@@ -37,7 +37,7 @@ const uint8_t KOGS_VERSION = 1;
 #define TOKEN_MARKER_VOUT           0   // token global address basic cc marker vout num
 #define TOKEN_KOGS_MARKER_VOUT      2   // additional kogs global address marker vout num for tokens
 
-#define KOGS_MARKER_VOUT            1   // marker vout num for kogs tx in kogs global address
+#define KOGS_ENCLOSURE_MARKER_VOUT  1   // marker vout num for kogs tx in kogs global address
 
 struct KogsBaseObject {
     std::string nameId;
