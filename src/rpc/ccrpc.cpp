@@ -518,7 +518,7 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
     {
         throw runtime_error(
             "kogsdepositcontainer gameid containerid\n"
-            "deposits container to the system game address\n"
+            "deposits the container to the game address\n"
             "parameters:\n"
             "gameid - id of the transaction created by kogsstartgame rpc"
             "containerid - id of container creation transaction\n" "\n");
