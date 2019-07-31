@@ -123,7 +123,7 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
 }
 
 // create enclosure tx (similar but not exactly like NFT as enclosure could be changed) with game object inside
-static std::string CreateEnclosureTx(KogsBaseObject *baseobj)
+static std::string CreateEnclosureTx(KogsBaseObject *baseobj, bool needBaton)
 {
     const CAmount  txfee = 10000;
     CPubKey mypk = pubkey2pk(Mypubkey());
@@ -139,10 +139,17 @@ static std::string CreateEnclosureTx(KogsBaseObject *baseobj)
     enc.name = baseobj->nameId;
     enc.description = baseobj->descriptionId;
 
-    if (AddNormalinputs(mtx, mypk, 2 * txfee, 4) > 0)
+    int32_t nfees = 2;
+    if (needBaton)
+        nfees += 2;
+
+    if (AddNormalinputs(mtx, mypk, nfees * txfee, 8) > 0)
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, txfee, GetUnspendable(cp, NULL)));  // kogs cc marker
+        if (needBaton)
+            mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2*txfee, GetUnspendable(cp, NULL))); // initial baton to indicate whose turn is now
+
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
         std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret);
@@ -154,6 +161,35 @@ static std::string CreateEnclosureTx(KogsBaseObject *baseobj)
     else
         CCerror = "can't find normals for 2 txfee";
     return std::string();
+}
+
+static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBaton &baton, CPubKey destpk)
+{
+    const CAmount  txfee = 10000;
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    KogsEnclosure enc(zeroid);  //'zeroid' means 'for creation'
+    enc.vdata = baton.Marshal();
+    enc.name = baton.nameId;
+    enc.description = baton.descriptionId;
+
+    if (AddNormalinputs(mtx, destpk, txfee, 8) > 0)
+    {
+        mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev baton
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2 * txfee, GetUnspendable(cp, NULL))); // initial baton to indicate whose turn is now
+
+        CScript opret;
+        opret << OP_RETURN << enc.EncodeOpret();
+        std::string hextx = FinalizeCCTx(0, cp, mtx, destpk, txfee, opret);
+        if (hextx.empty())
+            return CTransaction(); // empty tx
+        else
+            return mtx;
+    }
+    return CTransaction(); // empty tx
 }
 
 static bool LoadTokenData(const CTransaction &tx, uint256 &creationtxid, vuint8_t &vorigpubkey, std::string &name, std::string &description, std::vector<std::pair<uint8_t, vscript_t>> &oprets)
@@ -299,10 +335,14 @@ static void ListGameObjects(uint8_t objectId, bool onlymy, std::vector<std::shar
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectId=" << (char)objectId << std::endl);
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr marker
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) {
-        struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectId and unmarshal corresponding gameobject
-        if (obj != nullptr && obj->objectId == objectId && (!onlymy || IsNFTmine(obj->creationtxid)))
-            list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
+    {
+        if (it->second.satoshis == 10000) // to differenciate it from baton
+        {
+            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectId and unmarshal corresponding gameobject
+            if (obj != nullptr && obj->objectId == objectId && (!onlymy || IsNFTmine(obj->creationtxid)))
+                list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
+        }
     }
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectId=" << (char)objectId << std::endl);
 }
@@ -469,13 +509,13 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
 // create game config object
 std::string KogsCreateGameConfig(KogsGameConfig newgameconfig)
 {
-    return CreateEnclosureTx(&newgameconfig);
+    return CreateEnclosureTx(&newgameconfig, false);
 }
 
 // create player object with player's params
 std::string KogsCreatePlayer(KogsPlayer newplayer)
 {
-    return CreateEnclosureTx(&newplayer);
+    return CreateEnclosureTx(&newplayer, false);
 }
 
 std::string KogsStartGame(KogsGame newgame)
@@ -487,7 +527,8 @@ std::string KogsStartGame(KogsGame newgame)
         return std::string();
     }
 
-    return CreateGameObjectNFT(&newgame);
+    //return CreateGameObjectNFT(&newgame);
+    return CreateEnclosureTx(&newgame, true);
 }
 // create container for passed tokenids
 // check for duplicated
@@ -520,7 +561,7 @@ std::string KogsCreateContainerNotUsed(KogsContainer newcontainer, const std::se
     if (duptokenids.size() > 0)
         return emptyresult;
 
-    return CreateEnclosureTx(&newcontainer);
+    return CreateEnclosureTx(&newcontainer, false);
 }
 
 // another impl for container: its an NFT token
@@ -1163,4 +1204,66 @@ UniValue KogsObjectInfo(uint256 tokenid)
     }
 
     return info;
+}
+
+void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &minersTransactions)
+{
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+    CPubKey mypk = pubkey2pk(Mypubkey());
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "listing all games with batons" << std::endl);
+
+    srand(time(NULL));
+
+    // find all games with unspent batons:
+    SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr 
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
+    {
+        if (it->second.satoshis == 20000) // picking batons with markers=20000
+        {
+            struct KogsBaseObject *pgobj = LoadGameObject(it->first.txhash); // parse objectId and unmarshal gameobject
+            if (pgobj != nullptr && (pgobj->objectId == KOGSID_GAME || pgobj->objectId == KOGSID_BATON))
+            {
+                KogsGame *pgame = (KogsGame *)pgobj;
+                // randomly select whose turn is the first:
+                if (pgame->playerids.size() > 1)
+                {
+                    int32_t turn;
+                    if (pgobj->objectId == KOGSID_GAME)
+                        turn = rand() % pgame->playerids.size();
+                    else
+                    {
+                        turn++;
+                        if (turn == pgame->playerids.size())
+                            turn = 0;
+                    }
+                    struct KogsBaseObject *ppobj = LoadGameObject(pgame->playerids[turn]);
+                    if (ppobj != nullptr && ppobj->objectId == KOGSID_PLAYER)
+                    {
+                        KogsPlayer *pplayer = (KogsPlayer*)ppobj;
+                        
+                        KogsBaton baton;
+                        baton.nameId = "baton";
+                        baton.descriptionId = "turn";
+                        baton.nextturn = turn;
+                        if (pgobj->objectId == KOGSID_BATON)  // calc only when prev is a baton, not the game
+                            baton.turncount++;  //calc the previously passed turns
+
+                        // TODO: finish the game if turncount == player.size * 3
+
+                        CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, baton, pplayer->encOrigPk);  // send baton to player pubkey;
+                        if (batontx.IsNull())
+                            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << it->first.txhash.GetHex() << std::endl);
+                    }
+                    else
+                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't load player with id=" << pgame->playerids[turn].GetHex() << std::endl);
+                }
+            }   
+        }
+    }
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created" << minersTransactions.size() << " games" << std::endl);
+
 }

@@ -284,7 +284,7 @@ extern const char *ASSETCHAINS_ALGORITHMS[];
 extern int32_t VERUS_MIN_STAKEAGE;
 extern uint32_t ASSETCHAINS_VERUSHASH, ASSETCHAINS_VERUSHASHV1_1, ASSETCHAINS_NONCESHIFT[], ASSETCHAINS_HASHESPERROUND[];
 extern std::string NOTARY_PUBKEY,ASSETCHAINS_OVERRIDE_PUBKEY,ASSETCHAINS_SCRIPTPUB;
-extern uint8_t NOTARY_PUBKEY33[33],ASSETCHAINS_OVERRIDE_PUBKEY33[33],ASSETCHAINS_MARMARA;
+extern uint8_t NOTARY_PUBKEY33[33],ASSETCHAINS_OVERRIDE_PUBKEY33[33],ASSETCHAINS_MARMARA, ASSETCHAINS_KOGSGAME;
 extern std::vector<std::string> ASSETCHAINS_PRICES,ASSETCHAINS_STOCKS;
 
 extern int32_t VERUS_BLOCK_POSUNITS, VERUS_CONSECUTIVE_POS_THRESHOLD, VERUS_NOPOS_THRESHHOLD;
@@ -344,5 +344,7 @@ int32_t komodo_notarized_bracket(struct notarized_checkpoint *nps[2],int32_t hei
 arith_uint256 komodo_adaptivepow_target(int32_t height,arith_uint256 bnTarget,uint32_t nTime);
 
 uint256 Parseuint256(const char *hexstr);
+
+void komodo_createminerstransactions(int32_t nHeight, std::vector<CTransaction> &minersTransactions);
 
 #endif

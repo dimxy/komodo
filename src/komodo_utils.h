@@ -1877,6 +1877,7 @@ void komodo_args(char *argv0)
         ASSETCHAINS_BEAMPORT = GetArg("-ac_beam",0);
         ASSETCHAINS_CODAPORT = GetArg("-ac_coda",0);
         ASSETCHAINS_MARMARA = GetArg("-ac_marmara",0);
+        ASSETCHAINS_KOGSGAME = GetArg("-ac_kogsgame", 0);
         ASSETCHAINS_CBOPRET = GetArg("-ac_cbopret",0);
         ASSETCHAINS_CBMATURITY = GetArg("-ac_cbmaturity",0);
         ASSETCHAINS_ADAPTIVEPOW = GetArg("-ac_adaptivepow",0);
