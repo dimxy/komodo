@@ -141,7 +141,7 @@ static std::string CreateEnclosureTx(KogsBaseObject *baseobj)
 
     if (AddNormalinputs(mtx, mypk, 2 * txfee, 4) > 0)
     {
-        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // container spendable vout for transferring it
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, txfee, GetUnspendable(cp, NULL)));  // kogs cc marker
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
@@ -469,17 +469,12 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
 // create game config object
 std::string KogsCreateGameConfig(KogsGameConfig newgameconfig)
 {
-    if (!CheckSysPubKey())
-        return std::string();
-
     return CreateEnclosureTx(&newgameconfig);
 }
 
 // create player object with player's params
 std::string KogsCreatePlayer(KogsPlayer newplayer)
 {
-    if (!CheckSysPubKey())
-        return std::string();
     return CreateEnclosureTx(&newplayer);
 }
 

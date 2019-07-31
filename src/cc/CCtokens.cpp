@@ -842,7 +842,7 @@ std::string CreateToken(int64_t txfee, int64_t tokensupply, std::string name, st
 
 // returns token creation signed raw tx
 // params: txfee amount, token amount, token name and description, optional NFT data, 
-std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t markerEvalCode)
+std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CPubKey mypk; 
@@ -870,7 +870,7 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
 		txfee = 10000;
 	
     int32_t txfeeCount = 2;
-    if (markerEvalCode > 0)
+    if (addMarkerEvalCode > 0)
         txfeeCount++;
 
     mypk = pubkey2pk(Mypubkey());
@@ -892,12 +892,12 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
 		mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, tokensupply, mypk));
 		//mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(cp->CChexstr) << OP_CHECKSIG));  // old marker (non-burnable because spending could not be validated)
         //mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, txfee, GetUnspendable(cp, NULL)));          // ...moved to vout=0 for matching with rogue-game token
-        if (markerEvalCode > 0) 
+        if (additionalMarkerEvalCode > 0) 
         {
             // add additional marker:
             struct CCcontract_info *cp2, C2;
-            cp2 = CCinit(&C2, markerEvalCode);
-            mtx.vout.push_back(MakeCC1vout(markerEvalCode, txfee, GetUnspendable(cp2, NULL)));
+            cp2 = CCinit(&C2, addMarkerEvalCode);
+            mtx.vout.push_back(MakeCC1vout(additionalMarkerEvalCode, txfee, GetUnspendable(cp2, NULL)));
         }
 		return(FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', Mypubkey(), name, description, nonfungibleData)));
 	}
