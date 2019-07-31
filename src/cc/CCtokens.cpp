@@ -870,7 +870,7 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
 		txfee = 10000;
 	
     int32_t txfeeCount = 2;
-    if (addMarkerEvalCode > 0)
+    if (additionalMarkerEvalCode > 0)
         txfeeCount++;
 
 	if (AddNormalinputs2(mtx, tokensupply + txfeeCount * txfee, 64) > 0)  // add normal inputs only from mypk
@@ -894,7 +894,7 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
         {
             // add additional marker:
             struct CCcontract_info *cp2, C2;
-            cp2 = CCinit(&C2, addMarkerEvalCode);
+            cp2 = CCinit(&C2, additionalMarkerEvalCode);
             mtx.vout.push_back(MakeCC1vout(additionalMarkerEvalCode, txfee, GetUnspendable(cp2, NULL)));
         }
 		return(FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', Mypubkey(), name, description, nonfungibleData)));
