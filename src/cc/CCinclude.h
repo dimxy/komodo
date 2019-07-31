@@ -133,7 +133,7 @@ struct CC_meta
 // such stored conds are used as a probe cond in FinalizeCCtx to find out vin tx cc vout and make the matching tx.vin.scriptSig
 class CCwrapper {
 public:
-    CCwrapper() {}
+    CCwrapper() { ccJsonString = NULL; }
 
     // smart pointer alternate variant (not to copy cc but use smart pointer with auto cc_free)
     // we could use it if cc serialization to JSON fails. But serialization is more consistent
@@ -142,17 +142,24 @@ public:
     // CC *get() { return spcond.get(); }
 
     void set(CC *cond) {
-        ccJsonString = cc_conditionToJSONString(cond); // serialize cc to store it and allow caller to cc_free the cond
+        // Serialize the cc to store it as json. 
+        // It would allow to create a new cc and cc_free it at any time when the caller does not need it any more
+        ccJsonString = cc_conditionToJSONString(cond); 
     }
 
     CC *get() {
         char err[1024] = "";
-        CC *cond = cc_conditionFromJSONString(ccJsonString, err);  // dont forget to cc_free it
+        CC *cond = cc_conditionFromJSONString(ccJsonString, err);  // caller, don't forget to cc_free it
 
-                                                                   // debug logging if parse not successful:
-                                                                   // std::cerr << "CCwrapper ccJsonString=" << ccJsonString << "\nerr=" << err << std::endl;  
-                                                                   // if( cond ) std::cerr << "CCwrapper serialized=" << cc_conditionToJSONString(cond) << std::endl;  //see how it is serialized back
+        // debug logging if parse not successful:
+        // std::cerr << "CCwrapper ccJsonString=" << ccJsonString << "\nerr=" << err << std::endl;  
+        // if( cond ) std::cerr << "CCwrapper serialized=" << cc_conditionToJSONString(cond) << std::endl;  //see how it is serialized back
         return cond;
+    }
+
+    ~CCwrapper() {
+        if (ccJsonString)
+            cJSON_free(ccJsonString);
     }
 
 private:
