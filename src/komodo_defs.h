@@ -15,9 +15,8 @@
 
 #ifndef KOMODO_DEFS_H
 #define KOMODO_DEFS_H
-#include "arith_uint256.h"
-
-#include "komodo_nk.h"
+#include "chain.h"
+#include "arith_uint256.h"#include "komodo_nk.h"
 
 #define KOMODO_EARLYTXID_HEIGHT 100
 #define ADAPTIVEPOW_CHANGETO_DEFAULTON 1572480000
