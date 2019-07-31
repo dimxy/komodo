@@ -1224,46 +1224,58 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     {
         if (it->second.satoshis == 20000) // picking batons with markers=20000
         {
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found game or baton utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << std::endl);
+
             struct KogsBaseObject *pgobj = LoadGameObject(it->first.txhash); // parse objectId and unmarshal gameobject
             if (pgobj != nullptr && (pgobj->objectId == KOGSID_GAME || pgobj->objectId == KOGSID_BATON))
             {
-                KogsGame *pgame = (KogsGame *)pgobj;
+                
                 // randomly select whose turn is the first:
-                if (pgame->playerids.size() > 1)
+                int32_t turn;
+                std::vector<uint256> playerids;
+                if (pgobj->objectId == KOGSID_GAME)
                 {
-                    int32_t turn;
-                    if (pgobj->objectId == KOGSID_GAME)
-                        turn = rand() % pgame->playerids.size();
-                    else
-                    {
-                        turn++;
-                        if (turn == pgame->playerids.size())
-                            turn = 0;
-                    }
-                    struct KogsBaseObject *ppobj = LoadGameObject(pgame->playerids[turn]);
-                    if (ppobj != nullptr && ppobj->objectId == KOGSID_PLAYER)
-                    {
-                        KogsPlayer *pplayer = (KogsPlayer*)ppobj;
-                        
-                        KogsBaton baton;
-                        baton.nameId = "baton";
-                        baton.descriptionId = "turn";
-                        baton.nextturn = turn;
-                        if (pgobj->objectId == KOGSID_BATON)  // calc only when prev is a baton, not the game
-                            baton.turncount++;  //calc the previously passed turns
-
-                        // TODO: finish the game if turncount == player.size * 3
-
-                        CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, baton, pplayer->encOrigPk);  // send baton to player pubkey;
-                        if (batontx.IsNull())
-                            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << it->first.txhash.GetHex() << std::endl);
-                        else
-                            minersTransactions.push_back(batontx);
-                    }
-                    else
-                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't load player with id=" << pgame->playerids[turn].GetHex() << std::endl);
+                    KogsGame *pgame = (KogsGame *)pgobj;
+                    if (pgame->playerids.size() < 2)
+                        continue;
+                    turn = rand() % pgame->playerids.size();
+                    playerids = pgame->playerids;
                 }
-            }   
+                else
+                {
+                    KogsBaton *pbaton = (KogsBaton *)pgobj;
+                    turn = pbaton->nextturn;
+                    playerids = pbaton->playerids;
+                    turn ++;
+                    if (turn == playerids.size())
+                        turn = 0;
+                }
+                struct KogsBaseObject *ppobj = LoadGameObject(playerids[turn]);
+                if (ppobj != nullptr && ppobj->objectId == KOGSID_PLAYER)
+                {
+                    KogsPlayer *pplayer = (KogsPlayer*)ppobj;
+                        
+                    KogsBaton baton;
+                    baton.nameId = "baton";
+                    baton.descriptionId = "turn";
+                    baton.nextturn = turn;
+                    baton.playerids = playerids;
+                    if (pgobj->objectId == KOGSID_BATON)  // calc only when prev is a baton, not the game
+                        baton.turncount++;  //calc the previously passed turns
+
+                    // TODO: finish the game if turncount == player.size * 3
+
+                    CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, baton, pplayer->encOrigPk);  // send baton to player pubkey;
+                    if (batontx.IsNull())
+                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << it->first.txhash.GetHex() << std::endl);
+                    else
+                        minersTransactions.push_back(batontx);
+                }
+                else
+                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't load player with id=" << playerids[turn].GetHex() << std::endl);
+            }
+            else
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "empty or incorrect objectId=" << (pgobj ? (char)pgobj->objectId : ' ') << std::endl);
         }
     }
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created=" << minersTransactions.size() << " batons" << std::endl);

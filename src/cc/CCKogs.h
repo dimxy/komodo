@@ -589,6 +589,8 @@ struct KogsBaton : public KogsBaseObject {
     
     int32_t nextturn;
     int32_t turncount;
+    std::vector<uint256> playerids;
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
@@ -606,6 +608,7 @@ struct KogsBaton : public KogsBaseObject {
         {
             READWRITE(nextturn);
             READWRITE(turncount);
+            READWRITE(playerids);
         }
         else
         {
