@@ -193,7 +193,7 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp)
 // rpc kogsstartgame impl
 UniValue kogsstartgame(const UniValue& params, bool fHelp)
 {
-    UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
+    UniValue result(UniValue::VOBJ);
     CCerror.clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
@@ -213,18 +213,21 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp)
     if (newgame.gameconfigid.IsNull())
         throw runtime_error("incorrect gameconfigid param\n");
 
+    std::set<uint256> playerids;
     for (int i = 2; i < params.size(); i++)
     {
         uint256 playerid = Parseuint256(params[i].get_str().c_str());
         if (!playerid.IsNull())
-            newgame.playerids.insert(playerid);
+            playerids.insert(playerid);
         else
             throw runtime_error(std::string("incorrect playerid=") + params[i].get_str() + std::string("\n"));
     }
 
-    if (newgame.playerids.size() != params.size() - 2)
+    if (playerids.size() != params.size() - 2)
         throw runtime_error("duplicate playerids in params\n");
 
+    for (auto p : playerids)
+        newgame.playerids.push_back(p);
 
     std::string hextx = KogsStartGame(newgame);
     RETURN_IF_ERROR(CCerror);

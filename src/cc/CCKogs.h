@@ -29,6 +29,7 @@ const uint8_t KOGSID_KOG = 'K';
 const uint8_t KOGSID_SLAMMER = 'S';
 const uint8_t KOGSID_PACK = 'P';
 const uint8_t KOGSID_CONTAINER = 'C';
+const uint8_t KOGSID_BATON = 'B';
 
 const uint8_t KOGS_VERSION = 1;
 
@@ -64,7 +65,7 @@ struct KogsBaseObject {
             return true;
     }
 
-    virtual vscript_t Marshal() = 0;
+    virtual vscript_t Marshal() const = 0;
     virtual bool Unmarshal(vscript_t v) = 0;
 
     KogsBaseObject()
@@ -106,7 +107,7 @@ struct KogsGameConfig : public KogsBaseObject {
         }
     }
 
-    virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); };
+    virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); };
     virtual bool Unmarshal(vscript_t v) {
         return E_UNMARSHAL(v, ss >> (*this));
     };
@@ -152,10 +153,10 @@ struct KogsPlayer : public KogsBaseObject {
         }
     }
 
-    virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); };
+    virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
     virtual bool Unmarshal(vscript_t v) {
         return E_UNMARSHAL(v, ss >> (*this));
-    };
+    }
 
     KogsPlayer() : KogsBaseObject()
     {
@@ -174,7 +175,7 @@ struct KogsPlayer : public KogsBaseObject {
 struct KogsGame : public KogsBaseObject {
 
     uint256 gameconfigid;
-    std::set<uint256> playerids;
+    std::vector<uint256> playerids;
 
     ADD_SERIALIZE_METHODS;
 
@@ -200,7 +201,7 @@ struct KogsGame : public KogsBaseObject {
         }
     }
 
-    virtual vscript_t Marshal() { 
+    virtual vscript_t Marshal() const { 
         if (gameconfigid == zeroid) return vscript_t{}; 
         return E_MARSHAL(ss << (*this)); 
     }
@@ -260,7 +261,7 @@ struct KogsMatchObject : public KogsBaseObject {
         }
     }
 
-    virtual vscript_t Marshal() { 
+    virtual vscript_t Marshal() const { 
         return E_MARSHAL(ss << (*this)); 
     }
     virtual bool Unmarshal(vscript_t v) {
@@ -318,10 +319,10 @@ struct KogsPack : public KogsBaseObject {
         encrypted.clear();
     }
 
-    virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); };
+    virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
     virtual bool Unmarshal(vscript_t v) {
         return E_UNMARSHAL(v, ss >> (*this)); 
-    };
+    }
 
     // serialize pack content (with magic string) and encrypt
     bool EncryptContent(vuint8_t keystring, vuint8_t iv)
@@ -565,7 +566,7 @@ struct KogsContainer : public KogsBaseObject {
         }
     }
 
-    virtual vscript_t Marshal() { return E_MARSHAL(ss << (*this)); }
+    virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
     virtual bool Unmarshal(vscript_t v) 
     { 
         bool result = E_UNMARSHAL(v, ss >> (*this)); 
@@ -583,6 +584,50 @@ struct KogsContainer : public KogsBaseObject {
     }
 };
 
+// baton
+struct KogsBaton : public KogsBaseObject {
+    
+    int32_t nextturn;
+    int32_t turncount;
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {
+            evalcode = 0;
+            objectId = 0;
+            version = 0;
+        }
+        READWRITE(evalcode);
+        READWRITE(objectId);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && objectId == KOGSID_BATON && version == KOGS_VERSION)
+        {
+            READWRITE(nextturn);
+            READWRITE(turncount);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect NFT evalcode=" << (int)evalcode << " or not a match object NFT objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() const {
+        return E_MARSHAL(ss << (*this));
+    }
+    virtual bool Unmarshal(vscript_t v) {
+        return E_UNMARSHAL(v, ss >> (*this));
+    }
+
+    KogsBaton() : KogsBaseObject() 
+    { 
+        objectId = KOGSID_BATON; 
+        nextturn = 0;
+        turncount = 0;
+    }
+};
+
 // simple factory for Kogs game objects
 class KogsFactory
 {
@@ -595,6 +640,7 @@ public:
         struct KogsGameConfig *f;
         struct KogsPlayer *r;
         struct KogsGame *g;
+        struct KogsBaton *b;
 
         switch (objectId)
         {
@@ -622,6 +668,10 @@ public:
         case KOGSID_GAME:
             g = new KogsGame();
             return (KogsBaseObject*)g;
+
+        case KOGSID_BATON:
+            b = new KogsBaton();
+            return (KogsBaseObject*)b;
 
         default:
             LOGSTREAM("kogs", CCLOG_INFO, stream << "requested to create unsupported objectId=" << (int)objectId << std::endl);

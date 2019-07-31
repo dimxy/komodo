@@ -301,6 +301,10 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
         map<uint256, vector<COrphan*> > mapDependers;
         bool fPrintPriority = GetBoolArg("-printpriority", false);
 
+        // make miner's transactions
+        std::vector<CTransaction> minersTransactions;
+        komodo_createminerstransactions(nHeight, minersTransactions);
+
         // This vector will be sorted into a priority queue:
         vector<TxPriority> vecPriority;
         vecPriority.reserve(mempool.mapTx.size() + 1);
@@ -314,24 +318,24 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             const CTransaction& tx = mi->GetTx();
 
             int64_t nLockTimeCutoff = (STANDARD_LOCKTIME_VERIFY_FLAGS & LOCKTIME_MEDIAN_TIME_PAST)
-            ? nMedianTimePast
-            : pblock->GetBlockTime();
+                ? nMedianTimePast
+                : pblock->GetBlockTime();
 
             if (tx.IsCoinBase() || !IsFinalTx(tx, nHeight, nLockTimeCutoff) || IsExpiredTx(tx, nHeight))
             {
                 //fprintf(stderr,"coinbase.%d finaltx.%d expired.%d\n",tx.IsCoinBase(),IsFinalTx(tx, nHeight, nLockTimeCutoff),IsExpiredTx(tx, nHeight));
-                continue;
+                return;
             }
             txvalue = tx.GetValueOut();
-            if ( KOMODO_VALUETOOBIG(txvalue) != 0 )
-                continue;
+            if (KOMODO_VALUETOOBIG(txvalue) != 0)
+                return;
             //if ( KOMODO_VALUETOOBIG(txvalue + voutsum) != 0 ) // has been commented from main.cpp ? 
             //    continue;
             //voutsum += txvalue;
-            if ( ASSETCHAINS_SYMBOL[0] == 0 && komodo_validate_interest(tx,nHeight,(uint32_t)pblock->nTime,0) < 0 )
+            if (ASSETCHAINS_SYMBOL[0] == 0 && komodo_validate_interest(tx, nHeight, (uint32_t)pblock->nTime, 0) < 0)
             {
                 fprintf(stderr,"CreateNewBlock: komodo_validate_interest failure txid.%s nHeight.%d nTime.%u vs locktime.%u\n",tx.GetHash().ToString().c_str(),nHeight,(uint32_t)pblock->nTime,(uint32_t)tx.nLockTime);
-                continue;
+                return;
             }
 
             COrphan* porphan = NULL;
@@ -345,21 +349,15 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
                 CAmount nValueIn = GetCoinImportValue(tx); // burn amount
                 nTotalIn += nValueIn;
                 dPriority += (double)nValueIn * 1000;  // flat multiplier... max = 1e16.
-            } else {
+            }
+            else {
                 TMP_NotarisationNotaries.clear();
                 bool fToCryptoAddress = false;
-                if ( numSN != 0 && notarypubkeys[0][0] != 0 && komodo_is_notarytx(tx) == 1 )
+                if (numSN != 0 && notarypubkeys[0][0] != 0 && komodo_is_notarytx(tx) == 1)
                     fToCryptoAddress = true;
 
                 BOOST_FOREACH(const CTxIn& txin, tx.vin)
                 {
-                    if (tx.IsPegsImport() && txin.prevout.n==10e8)
-                    {
-                        CAmount nValueIn = GetCoinImportValue(tx); // burn amount
-                        nTotalIn += nValueIn;
-                        dPriority += (double)nValueIn * 1000;  // flat multiplier... max = 1e16.
-                        continue;
-                    }
                     // Read prev transaction
                     if (!view.HaveCoins(txin.prevout.hash))
                     {
@@ -395,66 +393,69 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
                     nTotalIn += nValueIn;
 
                     int nConf = nHeight - coins->nHeight;
-                    
+
                     uint8_t *script; int32_t scriptlen; uint256 hash; CTransaction tx1;
                     // loop over notaries array and extract index of signers.
                     if ( fToCryptoAddress && myGetTransaction(txin.prevout.hash,tx1,hash) )
                     {
-                        for (int8_t i = 0; i < numSN; i++) 
+                        for (int8_t i = 0; i < numSN; i++)
                         {
                             script = (uint8_t *)&tx1.vout[txin.prevout.n].scriptPubKey[0];
                             scriptlen = (int32_t)tx1.vout[txin.prevout.n].scriptPubKey.size();
-                            if ( scriptlen == 35 && script[0] == 33 && script[34] == OP_CHECKSIG && memcmp(script+1,notarypubkeys[i],33) == 0 )
+                            if (scriptlen == 35 && script[0] == 33 && script[34] == OP_CHECKSIG && memcmp(script + 1, notarypubkeys[i], 33) == 0)
                             {
                                 // We can add the index of each notary to vector, and clear it if this notarisation is not valid later on.
-                                TMP_NotarisationNotaries.push_back(i);                          
+                                TMP_NotarisationNotaries.push_back(i);
                             }
                         }
                     }
                     dPriority += (double)nValueIn * nConf;
                 }
-                if ( numSN != 0 && notarypubkeys[0][0] != 0 && TMP_NotarisationNotaries.size() >= numSN / 5 )
+                if (numSN != 0 && notarypubkeys[0][0] != 0 && TMP_NotarisationNotaries.size() >= numSN / 5)
                 {
                     // check a notary didnt sign twice (this would be an invalid notarisation later on and cause problems)
-                    std::set<int> checkdupes( TMP_NotarisationNotaries.begin(), TMP_NotarisationNotaries.end() );
-                    if ( checkdupes.size() != TMP_NotarisationNotaries.size() ) 
+                    std::set<int> checkdupes(TMP_NotarisationNotaries.begin(), TMP_NotarisationNotaries.end());
+                    if (checkdupes.size() != TMP_NotarisationNotaries.size())
                     {
                         fprintf(stderr, "possible notarisation is signed multiple times by same notary, passed as normal transaction.\n");
-                    } else fNotarisation = true;
+                    }
+                    else fNotarisation = true;
                 }
                 nTotalIn += tx.GetShieldedValueIn();
             }
 
-            if (fMissingInputs) continue;
+            if (fMissingInputs) return;
 
             // Priority is sum(valuein * age) / modified_txsize
             unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
             dPriority = tx.ComputePriority(dPriority, nTxSize);
 
-            uint256 hash = tx.GetHash();
-            mempool.ApplyDeltas(hash, dPriority, nTotalIn);
+            if (isMempoolTx) {  // dont do this for miner's txns (in any way ApplyDeltas will skip them)
+                uint256 hash = tx.GetHash();
+                mempool.ApplyDeltas(hash, dPriority, nTotalIn);
+            }
 
-            CFeeRate feeRate(nTotalIn-tx.GetValueOut(), nTxSize);
+            CFeeRate feeRate(nTotalIn - tx.GetValueOut(), nTxSize);
 
-            if ( fNotarisation ) 
+            if (fNotarisation)
             {
                 // Special miner for notary pay chains. Can only enter this if numSN/notarypubkeys is set higher up.
-                if ( tx.vout.size() == 2 && tx.vout[1].nValue == 0 )
+                if (tx.vout.size() == 2 && tx.vout[1].nValue == 0)
                 {
                     // Get the OP_RETURN for the notarisation
                     uint8_t *script = (uint8_t *)&tx.vout[1].scriptPubKey[0];
                     int32_t scriptlen = (int32_t)tx.vout[1].scriptPubKey.size();
-                    if ( script[0] == OP_RETURN )
+                    if (script[0] == OP_RETURN)
                     {
                         Notarisations++;
-                        if ( Notarisations > 1 ) 
+                        if (Notarisations > 1)
                         {
-                            fprintf(stderr, "skipping notarization.%d\n",Notarisations);
+                            fprintf(stderr, "skipping notarization.%d\n", Notarisations);
                             // Any attempted notarization needs to be in its own block!
-                            continue;
+                            return;
                         }
                         int32_t notarizedheight = komodo_getnotarizedheight(pblock->nTime, nHeight, script, scriptlen);
-                        if ( notarizedheight != 0 )
+                        if (notarizedheight != 0)
                         {
                             // this is the first one we see, add it to the block as TX1 
                             NotarisationNotaries = TMP_NotarisationNotaries;
@@ -465,7 +466,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
                     }
                 }
             }
-            else if ( dPriority == 1e16 )
+            else if (dPriority == 1e16)
             {
                 dPriority -= 10;
                 // make sure notarisation is tx[1] in block. 
