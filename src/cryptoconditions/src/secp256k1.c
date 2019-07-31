@@ -255,10 +255,19 @@ static CC *secp256k1FromJSON(const cJSON *params, char *err) {
         goto END;
     }
 
-    cond = cc_secp256k1Condition(pk, sig);
-    if (!cond) {
-        strcpy(err, "invalid public key");
-    }
+	if( sig == NULL )	{  
+		// dimxy: this allows to parse cc not yet signed:
+		cond = cc_new(CC_Secp256k1);
+    	cond->publicKey = calloc(1, SECP256K1_PK_SIZE);
+	    memcpy(cond->publicKey, pk, SECP256K1_PK_SIZE);
+	}
+	else {
+	    cond = cc_secp256k1Condition(pk, sig);
+    	if (!cond) {
+        	strcpy(err, "invalid public key");
+	    }
+	}
+
 END:
     free(pk);
     free(sig);
