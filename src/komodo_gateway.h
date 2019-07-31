@@ -2830,6 +2830,6 @@ void komodo_createminerstransactions(int32_t nHeight, std::vector<CTransaction> 
 {
     if (ASSETCHAINS_KOGSGAME != 0)
     {
-        KogsRun(nHeight, minersTransactions);        // run kogs game , returns settlement transactions
+        KogsCreateMinerTransactions(nHeight, minersTransactions);        // run kogs game , returns settlement transactions
     }
 }
