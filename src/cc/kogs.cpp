@@ -163,6 +163,7 @@ static std::string CreateEnclosureTx(KogsBaseObject *baseobj, bool needBaton)
     return std::string();
 }
 
+// create baton tx to pass turn to the next player
 static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBaton &baton, CPubKey destpk)
 {
     const CAmount  txfee = 10000;
@@ -178,8 +179,8 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBat
 
     if (AddNormalinputs(mtx, destpk, txfee, 8) > 0)
     {
-        mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev baton
-        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2 * txfee, destpk)); // initial baton to indicate whose turn is now
+        mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2 * txfee, destpk)); // baton to indicate whose turn is now
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
@@ -191,6 +192,46 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBat
     }
     return CTransaction(); // empty tx
 }
+
+// create slam param tx to send slam height and strength to the chain
+static std::string CreateSlamParamTx(uint256 prevtxid, int32_t prevn, const KogsSlamParams &slamparam)
+{
+    const CAmount  txfee = 10000;
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+    CPubKey mypk = pubkey2pk(Mypubkey());
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    KogsEnclosure enc(zeroid);  //'zeroid' means 'for creation'
+    enc.vdata = slamparam.Marshal();
+    enc.name = slamparam.nameId;
+    enc.description = slamparam.descriptionId;
+
+    if (AddNormalinputs(mtx, mypk, txfee, 8) > 0)
+    {
+        mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev baton
+
+        // TODO: maybe send this baton to 1of2 (kogs global, gametxid) addr? 
+        // But now a miner searches games or slamparams utxos on kogs global addr, 
+        // so he would have to search on both addresses...  
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2 * txfee, GetUnspendable(cp, NULL))); // baton to indicate whose turn is now
+
+        CScript opret;
+        opret << OP_RETURN << enc.EncodeOpret();
+        std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret);
+        if (hextx.empty())
+            CCerror = "could not finalize or sign slam param transaction";
+        return hextx; // empty tx
+    }
+    else
+    {
+        CCerror = "could not find normal inputs for txfee";
+        return std::string(); // empty tx
+    }
+}
+
 
 static bool LoadTokenData(const CTransaction &tx, uint256 &creationtxid, vuint8_t &vorigpubkey, std::string &name, std::string &description, std::vector<std::pair<uint8_t, vscript_t>> &oprets)
 {
@@ -891,6 +932,51 @@ std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 ga
     return result;
 }
 
+std::string KogsAddSlamParams(KogsSlamParams newslamparams)
+{
+    std::shared_ptr<KogsBaseObject> spbaseobj( LoadGameObject(newslamparams.gameid) );
+    if (spbaseobj == nullptr || spbaseobj->objectId != KOGSID_GAME)
+    {
+        CCerror = "can't load game";
+        return std::string();
+    }
+
+    // find the baton on mypk:
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+   
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    char myccaddr[64];
+    CPubKey mypk = pubkey2pk(Mypubkey());
+    GetCCaddress(cp, myccaddr, mypk);
+
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "listing finding baton on mypk" << std::endl);
+
+    // find all games with unspent batons:
+    uint256 batontxid = zeroid;
+    SetCCunspents(addressUnspents, myccaddr, true);    // look for baton on my cc addr 
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
+    {
+        if (it->second.satoshis == 20000) // picking batons with markers=20000
+        {
+            std::shared_ptr<KogsBaseObject> spbaton(LoadGameObject(it->first.txhash));
+            if (spbaton != nullptr && spbaton->objectId == KOGSID_BATON)
+            {
+
+            }
+        }
+    }
+
+    if (!batontxid.IsNull())
+        return CreateSlamParamTx(batontxid, 0, newslamparams);
+    else
+    {
+        CCerror = "could not find baton for your pubkey";
+        return std::string();
+    }
+}
+
 // transfer token to scriptPubKey
 static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
 {
@@ -1213,6 +1299,7 @@ struct KogsSlamRange
     int32_t upperValue;     // upper border (not inclusive) of height or strength intervals (the lower border is the previous upper border)
 };
 
+// flip percentage ranges for height values
 static std::vector<KogsSlamRange> heightRanges =
 {
     { 0, 5, 5 },
@@ -1223,6 +1310,7 @@ static std::vector<KogsSlamRange> heightRanges =
     { 25, 75, 100 }
 };
 
+// flip percentage ranges for strength values
 static std::vector<KogsSlamRange> strengthRanges =
 {
     { 0, 5, 5 },
@@ -1233,7 +1321,7 @@ static std::vector<KogsSlamRange> strengthRanges =
     { 25, 75, 100 }
 };
 
-// get probability range for the given value (height or strength)
+// get percentage range for the given value (height or strength)
 static int getRange(const std::vector<KogsSlamRange> &range, int32_t val)
 {
     if (range.size() < 2) {
@@ -1254,6 +1342,7 @@ static int getRange(const std::vector<KogsSlamRange> &range, int32_t val)
     return -1;
 }
 
+// flip kogs based on slam data and height and strength ranges
 static bool FlipKogs(const KogsSlamParams &slamparams, std::vector<uint256> &kogsInStack, std::vector<uint256> &kogsFlipped, int prevturncount)
 {
     int iheight = getRange(heightRanges, slamparams.armHeight);
