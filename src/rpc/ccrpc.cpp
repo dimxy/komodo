@@ -715,6 +715,8 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp)
     if (iter != paramkeys.end()) {
         slamparams.armHeight = atoi(jsonParams[iter - paramkeys.begin()].get_str().c_str());
     }
+    else
+        throw runtime_error("no armheight value\n");
     if (slamparams.armHeight < 0 || slamparams.armHeight > 100)
         throw runtime_error("incorrect armheight value\n");
 
@@ -722,6 +724,8 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp)
     if (iter != paramkeys.end()) {
         slamparams.armStrength = atoi(jsonParams[iter - paramkeys.begin()].get_str().c_str());
     }
+    else
+        throw runtime_error("no armstrength value\n");
     if (slamparams.armStrength < 0 || slamparams.armStrength > 100)
         throw runtime_error("incorrect armstrength value\n");
 
