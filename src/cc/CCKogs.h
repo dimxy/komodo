@@ -531,7 +531,8 @@ struct KogsEnclosure {
 // container for kogs
 struct KogsContainer : public KogsBaseObject {
 
-    std::vector<uint256> tokenids;
+    uint256 playerid;
+    std::vector<uint256> tokenids;  // tokenids are not stored in the opret, but sent to container 1of2 txidaddr account
 
     ADD_SERIALIZE_METHODS;
 
@@ -548,6 +549,8 @@ struct KogsContainer : public KogsBaseObject {
         READWRITE(version);
         if (evalcode == EVAL_KOGS && objectId == KOGSID_CONTAINER && version == KOGS_VERSION)
         {
+            READWRITE(playerid);
+
             /* ver1 container content:
             if (ser_action.ForRead())
                 tokenids.clear();
@@ -582,8 +585,9 @@ struct KogsContainer : public KogsBaseObject {
     }
 
     // special function for the container for runtime init
-    void InitContainer()
+    void InitContainer(uint256 playerid_)
     {
+        playerid = playerid_;
         tokenids.clear();
     }
 };
