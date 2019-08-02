@@ -626,8 +626,25 @@ std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const
 {
     const std::vector<std::string> emptyresult;
     std::vector<std::string> result;
-    
-    ActivateUtxoLock();
+    CPubKey mypk = pubkey2pk(Mypubkey());
+
+    std::shared_ptr<KogsBaseObject>spobj( LoadGameObject(newcontainer.playerid) );
+    if (spobj == nullptr || spobj->objectId != KOGSID_PLAYER)
+    {
+        if (((KogsPlayer*)spobj.get())->encOrigPk != mypk)
+        {
+            CCerror = "not your playerid";
+            return emptyresult;
+        }
+    }
+    else
+    {
+        CCerror = "could not load this playerid";
+        return emptyresult;
+    }
+
+    //call this before txns creation
+    ActivateUtxoLock();  
 
     std::string containerhextx = CreateGameObjectNFT(&newcontainer);
     if (containerhextx.empty())
@@ -646,7 +663,6 @@ std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
     CPubKey kogsPk = GetUnspendable(cp, NULL);
-    CPubKey mypk = pubkey2pk(Mypubkey());
 
     uint256 containertxid = containertx.GetHash();
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
@@ -664,7 +680,7 @@ std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const
         }
         result.push_back(transferhextx);
     }
-
+    // after txns creation
     DeactivateUtxoLock();
     return result;
 }
@@ -787,6 +803,8 @@ std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 contai
         return std::string("");
     }
 
+    // TODO: check if this player has already deposited a container
+
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
     CPubKey kogsPk = GetUnspendable(cp, NULL);
@@ -798,6 +816,7 @@ std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 contai
     char tokenaddr[64];
     GetTokensCCaddress(cp, tokenaddr, mypk);
 
+   
     std::string hextx = TokenTransferExt(0, containerid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, gametxidPk }, 1); // amount = 1 always for NFTs
     return hextx;
 }
@@ -1463,7 +1482,7 @@ static bool ManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, Kog
     SetCCunspents(addressUnspents, gameaddr, true);    // look all tx on 1of2 addr
 
     std::vector<std::shared_ptr<KogsContainer>> containers;
-    std::set<CPubKey> owners;
+    std::set<uint256> owners;
     // find all deposited containers
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
@@ -1471,9 +1490,9 @@ static bool ManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, Kog
         if (obj != nullptr && obj->objectId == KOGSID_CONTAINER) {
             KogsContainer* pcontainer = (KogsContainer*)obj;
             containers.push_back(std::shared_ptr<KogsContainer>(pcontainer));
-            owners.insert(pcontainer->encOrigPk);
+            owners.insert(pcontainer->playerid);
 
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found containerid=" << pcontainer->creationtxid.GetHex() << " ownerpk=" << HexStr(pcontainer->encOrigPk) << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found containerid=" << pcontainer->creationtxid.GetHex() << " owner playerid=" << pcontainer->playerid.GetHex() << std::endl);
         }
     }
 
