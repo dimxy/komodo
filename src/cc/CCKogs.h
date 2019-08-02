@@ -30,6 +30,7 @@ const uint8_t KOGSID_SLAMMER = 'S';
 const uint8_t KOGSID_PACK = 'P';
 const uint8_t KOGSID_CONTAINER = 'C';
 const uint8_t KOGSID_BATON = 'B';
+const uint8_t KOGSID_SLAMPARAMS = 'R';
 
 const uint8_t KOGS_VERSION = 1;
 
@@ -257,7 +258,7 @@ struct KogsMatchObject : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect NFT evalcode=" << (int)evalcode << " or not a match object NFT objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect evalcode=" << (int)evalcode << " or not a match object NFT objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -457,12 +458,12 @@ struct KogsEnclosure {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "not a kog object evalcode=" << (int)evalcode << " version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "not a kog evalcode=" << (int)evalcode << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
     vscript_t EncodeOpret() const { return E_MARSHAL(ss << (*this)); };
-    static bool DecodeOpret(const CTransaction &tx, KogsEnclosure &enc)
+    static bool DecodeLastOpret(const CTransaction &tx, KogsEnclosure &enc)
     {
         vscript_t v;
         bool result = false;
@@ -527,7 +528,7 @@ struct KogsEnclosure {
 // container for kogs
 struct KogsContainer : public KogsBaseObject {
 
-    std::set<uint256> tokenids;
+    std::vector<uint256> tokenids;
 
     ADD_SERIALIZE_METHODS;
 
@@ -562,7 +563,7 @@ struct KogsContainer : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "not a container object evalcode=" << (int)evalcode << " objectId=" << (int)objectId  << " version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "incorrect evalcode=" << (int)evalcode << " or not a container objectId=" << (int)objectId  << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -587,9 +588,12 @@ struct KogsContainer : public KogsBaseObject {
 // baton
 struct KogsBaton : public KogsBaseObject {
     
+    uint256 gameid;
     int32_t nextturn;
-    int32_t turncount;
+    int32_t prevturncount;
     std::vector<uint256> playerids;
+    std::vector<uint256> kogsInStack;
+    std::vector<uint256> kogsFlipped;
 
     ADD_SERIALIZE_METHODS;
 
@@ -606,13 +610,16 @@ struct KogsBaton : public KogsBaseObject {
         READWRITE(version);
         if (evalcode == EVAL_KOGS && objectId == KOGSID_BATON && version == KOGS_VERSION)
         {
+            READWRITE(gameid);
             READWRITE(nextturn);
-            READWRITE(turncount);
+            READWRITE(prevturncount);
             READWRITE(playerids);
+            READWRITE(kogsInStack);
+            READWRITE(kogsFlipped);
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect NFT evalcode=" << (int)evalcode << " or not a match object NFT objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect evalcode=" << (int)evalcode << " or not a baton objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -627,7 +634,55 @@ struct KogsBaton : public KogsBaseObject {
     { 
         objectId = KOGSID_BATON; 
         nextturn = 0;
-        turncount = 0;
+        prevturncount = 0;
+    }
+};
+
+// slam results
+struct KogsSlamParams : public KogsBaseObject {
+
+    uint256 gameid;
+    int32_t armHeight;
+    int32_t armStrength;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {
+            evalcode = 0;
+            objectId = 0;
+            version = 0;
+        }
+        READWRITE(evalcode);
+        READWRITE(objectId);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && objectId == KOGSID_SLAMPARAMS && version == KOGS_VERSION)
+        {
+            READWRITE(gameid);
+            READWRITE(armHeight);
+            READWRITE(armStrength);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect evalcode=" << (int)evalcode << " or not a slam results objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() const {
+        return E_MARSHAL(ss << (*this));
+    }
+    virtual bool Unmarshal(vscript_t v) {
+        return E_UNMARSHAL(v, ss >> (*this));
+    }
+
+    KogsSlamParams() : KogsBaseObject()
+    {
+        objectId = KOGSID_SLAMPARAMS;
+        gameid = zeroid;
+        armHeight = 0;
+        armStrength = 0;
     }
 };
 
