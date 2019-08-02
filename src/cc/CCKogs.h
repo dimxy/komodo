@@ -259,7 +259,7 @@ struct KogsMatchObject : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect evalcode=" << (int)evalcode << " or not a match object NFT objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsMatchObject" << " " << "incorrect evalcode=" << (int)evalcode << " or not a match object NFT objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -307,7 +307,7 @@ struct KogsPack : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect evalcode=" << (int)evalcode << " or not a pack objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsPack" << " " "incorrect evalcode=" << (int)evalcode << " or not a pack objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -334,7 +334,7 @@ struct KogsPack : public KogsBaseObject {
 
         if (!crypter.SetKey(enckey, iv))
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "cannot set pack encryption key" << std::endl);
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsPack" << " " << "cannot set pack encryption key" << std::endl);
             return false;
         }
 
@@ -342,7 +342,7 @@ struct KogsPack : public KogsBaseObject {
         CKeyingMaterial plaintext(marshalled.begin(), marshalled.end());
         if (!crypter.Encrypt(plaintext, encrypted))
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "cannot encrypt pack content" << std::endl);
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsPack" << " " << "cannot encrypt pack content" << std::endl);
             return false;
         }
         else
@@ -359,13 +359,13 @@ struct KogsPack : public KogsBaseObject {
 
         if (!crypter.SetKey(enckey, iv))
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "cannot set pack decryption key" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cannot set pack decryption key" << std::endl);
             return false;
         }
 
         if (!crypter.Decrypt(encrypted, plaintext))
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "cannot decrypt pack content" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cannot decrypt pack content" << std::endl);
             return false;
         }
 
@@ -390,7 +390,7 @@ struct KogsPack : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "decrypted data incorrect" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "KogsPack" << " " << "decrypted data incorrect" << std::endl);
             return false;
         }
     }
@@ -453,14 +453,14 @@ struct KogsEnclosure {
             }
             else
             {
-                LOGSTREAM("kogs", CCLOG_INFO, stream << "incorrect funcid in creationtxid=" << creationtxid.GetHex() << std::endl);
+                LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "incorrect funcid in creationtxid=" << creationtxid.GetHex() << std::endl);
                 return;
             }
             READWRITE(vdata);  // enclosed data
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "not a kog evalcode=" << (int)evalcode << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "not a kog evalcode=" << (int)evalcode << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -506,14 +506,14 @@ struct KogsEnclosure {
                     }
                     else
                     {
-                        LOGSTREAM("kogs", CCLOG_INFO, stream << "could not unmarshal container last tx opret txid=" << txid.GetHex() << std::endl);
+                        LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "could not unmarshal container last tx opret txid=" << txid.GetHex() << std::endl);
                         return false;
                     }
                 }
             }
         }
         else
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no opret in enclosure tx" << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsEnclosure" << " " << "no opret in enclosure tx" << std::endl);
         return result;
     }
 
@@ -566,7 +566,7 @@ struct KogsContainer : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "incorrect evalcode=" << (int)evalcode << " or not a container objectId=" << (int)objectId  << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsContainer" << " " << "incorrect evalcode=" << (int)evalcode << " or not a container objectId=" << (int)objectId  << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -624,7 +624,7 @@ struct KogsBaton : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect evalcode=" << (int)evalcode << " or not a baton objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsBaton" << " " << "incorrect evalcode=" << (int)evalcode << " or not a baton objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -671,7 +671,7 @@ struct KogsSlamParams : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect evalcode=" << (int)evalcode << " or not a slam results objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsSlamParams" << " " << "incorrect evalcode=" << (int)evalcode << " or not a slam results objectId=" << (char)objectId << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -737,7 +737,7 @@ public:
             return (KogsBaseObject*)b;
 
         default:
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "requested to create unsupported objectId=" << (int)objectId << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "requested to create unsupported objectId=" << (int)objectId << std::endl);
         }
         return nullptr;
     }
