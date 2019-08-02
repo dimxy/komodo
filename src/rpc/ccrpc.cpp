@@ -455,22 +455,22 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 4))
+    if (fHelp || (params.size() < 5))
     {
         throw runtime_error(
-            "kogscreatecontainer name description tokenid1, tokenid2,...\n"
+            "kogscreatecontainer name description playerid tokenid1, tokenid2,...\n"
             "creates a container with the passed 40 kog ids and one slammer id\n" "\n");
     }
 
     KogsContainer newcontainer;
-    newcontainer.InitContainer();
     newcontainer.nameId = params[0].get_str();
     newcontainer.descriptionId = params[1].get_str();
+    uint256 playerid = Parseuint256(params[2].get_str().c_str());
+    newcontainer.InitContainer(playerid);
 
     std::set<uint256> tokenids;
-    std::vector<uint256> duptokenids;
 
-    for (int i = 2; i < params.size(); i++)
+    for (int i = 3; i < params.size(); i++)
     {
         uint256 tokenid = Parseuint256(params[i].get_str().c_str());
         if (!tokenid.IsNull())
@@ -479,7 +479,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
             throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
     }
 
-    if (tokenids.size() != params.size() - 2)
+    if (tokenids.size() != params.size() - 3)
         throw runtime_error("duplicate tokenids in params\n");
 
     std::vector<std::string> hextxns = KogsCreateContainerV2(newcontainer, tokenids);
