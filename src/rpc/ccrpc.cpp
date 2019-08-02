@@ -673,6 +673,67 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
     return result;
 }
 
+
+// rpc kogsslamdata impl
+UniValue kogsslamdata(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ);
+    UniValue jsonParams(UniValue::VOBJ);
+    UniValue resarray(UniValue::VARR);
+    CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+    if (fHelp || (params.size() != 2))
+    {
+        throw runtime_error(
+            "kogsslamdata gameid '{ \"armheight\":value, \"armstrength\":value }'\n"
+            "sends slam data to the chain, triggers stack reloading\n" "\n");
+    }
+
+    KogsSlamParams slamparams;
+
+    slamparams.gameid = Parseuint256(params[0].get_str().c_str());
+    if (slamparams.gameid.IsNull())
+        throw runtime_error("gameid incorrect\n");
+
+    // parse json object:
+    if (params[1].getType() == UniValue::VOBJ)
+        jsonParams = params[1].get_obj();
+    else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[1].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
+        throw runtime_error("parameter 2 must be json object\n");
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << jsonParams.write(0, 0) << std::endl);
+
+    std::vector<std::string> paramkeys = jsonParams.getKeys();
+    std::vector<std::string>::const_iterator iter;
+
+    iter = std::find(paramkeys.begin(), paramkeys.end(), "armheight");
+    if (iter != paramkeys.end()) {
+        slamparams.armHeight = atoi(jsonParams[iter - paramkeys.begin()].get_str().c_str());
+    }
+    if (slamparams.armHeight < 0 || slamparams.armHeight > 100)
+        throw runtime_error("incorrect armheight value\n");
+
+    iter = std::find(paramkeys.begin(), paramkeys.end(), "armstrength");
+    if (iter != paramkeys.end()) {
+        slamparams.armStrength = atoi(jsonParams[iter - paramkeys.begin()].get_str().c_str());
+    }
+    if (slamparams.armStrength < 0 || slamparams.armStrength > 100)
+        throw runtime_error("incorrect armstrength value\n");
+
+    std::string hextx = KogsAddSlamParams(slamparams);
+    RETURN_IF_ERROR(CCerror);
+
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
+}
+
+
 // rpc kogsburntoken impl (to burn nft objects)
 UniValue kogsburntoken(const UniValue& params, bool fHelp)
 {
@@ -958,6 +1019,7 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsgameconfiglist",     &kogsgameconfiglist,      true },
     { "kogs",         "kogsgamelist",           &kogsgamelist,            true },
     { "kogs",         "kogsremoveobject",       &kogsremoveobject,        true },
+    { "kogs",         "kogsslamdata",           &kogsslamdata,            true },
     { "kogs",         "kogsobjectinfo",         &kogsobjectinfo,          true }
 };
 
