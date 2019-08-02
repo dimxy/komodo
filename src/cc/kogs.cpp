@@ -282,7 +282,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
     uint256 hashBlock;
     CTransaction tx;
 
-    if (myGetTransaction(txid, tx, hashBlock))  //use non-locking version
+    if (myGetTransaction(txid, tx, hashBlock) && !hashBlock.IsNull())  //use non-locking version, check not in mempool
     {
         vscript_t vopret;
 
@@ -1384,6 +1384,7 @@ static bool FlipKogs(const KogsSlamParams &slamparams, std::vector<uint256> &kog
     {
         int i = rand() % kogsInStack.size();
         kogsFlipped.push_back(kogsInStack[i]);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "flipped kog id=" << kogsInStack[i].GetHex() << std::endl);
         kogsInStack.erase(kogsInStack.begin() + i);
     }
 
@@ -1472,13 +1473,13 @@ static bool ManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, Kog
             containers.push_back(std::shared_ptr<KogsContainer>(pcontainer));
             owners.insert(pcontainer->encOrigPk);
 
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "containerid=" << pcontainer->creationtxid.GetHex() << " ownerpk=" << HexStr(pcontainer->encOrigPk) << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found containerid=" << pcontainer->creationtxid.GetHex() << " ownerpk=" << HexStr(pcontainer->encOrigPk) << std::endl);
         }
     }
 
     if (containers.size() != playerids.size())
     {
-        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "too low containers from the players" << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "not all players deposited containers" << std::endl);
         return false;
     }
 
@@ -1599,19 +1600,19 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
                     // calc slam results and kogs ownership and fill the new baton
                     KogsBaton *prevbaton = (KogsBaton *)spobj2.get();
-                    ManageStack(spobj1.get(), prevbaton, newbaton);
-
-                    // TODO: finish the game if turncount == player.size * 3 and send kogs to the winners
-
-                    CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, newbaton, newbaton.nextpk);  // send baton to player pubkey;
-                    if (batontx.IsNull())
-                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << it->first.txhash.GetHex() << std::endl);
-                    else
+                    if (ManageStack(spobj1.get(), prevbaton, newbaton))
                     {
-                        txbatons++;
-                        minersTransactions.push_back(batontx);
+                        // TODO: finish the game if turncount == player.size * 3 and send kogs to the winners
+
+                        CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, newbaton, newbaton.nextpk);  // send baton to player pubkey;
+                        if (batontx.IsNull())
+                            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << it->first.txhash.GetHex() << std::endl);
+                        else
+                        {
+                            txbatons++;
+                            minersTransactions.push_back(batontx);
+                        }
                     }
-                        
                 }
                 else
                     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't load next turn player with id=" << playerids[nextturn].GetHex() << std::endl);
