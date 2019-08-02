@@ -775,7 +775,7 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 2))
     {
         throw runtime_error(
-            "kogsburnobject txid nvout\n"
+            "kogsremoveobject txid nvout\n"
             "removes a game object spending its marker (admin feature)\n" "\n");
     }
 
@@ -954,10 +954,10 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
-    if (fHelp || (params.size() != 0))
+    if (fHelp || (params.size() > 1))
     {
         throw runtime_error(
-            "kogsplayerlist\n"
+            "kogsgamelist\n"
             "returns all game creationids\n" "\n");
     }
 
