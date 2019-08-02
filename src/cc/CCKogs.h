@@ -749,6 +749,7 @@ std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const
 std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 containerid);
 std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 containerid, std::set<uint256> tokenids);
 std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids);
+std::string KogsAddSlamParams(KogsSlamParams newslamparams);
 std::string KogsRemoveObject(uint256 txid, int32_t nvout);
 std::string KogsBurnNFT(uint256 tokenid);
 void KogsCreationTxidList(uint8_t objectId, bool onlymy, std::vector<uint256> &tokenids);
