@@ -50,7 +50,8 @@ struct KogsBaseObject {
     uint8_t version;
 
     uint256 creationtxid;
-    CTxOut vout; // vout where the object is currently sent to
+    //CTransaction latesttx;
+    //CTxOut vout; // vout where the object is currently sent to
 
     // check basic data in opret (evalcode & version), return objectId
     static bool DecodeObjectHeader(vscript_t vopret, uint8_t &objectId) {
@@ -410,6 +411,7 @@ struct KogsEnclosure {
     std::string description;
     CPubKey origpk;
     uint256 latesttxid;
+    CTransaction latesttx;
 
     vscript_t vdata;
 
@@ -499,6 +501,7 @@ struct KogsEnclosure {
                         E_UNMARSHAL(vLatestTxOpret, ss >> enc))      // update enclosure object with the data from last tx opret
                     {
                         enc.latesttxid = txid;
+                        //enc.latesttx = latesttx;
                         return true;
                     }
                     else
@@ -591,6 +594,7 @@ struct KogsBaton : public KogsBaseObject {
     uint256 gameid;
     int32_t nextturn;
     int32_t prevturncount;
+    CPubKey nextpk;
     std::vector<uint256> playerids;
     std::vector<uint256> kogsInStack;
     std::vector<uint256> kogsFlipped;
@@ -613,6 +617,7 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(gameid);
             READWRITE(nextturn);
             READWRITE(prevturncount);
+            READWRITE(nextpk);
             READWRITE(playerids);
             READWRITE(kogsInStack);
             READWRITE(kogsFlipped);
