@@ -1245,10 +1245,69 @@ std::string KogsRemoveObject(uint256 txid, int32_t nvout)
     return emptyresult;
 }
 
+// retrieve game info: open/finished, won kogs
+UniValue KogsGameStatus(KogsGame &gameobj)
+{
+    UniValue info(UniValue::VOBJ);
+    // go for the opret data from the last/unspent tx 't'
+    uint256 txid = gameobj.creationtxid;
+    int32_t nvout = 2;  // baton vout, ==2 for game object
+    int32_t prevturn = -1;  //indicates before any turns
+    uint256 batontxid;
+    uint256 hashBlock;
+    int32_t vini, height;
+    
+    std::map<uint256, int> wonkogs;
+
+    // browse the sequnce of slamparam and baton txns: 
+    while (CCgetspenttxid(batontxid, vini, height, txid, nvout) == 0)
+    {
+        std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(batontxid));
+        if (spobj == nullptr || spobj->objectId != KOGSID_BATON || spobj->objectId != KOGSID_SLAMPARAMS)
+        {
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load baton txid=" << batontxid.GetHex() << std::endl);
+            info.push_back(std::make_pair("error", "can't load baton"));
+            return info;
+        }
+
+        if (spobj->objectId == KOGSID_BATON)
+        {
+            KogsBaton *pbaton = (KogsBaton *)spobj.get();
+
+            // for the first turn prevturn is (-1)
+            // and no won kogs yet:
+            if (prevturn >= 0)  // there was a turn already
+            {
+                if (wonkogs.find(pbaton->playerids[prevturn]) == wonkogs.end())
+                    wonkogs[pbaton->playerids[prevturn]] = 0;  // init map value
+                wonkogs[pbaton->playerids[prevturn]] += pbaton->kogsFlipped.size();
+            }
+            nvout = 0;  // baton tx's next baton vout
+            prevturn = pbaton->nextturn;
+        }
+        else
+            nvout = 0;  // slamparams tx's next baton vout
+
+        txid = batontxid;        
+    }
+
+    UniValue wonarr(UniValue::VARR);
+    for (auto w : wonkogs)
+    {
+        UniValue elem(UniValue::VOBJ);
+        elem.push_back(std::make_pair(w.first.GetHex(), std::to_string(w.second)));
+        wonarr.push_back(elem);
+    }
+    info.push_back(std::make_pair("KogsWonByPlayerIds", wonarr));
+    return info;
+}
+
 // special feature to hide object by spending its cc eval kog marker (for nfts it is in vout=2)
 UniValue KogsObjectInfo(uint256 tokenid)
 {
     UniValue info(UniValue::VOBJ), err(UniValue::VOBJ), infotokenids(UniValue::VARR);
+    UniValue gameinfo(UniValue::VOBJ);
+
     KogsMatchObject *matchobj;
     KogsPack *packobj;
     KogsContainer *containerobj;
@@ -1306,6 +1365,8 @@ UniValue KogsObjectInfo(uint256 tokenid)
     case KOGSID_GAME:
         gameobj = (KogsGame*)baseobj;
         info.push_back(std::make_pair("originatorPubKey", HexStr(gameobj->encOrigPk)));
+        gameinfo = KogsGameStatus(*gameobj);
+        info.push_back(std::make_pair("gameinfo", gameinfo));
         break;
 
     case KOGSID_GAMECONFIG:
