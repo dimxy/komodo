@@ -148,7 +148,7 @@ static std::string CreateEnclosureTx(KogsBaseObject *baseobj, bool needBaton)
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, txfee, GetUnspendable(cp, NULL)));  // kogs cc marker
         if (needBaton)
-            mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2*txfee, GetUnspendable(cp, NULL))); // initial baton to indicate whose turn is now
+            mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2*txfee, GetUnspendable(cp, NULL))); // initial marker for miners who will create a baton indicating whose turn is first
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
@@ -281,11 +281,6 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
     if (myGetTransaction(txid, tx, hashBlock))  //use non-locking version
     {
         vscript_t vopret;
-        vuint8_t vorigpubkey;
-        std::string name, description;
-        std::vector<std::pair<uint8_t, vscript_t>> oprets;
-        KogsEnclosure enc(zeroid);
-        uint256 creationtxid;
 
         if (tx.vout.size() < 1) {
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cant find vouts in tx" << std::endl);
@@ -299,8 +294,13 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
 
         if (vopret.begin()[0] == EVAL_TOKENS)
         {
+            vuint8_t vorigpubkey;
+            std::string name, description;
+            std::vector<std::pair<uint8_t, vscript_t>> oprets;
+            uint256 tokenid;
+
             // parse tokens:
-            if (LoadTokenData(tx, creationtxid, vorigpubkey, name, description, oprets))
+            if (LoadTokenData(tx, tokenid, vorigpubkey, name, description, oprets))
             {
                 vscript_t vnftopret;
                 if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
@@ -320,7 +320,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
                         return nullptr;
 
                     if (obj->Unmarshal(vnftopret)) {
-                        obj->creationtxid = creationtxid;
+                        obj->creationtxid = tokenid;
                         obj->nameId = name;
                         obj->descriptionId = description;
                         obj->encOrigPk = pubkey2pk(vorigpubkey);
@@ -335,6 +335,8 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
         }
         else if (vopret.begin()[0] == EVAL_KOGS)
         {
+            KogsEnclosure enc(zeroid);
+
             // parse kogs enclosure:
             if (KogsEnclosure::DecodeLastOpret(tx, enc))
             {
@@ -347,7 +349,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
                 if (obj == nullptr)
                     return nullptr;
                 if (obj->Unmarshal(enc.vdata)) {
-                    obj->creationtxid = creationtxid;
+                    obj->creationtxid = enc.creationtxid;
                     obj->nameId = enc.name;
                     obj->descriptionId = enc.description;
                     obj->encOrigPk = enc.origpk;
@@ -1507,9 +1509,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
-        if (it->second.satoshis == 20000) // picking batons with markers=20000
+        if (it->second.satoshis == 20000) // picking game or slamparam utxos with markers=20000
         {
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found game or baton utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << std::endl);
 
             std::shared_ptr<KogsBaseObject> spobj1(LoadGameObject(it->first.txhash)); // load and unmarshal gameobject
             std::shared_ptr<KogsBaseObject> spobj2;
@@ -1527,7 +1529,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     KogsGame *pgame = (KogsGame *)spobj1.get();
                     if (pgame->playerids.size() < 2)
                     {
-                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "playerids.size incorrect=" << pgame->playerids.size() << std::endl);
+                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "playerids.size incorrect=" << pgame->playerids.size() << " txid=" << it->first.txhash.GetHex() << std::endl);
                         continue;
                     }
                     nextturn = rand() % pgame->playerids.size();
