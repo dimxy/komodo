@@ -195,8 +195,8 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBat
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "created baton txid=" << mtx.GetHash().GetHex() << " to next playerid=" << baton.nextplayerid.GetHex()  << std::endl);
             return mtx;
         }
-            
     }
+    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't normal inputs for txfee" << std::endl);
     return CTransaction(); // empty tx
 }
 
@@ -1309,6 +1309,8 @@ UniValue KogsGameStatus(KogsGame &gameobj)
         if (spobj->objectId == KOGSID_BATON)
         {
             KogsBaton *pbaton = (KogsBaton *)spobj.get();
+            prevTurn = nextTurn;
+            nextTurn = pbaton->nextturn;
 
             // for the first turn prevturn is (-1)
             // and no won kogs yet:
@@ -1318,12 +1320,11 @@ UniValue KogsGameStatus(KogsGame &gameobj)
                     wonkogs[pbaton->playerids[prevTurn]] = 0;  // init map value
                 wonkogs[pbaton->playerids[prevTurn]] += pbaton->kogsFlipped.size();
                 prevFlipped = pbaton->kogsFlipped;
+                prevPlayerid = pbaton->playerids[prevTurn];
             }
             nvout = 0;  // baton tx's next baton vout
-            prevTurn = nextTurn;
-            nextTurn = pbaton->nextturn;
         }
-        else
+        else  // if (spobj->objectId == KOGSID_SLAMPARAMS)
             nvout = 0;  // slamparams tx's next baton vout
 
         txid = batontxid;        
@@ -1648,7 +1649,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "listing all games with batons" << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "listing all games with batons" << std::endl);
 
     srand(time(NULL));
 
@@ -1658,15 +1659,13 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     {
         if (it->second.satoshis == 20000) // picking game or slamparam utxos with markers=20000
         {
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "found utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << std::endl);
 
             std::shared_ptr<KogsBaseObject> spobj1(LoadGameObject(it->first.txhash)); // load and unmarshal gameobject
             std::shared_ptr<KogsBaseObject> spobj2;
 
             if (spobj1.get() != nullptr && (spobj1->objectId == KOGSID_GAME || spobj1->objectId == KOGSID_SLAMPARAMS))
             {
-                
-                // randomly select whose turn is the first:
                 int32_t nextturn;
                 int32_t turncount = 0;
 
@@ -1679,6 +1678,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "playerids.size incorrect=" << pgame->playerids.size() << " txid=" << it->first.txhash.GetHex() << std::endl);
                         continue;
                     }
+                    // randomly select whose turn is the first:
                     nextturn = rand() % pgame->playerids.size();
                     playerids = pgame->playerids;
                 }
@@ -1694,7 +1694,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         // find the baton
                         // slam param txvin[0] is the baton txid
                         KogsBaseObject *p = LoadGameObject(slamParamsTx.vin[0].prevout.hash);
-                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "p==null:" << (p==nullptr) << " p->objectId=" << (char)(p?p->objectId:' ') << std::endl);
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "p==null:" << (p==nullptr) << " p->objectId=" << (char)(p?p->objectId:' ') << std::endl);
                         spobj2.reset(p);
                         if (spobj2.get() && spobj2->objectId == KOGSID_BATON)
                         {
@@ -1753,6 +1753,5 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spobj1.get() ? std::string("incorrect objectId=") + std::string(1, (char)spobj1->objectId) : std::string("nullptr")) << std::endl);
         }
     }
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created batons=" << txbatons << std::endl);
-
+    LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "created batons=" << txbatons << std::endl);
 }
