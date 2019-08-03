@@ -1284,7 +1284,7 @@ UniValue KogsGameStatus(KogsGame &gameobj)
     while (CCgetspenttxid(batontxid, vini, height, txid, nvout) == 0)
     {
         std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(batontxid));
-        if (spobj == nullptr || spobj->objectId != KOGSID_BATON || spobj->objectId != KOGSID_SLAMPARAMS)
+        if (spobj == nullptr || (spobj->objectId != KOGSID_BATON && spobj->objectId != KOGSID_SLAMPARAMS))
         {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load baton txid=" << batontxid.GetHex() << std::endl);
             info.push_back(std::make_pair("error", "can't load baton"));
