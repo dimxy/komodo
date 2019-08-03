@@ -8563,6 +8563,7 @@ CMutableTransaction CreateNewContextualCMutableTransaction(const Consensus::Para
     else
     {
         bool isOverwintered = NetworkUpgradeActive(nHeight, consensusParams, Consensus::UPGRADE_OVERWINTER);
+        std::cerr << __func__ << " " << "isOverwintered=" << isOverwintered << " nHeight=" << nHeight << std::endl;
         if (isOverwintered)
         {
             mtx.fOverwintered = true;
