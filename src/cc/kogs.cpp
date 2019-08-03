@@ -631,15 +631,12 @@ std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const
     std::shared_ptr<KogsBaseObject>spobj( LoadGameObject(newcontainer.playerid) );
     if (spobj == nullptr || spobj->objectId != KOGSID_PLAYER)
     {
-        if (((KogsPlayer*)spobj.get())->encOrigPk != mypk)
-        {
-            CCerror = "not your playerid";
-            return emptyresult;
-        }
-    }
-    else
-    {
         CCerror = "could not load this playerid";
+        return emptyresult;
+    }
+    if (((KogsPlayer*)spobj.get())->encOrigPk != mypk)
+    {
+        CCerror = "not your playerid";
         return emptyresult;
     }
 
