@@ -1313,6 +1313,9 @@ UniValue KogsGameStatus(KogsGame &gameobj)
             prevTurn = nextTurn;
             nextTurn = pbaton->nextturn;
 
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "kogs in stack=" << pbaton->kogsInStack.size() << " kogs flipped=" << pbaton->kogsFlipped.size() << std::endl);
+
+
             // for the first turn prevturn is (-1)
             // and no won kogs yet:
             if (prevTurn >= 0)  // there was a turn already
@@ -1545,19 +1548,25 @@ static bool AddKogsToStack(std::vector<uint256> &kogsInStack, const std::vector<
 
         if (kogsToAdd > freekogs.size())
         {
-            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "kogs num in container=" << freekogs.size() << " is less than needed to add to stack" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "kogs number remaining in container=" << freekogs.size() << " is less than needed to add to stack" << std::endl);
             return false;
         }
 
         int added = 0;
         while (added < kogsToAdd)
         {
+            int i = rand() % freekogs.size(); // take random pos to add to the stack
+            kogsInStack.push_back(freekogs[i]);  // add to stack
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "added kog to stack kogid=" << freekogs[i].GetHex() << std::endl);
+            added++;
+
+            /*            
             int i = rand() % c->tokenids.size(); // take random pos to add to the stack
             if (std::find(kogsInStack.begin(), kogsInStack.end(), c->tokenids[i]) == kogsInStack.end()) //add only if no such kog id in stack yet
             {
                 kogsInStack.push_back(c->tokenids[i]);  // add to stack
                 added++;
-            }
+            }*/
         }
     }
     return true;
