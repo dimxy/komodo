@@ -67,6 +67,20 @@ struct KogsBaseObject {
             return true;
     }
 
+    // if object could or could not be transferred to another pubkey or to self pk
+    static bool IsSpendable(uint8_t objectId)
+    {
+        switch (objectId)
+        {
+        case KOGSID_BATON:          // every baton transfer is a new baton
+        case KOGSID_SLAMPARAMS:     // slamparams could not be transferred
+            return false;
+        default:
+            break;
+        }
+        return true;
+    }
+
     virtual vscript_t Marshal() const = 0;
     virtual bool Unmarshal(vscript_t v) = 0;
 
@@ -401,7 +415,6 @@ struct KogsPack : public KogsBaseObject {
 // we cant use NFT because it should allow to change its content
 // it exists in kogs evalcode
 struct KogsEnclosure {
-
     uint8_t evalcode;
     uint8_t funcId;
     uint8_t version;
@@ -479,35 +492,49 @@ struct KogsEnclosure {
                 if (enc.funcId == 'c')
                     enc.creationtxid = tx.GetHash();
 
-                // go for the opret data from the last/unspent tx 't'
-                uint256 txid = enc.creationtxid;
-                uint256 spenttxid, hashBlock;
-                int32_t vini, height;
-                const int32_t nvout = 0;  // enclosure cc value vout
-                CTransaction latesttx;
-                vscript_t vLatestTxOpret;
+                uint8_t evalcode = (uint8_t)0;
+                uint8_t objectId = (uint8_t)0;
+                uint8_t version = (uint8_t)0;
 
-                // find the last unspent tx 
-                while (CCgetspenttxid(spenttxid, vini, height, txid, nvout) == 0)
+                E_UNMARSHAL(enc.vdata, ss >> evalcode; ss >> objectId; ss >> version);
+                if (evalcode != EVAL_KOGS || version != KOGS_VERSION)
                 {
-                    txid = spenttxid;
+                    LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "not kog evalcode or incorrect version for txid=" << tx.GetHash().GetHex() << std::endl);
+                    return false;
                 }
 
-                if (txid != enc.creationtxid)  // no need to parse opret for create tx as we have already done this
+                if (KogsBaseObject::IsSpendable(objectId))
                 {
-                    if (myGetTransaction(txid, latesttx, hashBlock) &&  // use non-locking ver as this func could be called from validation code
-                        latesttx.vout.size() > 1 &&
-                        GetOpReturnData(latesttx.vout.back().scriptPubKey, vLatestTxOpret) &&
-                        E_UNMARSHAL(vLatestTxOpret, ss >> enc))      // update enclosure object with the data from last tx opret
+                    // go for the opret data from the last/unspent tx 't'
+                    uint256 txid = enc.creationtxid;
+                    uint256 spenttxid, hashBlock;
+                    int32_t vini, height;
+                    const int32_t nvout = 0;  // enclosure cc value vout
+                    CTransaction latesttx;
+                    vscript_t vLatestTxOpret;
+
+                    // find the last unspent tx 
+                    while (CCgetspenttxid(spenttxid, vini, height, txid, nvout) == 0)
                     {
-                        enc.latesttxid = txid;
-                        //enc.latesttx = latesttx;
-                        return true;
+                        txid = spenttxid;
                     }
-                    else
+
+                    if (txid != enc.creationtxid)  // no need to parse opret for create tx as we have already done this
                     {
-                        LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "could not unmarshal container last tx opret txid=" << txid.GetHex() << std::endl);
-                        return false;
+                        if (myGetTransaction(txid, latesttx, hashBlock) &&  // use non-locking ver as this func could be called from validation code
+                            latesttx.vout.size() > 1 &&
+                            GetOpReturnData(latesttx.vout.back().scriptPubKey, vLatestTxOpret) &&
+                            E_UNMARSHAL(vLatestTxOpret, ss >> enc))      // update enclosure object with the data from last tx opret
+                        {
+                            enc.latesttxid = txid;
+                            //enc.latesttx = latesttx;
+                            return true;
+                        }
+                        else
+                        {
+                            LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "could not unmarshal enclosure last tx opret for txid=" << txid.GetHex() << std::endl);
+                            return false;
+                        }
                     }
                 }
             }
@@ -550,22 +577,6 @@ struct KogsContainer : public KogsBaseObject {
         if (evalcode == EVAL_KOGS && objectId == KOGSID_CONTAINER && version == KOGS_VERSION)
         {
             READWRITE(playerid);
-
-            /* ver1 container content:
-            if (ser_action.ForRead())
-                tokenids.clear();
-            uint32_t vsize = tokenids.size();
-
-            READWRITE(vsize);
-            for (std::set<uint256>::iterator it = tokenids.begin(); it != tokenids.end(); it ++)
-            {
-                uint256 txid;
-                if (ser_action.ForRead())
-                    txid = *it;
-                READWRITE(txid);
-                if (!ser_action.ForRead())
-                    tokenids.insert(txid);
-            }*/
         }
         else
         {
