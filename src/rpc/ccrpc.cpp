@@ -916,7 +916,7 @@ UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp)
     {
         throw runtime_error(
             "kogsdepositedcontainerlist gameid\n"
-            "returns all container tokenids\n" "\n");
+            "returns list of ids of containers deposited on the game with this gameid\n" "\n");
     }
 
     uint256 gameid = Parseuint256(params[0].get_str().c_str());
