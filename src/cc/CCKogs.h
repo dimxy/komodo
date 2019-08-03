@@ -598,7 +598,7 @@ struct KogsBaton : public KogsBaseObject {
     uint256 gameid;
     int32_t nextturn;
     int32_t prevturncount;
-    CPubKey nextpk;
+    uint256 nextplayerid;
     std::vector<uint256> playerids;
     std::vector<uint256> kogsInStack;
     std::vector<uint256> kogsFlipped;
@@ -621,7 +621,7 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(gameid);
             READWRITE(nextturn);
             READWRITE(prevturncount);
-            READWRITE(nextpk);
+            READWRITE(nextplayerid);
             READWRITE(playerids);
             READWRITE(kogsInStack);
             READWRITE(kogsFlipped);
@@ -651,6 +651,7 @@ struct KogsBaton : public KogsBaseObject {
 struct KogsSlamParams : public KogsBaseObject {
 
     uint256 gameid;
+    uint256 playerid;
     int32_t armHeight;
     int32_t armStrength;
 
@@ -670,6 +671,7 @@ struct KogsSlamParams : public KogsBaseObject {
         if (evalcode == EVAL_KOGS && objectId == KOGSID_SLAMPARAMS && version == KOGS_VERSION)
         {
             READWRITE(gameid);
+            READWRITE(playerid);
             READWRITE(armHeight);
             READWRITE(armStrength);
         }
@@ -690,6 +692,7 @@ struct KogsSlamParams : public KogsBaseObject {
     {
         objectId = KOGSID_SLAMPARAMS;
         gameid = zeroid;
+        playerid = zeroid;
         armHeight = 0;
         armStrength = 0;
     }
