@@ -1012,10 +1012,19 @@ std::string KogsAddSlamParams(KogsSlamParams newslamparams)
             std::shared_ptr<KogsBaseObject> spbaton(LoadGameObject(it->first.txhash));
             if (spbaton != nullptr && spbaton->objectId == KOGSID_BATON)
             {
-                if (((KogsBaton*)spbaton.get())->nextpk == mypk)
+                KogsBaton* pbaton = (KogsBaton*)spbaton.get();
+                if (pbaton->nextplayerid == newslamparams.playerid)
                 {
-                    batontxid = it->first.txhash;
-                    break;
+                    std::shared_ptr<KogsBaseObject> spplayer(LoadGameObject(newslamparams.playerid));
+                    if (spplayer.get() != nullptr && spplayer->objectId == KOGSID_PLAYER)
+                    {
+                        KogsPlayer* pplayer = (KogsPlayer*)spbaton.get();
+                        if (pplayer->encOrigPk == mypk)
+                        {
+                            batontxid = it->first.txhash;
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -1025,7 +1034,7 @@ std::string KogsAddSlamParams(KogsSlamParams newslamparams)
         return CreateSlamParamTx(batontxid, 0, newslamparams);
     else
     {
-        CCerror = "could not find baton for your pubkey";
+        CCerror = "could not find baton for your pubkey (not your turn)";
         return std::string();
     }
 }
@@ -1326,7 +1335,6 @@ UniValue KogsGameStatus(KogsGame &gameobj)
     info.push_back(std::make_pair("PreviousPlayerId", (prevTurn < 0 ? std::string("none") : prevPlayerid.GetHex())));
     info.push_back(std::make_pair("PreviousTurn", (prevTurn < 0 ? std::string("none") : std::to_string(prevTurn))));
     info.push_back(std::make_pair("NextTurn", (nextTurn < 0 ? std::string("none") : std::to_string(nextTurn))));
-
 
     UniValue arrFlipped(UniValue::VARR);
     for (auto f : prevFlipped)
@@ -1704,7 +1712,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     }
                 }
 
-                struct std::shared_ptr<KogsBaseObject> spobj3( LoadGameObject(playerids[nextturn]) );
+                std::shared_ptr<KogsBaseObject> spobj3( LoadGameObject(playerids[nextturn]) );
                 if (spobj3.get() != nullptr && spobj3->objectId == KOGSID_PLAYER)
                 {
                     KogsPlayer *pplayer = (KogsPlayer*)spobj3.get();
@@ -1713,7 +1721,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     newbaton.nameId = "baton";
                     newbaton.descriptionId = "turn";
                     newbaton.nextturn = nextturn;
-                    newbaton.nextpk = pplayer->encOrigPk;
+                    newbaton.nextplayerid = playerids[nextturn];
                     newbaton.playerids = playerids;
                     newbaton.prevturncount = turncount;  //calc previously passed turns' count
 
@@ -1723,7 +1731,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     {
                         // TODO: finish the game if turncount == player.size * 3 and send kogs to the winners
 
-                        CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, newbaton, newbaton.nextpk);  // send baton to player pubkey;
+                        CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, newbaton, pplayer->encOrigPk);  // send baton to player pubkey;
                         if (batontx.IsNull())
                             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << it->first.txhash.GetHex() << std::endl);
                         else
