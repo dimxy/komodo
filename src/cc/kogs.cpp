@@ -186,10 +186,13 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBat
         opret << OP_RETURN << enc.EncodeOpret();
         std::string hextx = FinalizeCCTx(0, cp, mtx, destpk, txfee, opret);
         if (hextx.empty())
+        {
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
             return CTransaction(); // empty tx
+        }
         else
         {
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created baton txid=" << mtx.GetHash().GetHex() << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "created baton txid=" << mtx.GetHash().GetHex() << " to next playerid=" << baton.nextplayerid.GetHex()  << std::endl);
             return mtx;
         }
             
@@ -1301,6 +1304,8 @@ UniValue KogsGameStatus(KogsGame &gameobj)
             return info;
         }
 
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found baton or slamparam objectId=" << (char)spobj->objectId << " txid=" << batontxid.GetHex() << std::endl);
+
         if (spobj->objectId == KOGSID_BATON)
         {
             KogsBaton *pbaton = (KogsBaton *)spobj.get();
@@ -1732,9 +1737,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         // TODO: finish the game if turncount == player.size * 3 and send kogs to the winners
 
                         CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, newbaton, pplayer->encOrigPk);  // send baton to player pubkey;
-                        if (batontx.IsNull())
-                            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << it->first.txhash.GetHex() << std::endl);
-                        else
+                        if (!batontx.IsNull())
                         {
                             txbatons++;
                             minersTransactions.push_back(batontx);
