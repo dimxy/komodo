@@ -1694,7 +1694,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
                         // find the baton
                         // slam param txvin[0] is the baton txid
-                        spobj2.reset(LoadGameObject(slamParamsTx.vin[0].prevout.hash));
+                        KogsBaseObject *p = LoadGameObject(slamParamsTx.vin[0].prevout.hash);
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "p==null:" << (p==nullptr) << " p->objectId=" << (char)(p?p->objectId:' ') << std::endl);
+                        spobj2.reset(p);
                         if (spobj2.get() && spobj2->objectId == KOGSID_BATON)
                         {
                             KogsBaton *pbaton = (KogsBaton *)spobj2.get();
