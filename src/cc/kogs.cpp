@@ -1534,7 +1534,7 @@ static bool AddKogsToStack(std::vector<uint256> &kogsInStack, const std::vector<
     return true;
 }
 
-static bool ManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton)
+static bool KogManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton)
 {   
     if (pGameOrParams->objectId != KOGSID_GAME && pGameOrParams->objectId != KOGSID_SLAMPARAMS)
     {
@@ -1565,11 +1565,11 @@ static bool ManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, Kog
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
 
-    char gameaddr[64];
-    GetCCaddress1of2(cp, gameaddr, kogsPk, gametxidPk);
+    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+    GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
 
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-    SetCCunspents(addressUnspents, gameaddr, true);    // look all tx on 1of2 addr
+    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
 
     std::vector<std::shared_ptr<KogsContainer>> containers;
     std::set<uint256> owners;
@@ -1714,7 +1714,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
                     // calc slam results and kogs ownership and fill the new baton
                     KogsBaton *prevbaton = (KogsBaton *)spobj2.get();
-                    if (ManageStack(spobj1.get(), prevbaton, newbaton))
+                    if (KogManageStack(spobj1.get(), prevbaton, newbaton))
                     {
                         // TODO: finish the game if turncount == player.size * 3 and send kogs to the winners
 
