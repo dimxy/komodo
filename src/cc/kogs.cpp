@@ -1286,7 +1286,8 @@ UniValue KogsGameStatus(KogsGame &gameobj)
     int32_t prevTurn = -1;  //-1 indicates we are before any turns
     int32_t nextTurn = -1;  
     uint256 prevPlayerid = zeroid;
-    std::vector<uint256> prevFlipped;
+    uint256 nextPlayerid = zeroid;
+    std::vector<uint256> prevFlipped, kogsInStack;
     uint256 batontxid;
     uint256 hashBlock;
     int32_t vini, height;
@@ -1320,7 +1321,10 @@ UniValue KogsGameStatus(KogsGame &gameobj)
                     wonkogs[pbaton->playerids[prevTurn]] = 0;  // init map value
                 wonkogs[pbaton->playerids[prevTurn]] += pbaton->kogsFlipped.size();
                 prevFlipped = pbaton->kogsFlipped;
+                kogsInStack = pbaton->kogsInStack;
                 prevPlayerid = pbaton->playerids[prevTurn];
+                nextPlayerid = pbaton->playerids[nextTurn];
+
             }
             nvout = 0;  // baton tx's next baton vout
         }
@@ -1338,9 +1342,15 @@ UniValue KogsGameStatus(KogsGame &gameobj)
         arrWon.push_back(elem);
     }
     info.push_back(std::make_pair("KogsWonByPlayerId", arrWon));
-    info.push_back(std::make_pair("PreviousPlayerId", (prevTurn < 0 ? std::string("none") : prevPlayerid.GetHex())));
     info.push_back(std::make_pair("PreviousTurn", (prevTurn < 0 ? std::string("none") : std::to_string(prevTurn))));
+    info.push_back(std::make_pair("PreviousPlayerId", (prevTurn < 0 ? std::string("none") : prevPlayerid.GetHex())));
     info.push_back(std::make_pair("NextTurn", (nextTurn < 0 ? std::string("none") : std::to_string(nextTurn))));
+    info.push_back(std::make_pair("NextPlayerId", (nextTurn < 0 ? std::string("none") : nextPlayerid.GetHex())));
+
+    UniValue arrStack(UniValue::VARR);
+    for (auto s : kogsInStack)
+        arrStack.push_back(s.GetHex());
+    info.push_back(std::make_pair("KogsInStack", arrStack));
 
     UniValue arrFlipped(UniValue::VARR);
     for (auto f : prevFlipped)
