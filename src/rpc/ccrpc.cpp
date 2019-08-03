@@ -688,10 +688,10 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 2))
+    if (fHelp || (params.size() != 3))
     {
         throw runtime_error(
-            "kogsslamdata gameid '{ \"armheight\":value, \"armstrength\":value }'\n"
+            "kogsslamdata gameid playerid '{ \"armheight\":value, \"armstrength\":value }'\n"
             "sends slam data to the chain, triggers stack reloading\n" "\n");
     }
 
@@ -701,13 +701,17 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp)
     if (slamparams.gameid.IsNull())
         throw runtime_error("gameid incorrect\n");
 
+    slamparams.playerid = Parseuint256(params[1].get_str().c_str());
+    if (slamparams.playerid.IsNull())
+        throw runtime_error("playerid incorrect\n");
+
     // parse json object:
-    if (params[1].getType() == UniValue::VOBJ)
-        jsonParams = params[1].get_obj();
-    else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '{...}'
-        jsonParams.read(params[1].get_str().c_str());
+    if (params[2].getType() == UniValue::VOBJ)
+        jsonParams = params[2].get_obj();
+    else if (params[2].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[2].get_str().c_str());
     if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
-        throw runtime_error("parameter 2 must be json object\n");
+        throw runtime_error("parameter 3 must be json object\n");
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << jsonParams.write(0, 0) << std::endl);
 
     std::vector<std::string> paramkeys = jsonParams.getKeys();
