@@ -416,12 +416,34 @@ static void ListContainerTokenids(KogsContainer &container)
     SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
-        struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // load and unmarshal gameobject for this txid
-        if (obj != nullptr && KOGS_IS_MATCH_OBJECT(obj->objectId))
-            container.tokenids.push_back(obj->creationtxid);
+        std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(it->first.txhash) ); // load and unmarshal gameobject for this txid
+        if (spobj != nullptr && KOGS_IS_MATCH_OBJECT(spobj->objectId))
+            container.tokenids.push_back(spobj->creationtxid);
     }
 }
 
+// loads container ids deposited on gameid 1of2 addr
+void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containerids)
+{
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
+    CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
+    GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
+
+    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
+    {
+        std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(it->first.txhash) ); // load and unmarshal gameobject for this txid
+        if (spobj != nullptr && spobj->objectId == KOGSID_CONTAINER)
+            containerids.push_back(spobj->creationtxid);
+    }
+}
 
 // returns all objects' creationtxid (tokenids or kog object creation txid) for the object with objectId
 void KogsCreationTxidList(uint8_t objectId, bool onlymy, std::vector<uint256> &creationtxids)
@@ -1567,6 +1589,11 @@ static bool ManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, Kog
     if (containers.size() != playerids.size())
     {
         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "not all players deposited containers" << std::endl);
+        for (auto c : containers)
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "deposited container=" << c->creationtxid.GetHex() << std::endl);
+        for (auto p : playerids)
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "player=" << p.GetHex() << std::endl);
+
         return false;
     }
 

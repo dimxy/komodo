@@ -906,6 +906,34 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp)
     return result;
 }
 
+// rpc kogsdepositedcontainerlist impl (to return all container tokenids)
+UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 1))
+    {
+        throw runtime_error(
+            "kogsdepositedcontainerlist gameid\n"
+            "returns all container tokenids\n" "\n");
+    }
+
+    uint256 gameid = Parseuint256(params[0].get_str().c_str());
+    if (gameid.IsNull())
+        throw runtime_error("gameid incorrect\n");
+
+    std::vector<uint256> tokenids;
+    KogsDepositedContainerList(gameid, tokenids);
+    RETURN_IF_ERROR(CCerror);
+
+    for (auto t : tokenids)
+        resarray.push_back(t.GetHex());
+
+    result.push_back(std::make_pair("DepositedContainerIds", resarray));
+    return result;
+}
+
 // rpc kogsplayerlist impl (to return all player creationids)
 UniValue kogsplayerlist(const UniValue& params, bool fHelp)
 {
@@ -1021,6 +1049,7 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogskoglist",            &kogskoglist,             true },
     { "kogs",         "kogsslammerlist",        &kogsslammerlist,         true },
     { "kogs",         "kogscontainerlist",      &kogscontainerlist,       true },
+    { "kogs",         "kogsdepositedcontainerlist",  &kogsdepositedcontainerlist,       true },
     { "kogs",         "kogsplayerlist",         &kogsplayerlist,          true },
     { "kogs",         "kogsgameconfiglist",     &kogsgameconfiglist,      true },
     { "kogs",         "kogsgamelist",           &kogsgamelist,            true },
