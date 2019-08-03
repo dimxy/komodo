@@ -1572,7 +1572,7 @@ static bool AddKogsToStack(std::vector<uint256> &kogsInStack, const std::vector<
     return true;
 }
 
-static bool KogManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton)
+static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton)
 {   
     if (pGameOrParams->objectId != KOGSID_GAME && pGameOrParams->objectId != KOGSID_SLAMPARAMS)
     {
@@ -1619,8 +1619,9 @@ static bool KogManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, 
             KogsContainer* pcontainer = (KogsContainer*)obj;
             containers.push_back(std::shared_ptr<KogsContainer>(pcontainer));
             owners.insert(pcontainer->playerid);
+            ListContainerTokenids(*pcontainer);
 
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found containerid=" << pcontainer->creationtxid.GetHex() << " owner playerid=" << pcontainer->playerid.GetHex() << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found containerid=" << pcontainer->creationtxid.GetHex() << " owner playerid=" << pcontainer->playerid.GetHex() << " kogs in container=" << pcontainer ->tokenids.size() << std::endl);
         }
     }
 
@@ -1753,7 +1754,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
                     // calc slam results and kogs ownership and fill the new baton
                     KogsBaton *prevbaton = (KogsBaton *)spobj2.get();
-                    if (KogManageStack(spobj1.get(), prevbaton, newbaton))
+                    if (KogsManageStack(spobj1.get(), prevbaton, newbaton))
                     {
                         // TODO: finish the game if turncount == player.size * 3 and send kogs to the winners
 
