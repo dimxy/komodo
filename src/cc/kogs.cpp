@@ -123,7 +123,7 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
 }
 
 // create enclosure tx (similar but not exactly like NFT as enclosure could be changed) with game object inside
-static std::string CreateEnclosureTx(KogsBaseObject *baseobj, bool needBaton)
+static std::string CreateEnclosureTx(KogsBaseObject *baseobj, bool isSpendable, bool needBaton)
 {
     const CAmount  txfee = 10000;
     CPubKey mypk = pubkey2pk(Mypubkey());
@@ -172,7 +172,7 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBat
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    KogsEnclosure enc(zeroid);  //'zeroid' means 'for creation'
+    KogsEnclosure enc(zeroid);  // 'zeroid' means 'for creation'
     enc.vdata = baton.Marshal();
     enc.name = baton.nameId;
     enc.description = baton.descriptionId;
@@ -211,7 +211,7 @@ static std::string CreateSlamParamTx(uint256 prevtxid, int32_t prevn, const Kogs
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    KogsEnclosure enc(zeroid);  //'zeroid' means 'for creation'
+    KogsEnclosure enc(zeroid);  // 'zeroid' means 'for creation'
     enc.vdata = slamparam.Marshal();
     enc.name = slamparam.nameId;
     enc.description = slamparam.descriptionId;
@@ -220,7 +220,6 @@ static std::string CreateSlamParamTx(uint256 prevtxid, int32_t prevn, const Kogs
 
     if (AddNormalinputs(mtx, mypk, txfee, 8) > 0)
     {
-
         // TODO: maybe send this baton to 1of2 (kogs global, gametxid) addr? 
         // But now a miner searches games or slamparams utxos on kogs global addr, 
         // so he would have to search on both addresses...  
@@ -587,13 +586,13 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
 // create game config object
 std::string KogsCreateGameConfig(KogsGameConfig newgameconfig)
 {
-    return CreateEnclosureTx(&newgameconfig, false);
+    return CreateEnclosureTx(&newgameconfig, false, false);
 }
 
 // create player object with player's params
 std::string KogsCreatePlayer(KogsPlayer newplayer)
 {
-    return CreateEnclosureTx(&newplayer, false);
+    return CreateEnclosureTx(&newplayer, true, false);
 }
 
 std::string KogsStartGame(KogsGame newgame)
@@ -606,7 +605,7 @@ std::string KogsStartGame(KogsGame newgame)
     }
 
     //return CreateGameObjectNFT(&newgame);
-    return CreateEnclosureTx(&newgame, true);
+    return CreateEnclosureTx(&newgame, false, true);
 }
 // create container for passed tokenids
 // check for duplicated
@@ -639,7 +638,7 @@ std::string KogsCreateContainer_NotUsed(KogsContainer newcontainer, const std::s
     if (duptokenids.size() > 0)
         return emptyresult;
 
-    return CreateEnclosureTx(&newcontainer, false);
+    return CreateEnclosureTx(&newcontainer, true, false);
 }
 
 // another impl for container: its an NFT token
