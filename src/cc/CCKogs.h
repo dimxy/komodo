@@ -711,6 +711,7 @@ public:
         struct KogsPlayer *r;
         struct KogsGame *g;
         struct KogsBaton *b;
+        struct KogsSlamParams *a;
 
         switch (objectId)
         {
@@ -742,6 +743,10 @@ public:
         case KOGSID_BATON:
             b = new KogsBaton();
             return (KogsBaseObject*)b;
+
+        case KOGSID_SLAMPARAMS:
+            a = new KogsSlamParams();
+            return (KogsBaseObject*)a;
 
         default:
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "requested to create unsupported objectId=" << (int)objectId << std::endl);

@@ -1748,7 +1748,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't load next turn player with id=" << playerids[nextturn].GetHex() << std::endl);
             }
             else
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "empty or incorrect objectId=" << (spobj1.get() ? (char)spobj1->objectId : ' ') << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spobj1.get() ? std::string("incorrect objectId=") + std::string(1, (char)spobj1->objectId) : std::string("nullptr")) << std::endl);
         }
     }
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created batons=" << txbatons << std::endl);
