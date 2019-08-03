@@ -216,9 +216,10 @@ static std::string CreateSlamParamTx(uint256 prevtxid, int32_t prevn, const Kogs
     enc.name = slamparam.nameId;
     enc.description = slamparam.descriptionId;
 
+    mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev baton
+
     if (AddNormalinputs(mtx, mypk, txfee, 8) > 0)
     {
-        mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev baton
 
         // TODO: maybe send this baton to 1of2 (kogs global, gametxid) addr? 
         // But now a miner searches games or slamparams utxos on kogs global addr, 
@@ -1694,7 +1695,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         // find the baton
                         // slam param txvin[0] is the baton txid
                         spobj2.reset(LoadGameObject(slamParamsTx.vin[0].prevout.hash));
-                        if (spobj2->objectId == KOGSID_BATON)
+                        if (spobj2.get() && spobj2->objectId == KOGSID_BATON)
                         {
                             KogsBaton *pbaton = (KogsBaton *)spobj2.get();
                             playerids = pbaton->playerids;
@@ -1712,7 +1713,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     }
                     else
                     {
-                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load slam params tx for txid=" << it->first.txhash.GetHex() << std::endl);
+                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load slamparams tx for txid=" << it->first.txhash.GetHex() << std::endl);
                         continue;
                     }
                 }
