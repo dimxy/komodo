@@ -1252,14 +1252,16 @@ UniValue KogsGameStatus(KogsGame &gameobj)
     // go for the opret data from the last/unspent tx 't'
     uint256 txid = gameobj.creationtxid;
     int32_t nvout = 2;  // baton vout, ==2 for game object
-    int32_t prevturn = -1;  //indicates before any turns
+    int32_t prevTurn = -1;  //indicates before any turns
+    uint256 prevPlayerid = zeroid;
+    std::vector<uint256> prevFlipped;
     uint256 batontxid;
     uint256 hashBlock;
     int32_t vini, height;
     
     std::map<uint256, int> wonkogs;
 
-    // browse the sequnce of slamparam and baton txns: 
+    // browse the sequence of slamparam and baton txns: 
     while (CCgetspenttxid(batontxid, vini, height, txid, nvout) == 0)
     {
         std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(batontxid));
@@ -1276,14 +1278,15 @@ UniValue KogsGameStatus(KogsGame &gameobj)
 
             // for the first turn prevturn is (-1)
             // and no won kogs yet:
-            if (prevturn >= 0)  // there was a turn already
+            if (prevTurn >= 0)  // there was a turn already
             {
-                if (wonkogs.find(pbaton->playerids[prevturn]) == wonkogs.end())
-                    wonkogs[pbaton->playerids[prevturn]] = 0;  // init map value
-                wonkogs[pbaton->playerids[prevturn]] += pbaton->kogsFlipped.size();
+                if (wonkogs.find(pbaton->playerids[prevTurn]) == wonkogs.end())
+                    wonkogs[pbaton->playerids[prevTurn]] = 0;  // init map value
+                wonkogs[pbaton->playerids[prevTurn]] += pbaton->kogsFlipped.size();
+                prevFlipped = pbaton->kogsFlipped;
             }
             nvout = 0;  // baton tx's next baton vout
-            prevturn = pbaton->nextturn;
+            prevTurn = pbaton->nextturn;
         }
         else
             nvout = 0;  // slamparams tx's next baton vout
@@ -1291,14 +1294,21 @@ UniValue KogsGameStatus(KogsGame &gameobj)
         txid = batontxid;        
     }
 
-    UniValue wonarr(UniValue::VARR);
+    UniValue arrWon(UniValue::VARR);
     for (auto w : wonkogs)
     {
         UniValue elem(UniValue::VOBJ);
         elem.push_back(std::make_pair(w.first.GetHex(), std::to_string(w.second)));
-        wonarr.push_back(elem);
+        arrWon.push_back(elem);
     }
-    info.push_back(std::make_pair("KogsWonByPlayerIds", wonarr));
+    info.push_back(std::make_pair("KogsWonByPlayerIds", arrWon));
+    info.push_back(std::make_pair("PreviousTurn", (prevTurn < 0 ? std::string("none") : prevPlayerid.GetHex())));
+
+    UniValue arrFlipped(UniValue::VARR);
+    for (auto f : prevFlipped)
+        arrFlipped.push_back(f.GetHex());
+    info.push_back(std::make_pair("PreviousFlipped", arrFlipped));
+
     return info;
 }
 
