@@ -467,7 +467,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
     newcontainer.descriptionId = params[1].get_str();
     uint256 playerid = Parseuint256(params[2].get_str().c_str());
     if (playerid.IsNull())
-        throw runtime_error("incorrect playerid\n"));
+        throw runtime_error("incorrect playerid\n");
     newcontainer.InitContainer(playerid);
 
     std::set<uint256> tokenids;
