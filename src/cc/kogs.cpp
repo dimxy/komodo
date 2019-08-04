@@ -1549,7 +1549,13 @@ static bool FlipKogs(const KogsSlamParams &slamparams, KogsBaton &baton)
     while (countFlipped--)
     {
         int i = rand() % baton.kogsInStack.size();
-        baton.kogsFlipped.push_back(std::make_pair(baton.playerids[baton.prevturncount], baton.kogsInStack[i]));
+        
+        // find previous turn index
+        int32_t prevturn = baton.nextturn - 1;
+        if (prevturn < 0)
+            prevturn = baton.playerids.size() - 1;
+
+        baton.kogsFlipped.push_back(std::make_pair(baton.playerids[baton.nextturn], baton.kogsInStack[i]));
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "flipped kog id=" << baton.kogsInStack[i].GetHex() << std::endl);
         baton.kogsInStack.erase(baton.kogsInStack.begin() + i);
     }
