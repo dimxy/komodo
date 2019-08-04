@@ -1504,12 +1504,17 @@ static bool FlipKogs(const KogsSlamParams &slamparams, std::vector<uint256> &kog
     int iheight = getRange(heightRanges, slamparams.armHeight);
     int istrength = getRange(strengthRanges, slamparams.armStrength);
 
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "iheight=" << iheight << " istrength=" << istrength << std::endl);
+
+
     if (iheight < 0 || istrength < 0)
         return false;
     // calc percentage of flipped based on height or ranges
     int heightFract = heightRanges[iheight].left + rand() % (heightRanges[iheight].right - heightRanges[iheight].left);
     int strengthFract = strengthRanges[istrength].left + rand() % (strengthRanges[istrength].right - strengthRanges[istrength].left);
     int totalFract = heightFract + strengthFract;
+
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "heightFract=" << heightFract << " strengthFract=" << strengthFract << std::endl);
 
     // how many kogs would flip:
     int countFlipped = (kogsInStack.size() * totalFract) / 100;
@@ -1518,7 +1523,9 @@ static bool FlipKogs(const KogsSlamParams &slamparams, std::vector<uint256> &kog
 
     // set limit for 1st turn: no more than 50% flipped
     if (prevturncount == 1 && countFlipped > kogsInStack.size() / 2)
-        countFlipped = kogsInStack.size() / 2;
+        countFlipped = kogsInStack.size() / 2; //50%
+
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "countFlipped=" << countFlipped << std::endl);
 
     // randomly select flipped kogs:
     while (countFlipped--)
@@ -1533,7 +1540,7 @@ static bool FlipKogs(const KogsSlamParams &slamparams, std::vector<uint256> &kog
 }
 
 // number in stack == 4 for test
-static bool AddKogsToStack(std::vector<uint256> &kogsInStack, const std::vector<std::shared_ptr<KogsContainer>> &spcontainers, const std::vector<uint256> &kogsFlipped)
+static bool AddKogsToStack(std::vector<uint256> &kogsInStack, const std::vector<std::shared_ptr<KogsContainer>> &spcontainers)
 {
     int remainder = 4 - kogsInStack.size(); 
     int kogsToAdd = remainder / spcontainers.size();
@@ -1656,7 +1663,7 @@ static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton,
         FlipKogs(*pslamparams, newbaton.kogsInStack, newbaton.kogsFlipped, newbaton.prevturncount);
     }
 
-    AddKogsToStack(newbaton.kogsInStack, containers, newbaton.kogsFlipped);
+    AddKogsToStack(newbaton.kogsInStack, containers);
     return true;
 }
 
