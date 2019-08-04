@@ -1321,13 +1321,12 @@ UniValue KogsGameStatus(KogsGame &gameobj)
             {
                 //if (wonkogs.find(pbaton->playerids[prevTurn]) == wonkogs.end())
                 //    wonkogs[pbaton->playerids[prevTurn]] = 0;  // init map value
-                //wonkogs[pbaton->playerids[prevTurn]] += pbaton->kogsFlipped.size();
-                prevFlipped = pbaton->kogsFlipped;
-                kogsInStack = pbaton->kogsInStack;
+                //wonkogs[pbaton->playerids[prevTurn]] += pbaton->kogsFlipped.size
                 prevPlayerid = pbaton->playerids[prevTurn];
-                nextPlayerid = pbaton->playerids[nextTurn];
-
             }
+            prevFlipped = pbaton->kogsFlipped;
+            kogsInStack = pbaton->kogsInStack;
+            nextPlayerid = pbaton->playerids[nextTurn];
             nvout = 0;  // baton tx's next baton vout
         }
         else  // if (spobj->objectId == KOGSID_SLAMPARAMS)
@@ -1660,7 +1659,7 @@ static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton,
 
     if (containers.size() != playerids.size())
     {
-        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "not all players deposited containers" << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "can't create baton: not all players deposited containers" << std::endl);
         for (auto c : containers)
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "deposited container=" << c->creationtxid.GetHex() << std::endl);
         for (auto p : playerids)
