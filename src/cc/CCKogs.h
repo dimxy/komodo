@@ -31,6 +31,7 @@ const uint8_t KOGSID_PACK = 'P';
 const uint8_t KOGSID_CONTAINER = 'C';
 const uint8_t KOGSID_BATON = 'B';
 const uint8_t KOGSID_SLAMPARAMS = 'R';
+const uint8_t KOGSID_GAMEFINISHED = 'F';
 
 const uint8_t KOGS_VERSION = 1;
 
@@ -75,6 +76,7 @@ struct KogsBaseObject {
         case KOGSID_BATON:          // every baton transfer is a new baton
         case KOGSID_SLAMPARAMS:     // slamparams could not be transferred
         case KOGSID_GAME:           // game could not be transferred
+        case KOGSID_GAMEFINISHED:   // gamefinished could not be transferred
             return false;
         default:
             break;
@@ -709,6 +711,48 @@ struct KogsSlamParams : public KogsBaseObject {
         armStrength = 0;
     }
 };
+
+
+// game is finished object
+struct KogsGameFinished : public KogsBaseObject {
+
+    uint256 winnerid;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {
+            evalcode = 0;
+            objectId = 0;
+            version = 0;
+        }
+        READWRITE(evalcode);
+        READWRITE(objectId);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && objectId == KOGSID_GAMEFINISHED && version == KOGS_VERSION)
+        {
+            READWRITE(winnerid);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsGameFinished" << " " << "incorrect evalcode=" << (int)evalcode << " or not a gamefinished objectId=" << (int)objectId << " or unsupported version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
+    virtual bool Unmarshal(vscript_t v)
+    {
+        bool result = E_UNMARSHAL(v, ss >> (*this));
+        return result;
+    }
+
+    KogsGameFinished() : KogsBaseObject() {
+        objectId = KOGSID_GAMEFINISHED;
+    }
+};
+
 
 // simple factory for Kogs game objects
 class KogsFactory

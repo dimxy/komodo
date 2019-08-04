@@ -164,7 +164,7 @@ static std::string CreateEnclosureTx(KogsBaseObject *baseobj, bool isSpendable, 
 }
 
 // create baton tx to pass turn to the next player
-static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBaton &baton, CPubKey destpk)
+static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, CPubKey destpk)
 {
     const CAmount  txfee = 10000;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -173,9 +173,9 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBat
     cp = CCinit(&C, EVAL_KOGS);
 
     KogsEnclosure enc(zeroid);  // 'zeroid' means 'for creation'
-    enc.vdata = baton.Marshal();
-    enc.name = baton.nameId;
-    enc.description = baton.descriptionId;
+    enc.vdata = pbaton->Marshal();
+    enc.name = pbaton->nameId;
+    enc.description = pbaton->descriptionId;
 
     if (AddNormalinputs(mtx, destpk, txfee, 8) > 0)
     {
@@ -192,7 +192,6 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBat
         }
         else
         {
-            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "created baton txid=" << mtx.GetHash().GetHex() << " to next playerid=" << baton.nextplayerid.GetHex()  << std::endl);
             return mtx;
         }
     }
@@ -426,7 +425,7 @@ static void ListContainerTokenids(KogsContainer &container)
 }
 
 // loads container ids deposited on gameid 1of2 addr
-void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containerids)
+static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shared_ptr<KogsContainer>> &containers)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
 
@@ -442,10 +441,23 @@ void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containeri
     SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
-        std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(it->first.txhash) ); // load and unmarshal gameobject for this txid
-        if (spobj != nullptr && spobj->objectId == KOGSID_CONTAINER)
-            containerids.push_back(spobj->creationtxid);
+        KogsBaseObject* pobj = LoadGameObject(it->first.txhash); // load and unmarshal gameobject for this txid
+        if (pobj != nullptr && pobj->objectId == KOGSID_CONTAINER)
+        {
+            std::shared_ptr<KogsContainer> spcontainer((KogsContainer*)pobj);
+            containers.push_back(spcontainer);
+        }
     }
+}
+
+// wrapper to load container ids deposited on gameid 1of2 addr 
+void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containerids)
+{
+    std::vector<std::shared_ptr<KogsContainer>> containers;
+    KogsDepositedContainerListImpl(gameid, containers);
+
+    for (auto c : containers)
+        containerids.push_back(c->creationtxid);
 }
 
 // returns all objects' creationtxid (tokenids or kog object creation txid) for the object with objectId
@@ -838,7 +850,6 @@ std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 contai
     char tokenaddr[64];
     GetTokensCCaddress(cp, tokenaddr, mypk);
 
-   
     std::string hextx = TokenTransferExt(0, containerid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, gametxidPk }, 1); // amount = 1 always for NFTs
     return hextx;
 }
@@ -1610,7 +1621,7 @@ static bool AddKogsToStack(KogsBaton &baton, const std::vector<std::shared_ptr<K
     return true;
 }
 
-static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton)
+static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton, std::vector<std::shared_ptr<KogsContainer>> &containers)
 {   
     if (pGameOrParams->objectId != KOGSID_GAME && pGameOrParams->objectId != KOGSID_SLAMPARAMS)
     {
@@ -1635,6 +1646,9 @@ static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton,
         playerids = prevbaton->playerids;
     }
 
+    KogsDepositedContainerListImpl(gameid, containers);
+
+    /*
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
     CPubKey kogsPk = GetUnspendable(cp, NULL);
@@ -1647,7 +1661,6 @@ static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton,
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
     SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
 
-    std::vector<std::shared_ptr<KogsContainer>> containers;
     std::set<uint256> owners;
     // find all deposited containers
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
@@ -1661,7 +1674,16 @@ static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton,
 
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found containerid=" << pcontainer->creationtxid.GetHex() << " owner playerid=" << pcontainer->playerid.GetHex() << " kogs in container=" << pcontainer ->tokenids.size() << std::endl);
         }
-    }
+    }*/
+
+    //find kog tokenids on container 1of2 address
+    for (auto &c : containers)
+        ListContainerTokenids(*c);
+
+    // store containers' owner playerids
+    std::set<uint256> owners;
+    for(auto &c : containers)
+        owners.insert(c->playerid);
 
     if (containers.size() != playerids.size())
     {
@@ -1704,6 +1726,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
     CPubKey mypk = pubkey2pk(Mypubkey());
     int txbatons = 0;
+    int txtransfers = 0;
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -1788,6 +1811,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 if (spobj3.get() != nullptr && spobj3->objectId == KOGSID_PLAYER)
                 {
                     KogsPlayer *pplayer = (KogsPlayer*)spobj3.get();
+                    std::vector<std::shared_ptr<KogsContainer>> containers;
                         
                     KogsBaton newbaton;
                     newbaton.nameId = "baton";
@@ -1801,15 +1825,52 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
                     // calc slam results and kogs ownership and fill the new baton
                     KogsBaton *prevbaton = (KogsBaton *)spobj2.get();
-                    if (KogsManageStack(spobj1.get(), prevbaton, newbaton))
+                    if (KogsManageStack(spobj1.get(), prevbaton, newbaton, containers))
                     {
-                        // TODO: finish the game if turncount == player.size * 3 and send kogs to the winners
-
-                        CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, newbaton, pplayer->encOrigPk);  // send baton to player pubkey;
-                        if (!batontx.IsNull())
+                        
+                        // early: finish the game if turncount == player.size * 3 and send kogs to the winners
+                        // now: finish if stack is empty
+                        if (newbaton.kogsInStack.empty())
                         {
+                            KogsGameFinished gamefinished;
+                            CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, GetUnspendable(cp, NULL));  // send baton to player pubkey;
                             txbatons++;
-                            minersTransactions.push_back(batontx);
+                            minersTransactions.push_back(fintx);
+                            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "stack empty, created gamefinished txid=" << fintx.GetHash().GetHex() << " winner playerid=" << gamefinished.winnerid.GetHex() << std::endl);
+
+                            // send containers back:
+                            CPubKey kogsPk = GetUnspendable(cp, NULL);
+                            char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+                            CPubKey gametxidPk = CCtxidaddr(txidaddr, newbaton.gameid);
+
+                            char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+                            GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
+
+                            for (auto &c : containers)
+                            {
+                                std::string transferHexTx = TokenTransferExt(0, c->creationtxid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ c->encOrigPk }, 1); // amount = 1 always for NFTs
+                                                                                                                                                                                        // unmarshal tx to get it txid;
+                                vuint8_t vtx = ParseHex(transferHexTx);
+                                CTransaction transfertx;
+                                if (E_UNMARSHAL(vtx, ss >> transfertx)) {
+                                    minersTransactions.push_back(transfertx);
+                                    txtransfers++;
+                                }
+                                else
+                                {
+                                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx containerid=" << c->creationtxid.GetHex() << std::endl);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, &newbaton, pplayer->encOrigPk);  // send baton to player pubkey;
+                            if (!batontx.IsNull())
+                            {
+                                LOGSTREAMFN("kogs", CCLOG_INFO, stream << "created baton txid=" << batontx.GetHash().GetHex() << " to next playerid=" << newbaton.nextplayerid.GetHex() << std::endl);
+                                txbatons++;
+                                minersTransactions.push_back(batontx);
+                            }
                         }
                     }
                 }
@@ -1820,5 +1881,5 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spobj1.get() ? std::string("incorrect objectId=") + std::string(1, (char)spobj1->objectId) : std::string("nullptr")) << std::endl);
         }
     }
-    LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "created batons=" << txbatons << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "created batons=" << txbatons << " created container transfers=" << txtransfers << std::endl);
 }
