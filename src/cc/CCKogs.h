@@ -74,6 +74,7 @@ struct KogsBaseObject {
         {
         case KOGSID_BATON:          // every baton transfer is a new baton
         case KOGSID_SLAMPARAMS:     // slamparams could not be transferred
+        case KOGSID_GAME:           // game could not be transferred
             return false;
         default:
             break;
