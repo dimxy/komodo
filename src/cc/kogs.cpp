@@ -1660,6 +1660,7 @@ static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton,
     if (pGameOrParams->objectId == KOGSID_SLAMPARAMS)  // process slam data 
     {
         KogsSlamParams* pslamparams = (KogsSlamParams*)pGameOrParams;
+        newbaton.kogsInStack = prevbaton->kogsInStack;  // copy stack state from prev baton
         FlipKogs(*pslamparams, newbaton.kogsInStack, newbaton.kogsFlipped, newbaton.prevturncount);
     }
 
