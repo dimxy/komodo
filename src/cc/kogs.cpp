@@ -1565,6 +1565,7 @@ static bool AddKogsToStack(std::vector<uint256> &kogsInStack, const std::vector<
             int i = rand() % freekogs.size(); // take random pos to add to the stack
             kogsInStack.push_back(freekogs[i]);  // add to stack
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "added kog to stack kogid=" << freekogs[i].GetHex() << std::endl);
+            freekogs.erase(freekogs.begin() + i);
             added++;
 
             /*            
