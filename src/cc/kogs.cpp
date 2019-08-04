@@ -1287,13 +1287,12 @@ UniValue KogsGameStatus(KogsGame &gameobj)
     int32_t nextTurn = -1;  
     uint256 prevPlayerid = zeroid;
     uint256 nextPlayerid = zeroid;
-    std::vector<uint256> prevFlipped, kogsInStack;
+    std::vector<uint256> kogsInStack;
+    std::vector<std::pair<uint256, uint256>> prevFlipped;
     uint256 batontxid;
     uint256 hashBlock;
     int32_t vini, height;
     
-    std::map<uint256, int> wonkogs;
-
     // browse the sequence of slamparam and baton txns: 
     while (CCgetspenttxid(batontxid, vini, height, txid, nvout) == 0)
     {
@@ -1320,9 +1319,9 @@ UniValue KogsGameStatus(KogsGame &gameobj)
             // and no won kogs yet:
             if (prevTurn >= 0)  // there was a turn already
             {
-                if (wonkogs.find(pbaton->playerids[prevTurn]) == wonkogs.end())
-                    wonkogs[pbaton->playerids[prevTurn]] = 0;  // init map value
-                wonkogs[pbaton->playerids[prevTurn]] += pbaton->kogsFlipped.size();
+                //if (wonkogs.find(pbaton->playerids[prevTurn]) == wonkogs.end())
+                //    wonkogs[pbaton->playerids[prevTurn]] = 0;  // init map value
+                //wonkogs[pbaton->playerids[prevTurn]] += pbaton->kogsFlipped.size();
                 prevFlipped = pbaton->kogsFlipped;
                 kogsInStack = pbaton->kogsInStack;
                 prevPlayerid = pbaton->playerids[prevTurn];
@@ -1338,13 +1337,33 @@ UniValue KogsGameStatus(KogsGame &gameobj)
     }
 
     UniValue arrWon(UniValue::VARR);
+    UniValue arrWonTotals(UniValue::VARR);
+    std::map<uint256, int> wonkogs;
+
+    // get array of pairs (playerid, won kogid)
+    for (auto &f : prevFlipped)
+    {
+        UniValue elem(UniValue::VOBJ);
+        elem.push_back(std::make_pair(f.first.GetHex(), f.second.GetHex()));
+        arrWon.push_back(elem);
+    }
+    // calc total of won kogs by playerid
+    for (auto &f : prevFlipped)
+    {
+        if (wonkogs.find(f.first) == wonkogs.end())
+            wonkogs[f.first] = 0;  // init map value
+        wonkogs[f.first] ++;
+    }
+    // convert to UniValue
     for (auto w : wonkogs)
     {
         UniValue elem(UniValue::VOBJ);
         elem.push_back(std::make_pair(w.first.GetHex(), std::to_string(w.second)));
-        arrWon.push_back(elem);
+        arrWonTotals.push_back(elem);
     }
+
     info.push_back(std::make_pair("KogsWonByPlayerId", arrWon));
+    info.push_back(std::make_pair("KogsWonByPlayerIdTotals", arrWonTotals));
     info.push_back(std::make_pair("PreviousTurn", (prevTurn < 0 ? std::string("none") : std::to_string(prevTurn))));
     info.push_back(std::make_pair("PreviousPlayerId", (prevTurn < 0 ? std::string("none") : prevPlayerid.GetHex())));
     info.push_back(std::make_pair("NextTurn", (nextTurn < 0 ? std::string("none") : std::to_string(nextTurn))));
@@ -1355,10 +1374,10 @@ UniValue KogsGameStatus(KogsGame &gameobj)
         arrStack.push_back(s.GetHex());
     info.push_back(std::make_pair("KogsInStack", arrStack));
 
-    UniValue arrFlipped(UniValue::VARR);
-    for (auto f : prevFlipped)
-        arrFlipped.push_back(f.GetHex());
-    info.push_back(std::make_pair("PreviousFlipped", arrFlipped));
+    //UniValue arrFlipped(UniValue::VARR);
+    //for (auto f : prevFlipped)
+    //    arrFlipped.push_back(f.GetHex());
+    //info.push_back(std::make_pair("PreviousFlipped", arrFlipped));
 
     return info;
 }
@@ -1499,7 +1518,7 @@ static int getRange(const std::vector<KogsSlamRange> &range, int32_t val)
 }
 
 // flip kogs based on slam data and height and strength ranges
-static bool FlipKogs(const KogsSlamParams &slamparams, std::vector<uint256> &kogsInStack, std::vector<uint256> &kogsFlipped, int prevturncount)
+static bool FlipKogs(const KogsSlamParams &slamparams, KogsBaton &baton)
 {
     int iheight = getRange(heightRanges, slamparams.armHeight);
     int istrength = getRange(strengthRanges, slamparams.armStrength);
@@ -1517,42 +1536,48 @@ static bool FlipKogs(const KogsSlamParams &slamparams, std::vector<uint256> &kog
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "heightFract=" << heightFract << " strengthFract=" << strengthFract << std::endl);
 
     // how many kogs would flip:
-    int countFlipped = (kogsInStack.size() * totalFract) / 100;
-    if (countFlipped > kogsInStack.size())
-        countFlipped = kogsInStack.size();
+    int countFlipped = (baton.kogsInStack.size() * totalFract) / 100;
+    if (countFlipped > baton.kogsInStack.size())
+        countFlipped = baton.kogsInStack.size();
 
     // set limit for 1st turn: no more than 50% flipped
-    if (prevturncount == 1 && countFlipped > kogsInStack.size() / 2)
-        countFlipped = kogsInStack.size() / 2; //50%
+    if (baton.prevturncount == 1 && countFlipped > baton.kogsInStack.size() / 2)
+        countFlipped = baton.kogsInStack.size() / 2; //50%
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "countFlipped=" << countFlipped << std::endl);
 
     // randomly select flipped kogs:
     while (countFlipped--)
     {
-        int i = rand() % kogsInStack.size();
-        kogsFlipped.push_back(kogsInStack[i]);
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "flipped kog id=" << kogsInStack[i].GetHex() << std::endl);
-        kogsInStack.erase(kogsInStack.begin() + i);
+        int i = rand() % baton.kogsInStack.size();
+        baton.kogsFlipped.push_back(std::make_pair(baton.playerids[baton.prevturncount], baton.kogsInStack[i]));
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "flipped kog id=" << baton.kogsInStack[i].GetHex() << std::endl);
+        baton.kogsInStack.erase(baton.kogsInStack.begin() + i);
     }
 
     return true;
 }
 
 // number in stack == 4 for test
-static bool AddKogsToStack(std::vector<uint256> &kogsInStack, const std::vector<std::shared_ptr<KogsContainer>> &spcontainers)
+static bool AddKogsToStack(KogsBaton &baton, const std::vector<std::shared_ptr<KogsContainer>> &spcontainers)
 {
-    int remainder = 4 - kogsInStack.size(); 
+    int remainder = 4 - baton.kogsInStack.size(); 
     int kogsToAdd = remainder / spcontainers.size();
 
     for (auto c : spcontainers)
     {
-        // get kogs that are not yet in the stack
+        // get kogs that are not yet in the stack or flipped
         std::vector<uint256> freekogs;
         for (auto t : c->tokenids)
-            if (std::find(kogsInStack.begin(), kogsInStack.end(), t) == kogsInStack.end())
-                freekogs.push_back(t);
-
+        {
+            // check if kog in stack
+            if (std::find(baton.kogsInStack.begin(), baton.kogsInStack.end(), t) != baton.kogsInStack.end())
+                continue;
+            // check if kog in flipped 
+            if (std::find_if(baton.kogsFlipped.begin(), baton.kogsFlipped.end(), [&](std::pair<uint256, uint256> f) { return f.second == t;}) != baton.kogsFlipped.end())
+                continue;
+            freekogs.push_back(t);
+        }
         if (kogsToAdd > freekogs.size())
         {
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "kogs number remaining in container=" << freekogs.size() << " is less than needed to add to stack" << std::endl);
@@ -1563,7 +1588,7 @@ static bool AddKogsToStack(std::vector<uint256> &kogsInStack, const std::vector<
         while (added < kogsToAdd)
         {
             int i = rand() % freekogs.size(); // take random pos to add to the stack
-            kogsInStack.push_back(freekogs[i]);  // add to stack
+            baton.kogsInStack.push_back(freekogs[i]);  // add to stack
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "added kog to stack kogid=" << freekogs[i].GetHex() << std::endl);
             freekogs.erase(freekogs.begin() + i);
             added++;
@@ -1662,10 +1687,10 @@ static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton,
     {
         KogsSlamParams* pslamparams = (KogsSlamParams*)pGameOrParams;
         newbaton.kogsInStack = prevbaton->kogsInStack;  // copy stack state from prev baton
-        FlipKogs(*pslamparams, newbaton.kogsInStack, newbaton.kogsFlipped, newbaton.prevturncount);
+        FlipKogs(*pslamparams, newbaton);
     }
 
-    AddKogsToStack(newbaton.kogsInStack, containers);
+    AddKogsToStack(newbaton, containers);
     return true;
 }
 
