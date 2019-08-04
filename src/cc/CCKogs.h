@@ -612,7 +612,7 @@ struct KogsBaton : public KogsBaseObject {
     uint256 nextplayerid;
     std::vector<uint256> playerids;
     std::vector<uint256> kogsInStack;
-    std::vector<uint256> kogsFlipped;
+    std::vector<std::pair<uint256, uint256>> kogsFlipped;
 
     ADD_SERIALIZE_METHODS;
 
