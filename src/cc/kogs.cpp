@@ -1676,16 +1676,16 @@ static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton,
 
     // TODO: check that the pubkeys are from this game's players
 
+    /* should be empty if now prev baton
     if (pGameOrParams->objectId == KOGSID_GAME)  // first turn
     {
         newbaton.kogsFlipped.clear();
         newbaton.kogsInStack.clear();
-    }
+    }*/
 
     if (pGameOrParams->objectId == KOGSID_SLAMPARAMS)  // process slam data 
     {
         KogsSlamParams* pslamparams = (KogsSlamParams*)pGameOrParams;
-        newbaton.kogsInStack = prevbaton->kogsInStack;  // copy stack state from prev baton
         FlipKogs(*pslamparams, newbaton);
     }
 
@@ -1722,7 +1722,11 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 int32_t nextturn;
                 int32_t turncount = 0;
 
+                // from prev baton or emty if no prev baton
                 std::vector<uint256> playerids;
+                std::vector<uint256> kogsInStack;
+                std::vector<std::pair<uint256, uint256>> kogsFlipped;
+
                 if (spobj1->objectId == KOGSID_GAME)
                 {
                     KogsGame *pgame = (KogsGame *)spobj1.get();
@@ -1753,6 +1757,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         {
                             KogsBaton *pbaton = (KogsBaton *)spobj2.get();
                             playerids = pbaton->playerids;
+                            kogsInStack = pbaton->kogsInStack;
+                            kogsFlipped = pbaton->kogsFlipped;
                             nextturn = pbaton->nextturn;
                             nextturn++;
                             if (nextturn == playerids.size())
@@ -1783,6 +1789,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     newbaton.nextturn = nextturn;
                     newbaton.nextplayerid = playerids[nextturn];
                     newbaton.playerids = playerids;
+                    newbaton.kogsInStack = kogsInStack;
+                    newbaton.kogsFlipped = kogsFlipped;
                     newbaton.prevturncount = turncount;  //calc previously passed turns' count
 
                     // calc slam results and kogs ownership and fill the new baton
