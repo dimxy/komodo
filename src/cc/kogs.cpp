@@ -1855,13 +1855,12 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
                             //add probe condition to sign vintx 1of2 utxo:
                             CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
-                            CCAddVintxCond(cp, probeCond, kogsPriv); 
-
+                            
                             for (auto &c : containers)
                             {
-                                std::string transferHexTx = TokenTransferExt(0, c->creationtxid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ c->encOrigPk }, 1); // amount = 1 always for NFTs
-                                                                                                                                                                                        // unmarshal tx to get it txid;
-                                vuint8_t vtx = ParseHex(transferHexTx);
+                                std::string transferHexTx = TokenTransferExt(0, c->creationtxid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) }, 
+                                    std::vector<CPubKey>{ c->encOrigPk }, 1); // amount = 1 always for NFTs
+                                vuint8_t vtx = ParseHex(transferHexTx); // unmarshal tx to get it txid;
                                 CTransaction transfertx;
                                 if (E_UNMARSHAL(vtx, ss >> transfertx)) {
                                     minersTransactions.push_back(transfertx);
