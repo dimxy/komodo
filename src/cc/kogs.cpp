@@ -1700,7 +1700,6 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     CPubKey mypk = pubkey2pk(Mypubkey());
     int txbatons = 0;
     int txtransfers = 0;
-    std::vector<CTransaction> myTransactions; // store transactions in this buffer as minersTransactions could have other modules created txns
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -1805,6 +1804,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     KogsBaton *prevbaton = (KogsBaton *)spobj2.get();
                     if (KogsManageStack(spobj1.get(), prevbaton, newbaton, containers))
                     {
+                        std::vector<CTransaction> myTransactions; // store transactions in this buffer as minersTransactions could have other modules created txns
+
                         // first requirement: finish the game if turncount == player.size * 3 and send kogs to the winners
                         // my addition: finish if stack is empty
                         if (newbaton.kogsInStack.empty() || newbaton.prevturncount >= newbaton.playerids.size() * 1)
@@ -1829,32 +1830,34 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 isError = true;
                             }
 
-                            char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-                            GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
-
-                            //add probe condition to sign vintx 1of2 utxo:
-                            CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
-                            
-                            for (auto &c : containers)
+                            if (!isError)
                             {
-                                std::string transferHexTx = TokenTransferExt(0, c->creationtxid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) }, 
-                                    std::vector<CPubKey>{ c->encOrigPk }, 1); // amount = 1 always for NFTs
-                                vuint8_t vtx = ParseHex(transferHexTx); // unmarshal tx to get it txid;
-                                CTransaction transfertx;
-                                if (!transferHexTx.empty() && E_UNMARSHAL(vtx, ss >> transfertx)) {
-                                    myTransactions.push_back(transfertx);
-                                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << transfertx.GetHash().GetHex() << std::endl);
-                                    txtransfers++;
-                                }
-                                else
-                                {
-                                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
-                                    isError = true;
-                                    break;
-                                }
-                            }
-                            cc_free(probeCond);
+                                char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+                                GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
 
+                                //add probe condition to sign vintx 1of2 utxo:
+                                CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
+
+                                for (auto &c : containers)
+                                {
+                                    std::string transferHexTx = TokenTransferExt(0, c->creationtxid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) },
+                                        std::vector<CPubKey>{ c->encOrigPk }, 1); // amount = 1 always for NFTs
+                                    vuint8_t vtx = ParseHex(transferHexTx); // unmarshal tx to get it txid;
+                                    CTransaction transfertx;
+                                    if (!transferHexTx.empty() && E_UNMARSHAL(vtx, ss >> transfertx)) {
+                                        myTransactions.push_back(transfertx);
+                                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << transfertx.GetHash().GetHex() << std::endl);
+                                        txtransfers++;
+                                    }
+                                    else
+                                    {
+                                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
+                                        isError = true;
+                                        break;
+                                    }
+                                }
+                                cc_free(probeCond);
+                            }
                             if (isError)
                                 myTransactions.clear();  // rollback
                         }
@@ -1868,6 +1871,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 myTransactions.push_back(batontx);
                             }
                         }
+                        for (auto &tx : myTransactions)
+                            minersTransactions.push_back(tx);
                     }
                 }
                 else
@@ -1878,7 +1883,4 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
         }
     }
     LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "created batons=" << txbatons << " created container transfers=" << txtransfers << std::endl);
-
-    for (auto &tx : myTransactions)
-        minersTransactions.push_back(tx);
 }
