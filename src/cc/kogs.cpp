@@ -1014,7 +1014,7 @@ std::string KogsAddSlamParams(KogsSlamParams newslamparams)
     CPubKey mypk = pubkey2pk(Mypubkey());
     GetCCaddress(cp, myccaddr, mypk);
 
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "listing finding baton on mypk" << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "finding 'my turn' baton on mypk" << std::endl);
 
     // find all games with unspent batons:
     uint256 batontxid = zeroid;
@@ -1729,6 +1729,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 std::vector<uint256> playerids;
                 std::vector<uint256> kogsInStack;
                 std::vector<std::pair<uint256, uint256>> kogsFlipped;
+                uint256 gameid = zeroid;
 
                 if (spobj1->objectId == KOGSID_GAME)
                 {
@@ -1741,6 +1742,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     // randomly select whose turn is the first:
                     nextturn = rand() % pgame->playerids.size();
                     playerids = pgame->playerids;
+                    gameid = it->first.txhash;
                 }
                 else
                 {
@@ -1750,6 +1752,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     if (myGetTransaction(it->first.txhash, slamParamsTx, hashBlock))
                     {
                         KogsSlamParams *pslamparams = (KogsSlamParams *)spobj1.get();
+                        gameid = pslamparams->gameid;
 
                         // find the baton
                         // slam param txvin[0] is the baton txid
@@ -1796,14 +1799,14 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     newbaton.kogsInStack = kogsInStack;
                     newbaton.kogsFlipped = kogsFlipped;
                     newbaton.prevturncount = turncount;  
+                    newbaton.gameid = gameid;
 
                     // calc slam results and kogs ownership and fill the new baton
                     KogsBaton *prevbaton = (KogsBaton *)spobj2.get();
                     if (KogsManageStack(spobj1.get(), prevbaton, newbaton, containers))
                     {
-                        
-                        // early: finish the game if turncount == player.size * 3 and send kogs to the winners
-                        // now: finish if stack is empty
+                        // first requirement: finish the game if turncount == player.size * 3 and send kogs to the winners
+                        // my addition: finish if stack is empty
                         if (newbaton.kogsInStack.empty() || newbaton.prevturncount >= newbaton.playerids.size() * 1)
                         {                            
                             // send containers back:
@@ -1838,7 +1841,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                     std::vector<CPubKey>{ c->encOrigPk }, 1); // amount = 1 always for NFTs
                                 vuint8_t vtx = ParseHex(transferHexTx); // unmarshal tx to get it txid;
                                 CTransaction transfertx;
-                                if (E_UNMARSHAL(vtx, ss >> transfertx)) {
+                                if (!transferHexTx.empty() && E_UNMARSHAL(vtx, ss >> transfertx)) {
                                     myTransactions.push_back(transfertx);
                                     txtransfers++;
                                 }
