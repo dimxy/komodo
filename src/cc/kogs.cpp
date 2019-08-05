@@ -1423,6 +1423,7 @@ UniValue KogsObjectInfo(uint256 tokenid)
     info.push_back(std::make_pair("version", std::to_string(baseobj->version)));
     info.push_back(std::make_pair("nameId", baseobj->nameId));
     info.push_back(std::make_pair("descriptionId", baseobj->descriptionId));
+    info.push_back(std::make_pair("originatorPubKey", HexStr(gameobj->encOrigPk)));
 
     switch (baseobj->objectId)
     {
@@ -1454,7 +1455,6 @@ UniValue KogsObjectInfo(uint256 tokenid)
 
     case KOGSID_GAME:
         gameobj = (KogsGame*)baseobj;
-        info.push_back(std::make_pair("originatorPubKey", HexStr(gameobj->encOrigPk)));
         gameinfo = KogsGameStatus(*gameobj);
         info.push_back(std::make_pair("gameinfo", gameinfo));
         break;
@@ -1843,6 +1843,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 CTransaction transfertx;
                                 if (!transferHexTx.empty() && E_UNMARSHAL(vtx, ss >> transfertx)) {
                                     myTransactions.push_back(transfertx);
+                                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << transfertx.GetHash().GetHex() << std::endl);
                                     txtransfers++;
                                 }
                                 else
