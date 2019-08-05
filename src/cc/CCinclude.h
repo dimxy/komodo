@@ -144,6 +144,8 @@ public:
     void set(CC *cond) {
         // Serialize the cc to store it as json. 
         // It would allow to create a new cc and cc_free it at any time when the caller does not need it any more
+        if (ccJsonString)
+            free(ccJsonString);
         ccJsonString = cc_conditionToJSONString(cond); 
     }
 
@@ -159,7 +161,7 @@ public:
 
     ~CCwrapper() {
         if (ccJsonString)
-            cJSON_free(ccJsonString);
+            free(ccJsonString);
     }
 
 private:
