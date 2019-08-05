@@ -140,10 +140,16 @@ public:
     { 
         std::cerr << "CCwrapper copy const enterred" << std::endl;
         copyCharPtr(wrapper);
-        
     }
     CCwrapper & operator=(const CCwrapper &wrapper)
     {
+        std::cerr << "CCwrapper operator= enterred" << std::endl;
+        if (ccJsonString) {
+            // dealloc prev content:
+            std::cerr << "CCwrapper calling free" << std::endl;
+            free(ccJsonString);
+        }
+
         copyCharPtr(wrapper);
         return *this;
     }
@@ -190,12 +196,6 @@ private:
     //size_t  cclen;
     void copyCharPtr(const CCwrapper &src)
     {
-        if (ccJsonString) {
-            // dealloc prev content:
-            std::cerr << "CCwrapper calling free" << std::endl;
-            free(ccJsonString);
-        }
-
         if (ccJsonString)
         {
             std::cerr << "CCwrapper calling malloc" << std::endl;
