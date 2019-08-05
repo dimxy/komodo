@@ -229,6 +229,10 @@ private:
 // CCVintxCond is passed inside a vector of probe cc
 struct CCVintxProbe {
 
+    CCVintxProbe()
+    {
+    }
+
     // custom copy constructor to accurately copy member CCwrapper with char*
     CCVintxProbe(const CCVintxProbe &probe)
     {
