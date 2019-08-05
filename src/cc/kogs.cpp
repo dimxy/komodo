@@ -1577,8 +1577,9 @@ static bool FlipKogs(const KogsSlamParams &slamparams, KogsBaton &baton)
 // number in stack == 4 for test
 static bool AddKogsToStack(KogsBaton &baton, const std::vector<std::shared_ptr<KogsContainer>> &spcontainers)
 {
-    int remainder = 4 - baton.kogsInStack.size(); 
-    int kogsToAdd = remainder / spcontainers.size();
+    // int remainder = 4 - baton.kogsInStack.size(); 
+    // int kogsToAdd = remainder / spcontainers.size(); // I thought first that kogs must be added until stack max size (it was 4 for testing)
+    int kogsToAdd = 1;
 
     for (auto c : spcontainers)
     {
@@ -1792,7 +1793,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             nextturn++;
                             if (nextturn == playerids.size())
                                 nextturn = 0;
-                            turncount = pbaton->prevturncount + 1;
+                            turncount = pbaton->prevturncount + 1; // previously passed turns' count
                         }
                         else
                         {
@@ -1821,7 +1822,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     newbaton.playerids = playerids;
                     newbaton.kogsInStack = kogsInStack;
                     newbaton.kogsFlipped = kogsFlipped;
-                    newbaton.prevturncount = turncount;  //calc previously passed turns' count
+                    newbaton.prevturncount = turncount;  
 
                     // calc slam results and kogs ownership and fill the new baton
                     KogsBaton *prevbaton = (KogsBaton *)spobj2.get();
@@ -1830,13 +1831,13 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         
                         // early: finish the game if turncount == player.size * 3 and send kogs to the winners
                         // now: finish if stack is empty
-                        if (newbaton.kogsInStack.empty())
+                        if (newbaton.kogsInStack.empty() || newbaton.prevturncount >= newbaton.playerids.size() * 1)
                         {
                             KogsGameFinished gamefinished;
                             CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, GetUnspendable(cp, NULL));  // send baton to player pubkey;
                             txbatons++;
                             minersTransactions.push_back(fintx);
-                            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "stack empty, created gamefinished txid=" << fintx.GetHash().GetHex() << " winner playerid=" << gamefinished.winnerid.GetHex() << std::endl);
+                            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "either stack empty=" << newbaton.kogsInStack.empty() << " or it was 1 turns each=" << newbaton.prevturncount << ", created gamefinished txid=" << fintx.GetHash().GetHex() << " winner playerid=" << gamefinished.winnerid.GetHex() << std::endl);
 
                             // send containers back:
                             CPubKey kogsPk = GetUnspendable(cp, NULL);
