@@ -1832,20 +1832,30 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         // early: finish the game if turncount == player.size * 3 and send kogs to the winners
                         // now: finish if stack is empty
                         if (newbaton.kogsInStack.empty() || newbaton.prevturncount >= newbaton.playerids.size() * 1)
-                        {
-                            KogsGameFinished gamefinished;
-                            CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, GetUnspendable(cp, NULL));  // send baton to player pubkey;
-                            txbatons++;
-                            minersTransactions.push_back(fintx);
-                            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "either stack empty=" << newbaton.kogsInStack.empty() << " or it was 1 turns each=" << newbaton.prevturncount << ", created gamefinished txid=" << fintx.GetHash().GetHex() << " winner playerid=" << gamefinished.winnerid.GetHex() << std::endl);
-
+                        {                            
                             // send containers back:
-                            CPubKey kogsPk = GetUnspendable(cp, NULL);
+                            uint8_t kogsPriv[32];
+                            CPubKey kogsPk = GetUnspendable(cp, kogsPriv);
                             char txidaddr[KOMODO_ADDRESS_BUFSIZE];
                             CPubKey gametxidPk = CCtxidaddr(txidaddr, newbaton.gameid);
+                            KogsGameFinished gamefinished;
+
+                            CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, /*GetUnspendable(cp, NULL)*/gametxidPk);  // send game finished baton to unspendable addr
+                            if (!fintx.IsNull())
+                            {
+                                txbatons++;
+                                minersTransactions.push_back(fintx);
+                                LOGSTREAMFN("kogs", CCLOG_INFO, stream << "either stack empty=" << newbaton.kogsInStack.empty() << " or it was 1 turns each=" << newbaton.prevturncount << ", created gamefinished txid=" << fintx.GetHash().GetHex() << " winner playerid=" << gamefinished.winnerid.GetHex() << std::endl);
+                            }
+                            else
+                                continue;
 
                             char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
                             GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
+
+                            //add probe condition to sign vintx 1of2 utxo:
+                            CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
+                            CCAddVintxCond(cp, probeCond, kogsPriv); 
 
                             for (auto &c : containers)
                             {
@@ -1862,6 +1872,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx containerid=" << c->creationtxid.GetHex() << std::endl);
                                 }
                             }
+                            cc_free(probeCond);
                         }
                         else
                         {
