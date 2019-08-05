@@ -1398,14 +1398,7 @@ UniValue KogsObjectInfo(uint256 tokenid)
     UniValue info(UniValue::VOBJ), err(UniValue::VOBJ), infotokenids(UniValue::VARR);
     UniValue gameinfo(UniValue::VOBJ);
 
-    KogsMatchObject *matchobj;
-    KogsPack *packobj;
-    KogsContainer *containerobj;
-    KogsGame *gameobj;
-    KogsGameConfig *gameconfigobj;
-    KogsPlayer *playerobj;
-
-    KogsBaseObject *baseobj = LoadGameObject(tokenid);
+       KogsBaseObject *baseobj = LoadGameObject(tokenid);
     if (baseobj == nullptr) {
         err.push_back(std::make_pair("result", "error"));
         err.push_back(std::make_pair("error", "can't load object"));
@@ -1423,10 +1416,17 @@ UniValue KogsObjectInfo(uint256 tokenid)
     info.push_back(std::make_pair("version", std::to_string(baseobj->version)));
     info.push_back(std::make_pair("nameId", baseobj->nameId));
     info.push_back(std::make_pair("descriptionId", baseobj->descriptionId));
-    info.push_back(std::make_pair("originatorPubKey", HexStr(gameobj->encOrigPk)));
+    info.push_back(std::make_pair("originatorPubKey", HexStr(baseobj->encOrigPk)));
 
     switch (baseobj->objectId)
     {
+        KogsMatchObject *matchobj;
+        KogsPack *packobj;
+        KogsContainer *containerobj;
+        KogsGame *gameobj;
+        KogsGameConfig *gameconfigobj;
+        KogsPlayer *playerobj;
+
     case KOGSID_KOG:
     case KOGSID_SLAMMER:
         matchobj = (KogsMatchObject*)baseobj;
