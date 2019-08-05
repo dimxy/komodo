@@ -1846,7 +1846,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                     CTransaction transfertx;
                                     if (!transferHexTx.empty() && E_UNMARSHAL(vtx, ss >> transfertx)) {
                                         myTransactions.push_back(transfertx);
-                                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << transfertx.GetHash().GetHex() << std::endl);
+                                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << transferHexTx << " txid=" << transfertx.GetHash().GetHex() << std::endl);
                                         txtransfers++;
                                     }
                                     else
