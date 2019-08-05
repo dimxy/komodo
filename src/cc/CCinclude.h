@@ -207,6 +207,10 @@ private:
 // CCVintxProbe object is passed to FinalizCCtx inside a vector of probe ccs
 struct CCVintxProbe {
 
+    CCVintxProbe()
+    {
+    }
+
     // custom copy constructor to accurately copy member CCwrapper with char*
     CCVintxProbe(const CCVintxProbe &probe)
     {
