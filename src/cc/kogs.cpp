@@ -1574,12 +1574,12 @@ static bool FlipKogs(const KogsSlamParams &slamparams, KogsBaton &baton)
     return true;
 }
 
-// number in stack == 4 for test
+// adding kogs to stack from the containers, check if kogs are not in the stack already or not flipped
 static bool AddKogsToStack(KogsBaton &baton, const std::vector<std::shared_ptr<KogsContainer>> &spcontainers)
 {
     // int remainder = 4 - baton.kogsInStack.size(); 
     // int kogsToAdd = remainder / spcontainers.size(); // I thought first that kogs must be added until stack max size (it was 4 for testing)
-    int kogsToAdd = 1;
+    int kogsToAdd = 1; // adding by 1 for testing
 
     for (auto c : spcontainers)
     {
@@ -1648,34 +1648,6 @@ static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton,
     }
 
     KogsDepositedContainerListImpl(gameid, containers);
-
-    /*
-    struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_KOGS);
-    CPubKey kogsPk = GetUnspendable(cp, NULL);
-    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
-
-    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-    GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
-
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
-
-    std::set<uint256> owners;
-    // find all deposited containers
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
-    {
-        struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // load and unmarshal gameobject for this txid
-        if (obj != nullptr && obj->objectId == KOGSID_CONTAINER) {
-            KogsContainer* pcontainer = (KogsContainer*)obj;
-            containers.push_back(std::shared_ptr<KogsContainer>(pcontainer));
-            owners.insert(pcontainer->playerid);
-            ListContainerTokenids(*pcontainer);
-
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found containerid=" << pcontainer->creationtxid.GetHex() << " owner playerid=" << pcontainer->playerid.GetHex() << " kogs in container=" << pcontainer ->tokenids.size() << std::endl);
-        }
-    }*/
 
     //find kog tokenids on container 1of2 address
     for (auto &c : containers)
