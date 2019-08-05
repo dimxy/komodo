@@ -1708,6 +1708,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
     srand(time(NULL));
 
+    // TODO: move it to outer komodo_createminerstransaction call:
+    ActivateUtxoLock();  // lock inputs added to tx from subsequent adding
+
     // find all games with unspent batons:
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
@@ -1882,5 +1885,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spobj1.get() ? std::string("incorrect objectId=") + std::string(1, (char)spobj1->objectId) : std::string("nullptr")) << std::endl);
         }
     }
+
+    DeactivateUtxoLock();
+
     LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "created batons=" << txbatons << " created container transfers=" << txtransfers << std::endl);
 }
