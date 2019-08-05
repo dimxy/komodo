@@ -896,7 +896,7 @@ void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, uint8_t *priv)
     if (cp == NULL) return;
     if (cond == NULL) return;
 
-    ccprobe.CCwrapped.set(cond);
+    ccprobe.CCwrapped.setCC(cond);
     if (priv != NULL)
         memcpy(ccprobe.CCpriv, priv, sizeof(ccprobe.CCpriv) / sizeof(ccprobe.CCpriv[0]));
     else

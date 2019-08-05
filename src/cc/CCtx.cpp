@@ -342,7 +342,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
 
                             if (vectcond != NULL)
                                 cc_free(vectcond);  // free prev used cond
-                            vectcond = t.CCwrapped.get();  // Note: need to cc_free at the function exit
+                            vectcond = t.CCwrapped.getCC();  // Note: need to cc_free at the function exit
                             Getscriptaddress(coinaddr, CCPubKey(vectcond));
                             // std::cerr << __func__ << " destaddr=" << destaddr << " coinaddr=" << coinaddr << std::endl;
                             if (strcmp(destaddr, coinaddr) == 0) {

@@ -135,13 +135,31 @@ class CCwrapper {
 public:
     CCwrapper() { ccJsonString = NULL; }
 
+    // custom copy constructor to accurately copying char*
+    CCwrapper(const CCwrapper &wrapper) 
+    { 
+        // dealloc prev content:
+        if (ccJsonString)
+            free(ccJsonString);
+
+        if (wrapper.ccJsonString)
+        {
+            ccJsonString = (char *)malloc(strlen(wrapper.ccJsonString) + 1);
+            strcpy(ccJsonString, wrapper.ccJsonString);
+        }
+        else
+        {
+            ccJsonString = NULL;
+        }
+    }
+
     // smart pointer alternate variant (not to copy cc but use smart pointer with auto cc_free)
     // we could use it if cc serialization to JSON fails. But serialization is more consistent
     // CCwrapper(CC *cond) : spcond(cond, [](CC* p) {cc_free(p); }) { }
     // CCwrapper(const CCwrapper &w) { spcond = w.spcond; }  // default copy constr
     // CC *get() { return spcond.get(); }
 
-    void set(CC *cond) {
+    void setCC(CC *cond) {
         // Serialize the cc to store it as json. 
         // It would allow to create a new cc and cc_free it at any time when the caller does not need it any more
         if (ccJsonString)
@@ -149,7 +167,7 @@ public:
         ccJsonString = cc_conditionToJSONString(cond); 
     }
 
-    CC *get() {
+    CC *getCC() {
         char err[1024] = "";
         CC *cond = cc_conditionFromJSONString(ccJsonString, err);  // caller, don't forget to cc_free it
 
@@ -160,6 +178,7 @@ public:
     }
 
     ~CCwrapper() {
+        // dealloc char* on delete:
         if (ccJsonString)
             free(ccJsonString);
     }
