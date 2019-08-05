@@ -139,23 +139,13 @@ public:
     CCwrapper(const CCwrapper &wrapper) 
     { 
         std::cerr << "CCwrapper copy const enterred" << std::endl;
-        // dealloc prev content:
-        if (ccJsonString) {
-            std::cerr << "CCwrapper calling free" << std::endl;
-            free(ccJsonString);
-        }
-
-        if (wrapper.ccJsonString)
-        {
-            std::cerr << "CCwrapper calling malloc" << std::endl;
-            ccJsonString = (char *)malloc(strlen(wrapper.ccJsonString) + 1);
-            strcpy(ccJsonString, wrapper.ccJsonString);
-        }
-        else
-        {
-            std::cerr << "CCwrapper setting null" << std::endl;
-            ccJsonString = NULL;
-        }
+        copyCharPtr(wrapper);
+        
+    }
+    CCwrapper & operator=(const CCwrapper &wrapper)
+    {
+        copyCharPtr(wrapper);
+        return *this;
     }
 
     // smart pointer alternate variant (not to copy cc but use smart pointer with auto cc_free)
@@ -197,7 +187,27 @@ public:
 private:
     //std::shared_ptr<CC> spcond; // for smart pointer
     char *ccJsonString;
-    size_t  cclen;
+    //size_t  cclen;
+    void copyCharPtr(const CCwrapper &src)
+    {
+        if (ccJsonString) {
+            // dealloc prev content:
+            std::cerr << "CCwrapper calling free" << std::endl;
+            free(ccJsonString);
+        }
+
+        if (ccJsonString)
+        {
+            std::cerr << "CCwrapper calling malloc" << std::endl;
+            ccJsonString = (char *)malloc(strlen(src.ccJsonString) + 1);
+            strcpy(ccJsonString, src.ccJsonString);
+        }
+        else
+        {
+            std::cerr << "CCwrapper setting null" << std::endl;
+            ccJsonString = NULL;
+        }
+    }
 };
 
 // struct with cc and privkey 
@@ -205,7 +215,7 @@ private:
 // CCVintxCond is passed inside a vector of probe cc
 struct CCVintxProbe {
 
-    CCVintxProbe()
+    /*CCVintxProbe()
     {
     }
 
@@ -215,7 +225,7 @@ struct CCVintxProbe {
         std::cerr << "CCVintxProbe copy const enterred" << std::endl;
         CCwrapped = probe.CCwrapped;
         memcpy(CCpriv, probe.CCpriv, sizeof(CCpriv) / sizeof(CCpriv[0]));
-    }
+    }*/
     CCwrapper CCwrapped;
     uint8_t   CCpriv[32];
 };
