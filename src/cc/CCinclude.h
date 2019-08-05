@@ -193,6 +193,13 @@ private:
 // cc is used as a probe to detect vintx cc vouts in FinalizeCCtx
 // CCVintxCond is passed inside a vector of probe cc
 struct CCVintxProbe {
+
+    // custom copy constructor to accurately copy member CCwrapper with char*
+    CCVintxProbe(const CCVintxProbe &probe)
+    {
+        CCwrapped = probe.CCwrapped;
+        memcpy(CCpriv, probe.CCpriv, sizeof(CCpriv) / sizeof(CCpriv[0]));
+    }
     CCwrapper CCwrapped;
     uint8_t   CCpriv[32];
 };
