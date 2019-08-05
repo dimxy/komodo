@@ -138,17 +138,22 @@ public:
     // custom copy constructor to accurately copying char*
     CCwrapper(const CCwrapper &wrapper) 
     { 
+        std::cerr << "CCwrapper copy const enterred" << std::endl;
         // dealloc prev content:
-        if (ccJsonString)
+        if (ccJsonString) {
+            std::cerr << "CCwrapper calling free" << std::endl;
             free(ccJsonString);
+        }
 
         if (wrapper.ccJsonString)
         {
+            std::cerr << "CCwrapper calling malloc" << std::endl;
             ccJsonString = (char *)malloc(strlen(wrapper.ccJsonString) + 1);
             strcpy(ccJsonString, wrapper.ccJsonString);
         }
         else
         {
+            std::cerr << "CCwrapper setting null" << std::endl;
             ccJsonString = NULL;
         }
     }
@@ -162,9 +167,12 @@ public:
     void setCC(CC *cond) {
         // Serialize the cc to store it as json. 
         // It would allow to create a new cc and cc_free it at any time when the caller does not need it any more
-        if (ccJsonString)
+        if (ccJsonString) {
+            std::cerr << "CCwrapper setCC calling free" << std::endl;
             free(ccJsonString);
+        }
         ccJsonString = cc_conditionToJSONString(cond); 
+        std::cerr << "CCwrapper setCC setting ccJsonString" << std::endl;
     }
 
     CC *getCC() {
@@ -179,8 +187,11 @@ public:
 
     ~CCwrapper() {
         // dealloc char* on delete:
-        if (ccJsonString)
+        std::cerr << "CCwrapper destr entered" << std::endl;
+        if (ccJsonString) {
+            std::cerr << "CCwrapper destr calling free" << std::endl;
             free(ccJsonString);
+        }
     }
 
 private:
@@ -201,6 +212,7 @@ struct CCVintxProbe {
     // custom copy constructor to accurately copy member CCwrapper with char*
     CCVintxProbe(const CCVintxProbe &probe)
     {
+        std::cerr << "CCVintxProbe copy const enterred" << std::endl;
         CCwrapped = probe.CCwrapped;
         memcpy(CCpriv, probe.CCpriv, sizeof(CCpriv) / sizeof(CCpriv[0]));
     }
