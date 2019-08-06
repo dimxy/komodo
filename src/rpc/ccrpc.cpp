@@ -318,7 +318,8 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
     {
         resarray.push_back(hextxns[i]);
     }
-    result.push_back(std::make_pair("rawtxns", resarray));
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextxns", resarray));
     return result;
 }
 
@@ -436,7 +437,8 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
     {
         resarray.push_back(hextx);
     }
-    result.push_back(std::make_pair("txns", resarray));
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextxns", resarray));
     return result;
 }
 
@@ -764,6 +766,7 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp)
     std::string hextx = KogsBurnNFT(tokenid);
     RETURN_IF_ERROR(CCerror);
 
+    result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextx", hextx));
     return result;
 }
@@ -794,6 +797,7 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp)
     std::string hextx = KogsRemoveObject(txid, nvout);
     RETURN_IF_ERROR(CCerror);
 
+    result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextx", hextx));
     return result;
 }
