@@ -785,7 +785,7 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp)
     {
         throw runtime_error(
             "kogsremoveobject txid nvout\n"
-            "removes a game object spending its marker (admin feature)\n" "\n");
+            "removes a game object by spending its marker (admin feature)\n" "\n");
     }
 
     uint256 txid = Parseuint256(params[0].get_str().c_str());
@@ -811,13 +811,19 @@ UniValue kogskoglist(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() > 1))
     {
         throw runtime_error(
-            "kogskoglist\n"
-            "returns all kog tokenids\n" "\n");
+            "kogskoglist [my]\n"
+            "returns all kog tokenids\n"
+            "if 'my' is present then returns kog ids on my pubkey and not in any container" "\n");
     }
 
     bool onlymy = false;
-    if (params.size() == 1 && params[0].get_str() == "my")
-        onlymy = true;
+    if (params.size() == 1)
+    {
+        if (params[0].get_str() == "my")
+            onlymy = true;
+        else
+            throw runtime_error("incorrect param\n");
+    }
 
     std::vector<uint256> tokenids;
     KogsCreationTxidList(KOGSID_KOG, onlymy, tokenids);
@@ -840,12 +846,18 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp)
     {
         throw runtime_error(
             "kogsslammerlist [my]\n"
-            "returns all slammer tokenids\n" "\n");
+            "returns all slammer tokenids\n"
+            "if 'my' is present then returns slammer ids on my pubkey" "\n");
     }
 
     bool onlymy = false;
-    if (params.size() == 1 && params[0].get_str() == "my")
-        onlymy = true;
+    if (params.size() == 1)
+    {
+        if (params[0].get_str() == "my")
+            onlymy = true;
+        else
+            throw runtime_error("incorrect param\n");
+    }
 
     std::vector<uint256> tokenids;
     KogsCreationTxidList(KOGSID_SLAMMER, onlymy, tokenids);
@@ -892,12 +904,18 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp)
     {
         throw runtime_error(
             "kogscontainerlist [my]\n"
-            "returns all container tokenids\n" "\n");
+            "returns all container ids\n" 
+            "if 'my' is present then returns container ids on my pubkey" "\n");
     }
 
     bool onlymy = false;
-    if (params.size() == 1 && params[0].get_str() == "my")
-        onlymy = true;
+    if (params.size() == 1)
+    {
+        if (params[0].get_str() == "my")
+            onlymy = true;
+        else
+            throw runtime_error("incorrect param\n");
+    }
 
     std::vector<uint256> tokenids;
     KogsCreationTxidList(KOGSID_CONTAINER, onlymy, tokenids);
@@ -972,7 +990,7 @@ UniValue kogsgameconfiglist(const UniValue& params, bool fHelp)
     {
         throw runtime_error(
             "kogsgameconfiglist\n"
-            "returns all gameconfig creationids\n" "\n");
+            "returns all gameconfig ids\n" "\n");
     }
 
     std::vector<uint256> creationids;
@@ -996,7 +1014,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp)
     {
         throw runtime_error(
             "kogsgamelist\n"
-            "returns all game creationids\n" "\n");
+            "returns all game ids\n" "\n");
     }
 
     std::vector<uint256> creationids;
@@ -1019,13 +1037,13 @@ UniValue kogsobjectinfo(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 1))
     {
         throw runtime_error(
-            "kogsobjectinfo tokenid\n"
-            "returns info about game object\n" "\n");
+            "kogsobjectinfo id\n"
+            "returns info about any game object\n" "\n");
     }
 
     uint256 tokenid = Parseuint256(params[0].get_str().c_str());
     if (tokenid.IsNull())
-        throw runtime_error("tokenid incorrect\n");
+        throw runtime_error("id incorrect\n");
 
     result = KogsObjectInfo(tokenid);
     RETURN_IF_ERROR(CCerror);
