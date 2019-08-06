@@ -125,7 +125,7 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 		break;  // breaking to other contract validation...
 
 	default:
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << "illegal tokens funcid=" << (char)(funcid?funcid:' ') << std::endl);
+        LOGSTREAM("cctokens", CCLOG_ERROR, stream << "illegal tokens funcid=" << (char)(funcid?funcid:' ') << std::endl);
 		return eval->Invalid("unexpected token funcid");
 	}
 
@@ -258,7 +258,7 @@ void FilterOutNonCCOprets(const std::vector<std::pair<uint8_t, vscript_t>>  &opr
     vopret.clear();
 
     if (oprets.size() > 2)
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << "FilterOutNonCCOprets() warning!! oprets.size > 2 currently not supported" << oprets.size() << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_ERROR, stream << "warning!! oprets.size > 2 currently not supported" << oprets.size() << std::endl);
 
     for (auto o : oprets) {
         if (o.first < OPRETID_FIRSTNONCCDATA) {     // skip burn, import, etc opret data
@@ -305,7 +305,7 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true
 				// if ccInputs != ccOutputs and it is not the tokenbase tx 
 				// this means it is possibly a fake tx (dimxy):
 				if (reftokenid != tx.GetHash()) {	// checking that this is the true tokenbase tx, by verifying that funcid=c, is done further in this function (dimxy)
-                    LOGSTREAM("cctokens", CCLOG_INFO, stream << indentStr << "IsTokensvout() warning: for the verified tx detected a bad vintx=" << tx.GetHash().GetHex() << ": cc inputs != cc outputs and not the 'tokenbase' tx, skipping the verified tx" << std::endl);
+                    LOGSTREAM("cctokens", CCLOG_ERROR, stream << indentStr << "IsTokensvout() warning: for the validated tx detected a bad vintx=" << tx.GetHash().GetHex() << ": cc inputs != cc outputs and not 'tokenbase' tx, skipping the validated tx" << std::endl);
 					return 0;
 				}
 			}
@@ -543,7 +543,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, int64_t &inpu
 			// we are not inside the validation code -- dimxy
 			if ((eval && eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock) == 0) || (!eval && !myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock)))
 			{
-                LOGSTREAM("cctokens", CCLOG_INFO, stream << indentStr << "TokensExactAmounts() cannot read vintx for i." << i << " numvins." << numvins << std::endl);
+                LOGSTREAM("cctokens", CCLOG_ERROR, stream << indentStr << "TokensExactAmounts() cannot read vintx for i." << i << " numvins." << numvins << std::endl);
 				return (!eval) ? false : eval->Invalid("always should find vin tx, but didnt");
 			}
 			else {
