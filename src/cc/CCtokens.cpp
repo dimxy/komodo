@@ -71,7 +71,7 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 	if ((funcid = DecodeTokenOpRet(tx.vout[numvouts - 1].scriptPubKey, evalCodeInOpret, tokenid, voutTokenPubkeys, oprets)) == 0)
 		return eval->Invalid("TokenValidate: invalid opreturn payload");
 
-    LOGSTREAM("cctokens", CCLOG_INFO, stream << "TokensValidate funcId=" << (char)(funcid?funcid:' ') << " evalcode=" << std::hex << (int)cp->evalcode << std::endl);
+    LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << "funcId=" << (char)(funcid?funcid:' ') << " evalcode=" << std::hex << (int)cp->evalcode << std::endl);
 
     if (eval->GetTxUnconfirmed(tokenid, createTx, hashBlock) == 0)
 		return eval->Invalid("cant find token create txid");
@@ -121,11 +121,11 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 		if (inputs == 0)
 			return eval->Invalid("no token inputs for transfer");
 
-        LOGSTREAM("cctokens", CCLOG_INFO, stream << "token transfer preliminarily validated inputs=" << inputs << "->outputs=" << outputs << " preventCCvins=" << preventCCvins<< " preventCCvouts=" << preventCCvouts << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "token transfer preliminarily validated inputs=" << inputs << "->outputs=" << outputs << " preventCCvins=" << preventCCvins<< " preventCCvouts=" << preventCCvouts << std::endl);
 		break;  // breaking to other contract validation...
 
 	default:
-        LOGSTREAM("cctokens", CCLOG_ERROR, stream << "illegal tokens funcid=" << (char)(funcid?funcid:' ') << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_ERROR, stream << "illegal tokens funcid=" << (char)(funcid?funcid:' ') << std::endl);
 		return eval->Invalid("unexpected token funcid");
 	}
 
