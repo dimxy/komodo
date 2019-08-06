@@ -1326,7 +1326,6 @@ UniValue KogsGameStatus(KogsGame &gameobj)
 
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "kogs in stack=" << pbaton->kogsInStack.size() << " kogs flipped=" << pbaton->kogsFlipped.size() << std::endl);
 
-
             // for the first turn prevturn is (-1)
             // and no won kogs yet:
             if (prevTurn >= 0)  // there was a turn already
