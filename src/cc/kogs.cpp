@@ -538,8 +538,8 @@ std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptk
     if (!CheckSysPubKey())
         return emptyresult;
 
-    // get all kogs gameobject
-    ListGameObjects(KOGSID_KOG, false, koglist);
+    // get all kogs on the syspubkey 
+    ListGameObjects(KOGSID_KOG, true, koglist);
 
     // get all packs
     ListGameObjects(KOGSID_PACK, false, packlist);
