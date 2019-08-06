@@ -1303,12 +1303,13 @@ UniValue KogsGameStatus(KogsGame &gameobj)
     uint256 batontxid;
     uint256 hashBlock;
     int32_t vini, height;
+    bool isFinished = false;
     
     // browse the sequence of slamparam and baton txns: 
     while (CCgetspenttxid(batontxid, vini, height, txid, nvout) == 0)
     {
         std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(batontxid));
-        if (spobj == nullptr || (spobj->objectId != KOGSID_BATON && spobj->objectId != KOGSID_SLAMPARAMS))
+        if (spobj == nullptr || (spobj->objectId != KOGSID_BATON && spobj->objectId != KOGSID_SLAMPARAMS && spobj->objectId != KOGSID_GAMEFINISHED))
         {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load baton txid=" << batontxid.GetHex() << std::endl);
             info.push_back(std::make_pair("error", "can't load baton"));
@@ -1340,8 +1341,13 @@ UniValue KogsGameStatus(KogsGame &gameobj)
             nextPlayerid = pbaton->playerids[nextTurn];
             nvout = 0;  // baton tx's next baton vout
         }
-        else  // if (spobj->objectId == KOGSID_SLAMPARAMS)
+        else  if (spobj->objectId == KOGSID_SLAMPARAMS)
             nvout = 0;  // slamparams tx's next baton vout
+        else 
+        { 
+            isFinished = true;
+            break;
+        }
 
         txid = batontxid;        
     }
@@ -1372,6 +1378,7 @@ UniValue KogsGameStatus(KogsGame &gameobj)
         arrWonTotals.push_back(elem);
     }
 
+    info.push_back(std::make_pair("finished", (isFinished ? std::string("true") : std::string("false"))));
     info.push_back(std::make_pair("KogsWonByPlayerId", arrWon));
     info.push_back(std::make_pair("KogsWonByPlayerIdTotals", arrWonTotals));
     info.push_back(std::make_pair("PreviousTurn", (prevTurn < 0 ? std::string("none") : std::to_string(prevTurn))));
