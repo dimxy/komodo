@@ -6289,6 +6289,8 @@ UniValue marmara_lock64(const UniValue& params, bool fHelp)
     }
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
     if (!pwalletMain->IsLocked())
         pwalletMain->TopUpKeyPool();
 
