@@ -6278,7 +6278,7 @@ UniValue marmara_newaddress(const UniValue& params, bool fHelp)
     return(MarmaraNewActivatedAddress(newPubKey));
 }
 
-// generate new activated address and output its segid
+// create 64 activated addresses for each segid and add amount / 64
 UniValue marmara_lock64(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
@@ -6291,8 +6291,8 @@ UniValue marmara_lock64(const UniValue& params, bool fHelp)
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
     EnsureWalletIsUnlocked();
-    if (!pwalletMain->IsLocked())
-        pwalletMain->TopUpKeyPool();
+    //if (!pwalletMain->IsLocked())
+    //    pwalletMain->TopUpKeyPool();
 
     CAmount amount = atoll(params[0].get_str().c_str());
     if (amount <= 0)
@@ -6302,14 +6302,28 @@ UniValue marmara_lock64(const UniValue& params, bool fHelp)
     if (nutxos <= 0)
         throw runtime_error("nutxos should be > 0\n");
 
-
-    // Generate a new key that is added to wallet
     std::string hextx = MarmaraLock64(pwalletMain, amount, nutxos);
     RETURN_IF_ERROR(CCerror);
 
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextx", hextx));
     return result;
+}
+
+// list activated addresses in the wallet and return amounts on these addresses
+UniValue marmara_listactivatedaddresses(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 0)
+    {
+        throw runtime_error("marmaralistactivated\n"
+            "list activated addresses in the wallet and returns amount on the addresses\n" "\n");
+    }
+    const CKeyStore& keystore = *pwalletMain;
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    return MarmaraListActivatedAddresses(pwalletMain);    
 }
 
 UniValue channelslist(const UniValue& params, bool fHelp)
