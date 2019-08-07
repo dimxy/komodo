@@ -5971,7 +5971,8 @@ UniValue marmara_poolpayout(const UniValue& params, bool fHelp)
     perc = atof(params[0].get_str().c_str()) / 100.;
     firstheight = atol(params[1].get_str().c_str());
     jsonstr = (char *)params[2].get_str().c_str();
-    return(MarmaraPoolPayout(0,firstheight,perc,jsonstr)); // [[pk0, shares0], [pk1, shares1], ...]
+    return "not implemented";
+    //return(MarmaraPoolPayout(0,firstheight,perc,jsonstr)); // [[pk0, shares0], [pk1, shares1], ...]
 }
 
 UniValue marmara_receive(const UniValue& params, bool fHelp)
@@ -6242,13 +6243,14 @@ UniValue marmara_lock(const UniValue& params, bool fHelp)
     UniValue result(UniValue::VOBJ); int64_t amount; int32_t height;
     if ( fHelp || params.size() != 1 )
     {
-        throw runtime_error("marmaralock amount\n");
+        throw runtime_error("marmaralock amount\n" 
+                            "converts normal coins to activated\n" "\n");
     }
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
     amount = atof(params[0].get_str().c_str()) * COIN + 0.00000000499999;
 
-    return(MarmaraLock(0,amount));
+    return(MarmaraLock(0, amount));
 }
 
 // generate new activated address and output its segid
@@ -6274,6 +6276,38 @@ UniValue marmara_newaddress(const UniValue& params, bool fHelp)
     pwalletMain->SetAddressBook(keyID, strAccount, "receive");
 
     return(MarmaraNewActivatedAddress(newPubKey));
+}
+
+// generate new activated address and output its segid
+UniValue marmara_lock64(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ);
+    if (fHelp || params.size() != 2)
+    {
+        throw runtime_error("marmaralock64 amount num\n"
+                            "generates 64 activated addresses in the wallet and distributes 'amount' on the addresses creating 'num' utxos on each address\n" "\n");
+    }
+    const CKeyStore& keystore = *pwalletMain;
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+    if (!pwalletMain->IsLocked())
+        pwalletMain->TopUpKeyPool();
+
+    CAmount amount = atoll(params[0].get_str().c_str());
+    if (amount <= 0)
+        throw runtime_error("amount should be > 0\n");
+
+    int32_t nutxos = atoi(params[1].get_str().c_str());
+    if (nutxos <= 0)
+        throw runtime_error("nutxos should be > 0\n");
+
+
+    // Generate a new key that is added to wallet
+    std::string hextx = MarmaraLock64(pwalletMain, amount, nutxos);
+    RETURN_IF_ERROR(CCerror);
+
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
 }
 
 UniValue channelslist(const UniValue& params, bool fHelp)
