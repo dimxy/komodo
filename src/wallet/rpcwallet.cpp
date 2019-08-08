@@ -5966,8 +5966,11 @@ UniValue marmara_poolpayout(const UniValue& params, bool fHelp)
     }
     if ( ensure_CCrequirements(EVAL_MARMARA) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
+
     perc = atof(params[0].get_str().c_str()) / 100.;
     firstheight = atol(params[1].get_str().c_str());
     jsonstr = (char *)params[2].get_str().c_str();
@@ -5992,8 +5995,11 @@ UniValue marmara_receive(const UniValue& params, bool fHelp)
     }
     if (ensure_CCrequirements(EVAL_MARMARA) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
+    
     memset(&batontxid, 0, sizeof(batontxid));
     senderpub = ParseHex(params[0].get_str().c_str());
     if (senderpub.size() != 33)
@@ -6050,8 +6056,11 @@ UniValue marmara_issue(const UniValue& params, bool fHelp)
     if( ensure_CCrequirements(EVAL_MARMARA) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
+    
     receiverpub = ParseHex(params[0].get_str().c_str());
     if (receiverpub.size() != 33)
     {
@@ -6134,6 +6143,8 @@ UniValue marmara_transfer(const UniValue& params, bool fHelp)
         ERR_RESULT("invalid receiverpub pubkey");
         return result;
     }
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
     
@@ -6177,8 +6188,12 @@ UniValue marmara_info(const UniValue& params, bool fHelp)
     }
     if ( ensure_CCrequirements(EVAL_MARMARA) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
+    /*
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
+    */
     firstheight = atol(params[0].get_str().c_str());
     lastheight = atol(params[1].get_str().c_str());
     minamount = atof(params[2].get_str().c_str()) * COIN + 0.00000000499999;
@@ -6195,7 +6210,7 @@ UniValue marmara_info(const UniValue& params, bool fHelp)
         }
         issuerpk = pubkey2pk(issuerpub);
     }
-    result = MarmaraInfo(issuerpk,firstheight,lastheight,minamount,maxamount,currency);
+    result = MarmaraInfo(issuerpk, firstheight, lastheight, minamount, maxamount, currency);
     return(result);
 }
 
@@ -6209,6 +6224,9 @@ UniValue marmara_creditloop(const UniValue& params, bool fHelp)
     }
     if ( ensure_CCrequirements(EVAL_MARMARA) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
+
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
     txid = Parseuint256((char *)params[0].get_str().c_str());
@@ -6227,6 +6245,8 @@ UniValue marmara_settlement(const UniValue& params, bool fHelp)
     }
     if ( ensure_CCrequirements(EVAL_MARMARA) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
 
     throw runtime_error("marmarasettlement is discontinued\n");
     /*
@@ -6246,6 +6266,11 @@ UniValue marmara_lock(const UniValue& params, bool fHelp)
         throw runtime_error("marmaralock amount\n" 
                             "converts normal coins to activated\n" "\n");
     }
+    if (ensure_CCrequirements(EVAL_MARMARA) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
+
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
     amount = atof(params[0].get_str().c_str()) * COIN + 0.00000000499999;
@@ -6261,6 +6286,11 @@ UniValue marmara_newaddress(const UniValue& params, bool fHelp)
     {
         throw runtime_error("marmaranewaddress\n");
     }
+    if (ensure_CCrequirements(EVAL_MARMARA) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
+
     std::string strAccount;
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -6278,15 +6308,21 @@ UniValue marmara_newaddress(const UniValue& params, bool fHelp)
     return(MarmaraNewActivatedAddress(newPubKey));
 }
 
-// create 64 activated addresses for each segid and add amount / 64
+// marmaralock64 rpc impl, create 64 activated addresses for each segid and add amount / 64
 UniValue marmara_lock64(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
+    CCerror.clear();
     if (fHelp || params.size() != 2)
     {
         throw runtime_error("marmaralock64 amount num\n"
                             "generates 64 activated addresses in the wallet and distributes 'amount' on the addresses creating 'num' utxos on each address\n" "\n");
     }
+    if (ensure_CCrequirements(EVAL_MARMARA) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
+
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -6310,7 +6346,7 @@ UniValue marmara_lock64(const UniValue& params, bool fHelp)
     return result;
 }
 
-// list activated addresses in the wallet and return amounts on these addresses
+// marmaralistactivated rpc impl, lists activated addresses in the wallet and return amounts on these addresses
 UniValue marmara_listactivatedaddresses(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
@@ -6318,6 +6354,9 @@ UniValue marmara_listactivatedaddresses(const UniValue& params, bool fHelp)
         throw runtime_error("marmaralistactivated\n"
             "list activated addresses in the wallet and returns amount on the addresses\n" "\n");
     }
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
+
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
 
@@ -6325,6 +6364,35 @@ UniValue marmara_listactivatedaddresses(const UniValue& params, bool fHelp)
 
     return MarmaraListActivatedAddresses(pwalletMain);    
 }
+
+// marmarareleaseactivated rpc impl, collects activated utxos in the wallet and sends the amount to the address param
+UniValue marmara_releaseactivatedcoins(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ);
+    CCerror.clear();
+    if (fHelp || params.size() != 1)
+    {
+        throw runtime_error("marmarareleaseactivated address\n"
+            "collects activated utxos in the wallet and sends the amount to the 'address'\n" "\n");
+    }
+    if (!EnsureWalletIsAvailable(false))
+        throw runtime_error("wallet is required");
+
+    const CKeyStore& keystore = *pwalletMain;
+    LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    EnsureWalletIsUnlocked();
+
+    std::string dest = params[0].get_str();
+
+    std::string hextx = MarmaraReleaseActivatedCoins(pwalletMain, dest);
+    RETURN_IF_ERROR(CCerror);
+
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
+}
+
 
 UniValue channelslist(const UniValue& params, bool fHelp)
 {

@@ -290,6 +290,7 @@ extern UniValue marmara_lock(const UniValue& params, bool fHelp);
 extern UniValue marmara_newaddress(const UniValue& params, bool fHelp);
 extern UniValue marmara_lock64(const UniValue& params, bool fHelp);
 extern UniValue marmara_listactivatedaddresses(const UniValue& params, bool fHelp);
+extern UniValue marmara_releaseactivatedcoins(const UniValue& params, bool fHelp);
 
 extern UniValue paymentsaddress(const UniValue& params, bool fHelp);
 extern UniValue payments_release(const UniValue& params, bool fHelp);

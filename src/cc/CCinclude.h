@@ -119,7 +119,27 @@ struct CC_meta
 // stored cc is used as probe in FinalizeCCtx to find vintx cc vout and make matching tx.vin.scriptSig
 class CCwrapper {
 public:
-    CCwrapper() {}
+    CCwrapper() { ccJsonString = NULL; }
+
+    // custom copy constructor to accurately copying ccJsonString
+    CCwrapper(const CCwrapper &wrapper)
+    {
+        //std::cerr << "CCwrapper copy const enterred" << std::endl;
+        copyCharPtr(wrapper);
+    }
+    //provide ccJsonString to be accurately copied in assignment
+    CCwrapper & operator=(const CCwrapper &wrapper)
+    {
+        //std::cerr << "CCwrapper operator= enterred" << std::endl;
+        if (ccJsonString) {
+            // dealloc prev content:
+            //std::cerr << "CCwrapper calling free" << std::endl;
+            free(ccJsonString);
+        }
+
+        copyCharPtr(wrapper);
+        return *this;
+    }
 
     // smart pointer alternate variant (not to copy cc but use smart pointer with auto cc_free)
     // we could use it if cc serialization to JSON fails. But serialization is more consistent
@@ -127,24 +147,54 @@ public:
     // CCwrapper(const CCwrapper &w) { spcond = w.spcond; }  // default copy constr
     // CC *get() { return spcond.get(); }
 
-    void set(CC *cond) {
-        ccJsonString = cc_conditionToJSONString(cond); // serialize cc to store it and allow caller to cc_free the cond
+    void setCC(CC *cond) {
+        // Serialize the cc to store it as json. 
+        // It would allow to create a new cc and cc_free it at any time when the caller does not need it any more
+        if (ccJsonString) {
+            //std::cerr << "CCwrapper setCC calling free" << std::endl;
+            free(ccJsonString);
+        }
+        ccJsonString = cc_conditionToJSONString(cond);
+        //std::cerr << "CCwrapper setCC setting ccJsonString" << std::endl;
     }
 
-    CC *get() { 
+    CC *getCC() {
         char err[1024] = "";
-        CC *cond = cc_conditionFromJSONString(ccJsonString, err);  // dont forget to cc_free it
+        CC *cond = cc_conditionFromJSONString(ccJsonString, err);  // caller, please don't forget to cc_free the returned cond!
 
-        // debug logging if parse not successful:
-        // std::cerr << "CCwrapper ccJsonString=" << ccJsonString << "\nerr=" << err << std::endl;  
-        // if( cond ) std::cerr << "CCwrapper serialized=" << cc_conditionToJSONString(cond) << std::endl;  //see how it is serialized back
+                                                                   // debug logging if parse not successful:
+                                                                   // std::cerr << "CCwrapper ccJsonString=" << ccJsonString << "\nerr=" << err << std::endl;  
+                                                                   // if( cond ) std::cerr << "CCwrapper serialized=" << cc_conditionToJSONString(cond) << std::endl;  //see how it is serialized back
         return cond;
-     }
+    }
+
+    ~CCwrapper() {
+        // dealloc char* on delete:
+        //std::cerr << "CCwrapper destr entered" << std::endl;
+        if (ccJsonString) {
+            //std::cerr << "CCwrapper destr calling free" << std::endl;
+            free(ccJsonString);
+        }
+    }
 
 private:
     //std::shared_ptr<CC> spcond; // for smart pointer
     char *ccJsonString;
-    size_t  cclen;
+    //size_t  cclen;
+    void copyCharPtr(const CCwrapper &src)
+    {
+        if (ccJsonString)
+        {
+            //std::cerr << "CCwrapper calling malloc" << std::endl;
+            ccJsonString = (char *)malloc(strlen(src.ccJsonString) + 1);
+            strcpy(ccJsonString, src.ccJsonString);
+        }
+        else
+        {
+            //std::cerr << "CCwrapper setting null" << std::endl;
+            ccJsonString = NULL;
+        }
+    }
 };
 
 // struct with cc and privkey 
@@ -369,7 +419,7 @@ int64_t NSPV_AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total
 int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs);
 int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinputs);
 int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCflag);
-void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, uint8_t *priv = NULL);
+void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, const uint8_t *priv = NULL);
 bool NSPV_SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey,uint32_t nTime);
 
 // curve25519 and sha256
