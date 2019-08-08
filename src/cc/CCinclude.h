@@ -450,6 +450,8 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
     std::ostringstream stream;
     if (functionName != NULL)
         stream << functionName << " ";
+    if (level < 0)
+        stream << "ERROR: ";
     printToStream(stream);
     
     if (level < 0) {
