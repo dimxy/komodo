@@ -6351,7 +6351,7 @@ UniValue marmara_listactivatedaddresses(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 0)
     {
-        throw runtime_error("marmaralistactivated\n"
+        throw runtime_error("marmaralistactivatedaddresses\n"
             "list activated addresses in the wallet and returns amount on the addresses\n" "\n");
     }
     if (!EnsureWalletIsAvailable(false))
