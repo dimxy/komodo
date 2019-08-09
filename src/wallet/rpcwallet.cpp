@@ -6330,7 +6330,7 @@ UniValue marmara_lock64(const UniValue& params, bool fHelp)
     //if (!pwalletMain->IsLocked())
     //    pwalletMain->TopUpKeyPool();
 
-    CAmount amount = atoll(params[0].get_str().c_str()) * COIN;
+    CAmount amount = (CAmount)(atof(params[0].get_str().c_str()) * (double)COIN);
     if (amount <= 0)
         throw runtime_error("amount should be > 0\n");
 
