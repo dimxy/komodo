@@ -6365,15 +6365,15 @@ UniValue marmara_listactivatedaddresses(const UniValue& params, bool fHelp)
     return MarmaraListActivatedAddresses(pwalletMain);    
 }
 
-// marmarareleaseactivated rpc impl, collects activated utxos in the wallet and sends the amount to the address param
+// marmarareleaseactivatedcoins rpc impl, collects activated utxos in the wallet and sends the amount to the address param
 UniValue marmara_releaseactivatedcoins(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear();
     if (fHelp || params.size() != 1)
     {
-        throw runtime_error("marmarareleaseactivated address\n"
-            "collects activated utxos in the wallet and sends the amount to the 'address'\n" "\n");
+        throw runtime_error("marmarareleaseactivatedcoins address\n"
+            "collects activated utxos in the wallet and sends the amount to the normal 'address'\n" "\n");
     }
     if (!EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");
