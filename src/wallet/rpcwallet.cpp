@@ -6316,7 +6316,7 @@ UniValue marmara_lock64(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 2)
     {
         throw runtime_error("marmaralock64 amount num\n"
-                            "generates 64 activated addresses in the wallet and distributes 'amount' on the addresses creating 'num' utxos on each address\n" "\n");
+                            "generates 64 activated addresses in the wallet and distributes 'amount' in coins on the addresses creating 'num' utxos on each address\n" "\n");
     }
     if (ensure_CCrequirements(EVAL_MARMARA) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
@@ -6330,13 +6330,13 @@ UniValue marmara_lock64(const UniValue& params, bool fHelp)
     //if (!pwalletMain->IsLocked())
     //    pwalletMain->TopUpKeyPool();
 
-    CAmount amount = atoll(params[0].get_str().c_str());
+    CAmount amount = atoll(params[0].get_str().c_str()) * COIN;
     if (amount <= 0)
         throw runtime_error("amount should be > 0\n");
 
     int32_t nutxos = atoi(params[1].get_str().c_str());
     if (nutxos <= 0)
-        throw runtime_error("nutxos should be > 0\n");
+        throw runtime_error("num should be > 0\n");
 
     std::string hextx = MarmaraLock64(pwalletMain, amount, nutxos);
     RETURN_IF_ERROR(CCerror);
