@@ -750,7 +750,7 @@ int32_t komodo_isPoS2(CBlock *pblock)
 // returns 1 if this is PoS block and 0 if false 
 int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
 {
-    int32_t n,vout,numvouts,ret; uint32_t txtime; uint64_t value; char voutaddr[64],destaddr[64]; CTxDestination voutaddress; uint256 txid; CScript opret;
+    int32_t n,vout,numvouts,ret; uint32_t txtime; uint64_t value; char voutaddr[64],destaddr[64]; CTxDestination voutaddress; uint256 txid; CScript prevTxOpret;
     if ( ASSETCHAINS_STAKED != 0 )
     {
         if ( fJustCheck )
@@ -769,7 +769,7 @@ int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
             // get previous tx and check if it was spent to self
             txid = pblock->vtx[n-1].vin[0].prevout.hash;  
             vout = pblock->vtx[n-1].vin[0].prevout.n;
-            txtime = komodo_txtime(opret,&value,txid,vout,destaddr);  // get previous tx opret
+            txtime = komodo_txtime(prevTxOpret,&value,txid,vout,destaddr);  // get previous stake tx opret
             if ( ExtractDestination(pblock->vtx[n-1].vout[0].scriptPubKey,voutaddress) )  // get current tx vout address
             {
                 strcpy(voutaddr,CBitcoinAddress(voutaddress).ToString().c_str());
@@ -786,7 +786,7 @@ int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
                         {
 //fprintf(stderr,"validate proper %s %s signature and unlockht preservation\n",voutaddr,destaddr);
                             //return(MarmaraPoScheck(destaddr,opret,pblock->vtx[n-1]));
-                            int32_t r = MarmaraPoScheck(destaddr, opret, pblock->vtx[n - 1]);
+                            int32_t r = MarmaraPoScheck(destaddr, prevTxOpret, pblock->vtx[n - 1]);
                             std::cout << __func__ << " MarmaraPoScheck=" << r << std::endl;
                             return r;
                         }
