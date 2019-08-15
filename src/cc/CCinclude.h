@@ -449,6 +449,8 @@ int64_t TotalPubkeyNormalInputs(const CTransaction &tx, const CPubKey &pubkey);
 int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
 
+#ifndef LOGSTREAM_DEFINED
+#define LOGSTREAM_DEFINED
 // bitcoin LogPrintStr with category "-debug" cmdarg support for C++ ostringstream:
 
 // log levels:
@@ -469,8 +471,8 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
         stream << "ERROR: ";
     printToStream(stream);
     
-    if (level < 0) {
-        LogPrintStr(stream.str());  // print error unconditionally
+    if (level <= 0) {
+        LogPrintStr(stream.str());  // print error or info unconditionally
         return;
     }
     if (level > CCLOG_MAXLEVEL)
@@ -478,7 +480,7 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
     // check if category accepted:
     for (int i = level; i <= CCLOG_MAXLEVEL; i++)
         if( LogAcceptCategory((std::string(category) + std::string("-") + std::to_string(i)).c_str())  ||     // '-debug=cctokens-0', '-debug=cctokens-1',...
-            i == 0 && LogAcceptCategory(std::string(category).c_str()) )  {                                   // also supporting '-debug=cctokens' for CCLOG_INFO
+            i == 0 && LogAcceptCategory(std::string(category).c_str()) )  {                                   // also supporting '-debug=cctokens' for CCLOG_INFO (actually info is printed always)
             LogPrintStr(stream.str());
             break;
         }
@@ -494,5 +496,6 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
 // LOGSTREAMFN parameters are the same as in LOGSTREAM
 #define LOGSTREAMFN(category, level, logoperator) CCLogPrintStream( category, level, __func__, [=](std::ostringstream &stream) {logoperator;} )
 
+#endif // #ifndef LOGSTREAM_DEFINED
 
-#endif
+#endif // #ifndef CC_INCLUDE_H
