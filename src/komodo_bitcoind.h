@@ -665,10 +665,12 @@ static bool CheckStakeTxVoutSize(const CTransaction &staketx)
 {
     if (ASSETCHAINS_MARMARA)
     {
-        if (staketx.vout.size() >= 1 && staketx.vout.size() <= 2)
-            return true; // allow old-style last-vout opret in marmara stake tx (vout.size==2)
-        else
-            return false;
+        if (strcmp(ASSETCHAINS_SYMBOL, "MARMARAXY5") == 0)
+        {
+            if (chainActive.Height() < 2058)
+                return (staketx.vout.size() == 2);
+        }
+        return (staketx.vout.size() == 1);  // new chains have stake tx with cc vout opret 
     }
 
     // default check:
@@ -2448,6 +2450,7 @@ int32_t komodo_checkPOW(int32_t slowflag,CBlock *pblock,int32_t height)
                 return(-1);
             else
             {
+                // this is PoW block
                 bnTarget = komodo_PoWtarget(&PoSperc,bnTarget,height,ASSETCHAINS_STAKED);
                 if ( bhash > bnTarget && height > 100 )
                 {
