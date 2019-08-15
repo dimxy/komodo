@@ -660,11 +660,20 @@ CBlockIndex *komodo_getblockindex(uint256 hash)
 }
 
 // returns vout size for a stake tx
-static int32_t GetStakeTxVoutSize() {
+static bool CheckStakeTxVoutSize(const CTransaction &staketx) {
     if (ASSETCHAINS_MARMARA)
-        return 1; // marmara stake tx does not have additional opreturn any more
+    {
+        if (staketx.vout.size() >= 1 && staketx.vout.size() <= 2)
+            return true; // marmara stake tx does not have additional opreturn any more
+        else
+            return false;
+    }
 
-    return 1; //default value
+    // default check:
+    if (staketx.vout.size() == 1)
+        return true; // marmara stake tx does not have additional opreturn any more
+    else
+        return false;
 }
 
 // Extension point to add preferences for stakes (dimxy)
@@ -710,7 +719,7 @@ uint32_t komodo_txtime2(uint64_t *valuep,uint256 hash,int32_t n,char *destaddr)
 int32_t komodo_WhoStaked(CBlock *pblock, CTxDestination &addressout)
 {
     int32_t n,vout; uint32_t txtime; uint64_t value; char voutaddr[64],destaddr[64]; CTxDestination voutaddress; uint256 txid; CScript opret;
-    if ( (n= pblock->vtx.size()) > 1 && pblock->vtx[n-1].vin.size() == 1 && pblock->vtx[n-1].vout.size() == GetStakeTxVoutSize())
+    if ( (n= pblock->vtx.size()) > 1 && pblock->vtx[n-1].vin.size() == 1 && CheckStakeTxVoutSize(pblock->vtx[n-1]))
     {
         txid = pblock->vtx[n-1].vin[0].prevout.hash;
         vout = pblock->vtx[n-1].vin[0].prevout.n;
@@ -763,8 +772,8 @@ int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
         }
         n = pblock->vtx.size();
         
-        fprintf(stderr,"%s ht.%d check for PoS numtx.%d numvins.%d numvouts.%d GetStakeTxVoutSize()=%d\n", __func__, height,n,(int32_t)pblock->vtx[n-1].vin.size(),(int32_t)pblock->vtx[n-1].vout.size(), GetStakeTxVoutSize());
-        if ( n > 1 && pblock->vtx[n-1].vin.size() == 1 && pblock->vtx[n-1].vout.size() == GetStakeTxVoutSize() )
+        fprintf(stderr,"%s ht.%d check for PoS numtx.%d numvins.%d numvouts.%d CheckStakeTxVoutSize(pblock->vtx[n-1])=%d\n", __func__, height,n,(int32_t)pblock->vtx[n-1].vin.size(),(int32_t)pblock->vtx[n-1].vout.size(), CheckStakeTxVoutSize(pblock->vtx[n-1]));
+        if ( n > 1 && pblock->vtx[n-1].vin.size() == 1 && CheckStakeTxVoutSize(pblock->vtx[n-1]) )
         {
             // get previous tx and check if it was spent to self
             txid = pblock->vtx[n-1].vin[0].prevout.hash;  
@@ -781,9 +790,9 @@ int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
                     else
                     {
                         // marmara code:
-                        std::cout << __func__ << " in marmara code height=" << height << " n=" << n <<  " pblock->vtx[n-1].vout.size()=" << pblock->vtx[n-1].vout.size() << " GetStakeTxVoutSize()=" << GetStakeTxVoutSize() << std::endl;
+                        std::cout << __func__ << " in marmara code height=" << height << " n=" << n <<  " pblock->vtx[n-1].vout.size()=" << pblock->vtx[n-1].vout.size() << " CheckStakeTxVoutSize(pblock->vtx[n-1])=" << CheckStakeTxVoutSize(pblock->vtx[n - 1]) << std::endl;
 
-                        if ( pblock->vtx[n-1].vout[0].scriptPubKey.IsPayToCryptoCondition() != 0 && (numvouts= pblock->vtx[n-1].vout.size()) == GetStakeTxVoutSize())
+                        if ( pblock->vtx[n-1].vout[0].scriptPubKey.IsPayToCryptoCondition() != 0 && CheckStakeTxVoutSize(pblock->vtx[n-1]))
                         {
 //fprintf(stderr,"validate proper %s %s signature and unlockht preservation\n",voutaddr,destaddr);
                             //return(MarmaraPoScheck(destaddr,opret,pblock->vtx[n-1]));
@@ -796,6 +805,7 @@ int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
                             fprintf(stderr, "%s reject ht.%d PoS block\n", __func__, height);
                             return(strcmp(ASSETCHAINS_SYMBOL,"MTST2") == 0); // allow until MTST3
                         }
+                        // end marmara code
                     }
                 }
             }
@@ -1420,13 +1430,14 @@ int8_t komodo_segid(int32_t nocache,int32_t height)
     if ( height > 0 && (pindex= komodo_chainactive(height)) != 0 )
     {
         if (nocache == 0 && pindex->segid >= -1) {
-            //fprintf(stderr, "komodo_segid set cached height.%d -> %d\n", height, pindex->segid); 
+            fprintf(stderr, "komodo_segid set cached height.%d -> %d\n", height, pindex->segid);   // uncommented
             return(pindex->segid);
         }
         if ( komodo_blockload(block,pindex) == 0 )
         {
             txn_count = block.vtx.size();
-            if ( txn_count > 1 && block.vtx[txn_count-1].vin.size() == 1 && block.vtx[txn_count-1].vout.size() == GetStakeTxVoutSize())
+            std::cerr << __func__ << " " << "ht=" << height << " txn_count=" << txn_count << " vin.size=" << block.vtx[txn_count - 1].vin.size() << std::endl;
+            if ( txn_count > 1 && block.vtx[txn_count-1].vin.size() == 1 && CheckStakeTxVoutSize(block.vtx[txn_count-1]))
             {
                 txid = block.vtx[txn_count-1].vin[0].prevout.hash;
                 vout = block.vtx[txn_count-1].vin[0].prevout.n;
@@ -1438,16 +1449,19 @@ int8_t komodo_segid(int32_t nocache,int32_t height)
                     {
                         segid = komodo_segid32(voutaddr) & 0x3f;
                         pindex->segid = segid;
-                        //fprintf(stderr,"komodo_segid set calculated height.%d -> %d\n", height, pindex->segid);  
+                        fprintf(stderr,"%s set calculated height.%d -> %d\n", height, __func__, pindex->segid);  // uncommented
                     }
-                } else fprintf(stderr,"komodo_segid ht.%d couldnt extract voutaddress\n",height);
+                } 
+                else 
+                    fprintf(stderr,"%s ht.%d couldnt extract voutaddress\n", __func__, height);
             }
         }
     }
     else
     {
-        fprintf(stderr, "komodo_segid pindex==null ht.%d default value=%d\n", height, segid);
+        fprintf(stderr, "%s pindex==null ht.%d default value=%d\n", __func__, height, segid);
     }
+    //std::cerr << __func__ << " " << "ht=" << height << " returned segid=" << segid << std::endl;
     return(segid);
 }
 
@@ -1513,7 +1527,7 @@ arith_uint256 komodo_adaptivepow_target(int32_t height,arith_uint256 bnTarget,ui
 
 arith_uint256 komodo_PoWtarget(int32_t *percPoSp,arith_uint256 target,int32_t height,int32_t goalperc)
 {
-    int32_t oldflag = 0,dispflag = 1;
+    int32_t oldflag = 0,dispflag = 1 /*uncommented was 0*/;
     CBlockIndex *pindex; arith_uint256 easydiff,bnTarget,hashval,sum,ave; bool fNegative,fOverflow; int32_t i,n,m,ht,percPoS,diff,val;
     *percPoSp = percPoS = 0;
     
@@ -1752,7 +1766,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
     txn_count = pblock->vtx.size();
     
     fprintf(stderr,"%s checkblock ht.%d block=%s n.%d vins.%d vouts.%d vout[0].%.8f\n", __func__, height, pblock->GetHash().GetHex().c_str(), txn_count, (int32_t)pblock->vtx[txn_count-1].vin.size(), (int32_t)pblock->vtx[txn_count-1].vout.size(), (double)pblock->vtx[txn_count-1].vout[0].nValue/COIN/*, (double)pblock->vtx[txn_count-1].vout[1].nValue/COIN*/); //uncommented
-    if ( txn_count > 1 && pblock->vtx[txn_count-1].vin.size() == 1 && pblock->vtx[txn_count-1].vout.size() == GetStakeTxVoutSize())
+    if ( txn_count > 1 && pblock->vtx[txn_count-1].vin.size() == 1 && CheckStakeTxVoutSize(pblock->vtx[txn_count-1]))
     {
         it = mapBlockIndex.find(pblock->hashPrevBlock);
         if ( it != mapBlockIndex.end() && (previndex = it->second) != NULL )
