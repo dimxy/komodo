@@ -667,8 +667,12 @@ static bool CheckStakeTxVoutSize(const CTransaction &staketx)
     {
         if (strcmp(ASSETCHAINS_SYMBOL, "MARMARAXY5") == 0)
         {
-            if (chainActive.Height() < 2058)
-                return (staketx.vout.size() == 2);
+            CBlockIndex *tipindex = chainActive.Tip();
+            if (tipindex)
+            {
+                if (tipindex->GetHeight() + 1 < 2058)
+                    return (staketx.vout.size() == 2);
+            }
         }
         return (staketx.vout.size() == 1);  // new chains have stake tx with cc vout opret 
     }
@@ -742,7 +746,7 @@ int32_t komodo_WhoStaked(CBlock *pblock, CTxDestination &addressout)
     return(0);
 }
 
-int32_t MarmaraPoScheck(char *destaddr,CScript opret,CTransaction staketx);
+int32_t MarmaraPoScheck(char *destaddr, CScript opret, CTransaction staketx, int32_t height);
 
 int32_t komodo_isPoS2(CBlock *pblock)
 {
@@ -776,7 +780,7 @@ int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
         }
         n = pblock->vtx.size();
         
-        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "ht." << height << " check for PoS numtx." << n << " numvins." << pblock->vtx[n - 1].vin.size() << " numvouts." << pblock->vtx[n - 1].vout.size() << " CheckStakeTxVoutSize(pblock->vtx[n-1])=" << CheckStakeTxVoutSize(pblock->vtx[n-1]) << std::endl);
+        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "ht." << height << " check for PoS numtx." << n << " numvins." << pblock->vtx[n-1].vin.size() << " numvouts." << pblock->vtx[n-1].vout.size() << " CheckStakeTxVoutSize(pblock->vtx[n-1])=" << CheckStakeTxVoutSize(pblock->vtx[n-1]) << std::endl);
         if ( n > 1 && pblock->vtx[n-1].vin.size() == 1 && CheckStakeTxVoutSize(pblock->vtx[n-1]) )
         {
             // get previous tx and check if it was spent to self
@@ -794,12 +798,12 @@ int32_t komodo_isPoS(CBlock *pblock,int32_t height,bool fJustCheck)
                     else
                     {
                         // marmara code:
-                        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "in marmara code, ht=" << height << " n=" << n <<  " pblock->vtx[n-1].vout.size()=" << pblock->vtx[n-1].vout.size() << " CheckStakeTxVoutSize(pblock->vtx[n-1])=" << CheckStakeTxVoutSize(pblock->vtx[n - 1]) << std::endl);
+                        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "in marmara code, ht=" << height << " n=" << n <<  " pblock->vtx[n-1].vout.size()=" << pblock->vtx[n-1].vout.size() << " CheckStakeTxVoutSize(pblock->vtx[n-1])=" << CheckStakeTxVoutSize(pblock->vtx[n-1]) << std::endl);
                         if ( pblock->vtx[n-1].vout[0].scriptPubKey.IsPayToCryptoCondition() != 0 && CheckStakeTxVoutSize(pblock->vtx[n-1]))
                         {
 //fprintf(stderr,"validate proper %s %s signature and unlockht preservation\n",voutaddr,destaddr);
                             //return(MarmaraPoScheck(destaddr,opret,pblock->vtx[n-1]));
-                            int32_t result = MarmaraPoScheck(destaddr, prevTxOpret, pblock->vtx[n-1]);
+                            int32_t result = MarmaraPoScheck(destaddr, prevTxOpret, pblock->vtx[n-1], height);
                             LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "ht=" << height << " MarmaraPoScheck=" << result << std::endl);
                             return result;
                         }
