@@ -1443,7 +1443,7 @@ int8_t komodo_segid(int32_t nocache,int32_t height)
     if ( height > 0 && (pindex= komodo_chainactive(height)) != 0 )
     {
         if (nocache == 0 && pindex->segid >= -1) {
-            LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "return cached segid, height." << height << " -> " << pindex->segid << std::endl);   // uncommented
+            LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "return cached segid, height." << height << " -> " << (int)pindex->segid << std::endl);   // uncommented
             return(pindex->segid);
         }
         if ( komodo_blockload(block,pindex) == 0 )
@@ -1462,7 +1462,7 @@ int8_t komodo_segid(int32_t nocache,int32_t height)
                     {
                         segid = komodo_segid32(voutaddr) & 0x3f;
                         pindex->segid = segid;
-                        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "set calculated segid, height." << height << " -> " << pindex->segid << std::endl);  // uncommented
+                        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "set calculated segid, height." << height << " -> " << (int)pindex->segid << std::endl);  // uncommented
                     }
                 } 
                 else
@@ -1480,7 +1480,7 @@ int8_t komodo_segid(int32_t nocache,int32_t height)
             LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_ERROR, stream << "ht." << height << " couldnt load block" << std::endl);
         }
     }
-    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "pindex==null ht." << height << " return segid=" << segid << std::endl);
+    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "pindex==null ht." << height << " return segid=" << (int)segid << std::endl);
     return(segid);
 }
 
@@ -1774,7 +1774,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
     pindex = it != mapBlockIndex.end() ? it->second : NULL;
     if ( pindex != 0 && pindex->segid >= -1 )
     {
-        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "pindex->segid." << pindex->segid << std::endl);   //uncommented
+        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "pindex->segid." << (int)pindex->segid << std::endl);   //uncommented
         if ( pindex->segid == -1 )
             return(0);
         else 
@@ -1813,7 +1813,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
                 if ( pindex != 0 )
                 {
                     pindex->segid = -1;
-                    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "PoW block detected set segid ht." << height << " <- " << pindex->segid << std::endl);  //uncommented
+                    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "PoW block detected set segid ht." << height << " <- " << (int)pindex->segid << std::endl);  //uncommented
                 }
             }
             else
@@ -1828,11 +1828,11 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
                 if ( pindex != 0 && segid >= 0 )
                 {
                     pindex->segid = segid;
-                    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_INFO, stream << "PoS block set segid ht." << height << " <- " << pindex->segid << std::endl); //uncommented
+                    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_INFO, stream << "PoS block set segid ht." << height << " <- " << (int)pindex->segid << std::endl); //uncommented
                 } 
                 else
                 {
-                    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_INFO, stream << "unexpected null pindex for slowflag set ht." << height << " segid." << (pindex != 0 ? pindex->segid : -3) << ":" << segid << std::endl); //uncommented
+                    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_INFO, stream << "unexpected null pindex for slowflag set ht." << height << " segid." << (int)(pindex != 0 ? pindex->segid : -3) << ":" << (int)segid << std::endl); //uncommented
                 }
             }
         } 
@@ -2380,11 +2380,11 @@ int32_t komodo_checkPOW(int32_t slowflag,CBlock *pblock,int32_t height)
         KOMODO_TEST_ASSETCHAIN_SKIP_POW = 1;
     if ( !CheckEquihashSolution(pblock, Params()) )
     {
-        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_ERROR, stream << "slowflag." << slowflag << " ht." << height <<" CheckEquihashSolution failed\n" << std::endl);
+        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_ERROR, stream << "slowflag." << slowflag << " ht." << height << " CheckEquihashSolution failed" << std::endl);
         return(-1);
     }
     hash = pblock->GetHash();
-    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "checking block=" << hash.GetHex() << " ht=" << height << " bits=" << pblock->nBits << std::endl);
+    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "checking block." << hash.GetHex() << " ht." << height << " bits." << pblock->nBits << std::endl);
     bnTarget.SetCompact(pblock->nBits,&fNegative,&fOverflow);
     bhash = UintToArith256(hash);
     possible = komodo_block2pubkey33(pubkey33,pblock);
@@ -2450,10 +2450,10 @@ int32_t komodo_checkPOW(int32_t slowflag,CBlock *pblock,int32_t height)
                 {
                     std::ostringstream logstream;
                     for (i=31; i>=16; i--)
-                        logstream << std::setw(2) << std::hex << (int)((uint8_t *)&bhash)[i];
+                        logstream << std::setw(2) << std::hex << std::setfill('0') << (int)((uint8_t *)&bhash)[i];
                     logstream << " > ";
                     for (i=31; i>=16; i--)
-                        logstream << std::setw(2) << std::hex << (int)((uint8_t *)&bnTarget)[i];
+                        logstream << std::setw(2) << std::hex << std::setfill('0') << (int)((uint8_t *)&bnTarget)[i];
                     std::string logstring = logstream.str();
                     LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_ERROR, stream << logstring << " ht." << height << " PoW diff violation PoSperc." << PoSperc << " vs goalperc." << (int)ASSETCHAINS_STAKED << std::endl);
                     return(-1);
@@ -2466,7 +2466,7 @@ int32_t komodo_checkPOW(int32_t slowflag,CBlock *pblock,int32_t height)
                     pindex = it != mapBlockIndex.end() ? it->second : NULL;
                     if ( pindex != 0 && pindex->segid == -2 ) {
                         pindex->segid = -1;
-                        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "PoW block detected set segid ht." << height << " <- " << pindex->segid << std::endl); //uncommented
+                        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "PoW block detected set segid ht." << height << " <- " << (int)pindex->segid << std::endl); //uncommented
                     }
                 }
             }
