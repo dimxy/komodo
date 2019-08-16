@@ -913,7 +913,7 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
                 CAmount change = totalInputs - (totalOutputs + txfee);
                 mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
                 // add vout to in-mem utxo array to use in AddNormalinputs()
-                AddInMemUtxo(mtx.GetHash(), mtx.vout.size() - 1, mtx);
+                AddInMemoryUtxo(mtx, mtx.vout.size() - 1);
             }
         }
 

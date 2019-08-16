@@ -464,7 +464,7 @@ void DeactivateUtxoLock();
 bool isLockUtxoActive();
 bool isUtxoLocked(uint256 txid, int32_t nvout);
 void LockUtxo(uint256 txid, int32_t nvout);
-bool AddInMemUtxo(uint256 txid, int32_t nvout, const CTransaction &tx);
+bool AddInMemoryUtxo(const CTransaction &tx, int32_t nvout);
 
 // bitcoin LogPrintStr with category "-debug" cmdarg support for C++ ostringstream:
 
