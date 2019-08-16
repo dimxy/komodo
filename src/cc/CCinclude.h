@@ -458,12 +458,13 @@ int64_t TotalPubkeyNormalInputs(const CTransaction &tx, const CPubKey &pubkey);
 int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
 
-// locking utxo functions (to prevent adding utxo to several mtx objects:
+// locking and reservation of utxo to prevent adding utxo to several mtx objects and allow use of normal change utxos:
 void ActivateUtxoLock();
 void DeactivateUtxoLock();
 bool isLockUtxoActive();
 bool isUtxoLocked(uint256 txid, int32_t nvout);
 void LockUtxo(uint256 txid, int32_t nvout);
+bool AddInMemUtxo(uint256 txid, int32_t nvout, const CTransaction &tx);
 
 // bitcoin LogPrintStr with category "-debug" cmdarg support for C++ ostringstream:
 
