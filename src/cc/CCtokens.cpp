@@ -837,12 +837,12 @@ CPubKey GetTokenOriginatorPubKey(CScript scriptPubKey) {
 
 std::string CreateToken(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData)
 {
-    return CreateTokenExt(txfee, tokensupply, name, description, nonfungibleData, 0);
+    return CreateTokenExt(txfee, tokensupply, name, description, nonfungibleData, 0, false);
 }
 
 // returns token creation signed raw tx
 // params: txfee amount, token amount, token name and description, optional NFT data, 
-std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode)
+std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode, bool reserveChange)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CPubKey mypk; 
@@ -873,7 +873,9 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
     if (additionalMarkerEvalCode > 0)
         txfeeCount++;
 
-	if (AddNormalinputs2(mtx, tokensupply + txfeeCount * txfee, 64) > 0)  // add normal inputs only from mypk
+
+    CAmount totalInputs;
+	if ((totalInputs = AddNormalinputs2(mtx, tokensupply + txfeeCount * txfee, 64)) > 0)
 	{
         int64_t mypkInputs = TotalPubkeyNormalInputs(mtx, mypk);  
         if (mypkInputs < tokensupply) {     // check that the token amount is really issued with mypk (because in the wallet there may be some other privkeys)
@@ -897,6 +899,21 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
             cp2 = CCinit(&C2, additionalMarkerEvalCode);
             mtx.vout.push_back(MakeCC1vout(additionalMarkerEvalCode, txfee, GetUnspendable(cp2, NULL)));
         }
+
+        if (reserveChange)
+        {
+            // make normal change and add its utxo to in-mem utxos for usage in other mtx objects:
+            CAmount totalOutputs = 0;
+            for (auto vout : mtx.vout) totalOutputs += vout.nValue;
+            if (totalInputs > totalOutputs + 2 * txfee)
+            {
+                CAmount change = totalInputs - (totalOutputs + txfee);
+                mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+                // add vout to in-mem utxo array to use in AddNormalinputs()
+                AddInMemUtxo(mtx.GetHash(), mtx.vout.size() - 1, mtx);
+            }
+        }
+
 		return(FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', Mypubkey(), name, description, nonfungibleData)));
 	}
 
