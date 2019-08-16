@@ -665,15 +665,24 @@ static bool CheckStakeTxVoutSize(const CTransaction &staketx)
 {
     if (ASSETCHAINS_MARMARA)
     {
-        if (strcmp(ASSETCHAINS_SYMBOL, "MARMARAXY5") == 0)
+        // compatibility rules:
+        CBlockIndex *tipindex = chainActive.Tip();
+        if (tipindex)
         {
-            CBlockIndex *tipindex = chainActive.Tip();
-            if (tipindex)
+            if (strcmp(ASSETCHAINS_SYMBOL, "MARMARAXY5") == 0)
             {
                 if (tipindex->GetHeight() + 1 < 2058)
                     return (staketx.vout.size() == 2);
             }
+            // marmara testers chain:
+            if (strcmp(ASSETCHAINS_SYMBOL, "MCL0") == 0)
+            {
+                if (tipindex->GetHeight() + 1 < 900)
+                    return (staketx.vout.size() == 2);
+            }
         }
+        // end of compatibility rules
+
         return (staketx.vout.size() == 1);  // new chains have stake tx with cc vout opret 
     }
 
