@@ -119,7 +119,7 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
         return std::string();
     }
 
-    return CreateTokenExt(0, 1, baseobj->nameId, baseobj->descriptionId, vnftdata, EVAL_KOGS);
+    return CreateTokenExt(0, 1, baseobj->nameId, baseobj->descriptionId, vnftdata, EVAL_KOGS, true);
 }
 
 // create enclosure tx (similar but not exactly like NFT as enclosure could be changed) with game object inside
