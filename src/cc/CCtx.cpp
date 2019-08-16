@@ -16,63 +16,117 @@
 #include "CCinclude.h"
 #include "key_io.h"
 
+#include <unordered_set>
+
 std::vector<CPubKey> NULL_pubkeys;
 struct NSPV_CCmtxinfo NSPV_U;
 
-// support for creation multiple mtx object in one rpc call:
-// locks normal inputs added to a mtx.vin until deactivated or until thread ends
-// you should call ActivateUtxoLock() to begin utxo locking
-// you might not call DeactivateUtxoLock() and the locked object ends its life with the thread
-// you might also call DeactivateUtxoLock() explicitly if you do not need utxo locking any more
+// locking and reservation of utxo to prevent adding utxo to several mtx objects and allow use of normal change utxos:
+// ActivateUtxoLock() should be called to begin utxo locking
+// DeactivateUtxoLock() explicitly if you do not need utxo locking any more (if not called then locked utxos ends its life with the end of the thread)
+// DeactivateUtxoLock() 
+// LockUtxo for the current thread (where the rpc call is running) locks normal inputs that was just added to the mtx.vin until deactivated or thread ends
+// AddInMemUtxo() adds reserved utxos of in memory mtx objects to make possible to be added to other mtx objects
 
-static thread_local struct vLockedUtxos {
-    std::vector<std::pair<uint256, int32_t>> vutxos;
+/*
+struct CMemUtxo {
+    uint256 txid;
+    int32_t vout;
+    CTransaction tx;
+};*/
+
+typedef std::unordered_set<std::pair<uint256, int32_t>> utxo_set;
+typedef std::unordered_set<CC_utxo> memutxo_set;
+
+static thread_local struct vLockedUtxos : public utxo_set {
     bool isActive;
+    mutable CCriticalSection cs;
     vLockedUtxos() {
         isActive = false;
-        vutxos.reserve(64);
-        std::cerr << __func__ << " utxoslocked object created" << std::endl;
+        reserve(64);
+        std::cerr << __func__ << " utxosLocked object created" << std::endl;
     }
     ~vLockedUtxos() {
-        std::cerr << __func__ << " utxoslocked object deleted" << std::endl;
+        std::cerr << __func__ << " utxosLocked object deleted" << std::endl;
     }
-} utxoslocked;  // will be created in each thread at the first usage
+} utxosLocked;  // will be created in each thread at the first usage
+
+static thread_local struct vInMemoryUtxos : memutxo_set {
+    vInMemoryUtxos() {
+        std::cerr << __func__ << " utxosInMem object created" << std::endl;
+    }
+    ~vInMemoryUtxos() {
+        std::cerr << __func__ << " utxosInMem object deleted" << std::endl;
+    }
+} utxosInMem;  // will be created in each thread at the first usage
 
 // activate locking, Addnormalinputs begins locking utxos and skipping locked utxos
 void ActivateUtxoLock()
 {
-    std::cerr << __func__ << " func entered" << std::endl;
-    utxoslocked.isActive = true;
-    std::cerr << __func__ << " utxoslocked object activated" << std::endl;
+    std::cerr << __func__ << " entered" << std::endl;
+    utxosLocked.isActive = true;
+    std::cerr << __func__ << " utxosLocked object activated" << std::endl;
 }
 // Addnormalinputs stops locking and checking utxos, unlocks all locked utxos
 void DeactivateUtxoLock()
 {
-    utxoslocked.vutxos.clear();
-    utxoslocked.isActive = false;
-    std::cerr << __func__ << " utxoslocked object deactivated" << std::endl;
+    utxosLocked.clear();
+    utxosLocked.isActive = false;
+    std::cerr << __func__ << " utxosLocked object deactivated" << std::endl;
 }
 // returns if utxo locking is active
 bool isLockUtxoActive()
 {
-    return utxoslocked.isActive;
+    return utxosLocked.isActive;
 }
 // checks if utxo is locked (added to a mtx object)
 bool isUtxoLocked(uint256 txid, int32_t nvout)
 {
-    bool ret = std::find_if(utxoslocked.vutxos.begin(), utxoslocked.vutxos.end(), [&](std::pair<uint256, int32_t> u) {return (u.first == txid && u.second == nvout); }) != utxoslocked.vutxos.end();
-    if (ret)
-        std::cerr << __func__ << " this utxo was locked!" << std::endl;
-    return ret;
+    LOCK(utxosLocked.cs);
+
+    if (std::find(utxosLocked.begin(), utxosLocked.end(), std::make_pair(txid, nvout)) != utxosLocked.end())   {
+        std::cerr << __func__ << " utxo already locked" << std::endl;
+        return true;
+    }
+    else
+        return false;
 }
 // lock utxo
 void LockUtxo(uint256 txid, int32_t nvout)
 {
     if (!isUtxoLocked(txid, nvout)) {
-        utxoslocked.vutxos.push_back(std::make_pair(txid, nvout));
-        std::cerr << __func__ << " now this utxo is locked!" << std::endl;
+        LOCK(utxosLocked.cs);
+
+        utxosLocked.insert(std::make_pair(txid, nvout));
+        std::cerr << __func__ << " utxo locked" << std::endl;
     }
 }
+
+// add in-mem utxo
+bool AddInMemUtxo(uint256 txid, int32_t nvout, const CTransaction &tx)
+{
+    if (nvout < tx.vout.size() && !tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition())
+    {
+        utxosInMem.insert(CC_utxo{ txid, nvout, tx.vout[nvout].nValue });
+        std::cerr << __func__ << " utxo reserved" << std::endl;
+        return true;
+    }
+    else
+    {
+        std::cerr << __func__ << " utxo couldnt be reserved" << std::endl;
+        return false;
+    }
+}
+
+// add in-mem utxo
+/*
+void RemoveInMemUtxo(const CC_utxo &memutxo)
+{
+    if (utxosInMem.erase(memutxo) > 0)
+        std::cerr << __func__ << " utxo unreserved" << std::endl;
+    else
+        std::cerr << __func__ << " no such utxo to unreserve, txid=" << memutxo.txid.GetHex() << " vout=" << memutxo.vout << std::endl;
+}*/
 
 
 /*
@@ -724,7 +778,10 @@ int32_t CC_vinselect(int32_t *aboveip,int64_t *abovep,int32_t *belowip,int64_t *
 
 int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs)
 {
-    int32_t abovei,belowi,ind,vout,i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; uint256 txid,hashBlock; std::vector<COutput> vecOutputs; CTransaction tx; struct CC_utxo *utxos,*up;
+    int32_t abovei,belowi,ind,vout,i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; uint256 txid,hashBlock; 
+    std::vector<COutput> vecOutputs; 
+    CTransaction tx; struct CC_utxo *utxos,*up;
+
     if ( KOMODO_NSPV_SUPERLITE )
         return(NSPV_AddNormalinputs(mtx,mypk,total,maxinputs,&NSPV_U));
 
@@ -743,6 +800,8 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
         threshold = total/maxinputs;
     else threshold = total;
     sum = 0;
+
+    // check that outputs are not in the mtx, not locked in other mtxs not spent by tx in mempool and add to utxos array
     BOOST_FOREACH(const COutput& out, vecOutputs)
     {
         if ( out.fSpendable != 0 /*&& out.tx->vout[out.i].nValue >= threshold threshold is not used any more*/ )
@@ -750,14 +809,16 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
             txid = out.tx->GetHash();
             vout = out.i;
 
+            // check if the utxo has been already added to another mtx object
             if (isLockUtxoActive() && isUtxoLocked(txid, vout))
-                continue;   // if the utxo has been already added to another mtx object
+                continue;   
 
             if ( myGetTransaction(txid,tx,hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0 )
             {
                 //fprintf(stderr,"check %.8f to vins array.%d of %d %s/v%d\n",(double)out.tx->vout[out.i].nValue/COIN,n,maxutxos,txid.GetHex().c_str(),(int32_t)vout);
                 if ( mtx.vin.size() > 0 )
                 {
+                    // check if output is not already in mtx
                     for (i=0; i<mtx.vin.size(); i++)
                         if ( txid == mtx.vin[i].prevout.hash && vout == mtx.vin[i].prevout.n )
                             break;
@@ -786,6 +847,32 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
             }
         }
     }
+
+    // check in-mem reserved utxos are not already in mtx or other mtx's and add to utxo array too:
+    if (n < maxinputs && sum < total)
+    {
+        for (auto u : utxosInMem)
+        {
+            // check if the utxo has been already added to another mtx object
+            if (isLockUtxoActive() && isUtxoLocked(txid, vout))
+                continue;   
+
+            // check if alredy in mtx.vin
+            if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](CTxIn vin) {return vin.prevout.hash == u.txid && vin.prevout.n == u.vout;}) != mtx.vin.end())
+                continue;
+
+            utxos[n].txid = u.txid;
+            utxos[n].vout = u.vout;
+            utxos[n].nValue = u.nValue;
+            sum += utxos[n].nValue;
+            n++;
+
+            //check limits:
+            if (n >= maxinputs || sum >= total)
+                break;            
+        }
+    }
+
     remains = total;
     for (i=0; i<maxinputs && n>0; i++)
     {
@@ -814,8 +901,11 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
 
         totalinputs += up->nValue;
         remains -= up->nValue;
+
+        // remove used utxo from utxos array:
         utxos[ind] = utxos[--n];
-        memset(&utxos[n],0,sizeof(utxos[n]));
+        memset(&utxos[n], 0, sizeof(utxos[n]));
+
         //fprintf(stderr,"totalinputs %.8f vs total %.8f i.%d vs max.%d\n",(double)totalinputs/COIN,(double)total/COIN,i,maxinputs);
         if ( totalinputs >= total || (i+1) >= maxinputs )
             break;
