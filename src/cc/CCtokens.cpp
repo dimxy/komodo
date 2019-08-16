@@ -916,11 +916,13 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
             }
         }
 
-		return(FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', Mypubkey(), name, description, nonfungibleData)));
+		std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', Mypubkey(), name, description, nonfungibleData));
+        if (hextx.empty())
+            CCerror = "couldnt finalize token tx";
+        return hextx;
 	}
 
     CCerror = "cant find normal inputs";
-    LOGSTREAMFN("cctokens", CCLOG_INFO, stream <<  CCerror << std::endl);
     return std::string("");
 }
 
