@@ -777,7 +777,7 @@ int32_t CC_vinselect(int32_t *aboveip,int64_t *abovep,int32_t *belowip,int64_t *
 
 int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs)
 {
-    int32_t abovei,belowi,ind,vout,i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; uint256 txid,hashBlock; 
+    int32_t abovei,belowi,ind, i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; uint256 hashBlock; 
     std::vector<COutput> vecOutputs; 
     CTransaction tx; struct CC_utxo *utxos,*up;
 
@@ -805,8 +805,8 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
     {
         if ( out.fSpendable != 0 /*&& out.tx->vout[out.i].nValue >= threshold threshold is not used any more*/ )
         {
-            txid = out.tx->GetHash();
-            vout = out.i;
+            uint256 txid = out.tx->GetHash();
+            int32_t vout = out.i;
 
             // check if the utxo has been already added to another mtx object
             if (isLockUtxoActive() && isUtxoLocked(txid, vout))
@@ -852,17 +852,20 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
     {
         for (int i = 0;  i < utxosInMem.size(); i ++)
         {
+            uint256 txid = utxosInMem[i].txid;
+            int32_t vout = utxosInMem[i].vout;
+            CAmount value = utxosInMem[i].nValue;
             // check if the utxo has been already added to another mtx object
             if (isLockUtxoActive() && isUtxoLocked(txid, vout))
                 continue;   
 
             // check if alredy in mtx.vin
-            if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](CTxIn vin) {return vin.prevout.hash == utxosInMem[i].txid && vin.prevout.n == utxosInMem[i].vout;}) != mtx.vin.end())
+            if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](CTxIn vin) {return vin.prevout.hash == txid && vin.prevout.n == vout;}) != mtx.vin.end())
                 continue;
 
-            utxos[n].txid = utxosInMem[i].txid;
-            utxos[n].vout = utxosInMem[i].vout;
-            utxos[n].nValue = utxosInMem[i].nValue;
+            utxos[n].txid = txid;
+            utxos[n].vout = vout;
+            utxos[n].nValue = value;
             sum += utxos[n].nValue;
             n++;
 
