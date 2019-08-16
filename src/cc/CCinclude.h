@@ -1096,12 +1096,13 @@ inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (s
 /// @private add sig data for signing partially signed tx to UniValue object
 void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount);
 
-// locking utxo functions (to prevent adding utxo to several mtx objects:
+// locking and reservation of utxo to prevent adding utxo to several mtx objects and allow use of normal change utxos:
 void ActivateUtxoLock();
 void DeactivateUtxoLock();
 bool isLockUtxoActive();
 bool isUtxoLocked(uint256 txid, int32_t nvout);
 void LockUtxo(uint256 txid, int32_t nvout);
+bool AddInMemUtxo(uint256 txid, int32_t nvout, const CTransaction &tx);
 
 #ifndef LOGSTREAM_DEFINED
 #define LOGSTREAM_DEFINED 
