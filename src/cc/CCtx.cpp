@@ -37,28 +37,40 @@ struct CMemUtxo {
 
 typedef std::set<std::pair<uint256, int32_t>> utxo_set;
 typedef std::vector<CC_utxo> memutxo_vector;
+typedef std::map<uint256, CTransaction> memtx_map;
 
-static thread_local struct vLockedUtxos : public utxo_set {
+
+static thread_local struct CLockedUtxos : public utxo_set {
     bool isActive;
     //mutable CCriticalSection cs;
-    vLockedUtxos() {
+    CLockedUtxos() {
         isActive = false;
         std::cerr << __func__ << " utxosLocked object created" << std::endl;
     }
-    ~vLockedUtxos() {
+    ~CLockedUtxos() {
         std::cerr << __func__ << " utxosLocked object deleted" << std::endl;
     }
 } utxosLocked;  // will be created in each thread at the first usage
 
-static thread_local struct vInMemoryUtxos : public memutxo_vector {
-    vInMemoryUtxos() {
+static thread_local struct CInMemoryUtxos : public memutxo_vector {
+    CInMemoryUtxos() {
         reserve(64);
         std::cerr << __func__ << " utxosInMem object created" << std::endl;
     }
-    ~vInMemoryUtxos() {
+    ~CInMemoryUtxos() {
         std::cerr << __func__ << " utxosInMem object deleted" << std::endl;
     }
 } utxosInMem;  // will be created in each thread at the first usage
+
+static thread_local struct  CInMemoryTxns : public memtx_map {
+    CInMemoryTxns() {
+        reserve(64);
+        std::cerr << __func__ << " txnsInMem object created" << std::endl;
+    }
+    ~CInMemoryTxns() {
+        std::cerr << __func__ << " txnsInMem object deleted" << std::endl;
+    }
+} txnsInMem;
 
 // activate locking, Addnormalinputs begins locking utxos and skipping locked utxos
 void ActivateUtxoLock()
@@ -103,11 +115,13 @@ void LockUtxo(uint256 txid, int32_t nvout)
 }
 
 // add in-mem utxo
-bool AddInMemUtxo(uint256 txid, int32_t nvout, const CTransaction &tx)
+bool AddInMemoryUtxo(const CTransaction &tx, int32_t nvout)
 {
     if (nvout >= 0 && nvout < tx.vout.size() && !tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition())
     {
+        uint256 txid = tx.GetHash();
         utxosInMem.push_back(CC_utxo{ txid, tx.vout[nvout].nValue, nvout });
+        txnsInMem[txid] = tx;
         std::cerr << __func__ << " utxo reserved" << std::endl;
         return true;
     }
@@ -118,14 +132,11 @@ bool AddInMemUtxo(uint256 txid, int32_t nvout, const CTransaction &tx)
     }
 }
 
-/*
-void RemoveInMemUtxo(const CC_utxo &memutxo)
+static bool GetTransactionInMemory(uint256 txid, CTransaction &tx)
 {
-    if (utxosInMem.erase(memutxo) > 0)
-        std::cerr << __func__ << " utxo unreserved" << std::endl;
-    else
-        std::cerr << __func__ << " no such utxo to unreserve, txid=" << memutxo.txid.GetHex() << " vout=" << memutxo.vout << std::endl;
-}*/
+    tx = txnsInMem[txid];
+    return !tx.IsNull();
+}
 
 
 /*
@@ -235,7 +246,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     {
         if (i==0 && mtx.vin[i].prevout.n==10e8)
             continue;
-        if ( myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock) != 0 && mtx.vin[i].prevout.n < vintx.vout.size() )
+        if ( (myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock) != 0 || GetTransactionInMemory(mtx.vin[i].prevout.hash, vintx) != 0) && mtx.vin[i].prevout.n < vintx.vout.size() )
         {
             if ( vintx.vout[mtx.vin[i].prevout.n].scriptPubKey.IsPayToCryptoCondition() == 0 && ccvins==0)
                 normalvins++;            
@@ -243,7 +254,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
         }
         else
         {
-            fprintf(stderr,"vin.%d vout.%d is bigger than vintx.%d\n",i,mtx.vin[i].prevout.n,(int32_t)vintx.vout.size());
+            fprintf(stderr,"vin.%d vout.%d is bigger than vintx.%d or cant load vintx\n",i,mtx.vin[i].prevout.n,(int32_t)vintx.vout.size());
             memset(myprivkey,0,32);
             return UniValue(UniValue::VOBJ);
         }
@@ -260,7 +271,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     for (i=0; i<n; i++)
     {
         if (i==0 && mtx.vin[i].prevout.n==10e8) continue;
-        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock)) != 0 )
+        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock) || GetTransactionInMemory(mtx.vin[i].prevout.hash, vintx) != 0) != 0 )
         {
             utxovout = mtx.vin[i].prevout.n;
             utxovalues[i] = vintx.vout[utxovout].nValue;
@@ -293,7 +304,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     {
         if (i==0 && mtx.vin[i].prevout.n==10e8)
             continue;
-        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock)) != 0 )
+        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock)) != 0 || (mgret=GetTransactionInMemory(mtx.vin[i].prevout.hash, vintx)) != 0)
         {
             utxovout = mtx.vin[i].prevout.n;
             if ( vintx.vout[utxovout].scriptPubKey.IsPayToCryptoCondition() == 0 )
