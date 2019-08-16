@@ -113,10 +113,10 @@ void LockUtxo(uint256 txid, int32_t nvout)
     }
 }
 
-// add in-mem utxo
+// add utxo to thread memory array
 bool AddInMemoryUtxo(const CTransaction &tx, int32_t nvout)
 {
-    if (nvout >= 0 && nvout < tx.vout.size() && !tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition())
+    if (nvout >= 0 && nvout < tx.vout.size())
     {
         uint256 txid = tx.GetHash();
         utxosInMem.push_back(CC_utxo{ txid, tx.vout[nvout].nValue, nvout });
@@ -131,6 +131,7 @@ bool AddInMemoryUtxo(const CTransaction &tx, int32_t nvout)
     }
 }
 
+// get tx from thread mem array
 static bool GetTransactionInMemory(uint256 txid, CTransaction &tx)
 {
     tx = txnsInMem[txid];
@@ -776,19 +777,22 @@ int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int3
             if (isLockUtxoActive() && isUtxoLocked(txid, vout))
                 continue;   
 
-            // check if alredy in mtx.vin
-            if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](CTxIn vin) {return vin.prevout.hash == txid && vin.prevout.n == vout;}) != mtx.vin.end())
-                continue;
+            if (GetTransactionInMemory(txid, tx) && tx.vout.size() > 0 && vout < tx.vout.size() && !tx.vout[vout].scriptPubKey.IsPayToCryptoCondition())
+            {
+                // check if utxo is already in mtx.vin
+                if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](CTxIn vin) {return vin.prevout.hash == txid && vin.prevout.n == vout;}) != mtx.vin.end())
+                    continue;
 
-            utxos[n].txid = txid;
-            utxos[n].vout = vout;
-            utxos[n].nValue = value;
-            sum += utxos[n].nValue;
-            n++;
+                utxos[n].txid = txid;
+                utxos[n].vout = vout;
+                utxos[n].nValue = value;
+                sum += utxos[n].nValue;
+                n++;
 
-            //check limits:
-            if (n >= maxinputs || sum >= total)
-                break;            
+                //check limits:
+                if (n >= maxinputs || sum >= total)
+                    break;
+            }
         }
     }
 
