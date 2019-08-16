@@ -903,6 +903,7 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
             mtx.vout.push_back(MakeCC1vout(additionalMarkerEvalCode, txfee, GetUnspendable(cp2, NULL)));
         }
 
+        int32_t voutChange = -1;
         if (reserveChange)
         {
             // make normal change and add its utxo to in-mem utxos for usage in other mtx objects:
@@ -912,14 +913,21 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
             {
                 CAmount change = totalInputs - (totalOutputs + txfee);
                 mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
-                // add vout to in-mem utxo array to use in AddNormalinputs()
-                AddInMemoryUtxo(mtx, mtx.vout.size() - 1);
+                voutChange = mtx.vout.size() - 1;
+                
             }
         }
 
 		std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', Mypubkey(), name, description, nonfungibleData));
-        if (hextx.empty())
+        if (hextx.empty()) {
             CCerror = "couldnt finalize token tx";
+            return std::string();
+        }
+        if (reserveChange && voutChange >= 0)
+        {
+            // add vout to in-mem utxo array to use in AddNormalinputs()
+            AddInMemoryUtxo(mtx, voutChange);
+        }
         return hextx;
 	}
 
