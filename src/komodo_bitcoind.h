@@ -647,7 +647,7 @@ uint32_t komodo_txtime(CScript &opret,uint64_t *valuep,uint256 hash, int32_t n, 
         if (ExtractDestination(tx.vout[n].scriptPubKey, address))
         {
             strcpy(destaddr, CBitcoinAddress(address).ToString().c_str());
-            LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "in stake tx found opret and destaddr=" << destaddr << " isCCOpret=" << isCCOpret << std::endl);
+            LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG2, stream << "in stake tx found opret and destaddr=" << destaddr << " isCCOpret=" << isCCOpret << std::endl);
 
         }
     }
@@ -1477,17 +1477,17 @@ int8_t komodo_segid(int32_t nocache,int32_t height)
                     {
                         segid = komodo_segid32(voutaddr) & 0x3f;
                         pindex->segid = segid;
-                        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "set calculated segid, height." << height << " -> " << (int)pindex->segid << std::endl);  // uncommented
+                        LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG2, stream << "set calculated segid, height." << height << " -> " << (int)pindex->segid << std::endl);  // uncommented
                     }
                 } 
                 else
                 {
-                    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "ht." << height << " couldnt extract voutaddress" << std::endl);
+                    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_ERROR, stream << "ht." << height << " couldnt extract voutaddress" << std::endl);
                 }
             }
             else
             {
-                LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "ht." << height << " not a stake tx, txn_count vin.size vout.size not matched" << std::endl);
+                LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG2, stream << "ht." << height << " not a stake tx, txn_count vin.size vout.size not matched" << std::endl);
             }
         }
         else
