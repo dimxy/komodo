@@ -677,7 +677,7 @@ static bool CheckStakeTxVoutSize(const CTransaction &staketx)
             // marmara testers chain:
             if (strcmp(ASSETCHAINS_SYMBOL, "MCL0") == 0)
             {
-                if (tipindex->GetHeight() + 1 < 900)
+                if (tipindex->GetHeight() + 1 < 2000)
                     return (staketx.vout.size() == 2);
             }
         }
