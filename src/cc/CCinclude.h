@@ -471,8 +471,8 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
         stream << "ERROR: ";
     printToStream(stream);
     
-    if (level <= 0) {
-        LogPrintStr(stream.str());  // print error or info unconditionally
+    if (level < 0) {
+        LogPrintStr(stream.str());  // print error unconditionally
         return;
     }
     if (level > CCLOG_MAXLEVEL)
