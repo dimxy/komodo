@@ -64,7 +64,6 @@ static thread_local struct CInMemoryUtxos : public memutxo_vector {
 
 static thread_local struct  CInMemoryTxns : public memtx_map {
     CInMemoryTxns() {
-        reserve(64);
         std::cerr << __func__ << " txnsInMem object created" << std::endl;
     }
     ~CInMemoryTxns() {
