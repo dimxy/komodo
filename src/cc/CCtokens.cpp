@@ -842,7 +842,7 @@ std::string CreateToken(int64_t txfee, int64_t tokensupply, std::string name, st
 
 // returns token creation signed raw tx
 // params: txfee amount, token amount, token name and description, optional NFT data, 
-std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode, bool reserveChange)
+std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode, bool addTxInMemory)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CPubKey mypk; 
@@ -878,14 +878,13 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
     CAmount totalInputs;
 	if ((totalInputs = AddNormalinputs(mtx, mypk, tokensupply + txfeeCount * txfee, 64)) > 0)
 	{
-        /*
+        
         int64_t mypkInputs = TotalPubkeyNormalInputs(mtx, mypk);  
         if (mypkInputs < tokensupply) {     // check that the token amount is really issued with mypk (because in the wallet there may be some other privkeys)
             CCerror = "some inputs signed not with mypubkey (-pubkey=pk)";
             return std::string("");
         }
-        */
-
+        
         uint8_t destEvalCode = EVAL_TOKENS;
         if( nonfungibleData.size() > 0 )
             destEvalCode = nonfungibleData.begin()[0];
@@ -903,6 +902,7 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
             mtx.vout.push_back(MakeCC1vout(additionalMarkerEvalCode, txfee, GetUnspendable(cp2, NULL)));
         }
 
+        /*
         int32_t voutChange = -1;
         if (reserveChange)
         {
@@ -916,17 +916,17 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
                 voutChange = mtx.vout.size() - 1;
                 
             }
-        }
+        }*/
 
 		std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', Mypubkey(), name, description, nonfungibleData));
         if (hextx.empty()) {
             CCerror = "couldnt finalize token tx";
             return std::string();
         }
-        if (reserveChange && voutChange >= 0)
+        if (addTxInMemory)
         {
-            // add vout to in-mem utxo array to use in AddNormalinputs()
-            AddInMemoryUtxo(mtx, voutChange);
+            // add tx to in-mem array to use in subsequent AddNormalinputs()
+            AddInMemoryTransaction(mtx);
         }
         return hextx;
 	}
@@ -1014,7 +1014,6 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
                 CCerror = "zero or unsupported destination pk count";
                 return std::string();
             }
-
 
 			if (CCchange != 0)
 				mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, CCchange, mypk));
