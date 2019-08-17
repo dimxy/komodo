@@ -16,30 +16,21 @@
 #include "CCinclude.h"
 #include "key_io.h"
 
-#include <unordered_set>
-
 std::vector<CPubKey> NULL_pubkeys;
 struct NSPV_CCmtxinfo NSPV_U;
 
-// locking and reservation of utxo to prevent adding utxo to several mtx objects and allow use of normal change utxos:
+// locking and reservation of utxo to prevent adding utxo to several mtx objects and allow spending of utxos in mtx objects:
 // ActivateUtxoLock() should be called to begin utxo locking
 // DeactivateUtxoLock() explicitly if you do not need utxo locking any more (if not called then locked utxos ends its life with the end of the thread)
 // DeactivateUtxoLock() 
 // LockUtxo for the current thread (where the rpc call is running) locks normal inputs that was just added to the mtx.vin until deactivated or thread ends
 // AddInMemUtxo() adds reserved utxos of in memory mtx objects to make possible to be added to other mtx objects
 
-/*
-struct CMemUtxo {
-    uint256 txid;
-    int32_t vout;
-    CTransaction tx;
-};*/
-
 typedef std::set<std::pair<uint256, int32_t>> utxo_set;
 typedef std::vector<CC_utxo> memutxo_vector;
 typedef std::map<uint256, CTransaction> memtx_map;
 
-
+// utxo array that are locked, that is, used in mtx objects created in the current rpc call
 static thread_local struct CLockedUtxos : public utxo_set {
     bool isActive;
     //mutable CCriticalSection cs;
@@ -52,18 +43,7 @@ static thread_local struct CLockedUtxos : public utxo_set {
     }
 } utxosLocked;  // will be created in each thread at the first usage
 
-/*
-static thread_local struct CInMemoryUtxos : public memutxo_vector {
-    CInMemoryUtxos() {
-        reserve(64);
-        std::cerr << __func__ << " utxosInMem object created" << std::endl;
-    }
-    ~CInMemoryUtxos() {
-        std::cerr << __func__ << " utxosInMem object deleted" << std::endl;
-    }
-} utxosInMem;  // will be created in each thread at the first usage
-*/
-
+// thread memory array of mtx objects
 static thread_local struct  CInMemoryTxns : public memtx_map {
     CInMemoryTxns() {
         std::cerr << __func__ << " txnsInMem object created" << std::endl;
@@ -73,19 +53,18 @@ static thread_local struct  CInMemoryTxns : public memtx_map {
     }
 } txnsInMem;
 
-// activate locking, Addnormalinputs begins locking utxos and skipping locked utxos
+// activate locking, Addnormalinputs begins locking utxos and will not spend the locked utxos
 void ActivateUtxoLock()
 {
-    std::cerr << __func__ << " entered" << std::endl;
     utxosLocked.isActive = true;
-    std::cerr << __func__ << " utxosLocked object activated" << std::endl;
+    std::cerr << __func__ << " utxo locking activated" << std::endl;
 }
-// Addnormalinputs stops locking and checking utxos, unlocks all locked utxos
+// Stop locking, unlocks all locked utxos: Addnormalinputs functions will not prevent utxos from spending
 void DeactivateUtxoLock()
 {
     utxosLocked.clear();
     utxosLocked.isActive = false;
-    std::cerr << __func__ << " utxosLocked object deactivated" << std::endl;
+    std::cerr << __func__ << " utxo locking deactivated" << std::endl;
 }
 // returns if utxo locking is active
 bool isLockUtxoActive()
@@ -95,8 +74,6 @@ bool isLockUtxoActive()
 // checks if utxo is locked (added to a mtx object)
 bool isUtxoLocked(uint256 txid, int32_t nvout)
 {
-    //LOCK(utxosLocked.cs);
-
     if (std::find(utxosLocked.begin(), utxosLocked.end(), std::make_pair(txid, nvout)) != utxosLocked.end())   {
         std::cerr << __func__ << " utxo already locked" << std::endl;
         return true;
@@ -104,6 +81,7 @@ bool isUtxoLocked(uint256 txid, int32_t nvout)
     else
         return false;
 }
+
 // lock utxo
 void LockUtxo(uint256 txid, int32_t nvout)
 {
@@ -132,8 +110,8 @@ bool GetInMemoryTransaction(uint256 txid, CTransaction &tx)
     return !tx.IsNull();
 }
 
-// get tx from thread mem array
-static void GetUtxosInMemory(CWallet *pWallet, std::vector<CC_utxo> &utxosInMem)
+// get utxos from the thread memory tx array sent to one of my addresses (in the wallet)
+static void GetMyUtxosInMemory(CWallet *pWallet, std::vector<CC_utxo> &utxosInMem)
 {
     for (const auto &elem : txnsInMem)
     {
@@ -146,6 +124,31 @@ static void GetUtxosInMemory(CWallet *pWallet, std::vector<CC_utxo> &utxosInMem)
         }
     }
 }
+
+// get utxos from the thread memory tx array sent to 'destaddr' param
+// params:
+// destaddr uxtos are selected if sent to this address
+// isCC select cc only utxos (or vice versa)
+// utxosInMem output utxo array
+static void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem)
+{
+    for (const auto &elem : txnsInMem)
+    {
+        for (int32_t i = 0; i < elem.second.vout.size(); i++)
+        {
+            if (isCC && elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition())
+            {
+                char voutaddr[64];
+                Getscriptaddress(voutaddr, elem.second.vout[i].scriptPubKey);
+                if (strcmp(voutaddr, destaddr) == 0)
+                {
+                    utxosInMem.push_back(CC_utxo{ elem.second.GetHash(), elem.second.vout[i].nValue, i });
+                }
+            }
+        }
+    }
+}
+
 
 /*
  FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and the opreturn.
@@ -773,11 +776,11 @@ int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int3
         }
     }
 
-    // check in-mem reserved utxos are not already in mtx or other mtx's and add to utxo array too:
+    // check that in-memory utxos are not already used in mtx objects and add to utxo array too:
     if (n < maxinputs && sum < total)
     {
         std::vector<CC_utxo> utxosInMem;
-        GetUtxosInMemory(pwalletMain, utxosInMem);
+        GetMyUtxosInMemory(pwalletMain, utxosInMem);
 
         for (int i = 0;  i < utxosInMem.size(); i ++)
         {
@@ -912,6 +915,41 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinput
             }
         }
     }
+
+    // check that in-memory utxos are not already used in mtx objects and add to utxo array too:
+    if (n < maxinputs && sum < total)
+    {
+        std::vector<CC_utxo> utxosInMem;
+        GetAddrUtxosInMemory(coinaddr, false, utxosInMem);
+
+        for (int i = 0; i < utxosInMem.size(); i++)
+        {
+            uint256 txid = utxosInMem[i].txid;
+            int32_t vout = utxosInMem[i].vout;
+            CAmount value = utxosInMem[i].nValue;
+            // check if the utxo has been already added to another mtx object
+            if (isLockUtxoActive() && isUtxoLocked(txid, vout))
+                continue;
+
+            if (GetInMemoryTransaction(txid, tx) && tx.vout.size() > 0 && vout < tx.vout.size() && !tx.vout[vout].scriptPubKey.IsPayToCryptoCondition())
+            {
+                // check if utxo is already in mtx.vin
+                if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](CTxIn vin) {return vin.prevout.hash == txid && vin.prevout.n == vout;}) != mtx.vin.end())
+                    continue;
+
+                utxos[n].txid = txid;
+                utxos[n].vout = vout;
+                utxos[n].nValue = value;
+                sum += utxos[n].nValue;
+                n++;
+
+                //check limits:
+                if (n >= maxinputs || sum >= total)
+                    break;
+            }
+        }
+    }
+
     remains = total;
     for (i=0; i<maxinputs && n>0; i++)
     {
