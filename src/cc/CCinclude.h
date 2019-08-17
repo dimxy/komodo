@@ -1072,7 +1072,8 @@ void DeactivateUtxoLock();
 bool isLockUtxoActive();
 bool isUtxoLocked(uint256 txid, int32_t nvout);
 void LockUtxo(uint256 txid, int32_t nvout);
-bool AddInMemoryUtxo(const CTransaction &tx, int32_t nvout);
+bool AddInMemoryTransaction(const CTransaction &tx);
+bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
 
 /*! \cond INTERNAL */
 UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
