@@ -165,102 +165,44 @@ struct CC_meta
 
 // dimxy
 // class CCWrapper encapsulates and stores cryptocondition encoded in json
-// such stored conds are used as a probe cond in FinalizeCCtx to find out vin tx cc vout and make the matching tx.vin.scriptSig
+// such stored conds are used in FinalizeCCtx as a probe scriptPubKey to find out the matching vin tx cc vout and make the tx.vin.scriptSig
 class CCwrapper {
 public:
-    CCwrapper() { ccJsonString = NULL; }
-
-    // custom copy constructor to accurately copying char*
-    CCwrapper(const CCwrapper &wrapper) 
-    { 
-        std::cerr << "CCwrapper copy const enterred" << std::endl;
-        copyCharPtr(wrapper);
-    }
-    CCwrapper & operator=(const CCwrapper &wrapper)
-    {
-        std::cerr << "CCwrapper operator= enterred" << std::endl;
-        if (ccJsonString) {
-            // dealloc prev content:
-            std::cerr << "CCwrapper calling free" << std::endl;
-            free(ccJsonString);
-        }
-
-        copyCharPtr(wrapper);
-        return *this;
-    }
-
-    // smart pointer alternate variant (not to copy cc but use smart pointer with auto cc_free)
-    // we could use it if cc serialization to JSON fails. But serialization is more consistent
-    // CCwrapper(CC *cond) : spcond(cond, [](CC* p) {cc_free(p); }) { }
-    // CCwrapper(const CCwrapper &w) { spcond = w.spcond; }  // default copy constr
-    // CC *get() { return spcond.get(); }
-
+    CCwrapper() {}
     void setCC(CC *cond) {
-        // Serialize the cc to store it as json. 
-        // It would allow to create a new cc and cc_free it at any time when the caller does not need it any more
-        if (ccJsonString) {
-            std::cerr << "CCwrapper setCC calling free" << std::endl;
-            free(ccJsonString);
+        if (cond)
+        {
+            char *jsonstr = cc_conditionToJSONString(cond);
+            if (jsonstr) {
+                ccJsonString = jsonstr;
+                free(jsonstr);
+            }
         }
-        ccJsonString = cc_conditionToJSONString(cond); 
-        std::cerr << "CCwrapper setCC setting ccJsonString" << std::endl;
     }
 
     CC *getCC() {
         char err[1024] = "";
-        CC *cond = cc_conditionFromJSONString(ccJsonString, err);  // caller, don't forget to cc_free it
+        CC *cond = NULL;
+
+        if (!ccJsonString.empty())
+            cond = cc_conditionFromJSONString(ccJsonString.c_str(), err);  // caller, please don't forget to cc_free the returned cond!
 
         // debug logging if parse not successful:
         // std::cerr << "CCwrapper ccJsonString=" << ccJsonString << "\nerr=" << err << std::endl;  
         // if( cond ) std::cerr << "CCwrapper serialized=" << cc_conditionToJSONString(cond) << std::endl;  //see how it is serialized back
         return cond;
     }
-
-    ~CCwrapper() {
-        // dealloc char* on delete:
-        std::cerr << "CCwrapper destr entered" << std::endl;
-        if (ccJsonString) {
-            std::cerr << "CCwrapper destr calling free" << std::endl;
-            free(ccJsonString);
-        }
-    }
+    ~CCwrapper() {}
 
 private:
-    //std::shared_ptr<CC> spcond; // for smart pointer
-    char *ccJsonString;
-    //size_t  cclen;
-    void copyCharPtr(const CCwrapper &src)
-    {
-        if (ccJsonString)
-        {
-            std::cerr << "CCwrapper calling malloc" << std::endl;
-            ccJsonString = (char *)malloc(strlen(src.ccJsonString) + 1);
-            strcpy(ccJsonString, src.ccJsonString);
-        }
-        else
-        {
-            std::cerr << "CCwrapper setting null" << std::endl;
-            ccJsonString = NULL;
-        }
-    }
+    // stores cc converted to json:
+    std::string ccJsonString;
 };
 
 // struct with cc and privkey 
 // cc is used as a probe to detect vintx cc vouts in FinalizeCCtx
 // CCVintxCond is passed inside a vector of probe cc
 struct CCVintxProbe {
-
-    /*CCVintxProbe()
-    {
-    }
-
-    // custom copy constructor to accurately copy member CCwrapper with char*
-    CCVintxProbe(const CCVintxProbe &probe)
-    {
-        std::cerr << "CCVintxProbe copy const enterred" << std::endl;
-        CCwrapped = probe.CCwrapped;
-        memcpy(CCpriv, probe.CCpriv, sizeof(CCpriv) / sizeof(CCpriv[0]));
-    }*/
     CCwrapper CCwrapped;
     uint8_t   CCpriv[32];
 };
