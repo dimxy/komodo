@@ -84,7 +84,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 3))
     {
         throw runtime_error(
-            "kogscreategameconfig name description '{\"KogsInContainer\":n, \"KogsToAdd\":n, \"HeightRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n },...], \"StrengthRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n},...]}'\n"
+            "kogscreategameconfig name description '{\"KogsInContainer\":n, \"KogsInStack\":n, \"KogsToAdd\":n, \"HeightRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n },...], \"StrengthRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n},...]}'\n"
             "creates a game configuration\n"
             "returns gameconfig transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
@@ -106,8 +106,6 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
     std::vector<std::string> ikeys = jsonParams.getKeys();
     std::vector<std::string>::const_iterator iter;
 
-    int reqparamcount = 0;
-
     iter = std::find(ikeys.begin(), ikeys.end(), "KogsInContainer");
     UniValue param;
     if (iter != ikeys.end()) {
@@ -116,6 +114,15 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newgameconfig.numKogsInContainer=" << newgameconfig.numKogsInContainer << std::endl);
         if (newgameconfig.numKogsInContainer < 1 || newgameconfig.numKogsInContainer > 100)
             throw runtime_error("KogsInContainer param is incorrect (should be >= 1 and <= 100)\n");
+    }
+
+    iter = std::find(ikeys.begin(), ikeys.end(), "KogsInStack");
+    if (iter != ikeys.end()) {
+        param = jsonParams[iter - ikeys.begin()];
+        newgameconfig.numKogsInStack = param.isNum() ? param.get_int() : atoi(param.get_str());
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newgameconfig.numKogsInStack=" << newgameconfig.numKogsInStack << std::endl);
+        if (newgameconfig.numKogsInStack < 1 || newgameconfig.numKogsInStack > 100)
+            throw runtime_error("KogsInStack param is incorrect (should be >= 1 and <= 100)\n");
     }
 
     iter = std::find(ikeys.begin(), ikeys.end(), "KogsToAdd");
