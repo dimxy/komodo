@@ -128,7 +128,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
     iter = std::find(ikeys.begin(), ikeys.end(), "KogsToAdd");
     if (iter != ikeys.end()) {
         param = jsonParams[iter - ikeys.begin()];
-        newgameconfig.numKogsInContainer = param.isNum() ? param.get_int() : atoi(param.get_str());
+        newgameconfig.numKogsToAdd = param.isNum() ? param.get_int() : atoi(param.get_str());
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newgameconfig.numKogsToAdd=" << newgameconfig.numKogsToAdd << std::endl);
         if (newgameconfig.numKogsToAdd < 1 || newgameconfig.numKogsToAdd > 100)
             throw runtime_error("KogsToAdd param is incorrect (should be >= 1 and <= 100)\n");
