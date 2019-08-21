@@ -167,11 +167,14 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
             iter = std::find(ikeys.begin(), ikeys.end(), "UpperValue");
             if (iter != ikeys.end()) {
                 UniValue elem = jsonArray[i][iter - ikeys.begin()];
-                right = (elem.isNum() ? elem.get_int() : atoi(elem.get_str()));
+                upperValue = (elem.isNum() ? elem.get_int() : atoi(elem.get_str()));
             }
 
             if (left < 0 || right < 0 || upperValue < 0)
                 throw runtime_error("incorrect HeightRanges array element\n");
+            if (left > 100 || right > 100 || upperValue > 100)
+                throw runtime_error("incorrect HeightRanges too big array element\n");
+
 
             newgameconfig.heightRanges.push_back({ left,right,upperValue });
         }
@@ -209,11 +212,13 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
             iter = std::find(ikeys.begin(), ikeys.end(), "UpperValue");
             if (iter != ikeys.end()) {
                 UniValue elem = jsonArray[i][iter - ikeys.begin()];
-                right = (elem.isNum() ? elem.get_int() : atoi(elem.get_str()));
+                upperValue = (elem.isNum() ? elem.get_int() : atoi(elem.get_str()));
             }
 
             if (left < 0 || right < 0 || upperValue < 0)
                 throw runtime_error("incorrect StrengthRanges array element\n");
+            if (left > 100 || right > 100 || upperValue > 100)
+                throw runtime_error("incorrect StrengthRanges too big array element\n");
 
             newgameconfig.strengthRanges.push_back({ left,right,upperValue });
         }
