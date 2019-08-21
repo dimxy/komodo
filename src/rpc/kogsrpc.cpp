@@ -42,8 +42,8 @@
 
 #include "../wallet/crypter.h"
 
-#include "cc/CCKogs.h"
 #include "cc/CCinclude.h"
+#include "cc/CCKogs.h"
 
 using namespace std;
 
@@ -84,7 +84,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 3))
     {
         throw runtime_error(
-            "kogscreategameconfig name description '{ param1, param2, ... }'\n"
+            "kogscreategameconfig name description '{\"KogsInContainer\":n, \"KogsToAdd\":n, \"HeightRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n },...], \"StrengthRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n},...]}'\n"
             "creates a game configuration\n"
             "returns gameconfig transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
@@ -115,13 +115,103 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
         newgameconfig.numKogsInContainer = param.isNum() ? param.get_int() : atoi(param.get_str());
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newgameconfig.numKogsInContainer=" << newgameconfig.numKogsInContainer << std::endl);
         if (newgameconfig.numKogsInContainer < 1 || newgameconfig.numKogsInContainer > 100)
-            throw runtime_error("KogsInContainer param is incorrect\n");
-
-        reqparamcount++;
+            throw runtime_error("KogsInContainer param is incorrect (should be >= 1 and <= 100)\n");
     }
-       
-    //if (reqparamcount < 1)
-    //    throw runtime_error("not all required game object data passed\n");
+
+    iter = std::find(ikeys.begin(), ikeys.end(), "KogsToAdd");
+    if (iter != ikeys.end()) {
+        param = jsonParams[iter - ikeys.begin()];
+        newgameconfig.numKogsInContainer = param.isNum() ? param.get_int() : atoi(param.get_str());
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newgameconfig.numKogsToAdd=" << newgameconfig.numKogsToAdd << std::endl);
+        if (newgameconfig.numKogsToAdd < 1 || newgameconfig.numKogsToAdd > 100)
+            throw runtime_error("KogsToAdd param is incorrect (should be >= 1 and <= 100)\n");
+
+    }
+
+    iter = std::find(ikeys.begin(), ikeys.end(), "HeightRanges");
+    if (iter != ikeys.end()) {
+        UniValue jsonArray = jsonParams[iter - ikeys.begin()].get_array();
+        if (!jsonArray.isArray())
+            throw runtime_error("HeightRanges parameter is not an array\n");
+        if (jsonArray.size() == 0)
+            throw runtime_error("HeightRanges array is empty\n");
+        if (jsonArray.size() > 100)
+            throw runtime_error("HeightRanges array is too big\n");
+
+        for (int i = 0; i < jsonArray.size(); i++)
+        {
+            std::vector<std::string> ikeys = jsonArray[i].getKeys();
+            int left = -1, right = -1, upperValue = -1;
+            
+            // parse json array item:
+
+            iter = std::find(ikeys.begin(), ikeys.end(), "Left");
+            if (iter != ikeys.end()) {
+                UniValue elem = jsonArray[i][iter - ikeys.begin()];
+                left = (elem.isNum() ? elem.get_int() : atoi(elem.get_str()));
+            }
+
+            iter = std::find(ikeys.begin(), ikeys.end(), "Right");
+            if (iter != ikeys.end()) {
+                UniValue elem = jsonArray[i][iter - ikeys.begin()];
+                right = (elem.isNum() ? elem.get_int() : atoi(elem.get_str()));
+            }
+
+            iter = std::find(ikeys.begin(), ikeys.end(), "UpperValue");
+            if (iter != ikeys.end()) {
+                UniValue elem = jsonArray[i][iter - ikeys.begin()];
+                right = (elem.isNum() ? elem.get_int() : atoi(elem.get_str()));
+            }
+
+            if (left < 0 || right < 0 || upperValue < 0)
+                throw runtime_error("incorrect HeightRanges array element\n");
+
+            newgameconfig.heightRanges.push_back({ left,right,upperValue });
+        }
+    }
+
+    iter = std::find(ikeys.begin(), ikeys.end(), "StrengthRanges");
+    if (iter != ikeys.end()) {
+        UniValue jsonArray = jsonParams[iter - ikeys.begin()].get_array();
+        if (!jsonArray.isArray())
+            throw runtime_error("StrengthRanges parameter is not an array\n");
+        if (jsonArray.size() == 0)
+            throw runtime_error("StrengthRanges array is empty\n");
+        if (jsonArray.size() > 100)
+            throw runtime_error("StrengthRanges array is too big\n");
+
+        for (int i = 0; i < jsonArray.size(); i++)
+        {
+            std::vector<std::string> ikeys = jsonArray[i].getKeys();
+            int left = -1, right = -1, upperValue = -1;
+
+            // parse json array item:
+
+            iter = std::find(ikeys.begin(), ikeys.end(), "Left");
+            if (iter != ikeys.end()) {
+                UniValue elem = jsonArray[i][iter - ikeys.begin()];
+                left = (elem.isNum() ? elem.get_int() : atoi(elem.get_str()));
+            }
+
+            iter = std::find(ikeys.begin(), ikeys.end(), "Right");
+            if (iter != ikeys.end()) {
+                UniValue elem = jsonArray[i][iter - ikeys.begin()];
+                right = (elem.isNum() ? elem.get_int() : atoi(elem.get_str()));
+            }
+
+            iter = std::find(ikeys.begin(), ikeys.end(), "UpperValue");
+            if (iter != ikeys.end()) {
+                UniValue elem = jsonArray[i][iter - ikeys.begin()];
+                right = (elem.isNum() ? elem.get_int() : atoi(elem.get_str()));
+            }
+
+            if (left < 0 || right < 0 || upperValue < 0)
+                throw runtime_error("incorrect StrengthRanges array element\n");
+
+            newgameconfig.strengthRanges.push_back({ left,right,upperValue });
+        }
+    }
+
     std::string hextx = KogsCreateGameConfig(newgameconfig);
     RETURN_IF_ERROR(CCerror);
     result.push_back(std::make_pair("result", "success"));
