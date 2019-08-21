@@ -1566,7 +1566,12 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
 {
     // int remainder = 4 - baton.kogsInStack.size(); 
     // int kogsToAdd = remainder / spcontainers.size(); // I thought first that kogs must be added until stack max size (it was 4 for testing)
-    int kogsToAdd = 1; // adding by 1 for testing
+
+    int kogsToAddFromPlayer; 
+    if (baton.kogsInStack.size() == 0)
+        kogsToAddFromPlayer = gameconfig.numKogsInStack / baton.playerids.size();  //first time add until max stack
+    else
+        kogsToAddFromPlayer = gameconfig.numKogsToAdd;
 
     for (auto c : spcontainers)
     {
@@ -1582,14 +1587,14 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
                 continue;
             freekogs.push_back(t);
         }
-        if (kogsToAdd > freekogs.size())
+        if (kogsToAddFromPlayer > freekogs.size())
         {
-            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "kogs number remaining in container=" << freekogs.size() << " is less than needed to add to stack" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "remaining in container kogs number=" << freekogs.size() << " is less than needed to add to stack, won't add kogs" << std::endl);
             return false;
         }
 
         int added = 0;
-        while (added < kogsToAdd)
+        while (added < kogsToAddFromPlayer && freekogs.size() > 0)
         {
             int i = rand() % freekogs.size(); // take random pos to add to the stack
             baton.kogsInStack.push_back(freekogs[i]);  // add to stack

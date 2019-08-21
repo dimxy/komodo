@@ -139,6 +139,7 @@ static const std::vector<KogsSlamRange> strengthRangesDefault =
 struct KogsGameConfig : public KogsBaseObject {
 
     int32_t numKogsInContainer;
+    int32_t numKogsInStack;
     int32_t numKogsToAdd;
 
     std::vector<KogsSlamRange> heightRanges;
@@ -161,6 +162,8 @@ struct KogsGameConfig : public KogsBaseObject {
         if (evalcode == EVAL_KOGS && objectId == KOGSID_GAMECONFIG && version == KOGS_VERSION)
         {
             READWRITE(numKogsInContainer);
+            READWRITE(numKogsInStack);
+            READWRITE(numKogsToAdd);
             READWRITE(heightRanges);
             READWRITE(strengthRanges);
         }
@@ -179,6 +182,7 @@ struct KogsGameConfig : public KogsBaseObject {
     {
         objectId = KOGSID_GAMECONFIG;
         numKogsInContainer = 40;
+        numKogsInStack = 20;
         numKogsToAdd = 10;
     }
 
