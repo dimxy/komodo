@@ -96,11 +96,53 @@ struct KogsBaseObject {
     }
 };
 
+// slam range structure
+struct KogsSlamRange
+{
+    int32_t left, right;    // left and right percentage interval
+    int32_t upperValue;     // upper border (not inclusive) of height or strength intervals (the lower border is the previous upper border)
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(left);
+        READWRITE(right);
+        READWRITE(upperValue);
+    }
+};
+
+// flip percentage ranges for height values
+static const std::vector<KogsSlamRange> heightRangesDefault =
+{
+    { 0, 5, 5 },
+    { 5, 10, 10 },
+    { 10, 15, 15 },
+    { 15, 20, 20 },
+    { 20, 25, 25 },
+    { 25, 75, 100 }
+};
+
+// flip percentage ranges for strength values
+static const std::vector<KogsSlamRange> strengthRangesDefault =
+{
+    { 0, 5, 5 },
+    { 5, 10, 10 },
+    { 10, 15, 15 },
+    { 15, 20, 20 },
+    { 20, 25, 25 },
+    { 25, 75, 100 }
+};
 
 // game configuration object
 struct KogsGameConfig : public KogsBaseObject {
 
     int32_t numKogsInContainer;
+    int32_t numKogsToAdd;
+
+    std::vector<KogsSlamRange> heightRanges;
+    std::vector<KogsSlamRange> strengthRanges;
 
     ADD_SERIALIZE_METHODS;
 
@@ -119,6 +161,8 @@ struct KogsGameConfig : public KogsBaseObject {
         if (evalcode == EVAL_KOGS && objectId == KOGSID_GAMECONFIG && version == KOGS_VERSION)
         {
             READWRITE(numKogsInContainer);
+            READWRITE(heightRanges);
+            READWRITE(strengthRanges);
         }
         else
         {
@@ -135,6 +179,7 @@ struct KogsGameConfig : public KogsBaseObject {
     {
         objectId = KOGSID_GAMECONFIG;
         numKogsInContainer = 40;
+        numKogsToAdd = 10;
     }
 
     // special init function for GameObject structure created in memory for serialization 
@@ -610,6 +655,7 @@ struct KogsContainer : public KogsBaseObject {
 struct KogsBaton : public KogsBaseObject {
     
     uint256 gameid;
+    uint256 gameconfigid;
     int32_t nextturn;
     int32_t prevturncount;
     uint256 nextplayerid;
@@ -633,6 +679,7 @@ struct KogsBaton : public KogsBaseObject {
         if (evalcode == EVAL_KOGS && objectId == KOGSID_BATON && version == KOGS_VERSION)
         {
             READWRITE(gameid);
+            READWRITE(gameconfigid);
             READWRITE(nextturn);
             READWRITE(prevturncount);
             READWRITE(nextplayerid);
@@ -661,7 +708,7 @@ struct KogsBaton : public KogsBaseObject {
     }
 };
 
-// slam results
+// slam parameters sent by player
 struct KogsSlamParams : public KogsBaseObject {
 
     uint256 gameid;

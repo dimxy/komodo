@@ -1486,33 +1486,6 @@ UniValue KogsObjectInfo(uint256 tokenid)
     return info;
 }
 
-struct KogsSlamRange
-{
-    int32_t left, right;    // left and right percentage interval
-    int32_t upperValue;     // upper border (not inclusive) of height or strength intervals (the lower border is the previous upper border)
-};
-
-// flip percentage ranges for height values
-static std::vector<KogsSlamRange> heightRanges =
-{
-    { 0, 5, 5 },
-    { 5, 10, 10 },
-    { 10, 15, 15 },
-    { 15, 20, 20 },
-    { 20, 25, 25 },
-    { 25, 75, 100 }
-};
-
-// flip percentage ranges for strength values
-static std::vector<KogsSlamRange> strengthRanges =
-{
-    { 0, 5, 5 },
-    { 5, 10, 10 },
-    { 10, 15, 15 },
-    { 15, 20, 20 },
-    { 20, 25, 25 },
-    { 25, 75, 100 }
-};
 
 // get percentage range for the given value (height or strength)
 static int getRange(const std::vector<KogsSlamRange> &range, int32_t val)
@@ -1536,13 +1509,19 @@ static int getRange(const std::vector<KogsSlamRange> &range, int32_t val)
 }
 
 // flip kogs based on slam data and height and strength ranges
-static bool FlipKogs(const KogsSlamParams &slamparams, KogsBaton &baton)
+static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &slamparams, KogsBaton &baton)
 {
+    std::vector<KogsSlamRange> heightRanges = heightRangesDefault;
+    std::vector<KogsSlamRange> strengthRanges = strengthRangesDefault;
+    if (gameconfig.heightRanges.size() > 0)
+        heightRanges = gameconfig.heightRanges;
+    if (gameconfig.strengthRanges.size() > 0)
+        strengthRanges = gameconfig.strengthRanges;
+
     int iheight = getRange(heightRanges, slamparams.armHeight);
     int istrength = getRange(strengthRanges, slamparams.armStrength);
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "iheight=" << iheight << " istrength=" << istrength << std::endl);
-
 
     if (iheight < 0 || istrength < 0)
         return false;
@@ -1583,7 +1562,7 @@ static bool FlipKogs(const KogsSlamParams &slamparams, KogsBaton &baton)
 }
 
 // adding kogs to stack from the containers, check if kogs are not in the stack already or not flipped
-static bool AddKogsToStack(KogsBaton &baton, const std::vector<std::shared_ptr<KogsContainer>> &spcontainers)
+static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, const std::vector<std::shared_ptr<KogsContainer>> &spcontainers)
 {
     // int remainder = 4 - baton.kogsInStack.size(); 
     // int kogsToAdd = remainder / spcontainers.size(); // I thought first that kogs must be added until stack max size (it was 4 for testing)
@@ -1634,7 +1613,7 @@ static bool AddKogsToStack(KogsBaton &baton, const std::vector<std::shared_ptr<K
     return true;
 }
 
-static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton, std::vector<std::shared_ptr<KogsContainer>> &containers)
+static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton, std::vector<std::shared_ptr<KogsContainer>> &containers)
 {   
     if (pGameOrParams->objectId != KOGSID_GAME && pGameOrParams->objectId != KOGSID_SLAMPARAMS)
     {
@@ -1699,10 +1678,10 @@ static bool KogsManageStack(KogsBaseObject *pGameOrParams, KogsBaton *prevbaton,
     if (pGameOrParams->objectId == KOGSID_SLAMPARAMS)  // process slam data 
     {
         KogsSlamParams* pslamparams = (KogsSlamParams*)pGameOrParams;
-        FlipKogs(*pslamparams, newbaton);
+        FlipKogs(gameconfig, *pslamparams, newbaton);
     }
 
-    AddKogsToStack(newbaton, containers);
+    AddKogsToStack(gameconfig, newbaton, containers);
     return true;
 }
 
@@ -1731,10 +1710,10 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
         {
             LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "found utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << std::endl);
 
-            std::shared_ptr<KogsBaseObject> spobj1(LoadGameObject(it->first.txhash)); // load and unmarshal gameobject
-            std::shared_ptr<KogsBaseObject> spobj2;
+            std::shared_ptr<KogsBaseObject> spSlamData(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
+            std::shared_ptr<KogsBaseObject> spBaton;
 
-            if (spobj1.get() != nullptr && (spobj1->objectId == KOGSID_GAME || spobj1->objectId == KOGSID_SLAMPARAMS))
+            if (spSlamData.get() != nullptr && (spSlamData->objectId == KOGSID_GAME || spSlamData->objectId == KOGSID_SLAMPARAMS))
             {
                 int32_t nextturn;
                 int32_t turncount = 0;
@@ -1744,10 +1723,11 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 std::vector<uint256> kogsInStack;
                 std::vector<std::pair<uint256, uint256>> kogsFlipped;
                 uint256 gameid = zeroid;
+                uint256 gameconfigid = zeroid;
 
-                if (spobj1->objectId == KOGSID_GAME)
+                if (spSlamData->objectId == KOGSID_GAME)
                 {
-                    KogsGame *pgame = (KogsGame *)spobj1.get();
+                    KogsGame *pgame = (KogsGame *)spSlamData.get();
                     if (pgame->playerids.size() < 2)
                     {
                         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "playerids.size incorrect=" << pgame->playerids.size() << " txid=" << it->first.txhash.GetHex() << std::endl);
@@ -1757,6 +1737,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     nextturn = rand() % pgame->playerids.size();
                     playerids = pgame->playerids;
                     gameid = it->first.txhash;
+                    gameconfigid = pgame->gameconfigid;
                 }
                 else
                 {
@@ -1765,17 +1746,17 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     
                     if (myGetTransaction(it->first.txhash, slamParamsTx, hashBlock))
                     {
-                        KogsSlamParams *pslamparams = (KogsSlamParams *)spobj1.get();
+                        KogsSlamParams *pslamparams = (KogsSlamParams *)spSlamData.get();
                         gameid = pslamparams->gameid;
 
-                        // find the baton
+                        // load the baton
                         // slam param txvin[0] is the baton txid
                         KogsBaseObject *p = LoadGameObject(slamParamsTx.vin[0].prevout.hash);
                         LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "p==null:" << (p==nullptr) << " p->objectId=" << (char)(p?p->objectId:' ') << std::endl);
-                        spobj2.reset(p);
-                        if (spobj2.get() && spobj2->objectId == KOGSID_BATON)
+                        spBaton.reset(p);
+                        if (spBaton.get() && spBaton->objectId == KOGSID_BATON)
                         {
-                            KogsBaton *pbaton = (KogsBaton *)spobj2.get();
+                            KogsBaton *pbaton = (KogsBaton *)spBaton.get();
                             playerids = pbaton->playerids;
                             kogsInStack = pbaton->kogsInStack;
                             kogsFlipped = pbaton->kogsFlipped;
@@ -1784,6 +1765,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             if (nextturn == playerids.size())
                                 nextturn = 0;
                             turncount = pbaton->prevturncount + 1; // previously passed turns' count
+                            gameconfigid = pbaton->gameconfigid;
                         }
                         else
                         {
@@ -1798,10 +1780,10 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     }
                 }
 
-                std::shared_ptr<KogsBaseObject> spobj3( LoadGameObject(playerids[nextturn]) );
-                if (spobj3.get() != nullptr && spobj3->objectId == KOGSID_PLAYER)
+                std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerids[nextturn]) );
+                if (spPlayer.get() != nullptr && spPlayer->objectId == KOGSID_PLAYER)
                 {
-                    KogsPlayer *pplayer = (KogsPlayer*)spobj3.get();
+                    KogsPlayer *pplayer = (KogsPlayer*)spPlayer.get();
                     std::vector<std::shared_ptr<KogsContainer>> containers;
                         
                     KogsBaton newbaton;
@@ -1814,10 +1796,20 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     newbaton.kogsFlipped = kogsFlipped;
                     newbaton.prevturncount = turncount;  
                     newbaton.gameid = gameid;
+                    newbaton.gameconfigid = gameconfigid;
+
+                    std::shared_ptr<KogsBaseObject> spGameConfig(LoadGameObject(gameconfigid));
+                    if (spGameConfig->objectId != KOGSID_GAMECONFIG)
+                    {
+                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "skipped baton for gameid=" << gameid.GetHex() << " can't load gameconfig with id=" << gameconfigid.GetHex() << std::endl);
+                        continue;
+                    }
+
+                    KogsGameConfig *pGameConfig = (KogsGameConfig*)spGameConfig.get();
 
                     // calc slam results and kogs ownership and fill the new baton
-                    KogsBaton *prevbaton = (KogsBaton *)spobj2.get();
-                    if (KogsManageStack(spobj1.get(), prevbaton, newbaton, containers))
+                    KogsBaton *prevbaton = (KogsBaton *)spBaton.get();
+                    if (KogsManageStack(*pGameConfig, spSlamData.get(), prevbaton, newbaton, containers))
                     {
                         std::vector<CTransaction> myTransactions; // store transactions in this buffer as minersTransactions could have other modules created txns
 
@@ -1894,7 +1886,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't load next turn player with id=" << playerids[nextturn].GetHex() << std::endl);
             }
             else
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spobj1.get() ? std::string("incorrect objectId=") + std::string(1, (char)spobj1->objectId) : std::string("nullptr")) << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spSlamData.get() ? std::string("incorrect objectId=") + std::string(1, (char)spSlamData->objectId) : std::string("nullptr")) << std::endl);
         }
     }
 
