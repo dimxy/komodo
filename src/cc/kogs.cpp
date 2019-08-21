@@ -14,6 +14,8 @@
 ******************************************************************************/
 
 #include "CCKogs.h"
+#include <algorithm>    // shuffle
+#include <random>       // default_random_engine
 
 #ifndef KOMODO_ADDRESS_BUFSIZE
 #define KOMODO_ADDRESS_BUFSIZE 64
@@ -1625,6 +1627,10 @@ static bool AddKogsToStack(KogsBaton &baton, const std::vector<std::shared_ptr<K
             }*/
         }
     }
+
+    // shuffle kogs in the stack:
+    std::shuffle(baton.kogsInStack.begin(), baton.kogsInStack.end(), std::default_random_engine(time(NULL)));  // TODO: check if any interference with rand() in KogsCreateMinerTransactions
+
     return true;
 }
 
