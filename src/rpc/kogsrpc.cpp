@@ -60,7 +60,7 @@ UniValue kogsaddress(const UniValue& params, bool fHelp)
     cp = CCinit(&C, EVAL_KOGS);
     if (fHelp || params.size() > 1)
         throw runtime_error("kogsaddress [pubkey]\n"
-                            "returns addresses for kogs module for the pubkey parameter or the mypubkey if omitted\n");
+                            "returns addresses for kogs module for the pubkey parameter or the mypubkey if omitted\n" "\n");
 
     error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -625,7 +625,7 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
             "kogsdepositcontainer gameid containerid\n"
             "deposits the container to the game address\n"
             "parameters:\n"
-            "gameid - id of the transaction created by kogsstartgame rpc"
+            "gameid - id of the transaction created by kogsstartgame rpc\n"
             "containerid - id of container creation transaction\n" "\n");
     }
 
@@ -857,7 +857,7 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 1))
     {
         throw runtime_error(
-            "kogsburnotoken tokenid\n"
+            "kogsburntoken tokenid\n"
             "burns a game object NFT\n" "\n");
     }
 
@@ -915,7 +915,7 @@ UniValue kogskoglist(const UniValue& params, bool fHelp)
         throw runtime_error(
             "kogskoglist [my]\n"
             "returns all kog tokenids\n"
-            "if 'my' is present then returns kog ids on my pubkey and not in any container" "\n");
+            "if 'my' is present then returns kog ids on my pubkey and not in any container\n" "\n");
     }
 
     bool onlymy = false;
