@@ -1568,7 +1568,7 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
     // int kogsToAdd = remainder / spcontainers.size(); // I thought first that kogs must be added until stack max size (it was 4 for testing)
 
     int kogsToAddFromPlayer; 
-    if (baton.kogsInStack.size() == 0)
+    if (baton.prevturncount == 0) // first turn
         kogsToAddFromPlayer = gameconfig.numKogsInStack / baton.playerids.size();  //first time add until max stack
     else
         kogsToAddFromPlayer = gameconfig.numKogsToAdd;
@@ -1589,7 +1589,7 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
         }
         if (kogsToAddFromPlayer > freekogs.size())
         {
-            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "remaining in container kogs number=" << freekogs.size() << " is less than needed to add to stack, won't add kogs" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "remaining in container kogs number=" << freekogs.size() << " is less than needed to add to stack=" << kogsToAddFromPlayer << ", won't add kogs" << std::endl);
             return false;
         }
 
@@ -1730,7 +1730,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 uint256 gameid = zeroid;
                 uint256 gameconfigid = zeroid;
 
-                if (spSlamData->objectId == KOGSID_GAME)
+                if (spSlamData->objectId == KOGSID_GAME)  // first turn
                 {
                     KogsGame *pgame = (KogsGame *)spSlamData.get();
                     if (pgame->playerids.size() < 2)
@@ -1744,7 +1744,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     gameid = it->first.txhash;
                     gameconfigid = pgame->gameconfigid;
                 }
-                else
+                else // slam data, not first turn
                 {
                     CTransaction slamParamsTx;
                     uint256 hashBlock;
