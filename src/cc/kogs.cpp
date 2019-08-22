@@ -1405,6 +1405,8 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
 {
     UniValue info(UniValue::VOBJ), err(UniValue::VOBJ), infotokenids(UniValue::VARR);
     UniValue gameinfo(UniValue::VOBJ);
+    UniValue inforanges(UniValue::VARR);
+    UniValue range(UniValue::VOBJ);
 
     std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(gameobjectid) );
     if (spobj == nullptr) {
@@ -1473,6 +1475,23 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
         info.push_back(std::make_pair("KogsInContainer", gameconfigobj->numKogsInContainer));
         info.push_back(std::make_pair("KogsToAdd", gameconfigobj->numKogsToAdd));
         info.push_back(std::make_pair("MaxTurns", gameconfigobj->maxTurns));
+        for (auto v : gameconfigobj->heightRanges)
+        {
+            range.push_back(Pair("Left", v.left));
+            range.push_back(Pair("Right", v.right));
+            range.push_back(Pair("UpperValue", v.upperValue));
+            inforanges.push_back(range);
+        }
+        info.push_back(std::make_pair("HeightRanges", inforanges));
+        inforanges.clear();
+        for (auto v : gameconfigobj->strengthRanges)
+        {
+            range.push_back(Pair("Left", v.left));
+            range.push_back(Pair("Right", v.right));
+            range.push_back(Pair("UpperValue", v.upperValue));
+            inforanges.push_back(range);
+        }
+        info.push_back(std::make_pair("StrengthRanges", inforanges));
         break;
 
     case KOGSID_PLAYER:
