@@ -141,6 +141,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newgameconfig.maxTurns=" << newgameconfig.maxTurns << std::endl);
         if (newgameconfig.maxTurns < 1 || newgameconfig.maxTurns > 100)
             throw runtime_error("MaxTurns param is incorrect (should be >= 1 and <= 100)\n");
+    }
 
     iter = std::find(ikeys.begin(), ikeys.end(), "HeightRanges");
     if (iter != ikeys.end()) {
