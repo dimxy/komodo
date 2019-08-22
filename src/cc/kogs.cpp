@@ -1549,7 +1549,7 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &sla
     int iheight = getRange(heightRanges, slamparams.armHeight);
     int istrength = getRange(strengthRanges, slamparams.armStrength);
 
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "iheight=" << iheight << " istrength=" << istrength << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "iheight=" << iheight << " heightRanges.size=" << heightRanges.size() << " istrength=" << istrength  << " strengthRanges.size=" << strengthRanges.size() << std::endl);
 
     if (iheight < 0 || istrength < 0)
         return false;
