@@ -1818,9 +1818,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     {
                         std::vector<CTransaction> myTransactions; // store transactions in this buffer as minersTransactions could have other modules created txns
 
-                        // first requirement: finish the game if turncount == player.size * 3 and send kogs to the winners
+                        // first requirement: finish the game if turncount == player.size * maxTurns and send kogs to the winners
                         // my addition: finish if stack is empty
-                        if (newbaton.kogsInStack.empty() || newbaton.prevturncount >= newbaton.playerids.size() * 1)
+                        if (newbaton.kogsInStack.empty() || newbaton.prevturncount >= newbaton.playerids.size() * pGameConfig->maxTurns)
                         {                            
                             // send containers back:
                             uint8_t kogsPriv[32];
