@@ -770,7 +770,10 @@ struct KogsSlamParams : public KogsBaseObject {
 // game is finished object
 struct KogsGameFinished : public KogsBaseObject {
 
+    uint256 gameid;
     uint256 winnerid;
+    std::vector<uint256> kogsInStack;
+    std::vector<std::pair<uint256, uint256>> kogsFlipped;
 
     ADD_SERIALIZE_METHODS;
 
@@ -787,7 +790,10 @@ struct KogsGameFinished : public KogsBaseObject {
         READWRITE(version);
         if (evalcode == EVAL_KOGS && objectType == KOGSID_GAMEFINISHED && version == KOGS_VERSION)
         {
+            READWRITE(gameid);
             READWRITE(winnerid);
+            READWRITE(kogsInStack);
+            READWRITE(kogsFlipped);
         }
         else
         {
