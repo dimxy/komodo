@@ -1290,7 +1290,7 @@ std::string KogsRemoveObject(uint256 txid, int32_t nvout)
 }
 
 // retrieve game info: open/finished, won kogs
-UniValue KogsGameStatus(KogsGame &gameobj)
+UniValue KogsGameStatus(const KogsGame &gameobj)
 {
     UniValue info(UniValue::VOBJ);
     // go for the opret data from the last/unspent tx 't'
@@ -1344,9 +1344,12 @@ UniValue KogsGameStatus(KogsGame &gameobj)
         }
         else  if (spobj->objectType == KOGSID_SLAMPARAMS)
             nvout = 0;  // slamparams tx's next baton vout
-        else 
+        else // KOGSID_GAMEFINISHED
         { 
+            KogsGameFinished *pGameFinished = (KogsGameFinished *)spobj.get();
             isFinished = true;
+            prevFlipped = pGameFinished->kogsFlipped;
+            kogsInStack = pGameFinished->kogsInStack;
             break;
         }
 
@@ -1614,7 +1617,7 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
         }
         if (kogsToAddFromPlayer > freekogs.size())
         {
-            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "remaining in container kogs number=" << freekogs.size() << " is less than needed to add to stack=" << kogsToAddFromPlayer << ", won't add kogs" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "kogs number remaining in container=" << freekogs.size() << " is less than needed to add to stack=" << kogsToAddFromPlayer << ", won't add kogs" << std::endl);
             return false;
         }
 
@@ -1781,9 +1784,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
                         // load the baton
                         // slam param txvin[0] is the baton txid
-                        KogsBaseObject *p = LoadGameObject(slamParamsTx.vin[0].prevout.hash);
-                        LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "p==null:" << (p==nullptr) << " p->objectId=" << (char)(p?p->objectType:' ') << std::endl);
-                        spBaton.reset(p);
+                        spBaton.reset( LoadGameObject(slamParamsTx.vin[0].prevout.hash) );
+                        // LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "p==null:" << (p==nullptr) << " p->objectId=" << (char)(p?p->objectType:' ') << std::endl);
+                        // spBaton.reset(p);
                         if (spBaton.get() && spBaton->objectType == KOGSID_BATON)
                         {
                             KogsBaton *pbaton = (KogsBaton *)spBaton.get();
@@ -1855,12 +1858,16 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             KogsGameFinished gamefinished;
                             bool isError = false;
 
+                            gamefinished.kogsInStack = kogsInStack;
+                            gamefinished.kogsFlipped = kogsFlipped;
+                            gamefinished.gameid = gameid;
+
                             CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, /*GetUnspendable(cp, NULL)*/gametxidPk);  // send game finished baton to unspendable addr
                             if (!fintx.IsNull())
                             {
                                 txbatons++;
                                 myTransactions.push_back(fintx);
-                                LOGSTREAMFN("kogs", CCLOG_INFO, stream << "either stack empty=" << newbaton.kogsInStack.empty() << " or it was 1 turns each=" << newbaton.prevturncount << ", created gamefinished txid=" << fintx.GetHash().GetHex() << " winner playerid=" << gamefinished.winnerid.GetHex() << std::endl);
+                                LOGSTREAMFN("kogs", CCLOG_INFO, stream << "either stack empty=" << newbaton.kogsInStack.empty() << " or all reached max turns, total turns=" << newbaton.prevturncount << ", created gamefinished txid=" << fintx.GetHash().GetHex() << " winner playerid=" << gamefinished.winnerid.GetHex() << std::endl);
                             }
                             else
                             {
