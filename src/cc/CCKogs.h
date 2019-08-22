@@ -141,6 +141,7 @@ struct KogsGameConfig : public KogsBaseObject {
     int32_t numKogsInContainer;
     int32_t numKogsInStack;
     int32_t numKogsToAdd;
+    int32_t maxTurns;
 
     std::vector<KogsSlamRange> heightRanges;
     std::vector<KogsSlamRange> strengthRanges;
@@ -164,6 +165,7 @@ struct KogsGameConfig : public KogsBaseObject {
             READWRITE(numKogsInContainer);
             READWRITE(numKogsInStack);
             READWRITE(numKogsToAdd);
+            READWRITE(maxTurns);
             READWRITE(heightRanges);
             READWRITE(strengthRanges);
         }
@@ -184,6 +186,7 @@ struct KogsGameConfig : public KogsBaseObject {
         numKogsInContainer = 40;
         numKogsInStack = 20;
         numKogsToAdd = 10;
+        maxTurns = 3;
     }
 
     // special init function for GameObject structure created in memory for serialization 

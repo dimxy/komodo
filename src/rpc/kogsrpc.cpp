@@ -84,7 +84,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 3))
     {
         throw runtime_error(
-            "kogscreategameconfig name description '{\"KogsInContainer\":n, \"KogsInStack\":n, \"KogsToAdd\":n, \"HeightRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n },...], \"StrengthRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n},...]}'\n"
+            "kogscreategameconfig name description '{\"KogsInContainer\":n, \"KogsInStack\":n, \"KogsToAdd\":n, \"MaxTurns\":n, \"HeightRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n },...], \"StrengthRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n},...]}'\n"
             "creates a game configuration\n"
             "returns gameconfig transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
@@ -132,8 +132,15 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newgameconfig.numKogsToAdd=" << newgameconfig.numKogsToAdd << std::endl);
         if (newgameconfig.numKogsToAdd < 1 || newgameconfig.numKogsToAdd > 100)
             throw runtime_error("KogsToAdd param is incorrect (should be >= 1 and <= 100)\n");
-
     }
+
+    iter = std::find(ikeys.begin(), ikeys.end(), "MaxTurns");
+    if (iter != ikeys.end()) {
+        param = jsonParams[iter - ikeys.begin()];
+        newgameconfig.maxTurns = param.isNum() ? param.get_int() : atoi(param.get_str());
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newgameconfig.maxTurns=" << newgameconfig.maxTurns << std::endl);
+        if (newgameconfig.maxTurns < 1 || newgameconfig.maxTurns > 100)
+            throw runtime_error("MaxTurns param is incorrect (should be >= 1 and <= 100)\n");
 
     iter = std::find(ikeys.begin(), ikeys.end(), "HeightRanges");
     if (iter != ikeys.end()) {
