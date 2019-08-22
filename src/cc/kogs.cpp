@@ -314,9 +314,9 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
                 vscript_t vnftopret;
                 if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
                 {
-                    uint8_t objectId;
+                    uint8_t objectType;
                     CTransaction dummytx;
-                    if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectId))
+                    if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectType))
                         return nullptr;
 
                     // TODO: why to check here whether nft is burned?
@@ -324,7 +324,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
                     // if (IsNFTBurned(creationtxid, dummytx))
                     //    return nullptr;
 
-                    KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
+                    KogsBaseObject *obj = KogsFactory::CreateInstance(objectType);
                     if (obj == nullptr)
                         return nullptr;
 
@@ -351,12 +351,12 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
             // get LATEST TX and get data from the opret
             if (KogsEnclosure::DecodeLastOpret(tx, enc))
             {
-                uint8_t objectId;
+                uint8_t objectType;
 
-                if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectId))
+                if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectType))
                     return nullptr;
 
-                KogsBaseObject *obj = KogsFactory::CreateInstance(objectId);
+                KogsBaseObject *obj = KogsFactory::CreateInstance(objectType);
                 if (obj == nullptr)
                     return nullptr;
                 if (obj->Unmarshal(enc.vdata)) 
@@ -381,7 +381,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
     return nullptr;
 }
 
-static void ListGameObjects(uint8_t objectId, bool onlymy, std::vector<std::shared_ptr<KogsBaseObject>> &list)
+static void ListGameObjects(uint8_t objectType, bool onlymy, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
     CPubKey mypk = pubkey2pk(Mypubkey());
@@ -389,18 +389,18 @@ static void ListGameObjects(uint8_t objectId, bool onlymy, std::vector<std::shar
     struct CCcontract_info *cp, C; 
     cp = CCinit(&C, EVAL_KOGS);
 
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectId=" << (char)objectId << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectType=" << (char)objectType << std::endl);
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr marker
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
         if (it->second.satoshis == 10000) // to differenciate it from baton
         {
-            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectId and unmarshal corresponding gameobject
-            if (obj != nullptr && obj->objectType == objectId && (!onlymy || IsNFTmine(obj->creationtxid)))
+            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectType and unmarshal corresponding gameobject
+            if (obj != nullptr && obj->objectType == objectType && (!onlymy || IsNFTmine(obj->creationtxid)))
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
         }
     }
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectId=" << (char)objectId << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectType=" << (char)objectType << std::endl);
 }
 
 // loads tokenids from 1of2 address (kogsPk, containertxidPk) and adds the tokenids to container object
@@ -462,13 +462,13 @@ void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containeri
         containerids.push_back(c->creationtxid);
 }
 
-// returns all objects' creationtxid (tokenids or kog object creation txid) for the object with objectId
-void KogsCreationTxidList(uint8_t objectId, bool onlymy, std::vector<uint256> &creationtxids)
+// returns all objects' creationtxid (tokenids or kog object creation txid) for the object with objectType
+void KogsCreationTxidList(uint8_t objectType, bool onlymy, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
 
-    // get all objects with this objectId
-    ListGameObjects(objectId, onlymy, objlist);
+    // get all objects with this objectType
+    ListGameObjects(objectType, onlymy, objlist);
 
     for (auto &o : objlist)
     {
@@ -1318,7 +1318,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             return info;
         }
 
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found baton or slamparam objectId=" << (char)spobj->objectType << " txid=" << batontxid.GetHex() << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found baton or SlamParam or GameFinished objectType=" << (char)spobj->objectType << " txid=" << batontxid.GetHex() << std::endl);
 
         if (spobj->objectType == KOGSID_BATON)
         {
@@ -1326,7 +1326,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             prevTurn = nextTurn;
             nextTurn = pbaton->nextturn;
 
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "kogs in stack=" << pbaton->kogsInStack.size() << " kogs flipped=" << pbaton->kogsFlipped.size() << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "pbaton->kogsInStack=" << pbaton->kogsInStack.size() << " pbaton->kogFlipped=" << pbaton->kogsFlipped.size() << std::endl);
 
             // for the first turn prevturn is (-1)
             // and no won kogs yet:
@@ -1350,6 +1350,9 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             isFinished = true;
             prevFlipped = pGameFinished->kogsFlipped;
             kogsInStack = pGameFinished->kogsInStack;
+
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "pGameFinished->kogsInStack=" << kogsInStack.size() << " pGameFinished->kogsFlipped=" << prevFlipped.size() << std::endl);
+
             break;
         }
 
@@ -1507,7 +1510,7 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
 
     default:
         err.push_back(std::make_pair("result", "error"));
-        err.push_back(std::make_pair("error", "unsupported objectId"));
+        err.push_back(std::make_pair("error", "unsupported objectType"));
         return err;
     }
 
@@ -1650,7 +1653,7 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
 {   
     if (pGameOrParams->objectType != KOGSID_GAME && pGameOrParams->objectType != KOGSID_SLAMPARAMS)
     {
-        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "incorrect objectId=" << (char)pGameOrParams->objectType << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "incorrect objectType=" << (char)pGameOrParams->objectType << std::endl);
         return false;
     }
 
@@ -1702,7 +1705,7 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
     // TODO: check that the pubkeys are from this game's players
 
     /* should be empty if now prev baton
-    if (pGameOrParams->objectId == KOGSID_GAME)  // first turn
+    if (pGameOrParams->objectType == KOGSID_GAME)  // first turn
     {
         newbaton.kogsFlipped.clear();
         newbaton.kogsInStack.clear();
@@ -1785,7 +1788,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         // load the baton
                         // slam param txvin[0] is the baton txid
                         spBaton.reset( LoadGameObject(slamParamsTx.vin[0].prevout.hash) );
-                        // LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "p==null:" << (p==nullptr) << " p->objectId=" << (char)(p?p->objectType:' ') << std::endl);
+                        // LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "p==null:" << (p==nullptr) << " p->objectType=" << (char)(p?p->objectType:' ') << std::endl);
                         // spBaton.reset(p);
                         if (spBaton.get() && spBaton->objectType == KOGSID_BATON)
                         {
@@ -1858,9 +1861,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             KogsGameFinished gamefinished;
                             bool isError = false;
 
-                            gamefinished.kogsInStack = kogsInStack;
-                            gamefinished.kogsFlipped = kogsFlipped;
-                            gamefinished.gameid = gameid;
+                            gamefinished.kogsInStack = newbaton.kogsInStack;
+                            gamefinished.kogsFlipped = newbaton.kogsFlipped;
+                            gamefinished.gameid = newbaton.gameid;
 
                             CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, /*GetUnspendable(cp, NULL)*/gametxidPk);  // send game finished baton to unspendable addr
                             if (!fintx.IsNull())
@@ -1923,7 +1926,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't load next turn player with id=" << playerids[nextturn].GetHex() << std::endl);
             }
             else
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spSlamData.get() ? std::string("incorrect objectId=") + std::string(1, (char)spSlamData->objectType) : std::string("nullptr")) << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spSlamData.get() ? std::string("incorrect objectType=") + std::string(1, (char)spSlamData->objectType) : std::string("nullptr")) << std::endl);
         }
     }
 
