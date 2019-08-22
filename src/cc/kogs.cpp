@@ -117,7 +117,7 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
     vscript_t vnftdata = baseobj->Marshal(); // E_MARSHAL(ss << baseobj);
     if (vnftdata.empty())
     {
-        CCerror = std::string("can't marshal object with id=") + std::string(1, (char)baseobj->objectId);
+        CCerror = std::string("can't marshal object with id=") + std::string(1, (char)baseobj->objectType);
         return std::string();
     }
 
@@ -396,7 +396,7 @@ static void ListGameObjects(uint8_t objectId, bool onlymy, std::vector<std::shar
         if (it->second.satoshis == 10000) // to differenciate it from baton
         {
             struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectId and unmarshal corresponding gameobject
-            if (obj != nullptr && obj->objectId == objectId && (!onlymy || IsNFTmine(obj->creationtxid)))
+            if (obj != nullptr && obj->objectType == objectId && (!onlymy || IsNFTmine(obj->creationtxid)))
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
         }
     }
@@ -421,7 +421,7 @@ static void ListContainerTokenids(KogsContainer &container)
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
         std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(it->first.txhash) ); // load and unmarshal gameobject for this txid
-        if (spobj != nullptr && KOGS_IS_MATCH_OBJECT(spobj->objectId))
+        if (spobj != nullptr && KOGS_IS_MATCH_OBJECT(spobj->objectType))
             container.tokenids.push_back(spobj->creationtxid);
     }
 }
@@ -444,7 +444,7 @@ static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shar
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         KogsBaseObject* pobj = LoadGameObject(it->first.txhash); // load and unmarshal gameobject for this txid
-        if (pobj != nullptr && pobj->objectId == KOGSID_CONTAINER)
+        if (pobj != nullptr && pobj->objectType == KOGSID_CONTAINER)
         {
             std::shared_ptr<KogsContainer> spcontainer((KogsContainer*)pobj);
             containers.push_back(spcontainer);
@@ -508,7 +508,7 @@ std::vector<std::string> KogsCreateMatchObjectNFTs(std::vector<KogsMatchObject> 
         obj.appearanceId = borderColor * 13 * 16 + borderGraphic * 16 + borderWidth;
         obj.printId = AppearanceIdCount(obj.appearanceId);
              
-        if (obj.objectId == KOGSID_SLAMMER)
+        if (obj.objectType == KOGSID_SLAMMER)
             obj.borderId = rand() % 2 + 1; // 1..2
 
         std::string objtx = CreateGameObjectNFT(&obj);
@@ -612,7 +612,7 @@ std::string KogsCreatePlayer(KogsPlayer newplayer)
 std::string KogsStartGame(KogsGame newgame)
 {
     KogsBaseObject *baseobj = LoadGameObject(newgame.gameconfigid);
-    if (baseobj == nullptr || baseobj->objectId != KOGSID_GAMECONFIG)
+    if (baseobj == nullptr || baseobj->objectType != KOGSID_GAMECONFIG)
     {
         CCerror = "can't load game config";
         return std::string();
@@ -668,7 +668,7 @@ std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const
     CPubKey mypk = pubkey2pk(Mypubkey());
 
     std::shared_ptr<KogsBaseObject>spobj( LoadGameObject(newcontainer.playerid) );
-    if (spobj == nullptr || spobj->objectId != KOGSID_PLAYER)
+    if (spobj == nullptr || spobj->objectType != KOGSID_PLAYER)
     {
         CCerror = "could not load this playerid";
         return emptyresult;
@@ -761,7 +761,7 @@ std::string KogsDepositContainer_NotUsed(int64_t txfee, uint256 containerid, CPu
 {
     KogsBaseObject *baseobj = LoadGameObject(containerid);
     
-    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
+    if (baseobj == nullptr || baseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return std::string("");
     }
@@ -779,7 +779,7 @@ std::string KogsAddKogsToContainer_NotUsed(int64_t txfee, uint256 containerid, s
     KogsBaseObject *baseobj = LoadGameObject(containerid);
     CPubKey mypk = pubkey2pk(Mypubkey());
 
-    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
+    if (baseobj == nullptr || baseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return std::string("");
     }
@@ -802,7 +802,7 @@ std::string KogsRemoveKogsFromContainer_NotUsed(int64_t txfee, uint256 container
     KogsBaseObject *baseobj = LoadGameObject(containerid);
     CPubKey mypk = pubkey2pk(Mypubkey());
 
-    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
+    if (baseobj == nullptr || baseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return std::string("");
     }
@@ -828,13 +828,13 @@ std::string KogsRemoveKogsFromContainer_NotUsed(int64_t txfee, uint256 container
 std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 containerid)
 {
     KogsBaseObject *baseobj = LoadGameObject(gameid);
-    if (baseobj == nullptr || baseobj->objectId != KOGSID_GAME) {
+    if (baseobj == nullptr || baseobj->objectType != KOGSID_GAME) {
         CCerror = "can't load game data";
         return std::string("");
     }
 
     baseobj = LoadGameObject(containerid);
-    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
+    if (baseobj == nullptr || baseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return std::string("");
     }
@@ -882,7 +882,7 @@ static int CheckIsMyContainer(uint256 gameid, uint256 containerid)
     CPubKey mypk = pubkey2pk(Mypubkey());
 
     KogsBaseObject *baseobj = LoadGameObject(containerid);
-    if (baseobj == nullptr || baseobj->objectId != KOGSID_CONTAINER) {
+    if (baseobj == nullptr || baseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return -1;
     }
@@ -891,7 +891,7 @@ static int CheckIsMyContainer(uint256 gameid, uint256 containerid)
     if (!gameid.IsNull())
     {
         KogsBaseObject *baseobj = LoadGameObject(gameid);
-        if (baseobj == nullptr || baseobj->objectId != KOGSID_GAME) {
+        if (baseobj == nullptr || baseobj->objectType != KOGSID_GAME) {
             CCerror = "can't load container";
             return -1;
         }
@@ -1000,7 +1000,7 @@ std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 ga
 std::string KogsAddSlamParams(KogsSlamParams newslamparams)
 {
     std::shared_ptr<KogsBaseObject> spbaseobj( LoadGameObject(newslamparams.gameid) );
-    if (spbaseobj == nullptr || spbaseobj->objectId != KOGSID_GAME)
+    if (spbaseobj == nullptr || spbaseobj->objectType != KOGSID_GAME)
     {
         CCerror = "can't load game";
         return std::string();
@@ -1026,13 +1026,13 @@ std::string KogsAddSlamParams(KogsSlamParams newslamparams)
         if (it->second.satoshis == 20000) // picking batons with markers=20000
         {
             std::shared_ptr<KogsBaseObject> spbaton(LoadGameObject(it->first.txhash));
-            if (spbaton != nullptr && spbaton->objectId == KOGSID_BATON)
+            if (spbaton != nullptr && spbaton->objectType == KOGSID_BATON)
             {
                 KogsBaton* pbaton = (KogsBaton*)spbaton.get();
                 if (pbaton->nextplayerid == newslamparams.playerid)
                 {
                     std::shared_ptr<KogsBaseObject> spplayer(LoadGameObject(newslamparams.playerid));
-                    if (spplayer.get() != nullptr && spplayer->objectId == KOGSID_PLAYER)
+                    if (spplayer.get() != nullptr && spplayer->objectType == KOGSID_PLAYER)
                     {
                         KogsPlayer* pplayer = (KogsPlayer*)spbaton.get();
                         if (pplayer->encOrigPk == mypk)
@@ -1154,7 +1154,7 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
                         {
                             // load pack:
                             KogsBaseObject *obj = LoadGameObject(packid);
-                            if (obj == nullptr || obj->objectId != KOGSID_PACK)
+                            if (obj == nullptr || obj->objectType != KOGSID_PACK)
                             {
                                 CCerror = "can't load pack NFT or not a pack";
                                 return emptyresult;
@@ -1311,16 +1311,16 @@ UniValue KogsGameStatus(KogsGame &gameobj)
     while (CCgetspenttxid(batontxid, vini, height, txid, nvout) == 0)
     {
         std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(batontxid));
-        if (spobj == nullptr || (spobj->objectId != KOGSID_BATON && spobj->objectId != KOGSID_SLAMPARAMS && spobj->objectId != KOGSID_GAMEFINISHED))
+        if (spobj == nullptr || (spobj->objectType != KOGSID_BATON && spobj->objectType != KOGSID_SLAMPARAMS && spobj->objectType != KOGSID_GAMEFINISHED))
         {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load baton txid=" << batontxid.GetHex() << std::endl);
             info.push_back(std::make_pair("error", "can't load baton"));
             return info;
         }
 
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found baton or slamparam objectId=" << (char)spobj->objectId << " txid=" << batontxid.GetHex() << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found baton or slamparam objectId=" << (char)spobj->objectType << " txid=" << batontxid.GetHex() << std::endl);
 
-        if (spobj->objectId == KOGSID_BATON)
+        if (spobj->objectType == KOGSID_BATON)
         {
             KogsBaton *pbaton = (KogsBaton *)spobj.get();
             prevTurn = nextTurn;
@@ -1342,7 +1342,7 @@ UniValue KogsGameStatus(KogsGame &gameobj)
             nextPlayerid = pbaton->playerids[nextTurn];
             nvout = 0;  // baton tx's next baton vout
         }
-        else  if (spobj->objectId == KOGSID_SLAMPARAMS)
+        else  if (spobj->objectType == KOGSID_SLAMPARAMS)
             nvout = 0;  // slamparams tx's next baton vout
         else 
         { 
@@ -1400,33 +1400,33 @@ UniValue KogsGameStatus(KogsGame &gameobj)
     return info;
 }
 
-// special feature to hide object by spending its cc eval kog marker (for nfts it is in vout=2)
-UniValue KogsObjectInfo(uint256 tokenid)
+// output info about any game object
+UniValue KogsObjectInfo(uint256 gameobjectid)
 {
     UniValue info(UniValue::VOBJ), err(UniValue::VOBJ), infotokenids(UniValue::VARR);
     UniValue gameinfo(UniValue::VOBJ);
 
-       KogsBaseObject *baseobj = LoadGameObject(tokenid);
-    if (baseobj == nullptr) {
+    std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(gameobjectid) );
+    if (spobj == nullptr) {
         err.push_back(std::make_pair("result", "error"));
         err.push_back(std::make_pair("error", "can't load object"));
         return err;
     }
 
-    if (baseobj->evalcode != EVAL_KOGS || baseobj->version != KOGS_VERSION) {
+    if (spobj->evalcode != EVAL_KOGS || spobj->version != KOGS_VERSION) {
         err.push_back(std::make_pair("result", "error"));
         err.push_back(std::make_pair("error", "not a kogs object or unsupported version"));
         return err;
     }
 
     info.push_back(std::make_pair("result", "success"));
-    info.push_back(std::make_pair("objectId", std::string(1, (char)baseobj->objectId)));
-    info.push_back(std::make_pair("version", std::to_string(baseobj->version)));
-    info.push_back(std::make_pair("nameId", baseobj->nameId));
-    info.push_back(std::make_pair("descriptionId", baseobj->descriptionId));
-    info.push_back(std::make_pair("originatorPubKey", HexStr(baseobj->encOrigPk)));
+    info.push_back(std::make_pair("objectType", std::string(1, (char)spobj->objectType)));
+    info.push_back(std::make_pair("version", std::to_string(spobj->version)));
+    info.push_back(std::make_pair("nameId", spobj->nameId));
+    info.push_back(std::make_pair("descriptionId", spobj->descriptionId));
+    info.push_back(std::make_pair("originatorPubKey", HexStr(spobj->encOrigPk)));
 
-    switch (baseobj->objectId)
+    switch (spobj->objectType)
     {
         KogsMatchObject *matchobj;
         KogsPack *packobj;
@@ -1437,22 +1437,22 @@ UniValue KogsObjectInfo(uint256 tokenid)
 
     case KOGSID_KOG:
     case KOGSID_SLAMMER:
-        matchobj = (KogsMatchObject*)baseobj;
+        matchobj = (KogsMatchObject*)spobj.get();
         info.push_back(std::make_pair("imageId", matchobj->imageId));
         info.push_back(std::make_pair("setId", matchobj->setId));
         info.push_back(std::make_pair("subsetId", matchobj->subsetId));
         info.push_back(std::make_pair("printId", std::to_string(matchobj->printId)));
         info.push_back(std::make_pair("appearanceId", std::to_string(matchobj->appearanceId)));
-        if (baseobj->objectId == KOGSID_SLAMMER)
+        if (spobj->objectType == KOGSID_SLAMMER)
             info.push_back(std::make_pair("borderId", std::to_string(matchobj->borderId)));
         break;
 
     case KOGSID_PACK:
-        packobj = (KogsPack*)baseobj;
+        packobj = (KogsPack*)spobj.get();
         break;
 
     case KOGSID_CONTAINER:
-        containerobj = (KogsContainer*)baseobj;
+        containerobj = (KogsContainer*)spobj.get();
         ListContainerTokenids(*containerobj);
         for (auto t : containerobj->tokenids)
         {
@@ -1462,18 +1462,21 @@ UniValue KogsObjectInfo(uint256 tokenid)
         break;
 
     case KOGSID_GAME:
-        gameobj = (KogsGame*)baseobj;
+        gameobj = (KogsGame*)spobj.get();
         gameinfo = KogsGameStatus(*gameobj);
         info.push_back(std::make_pair("gameinfo", gameinfo));
         break;
 
     case KOGSID_GAMECONFIG:
-        gameconfigobj = (KogsGameConfig*)baseobj;
+        gameconfigobj = (KogsGameConfig*)spobj.get();
+        info.push_back(std::make_pair("KogsInStack", gameconfigobj->numKogsInStack));
         info.push_back(std::make_pair("KogsInContainer", gameconfigobj->numKogsInContainer));
+        info.push_back(std::make_pair("KogsToAdd", gameconfigobj->numKogsToAdd));
+        info.push_back(std::make_pair("MaxTurns", gameconfigobj->maxTurns));
         break;
 
     case KOGSID_PLAYER:
-        playerobj = (KogsPlayer*)baseobj;
+        playerobj = (KogsPlayer*)spobj.get();
         info.push_back(std::make_pair("originatorPubKey", HexStr(playerobj->encOrigPk)));
         break;
 
@@ -1620,15 +1623,15 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
 
 static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton, std::vector<std::shared_ptr<KogsContainer>> &containers)
 {   
-    if (pGameOrParams->objectId != KOGSID_GAME && pGameOrParams->objectId != KOGSID_SLAMPARAMS)
+    if (pGameOrParams->objectType != KOGSID_GAME && pGameOrParams->objectType != KOGSID_SLAMPARAMS)
     {
-        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "incorrect objectId=" << (char)pGameOrParams->objectId << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "incorrect objectId=" << (char)pGameOrParams->objectType << std::endl);
         return false;
     }
 
     uint256 gameid;
     std::vector<uint256> playerids;
-    if (pGameOrParams->objectId == KOGSID_GAME) {
+    if (pGameOrParams->objectType == KOGSID_GAME) {
         gameid = pGameOrParams->creationtxid;
         playerids = ((KogsGame *)pGameOrParams)->playerids;
     }
@@ -1636,7 +1639,7 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
     {
         if (prevbaton == nullptr) // check for internal logic error
         {
-            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "prevbaton is null" << (char)pGameOrParams->objectId << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "prevbaton is null" << (char)pGameOrParams->objectType << std::endl);
             return false;
         }
         gameid = ((KogsSlamParams*)pGameOrParams)->gameid;
@@ -1680,7 +1683,7 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
         newbaton.kogsInStack.clear();
     }*/
 
-    if (pGameOrParams->objectId == KOGSID_SLAMPARAMS)  // process slam data 
+    if (pGameOrParams->objectType == KOGSID_SLAMPARAMS)  // process slam data 
     {
         KogsSlamParams* pslamparams = (KogsSlamParams*)pGameOrParams;
         FlipKogs(gameconfig, *pslamparams, newbaton);
@@ -1718,7 +1721,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
             std::shared_ptr<KogsBaseObject> spSlamData(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
             std::shared_ptr<KogsBaseObject> spBaton;
 
-            if (spSlamData.get() != nullptr && (spSlamData->objectId == KOGSID_GAME || spSlamData->objectId == KOGSID_SLAMPARAMS))
+            if (spSlamData.get() != nullptr && (spSlamData->objectType == KOGSID_GAME || spSlamData->objectType == KOGSID_SLAMPARAMS))
             {
                 int32_t nextturn;
                 int32_t turncount = 0;
@@ -1730,7 +1733,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 uint256 gameid = zeroid;
                 uint256 gameconfigid = zeroid;
 
-                if (spSlamData->objectId == KOGSID_GAME)  // first turn
+                if (spSlamData->objectType == KOGSID_GAME)  // first turn
                 {
                     KogsGame *pgame = (KogsGame *)spSlamData.get();
                     if (pgame->playerids.size() < 2)
@@ -1757,9 +1760,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         // load the baton
                         // slam param txvin[0] is the baton txid
                         KogsBaseObject *p = LoadGameObject(slamParamsTx.vin[0].prevout.hash);
-                        LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "p==null:" << (p==nullptr) << " p->objectId=" << (char)(p?p->objectId:' ') << std::endl);
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "p==null:" << (p==nullptr) << " p->objectId=" << (char)(p?p->objectType:' ') << std::endl);
                         spBaton.reset(p);
-                        if (spBaton.get() && spBaton->objectId == KOGSID_BATON)
+                        if (spBaton.get() && spBaton->objectType == KOGSID_BATON)
                         {
                             KogsBaton *pbaton = (KogsBaton *)spBaton.get();
                             playerids = pbaton->playerids;
@@ -1786,7 +1789,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 }
 
                 std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerids[nextturn]) );
-                if (spPlayer.get() != nullptr && spPlayer->objectId == KOGSID_PLAYER)
+                if (spPlayer.get() != nullptr && spPlayer->objectType == KOGSID_PLAYER)
                 {
                     KogsPlayer *pplayer = (KogsPlayer*)spPlayer.get();
                     std::vector<std::shared_ptr<KogsContainer>> containers;
@@ -1804,7 +1807,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     newbaton.gameconfigid = gameconfigid;
 
                     std::shared_ptr<KogsBaseObject> spGameConfig(LoadGameObject(gameconfigid));
-                    if (spGameConfig->objectId != KOGSID_GAMECONFIG)
+                    if (spGameConfig->objectType != KOGSID_GAMECONFIG)
                     {
                         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "skipped baton for gameid=" << gameid.GetHex() << " can't load gameconfig with id=" << gameconfigid.GetHex() << std::endl);
                         continue;
@@ -1891,7 +1894,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't load next turn player with id=" << playerids[nextturn].GetHex() << std::endl);
             }
             else
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spSlamData.get() ? std::string("incorrect objectId=") + std::string(1, (char)spSlamData->objectId) : std::string("nullptr")) << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spSlamData.get() ? std::string("incorrect objectId=") + std::string(1, (char)spSlamData->objectType) : std::string("nullptr")) << std::endl);
         }
     }
 
