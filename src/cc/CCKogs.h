@@ -35,7 +35,7 @@ const uint8_t KOGSID_GAMEFINISHED = 'F';
 
 const uint8_t KOGS_VERSION = 1;
 
-#define KOGS_IS_MATCH_OBJECT(objectId) (objectId == KOGSID_SLAMMER || objectId == KOGSID_KOG)
+#define KOGS_IS_MATCH_OBJECT(objectType) (objectType == KOGSID_SLAMMER || objectType == KOGSID_KOG)
 
 #define TOKEN_MARKER_VOUT           0   // token global address basic cc marker vout num
 #define TOKEN_KOGS_MARKER_VOUT      2   // additional kogs global address marker vout num for tokens
@@ -54,12 +54,12 @@ struct KogsBaseObject {
     //CTransaction latesttx;
     //CTxOut vout; // vout where the object is currently sent to
 
-    // check basic data in opret (evalcode & version), return objectId
-    static bool DecodeObjectHeader(vscript_t vopret, uint8_t &objectId) {
+    // check basic data in opret (evalcode & version), return objectType
+    static bool DecodeObjectHeader(vscript_t vopret, uint8_t &objectType) {
         uint8_t evalcode = (uint8_t)0;
         uint8_t version = (uint8_t)0;
 
-        E_UNMARSHAL(vopret, ss >> evalcode; ss >> objectId; ss >> version);
+        E_UNMARSHAL(vopret, ss >> evalcode; ss >> objectType; ss >> version);
         if (evalcode != EVAL_KOGS || version != KOGS_VERSION) {
             LOGSTREAM("kogs", CCLOG_INFO, stream << "incorrect game object evalcode or version" << std::endl);
             return false;
@@ -69,9 +69,9 @@ struct KogsBaseObject {
     }
 
     // if object could or could not be transferred to another pubkey or to self pk
-    static bool IsSpendable(uint8_t objectId)
+    static bool IsSpendable(uint8_t objectType)
     {
-        switch (objectId)
+        switch (objectType)
         {
         case KOGSID_BATON:          // every baton transfer is a new baton
         case KOGSID_SLAMPARAMS:     // slamparams could not be transferred
@@ -171,7 +171,7 @@ struct KogsGameConfig : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not gameconfig objectId=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not gameconfig objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -220,7 +220,7 @@ struct KogsPlayer : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not player objectId=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not player objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -268,7 +268,7 @@ struct KogsGame : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not game objectId=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not game objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -328,7 +328,7 @@ struct KogsMatchObject : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsMatchObject" << " " << "incorrect evalcode=" << (int)evalcode << " or not a match object NFT objectId=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsMatchObject" << " " << "incorrect evalcode=" << (int)evalcode << " or not a match object NFT objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -340,7 +340,7 @@ struct KogsMatchObject : public KogsBaseObject {
     }
 
     KogsMatchObject(uint8_t _objectId) : KogsBaseObject() { objectType = _objectId; }
-    KogsMatchObject() = delete;  // remove default, alwayd require objectId
+    KogsMatchObject() = delete;  // remove default, alwayd require objectType
 
     // special init function for GameObject structure created in memory for serialization 
     // (for reading from HDD it should not be called, these values should be read from HDD and checked)
@@ -376,7 +376,7 @@ struct KogsPack : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsPack" << " " "incorrect evalcode=" << (int)evalcode << " or not a pack objectId=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsPack" << " " "incorrect evalcode=" << (int)evalcode << " or not a pack objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -548,17 +548,17 @@ struct KogsEnclosure {
                     enc.creationtxid = tx.GetHash();
 
                 uint8_t evalcode = (uint8_t)0;
-                uint8_t objectId = (uint8_t)0;
+                uint8_t objectType = (uint8_t)0;
                 uint8_t version = (uint8_t)0;
 
-                E_UNMARSHAL(enc.vdata, ss >> evalcode; ss >> objectId; ss >> version);
+                E_UNMARSHAL(enc.vdata, ss >> evalcode; ss >> objectType; ss >> version);
                 if (evalcode != EVAL_KOGS || version != KOGS_VERSION)
                 {
                     LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "not kog evalcode or incorrect version for txid=" << tx.GetHash().GetHex() << std::endl);
                     return false;
                 }
 
-                if (KogsBaseObject::IsSpendable(objectId))
+                if (KogsBaseObject::IsSpendable(objectType))
                 {
                     // go for the opret data from the last/unspent tx 't'
                     uint256 txid = enc.creationtxid;
@@ -635,7 +635,7 @@ struct KogsContainer : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsContainer" << " " << "incorrect evalcode=" << (int)evalcode << " or not a container objectId=" << (int)objectType  << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsContainer" << " " << "incorrect evalcode=" << (int)evalcode << " or not a container objectType=" << (int)objectType  << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -696,7 +696,7 @@ struct KogsBaton : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsBaton" << " " << "incorrect evalcode=" << (int)evalcode << " or not a baton objectId=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsBaton" << " " << "incorrect evalcode=" << (int)evalcode << " or not a baton objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -745,7 +745,7 @@ struct KogsSlamParams : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsSlamParams" << " " << "incorrect evalcode=" << (int)evalcode << " or not a slam results objectId=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsSlamParams" << " " << "incorrect evalcode=" << (int)evalcode << " or not a slam results objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -797,7 +797,7 @@ struct KogsGameFinished : public KogsBaseObject {
         }
         else
         {
-            LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsGameFinished" << " " << "incorrect evalcode=" << (int)evalcode << " or not a gamefinished objectId=" << (int)objectType << " or unsupported version=" << (int)version << std::endl);
+            LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsGameFinished" << " " << "incorrect evalcode=" << (int)evalcode << " or not a gamefinished objectType=" << (int)objectType << " or unsupported version=" << (int)version << std::endl);
         }
     }
 
@@ -818,7 +818,7 @@ struct KogsGameFinished : public KogsBaseObject {
 class KogsFactory
 {
 public:
-    static KogsBaseObject *CreateInstance(uint8_t objectId)
+    static KogsBaseObject *CreateInstance(uint8_t objectType)
     {
         struct KogsMatchObject *o;
         struct KogsPack *p;
@@ -830,11 +830,11 @@ public:
         struct KogsSlamParams *a;
         struct KogsGameFinished *e;
 
-        switch (objectId)
+        switch (objectType)
         {
         case KOGSID_KOG:
         case KOGSID_SLAMMER:
-            o = new KogsMatchObject(objectId);
+            o = new KogsMatchObject(objectType);
             return (KogsBaseObject*)o;
 
         case KOGSID_PACK:
@@ -870,7 +870,7 @@ public:
             return (KogsBaseObject*)e;
 
         default:
-            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "requested to create unsupported objectId=" << (int)objectId << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "requested to create unsupported objectType=" << (int)objectType << std::endl);
         }
         return nullptr;
     }
@@ -891,7 +891,7 @@ void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containeri
 std::string KogsAddSlamParams(KogsSlamParams newslamparams);
 std::string KogsRemoveObject(uint256 txid, int32_t nvout);
 std::string KogsBurnNFT(uint256 tokenid);
-void KogsCreationTxidList(uint8_t objectId, bool onlymy, std::vector<uint256> &tokenids);
+void KogsCreationTxidList(uint8_t objectType, bool onlymy, std::vector<uint256> &tokenids);
 UniValue KogsObjectInfo(uint256 gameobjectid);
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
