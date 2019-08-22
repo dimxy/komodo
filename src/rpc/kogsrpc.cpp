@@ -145,7 +145,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
 
     iter = std::find(ikeys.begin(), ikeys.end(), "HeightRanges");
     if (iter != ikeys.end()) {
-        UniValue jsonArray = jsonParams[iter - ikeys.begin()].get_array();
+        UniValue jsonArray = jsonParams[iter - ikeys.begin()];
         if (!jsonArray.isArray())
             throw runtime_error("HeightRanges parameter is not an array\n");
         if (jsonArray.size() == 0)
@@ -190,7 +190,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
 
     iter = std::find(ikeys.begin(), ikeys.end(), "StrengthRanges");
     if (iter != ikeys.end()) {
-        UniValue jsonArray = jsonParams[iter - ikeys.begin()].get_array();
+        UniValue jsonArray = jsonParams[iter - ikeys.begin()];
         if (!jsonArray.isArray())
             throw runtime_error("StrengthRanges parameter is not an array\n");
         if (jsonArray.size() == 0)
@@ -367,7 +367,7 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
 
     iter = std::find(paramkeys.begin(), paramkeys.end(), isKogs ? "kogs" : "slammers");
     if (iter != paramkeys.end()) {
-        UniValue jsonArray = jsonParams[iter - paramkeys.begin()].get_array();
+        UniValue jsonArray = jsonParams[iter - paramkeys.begin()];
         if (!jsonArray.isArray())
             throw runtime_error("'kogs' or 'slammers' parameter value is not an array\n");
         if (jsonArray.size() == 0)
@@ -750,7 +750,7 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
     iter = std::find(paramkeys.begin(), paramkeys.end(), "tokenids");
     if (iter != paramkeys.end()) {
         
-        UniValue jsonArray = jsonParams[iter - paramkeys.begin()].get_array();
+        UniValue jsonArray = jsonParams[iter - paramkeys.begin()];
         if (!jsonArray.isArray())
             throw runtime_error("tokenids element is not an array\n");
         if (jsonArray.size() == 0)
