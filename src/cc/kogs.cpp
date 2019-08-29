@@ -530,7 +530,9 @@ std::vector<std::string> KogsCreateMatchObjectNFTs(std::vector<KogsMatchObject> 
 // pack use case:
 // when pack is purchased, the pack's NFT is sent to the purchaser
 // then the purchaser burns the pack NFT and this means he unseals it.
-// after this the system user sends NFTs inside the pack to the puchaser.
+// after this the system user sends the NFTs from the pack to the puchaser.
+// NOTE: for packs we cannot use more robust algorithm of sending kogs on the pack's 1of2 address (like in containers) 
+// because in such a case the pack content would be immediately available for everyone
 std::string KogsCreatePack(KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
 {
     const std::string emptyresult;
@@ -1122,6 +1124,8 @@ static bool IsGameObjectDeleted(uint256 tokenid)
 }
 
 // create txns to unseal pack and send NFTs to pack owner address
+// this is the really actual case when we need to create many transaction in one rpc:
+// when a pack has been unpacked then all the NFTs in it should be sent to the purchaser in several token transfer txns
 std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptkey, vuint8_t iv)
 {
     const std::vector<std::string> emptyresult;
