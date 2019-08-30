@@ -437,9 +437,10 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
             break;
         }
         //RelayTransaction(matchobjtx);
-        UniValue txparam(UniValue::VOBJ);
+        UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
         txparam.setStr(hextxns[i]);
-        sendrawtransaction(txparam, false);
+        rpcparams.push_back(txparam);
+        sendrawtransaction(rpcparams, false);
         hextxid = matchobjtx.GetHash().GetHex();
         //resarray.push_back(hextxns[i]);
         resarray.push_back(hextxid);
