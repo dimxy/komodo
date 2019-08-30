@@ -1009,7 +1009,7 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
                 if ( i != n )
                     continue;
             }
-            if ( myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
+            if (lookInMempool || myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
             {
                 up = &utxos[n++];
                 up->txid = txid;
