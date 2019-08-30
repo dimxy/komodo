@@ -426,32 +426,7 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
     UniValue resarray(UniValue::VARR);
     for (int i = 0; i < hextxns.size(); i++)
     {
-        ///resarray.push_back(hextxns[i]);
-        std::string hextxid;
-
-        // unmarshal tx to get it txid;
-        vuint8_t vtx = ParseHex(hextxns[i]);
-        CTransaction matchobjtx;
-        if (!E_UNMARSHAL(vtx, ss >> matchobjtx)) {
-            resarray.push_back(std::string("error: can't unmarshal tx=") + hextxns[i]);
-            continue;
-        }
-        //RelayTransaction(matchobjtx);
-        UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
-        txparam.setStr(hextxns[i]);
-        rpcparams.push_back(txparam);
-        try {
-            sendrawtransaction(rpcparams, false);  // NOTE: throws error!
-        }
-        catch (UniValue &error)
-        {
-            resarray.push_back(std::string("error: can't send tx=") + hextxns[i] + " " + error.getValStr());
-            continue;
-        }
-        
-        hextxid = matchobjtx.GetHash().GetHex();
-        //resarray.push_back(hextxns[i]);
-        resarray.push_back(hextxid);
+        resarray.push_back(hextxns[i]);
     }
 
     result.push_back(std::make_pair("result", "success"));
