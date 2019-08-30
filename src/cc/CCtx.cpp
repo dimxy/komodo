@@ -860,7 +860,7 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
                     if ( i != n )
                         continue;
                 }
-                if ( lookInMempool || myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
+                if ( myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
                 {
                     up = &utxos[n++];
                     up->txid = txid;
