@@ -876,9 +876,8 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
     mypk = pubkey2pk(Mypubkey());
 
     CAmount totalInputs;
-	if ((totalInputs = AddNormalinputs(mtx, mypk, tokensupply + txfeeCount * txfee, 64)) > 0)
+	if ((totalInputs = AddNormalinputs(mtx, mypk, tokensupply + txfeeCount * txfee, 64, true)) > 0)
 	{
-        
         int64_t mypkInputs = TotalPubkeyNormalInputs(mtx, mypk);  
         if (mypkInputs < tokensupply) {     // check that the token amount is really issued with mypk (because in the wallet there may be some other privkeys)
             CCerror = "some inputs signed not with mypubkey (-pubkey=pk)";
