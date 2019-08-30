@@ -714,7 +714,7 @@ int32_t CC_vinselect(int32_t *aboveip,int64_t *abovep,int32_t *belowip,int64_t *
     else return(belowi);
 }
 
-int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs)
+int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs, bool lookInMempool)
 {
     int32_t abovei,belowi,ind, i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; uint256 hashBlock; 
     std::vector<COutput> vecOutputs; 
@@ -767,7 +767,7 @@ int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int3
                     if ( i != n )
                         continue;
                 }
-                if ( myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
+                if ( lookInMempool || myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
                 {
                     up = &utxos[n++];
                     up->txid = txid;
