@@ -97,8 +97,8 @@ bool AddInMemoryTransaction(const CTransaction &tx)
 {
     uint256 txid = tx.GetHash();
     //utxosInMem.push_back(CC_utxo{ txid, tx.vout[nvout].nValue, nvout });
-    txnsInMem[txid] = tx;
-    std::cerr << __func__ << " transaction added to thread memory" << std::endl;
+    // txnsInMem[txid] = tx;
+    // std::cerr << __func__ << " transaction added to thread memory" << std::endl;
     return true;
 }
 
