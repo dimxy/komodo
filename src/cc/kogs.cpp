@@ -17,6 +17,8 @@
 #include <algorithm>    // shuffle
 #include <random>       // default_random_engine
 
+#include <rpc/server.h>
+
 #ifndef KOMODO_ADDRESS_BUFSIZE
 #define KOMODO_ADDRESS_BUFSIZE 64
 #endif
@@ -121,7 +123,32 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
         return std::string();
     }
 
-    return CreateTokenExt(0, 1, baseobj->nameId, baseobj->descriptionId, vnftdata, EVAL_KOGS, true);
+    std::string hextx = CreateTokenExt(0, 1, baseobj->nameId, baseobj->descriptionId, vnftdata, EVAL_KOGS, true);
+
+    if (hextx.empty())
+        return std::string("error:") + CCerror;
+
+    // send the tx:
+    // unmarshal tx to get it txid;
+    vuint8_t vtx = ParseHex(hextx);
+    CTransaction matchobjtx;
+    if (!E_UNMARSHAL(vtx, ss >> matchobjtx)) {
+        return std::string("error: can't unmarshal tx");
+    }
+    //RelayTransaction(matchobjtx);
+    UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
+    txparam.setStr(hextx);
+    rpcparams.push_back(txparam);
+    try {
+        sendrawtransaction(rpcparams, false);  // NOTE: throws error!
+    }
+    catch (UniValue &error)
+    {
+        return std::string("error: can't send tx: ") + error.getValStr();
+    }
+
+    std::string hextxid = matchobjtx.GetHash().GetHex();
+    return hextxid;
 }
 
 // create enclosure tx (similar but not exactly like NFT as enclosure could be changed) with game object inside
