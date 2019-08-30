@@ -436,7 +436,10 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
             CCerror = "can't unmarshal match object tx";
             break;
         }
-        RelayTransaction(matchobjtx);
+        //RelayTransaction(matchobjtx);
+        UniValue txparam(UniValue::VOBJ);
+        txparam.setStr(hextxns[i]);
+        sendrawtransaction(txparam, false);
         hextxid = matchobjtx.GetHash().GetHex();
         //resarray.push_back(hextxns[i]);
         resarray.push_back(hextxid);
