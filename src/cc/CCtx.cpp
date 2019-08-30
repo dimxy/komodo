@@ -863,7 +863,7 @@ int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int3
     return(0);
 }
 
-int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinputs)
+int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinputs, bool lookInMempool)
 {
     int32_t abovei,belowi,ind,vout,i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; char coinaddr[64]; uint256 txid,hashBlock; CTransaction tx; struct CC_utxo *utxos,*up;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
@@ -908,7 +908,7 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinput
                 if ( i != n )
                     continue;
             }
-            if ( myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
+            if (lookInMempool || myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
             {
                 up = &utxos[n++];
                 up->txid = txid;
