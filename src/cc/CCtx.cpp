@@ -155,6 +155,7 @@ static void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo>
     }
 }
 
+/*
 // get utxos from the mempool sent to 'destaddr' param and adds them to the standard unspentOutputs
 // params:
 // unspentOutputs outputs array
@@ -201,6 +202,7 @@ static void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAd
         }
     }
 }
+*/
 
 /*
  FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and the opreturn.
@@ -1026,13 +1028,11 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
     Getscriptaddress(coinaddr,CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
     SetCCunspents(unspentOutputs,coinaddr,false);
 
-    if (lookInMempool)
+    /*if (lookInMempool)
     {
         // add outputs also from mempool
-        std::cerr << __func__ << " before SetCCunspentsInMempool unspentOutputs=" << unspentOutputs.size() << std::endl;
         SetCCunspentsInMempool(unspentOutputs, coinaddr, false);
-        std::cerr << __func__ << " after SetCCunspentsInMempool unspentOutputs=" << unspentOutputs.size() << std::endl;
-    }
+    }*/
 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
@@ -1064,7 +1064,7 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
                 if ( i != n )
                     continue;
             }
-            if (lookInMempool || myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
+            if (/*lookInMempool ||*/ myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
             {
                 up = &utxos[n++];
                 up->txid = txid;
