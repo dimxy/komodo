@@ -160,7 +160,7 @@ static void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo>
 // unspentOutputs outputs array
 // destaddr uxtos are selected if sent to this address
 // isCC selects only cc utxos (or vice versa)
-static void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs, char *destaddr, bool isCC)
+static void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC)
 {
     for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
         mi != mempool.mapTx.end(); ++mi)
@@ -928,7 +928,9 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinput
     if (lookInMempool)
     {
         // add outputs also from mempool
+        std::cerr << __func__ << " before SetCCunspentsInMempool unspentOutputs=" << unspentOutputs.size() << std::endl;
         SetCCunspentsInMempool(unspentOutputs, coinaddr, false);
+        std::cerr << __func__ << " after SetCCunspentsInMempool unspentOutputs=" << unspentOutputs.size() << std::endl;
     }
 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
