@@ -142,7 +142,11 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
     try {
         sendrawtransaction(rpcparams, false);  // NOTE: throws error!
     }
-    catch (UniValue &error)
+    catch (std::runtime_error error)
+    {
+        return std::string("error: bad parameters: ") + error.what();
+    }
+    catch (UniValue error)
     {
         return std::string("error: can't send tx: ") + error.getValStr();
     }
