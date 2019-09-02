@@ -128,6 +128,7 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
     if (hextx.empty())
         return std::string("error:") + CCerror;
 
+    /* case with sending tx just inside the rpc
     // send the tx:
     // unmarshal tx to get it txid;
     vuint8_t vtx = ParseHex(hextx);
@@ -135,6 +136,7 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
     if (!E_UNMARSHAL(vtx, ss >> matchobjtx)) {
         return std::string("error: can't unmarshal tx");
     }
+
     //RelayTransaction(matchobjtx);
     UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
     txparam.setStr(hextx);
@@ -153,6 +155,9 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
 
     std::string hextxid = matchobjtx.GetHash().GetHex();
     return hextxid;
+    */
+
+    return hextx;
 }
 
 // create enclosure tx (similar but not exactly like NFT as enclosure could be changed) with game object inside
@@ -1893,36 +1898,32 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             CPubKey kogsPk = GetUnspendable(cp, kogsPriv);
                             char txidaddr[KOMODO_ADDRESS_BUFSIZE];
                             CPubKey gametxidPk = CCtxidaddr(txidaddr, newbaton.gameid);
-                            KogsGameFinished gamefinished;
+                            
+                            char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
+                            GetTokensCCaddress1of2(cp, tokensrcaddr, kogsPk, gametxidPk);
+
+                            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "either stack empty=" << newbaton.kogsInStack.empty() << " or all reached max turns, total turns=" << newbaton.prevturncount << ", starting to finish game=" << newbaton.gameid.GetHex() << std::endl);
+
+                            //add probe condition to sign vintx 1of2 utxo:
+                            CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
+
                             bool isError = false;
 
-                            gamefinished.kogsInStack = newbaton.kogsInStack;
-                            gamefinished.kogsFlipped = newbaton.kogsFlipped;
-                            gamefinished.gameid = newbaton.gameid;
+                            // TODO: if 'play for keeps' mode then try to create tokens back tx
 
-                            CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, /*GetUnspendable(cp, NULL)*/gametxidPk);  // send game finished baton to unspendable addr
-                            if (!fintx.IsNull())
+                            // try to create send back containers (this can be repeated many times on each create-new-block if not all the created transfer tx will fit into the block)
+                            int testcount = 0;
+                            for (auto &c : containers)
                             {
-                                txbatons++;
-                                myTransactions.push_back(fintx);
-                                LOGSTREAMFN("kogs", CCLOG_INFO, stream << "either stack empty=" << newbaton.kogsInStack.empty() << " or all reached max turns, total turns=" << newbaton.prevturncount << ", created gamefinished txid=" << fintx.GetHash().GetHex() << " winner playerid=" << gamefinished.winnerid.GetHex() << std::endl);
-                            }
-                            else
-                            {
-                                isError = true;
-                            }
+                                if (testcount > 0)  // test create only one tx on each block creation
+                                    break;
 
-                            if (!isError)
-                            {
-                                char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-                                GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
-
-                                //add probe condition to sign vintx 1of2 utxo:
-                                CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
-
-                                for (auto &c : containers)
+                                CMutableTransaction mtx;
+                                struct CCcontract_info *cp, C;
+                                cp = CCinit(&C, EVAL_TOKENS);
+                                if (AddTokenCCInputs(cp, mtx, tokensrcaddr, c->creationtxid, 1, 5) > 0)  // check if container not transferred yet
                                 {
-                                    std::string transferHexTx = TokenTransferExt(0, c->creationtxid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) },
+                                    std::string transferHexTx = TokenTransferExt(0, c->creationtxid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) },
                                         std::vector<CPubKey>{ c->encOrigPk }, 1); // amount = 1 always for NFTs
                                     vuint8_t vtx = ParseHex(transferHexTx); // unmarshal tx to get it txid;
                                     CTransaction transfertx;
@@ -1930,18 +1931,39 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                         myTransactions.push_back(transfertx);
                                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << transferHexTx << " txid=" << transfertx.GetHash().GetHex() << std::endl);
                                         txtransfers++;
+                                        testcount++;
                                     }
                                     else
                                     {
-                                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
+                                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx for containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
                                         isError = true;
-                                        break;
+                                        //break;
                                     }
                                 }
-                                cc_free(probeCond);
                             }
-                            if (isError)
-                                myTransactions.clear();  // rollback
+                            cc_free(probeCond);
+                            
+                            if (myTransactions.empty())  // nothing to send back - create finish baton
+                            {
+                                KogsGameFinished gamefinished;
+                             
+                                gamefinished.kogsInStack = newbaton.kogsInStack;
+                                gamefinished.kogsFlipped = newbaton.kogsFlipped;
+                                gamefinished.gameid = newbaton.gameid;
+                                gamefinished.isError = isError;
+
+                                CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, /*GetUnspendable(cp, NULL)*/gametxidPk);  // send game finished baton to unspendable addr
+                                if (!fintx.IsNull())
+                                {
+                                    txbatons++;
+                                    myTransactions.push_back(fintx);
+                                    LOGSTREAMFN("kogs", CCLOG_INFO, stream << "all final transfers done, created gamefinished txid=" << fintx.GetHash().GetHex() << " winner playerid=" << gamefinished.winnerid.GetHex() << std::endl);
+                                }
+                                else
+                                {
+                                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create finish baton for game=" << newbaton.gameid.GetHex() << " CCerror=" << CCerror << std::endl);
+                                }
+                            }
                         }
                         else
                         {
