@@ -85,8 +85,6 @@ bool isUtxoLocked(uint256 txid, int32_t nvout)
 void LockUtxo(uint256 txid, int32_t nvout)
 {
     if (!isUtxoLocked(txid, nvout)) {
-        //LOCK(utxosLocked.cs);
-
         utxosLocked.insert(std::make_pair(txid, nvout));
         std::cerr << __func__ << " utxo locked" << std::endl;
     }
@@ -96,9 +94,8 @@ void LockUtxo(uint256 txid, int32_t nvout)
 bool AddInMemoryTransaction(const CTransaction &tx)
 {
     uint256 txid = tx.GetHash();
-    //utxosInMem.push_back(CC_utxo{ txid, tx.vout[nvout].nValue, nvout });
-    // txnsInMem[txid] = tx;
-    // std::cerr << __func__ << " transaction added to thread memory" << std::endl;
+    txnsInMem[txid] = tx;
+    std::cerr << __func__ << " transaction added to thread memory" << std::endl;
     return true;
 }
 
