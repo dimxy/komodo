@@ -774,6 +774,7 @@ struct KogsGameFinished : public KogsBaseObject {
     uint256 winnerid;
     std::vector<uint256> kogsInStack;
     std::vector<std::pair<uint256, uint256>> kogsFlipped;
+    uint32_t isError;
 
     ADD_SERIALIZE_METHODS;
 
@@ -794,6 +795,7 @@ struct KogsGameFinished : public KogsBaseObject {
             READWRITE(winnerid);
             READWRITE(kogsInStack);
             READWRITE(kogsFlipped);
+            READWRITE(isError);
         }
         else
         {
@@ -810,6 +812,7 @@ struct KogsGameFinished : public KogsBaseObject {
 
     KogsGameFinished() : KogsBaseObject() {
         objectType = KOGSID_GAMEFINISHED;
+        isError = 0;
     }
 };
 

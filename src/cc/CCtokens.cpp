@@ -902,22 +902,6 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
             mtx.vout.push_back(MakeCC1vout(additionalMarkerEvalCode, txfee, GetUnspendable(cp2, NULL)));
         }
 
-        /*
-        int32_t voutChange = -1;
-        if (reserveChange)
-        {
-            // make normal change and add its utxo to in-mem utxos for usage in other mtx objects:
-            CAmount totalOutputs = 0;
-            for (auto vout : mtx.vout) totalOutputs += vout.nValue;
-            if (totalInputs > totalOutputs + 2 * txfee)
-            {
-                CAmount change = totalInputs - (totalOutputs + txfee);
-                mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
-                voutChange = mtx.vout.size() - 1;
-                
-            }
-        }*/
-
 		std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', Mypubkey(), name, description, nonfungibleData));
         if (hextx.empty()) {
             CCerror = "couldnt finalize token tx";
@@ -1032,6 +1016,8 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 			std::string hextx = FinalizeCCTx(mask, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutTokenPubkeys, std::make_pair((uint8_t)0, vscript_t()))); 
             if (hextx.empty())
                 CCerror = "could not finalize tx";
+            else
+                AddInMemoryTransaction(mtx);  // to be able to spend mtx change
             return hextx;
                                                                                                                                                    
 		}
