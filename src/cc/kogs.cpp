@@ -1501,6 +1501,7 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
 
     case KOGSID_CONTAINER:
         containerobj = (KogsContainer*)spobj.get();
+        info.push_back(std::make_pair("playerId", containerobj->playerid));
         ListContainerTokenids(*containerobj);
         for (auto t : containerobj->tokenids)
         {
