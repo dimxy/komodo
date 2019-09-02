@@ -155,6 +155,52 @@ static void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo>
     }
 }
 
+// get utxos from the mempool sent to 'destaddr' param and adds them to the standard unspentOutputs
+// params:
+// unspentOutputs outputs array
+// destaddr uxtos are selected if sent to this address
+// isCC selects only cc utxos (or vice versa)
+static void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs, char *destaddr, bool isCC)
+{
+    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
+        mi != mempool.mapTx.end(); ++mi)
+    {
+        const CTransaction& memtx = mi->GetTx();
+        for (int32_t i = 0; i < memtx.vout.size(); i++)
+        {
+            if (isCC && memtx.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !memtx.vout[i].scriptPubKey.IsPayToCryptoCondition())
+            {
+                char voutaddr[64];
+                Getscriptaddress(voutaddr, memtx.vout[i].scriptPubKey);
+                if (strcmp(voutaddr, destaddr) == 0)
+                {
+                    uint160 hashBytes;
+                    std::string addrstr(destaddr);  
+                    CBitcoinAddress address(addrstr);
+                    int type;
+
+                    if (address.GetIndexKey(hashBytes, type, isCC) == 0)
+                        continue;
+
+                    // create unspent output key value pair
+                    CAddressUnspentKey key;
+                    CAddressUnspentValue value;
+
+                    key.type = type;
+                    key.hashBytes = hashBytes;
+                    key.txhash = memtx.GetHash();
+                    key.index = i;
+
+                    value.satoshis = memtx.vout[i].nValue;
+                    value.blockHeight = NULL;
+                    value.script = memtx.vout[i].scriptPubKey;
+
+                    unspentOutputs.push_back(std::make_pair(key, value));
+                }
+            }
+        }
+    }
+}
 
 /*
  FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and the opreturn.
@@ -979,6 +1025,13 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
     sum = 0;
     Getscriptaddress(coinaddr,CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
     SetCCunspents(unspentOutputs,coinaddr,false);
+
+    if (lookInMempool)
+    {
+        // add outputs also from mempool
+        SetCCunspentsInMempool(unspentOutputs, coinaddr, false);
+    }
+
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
         txid = it->first.txhash;
