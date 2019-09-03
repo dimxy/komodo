@@ -83,6 +83,54 @@ static bool GetNFTUnspentTx(uint256 tokenid, CTransaction &unspenttx)
         return false;
 }
 
+// get previous token tx
+static bool GetNFTPrevVout(const CTransaction &tokentx, CTransaction &prevtxout, int32_t &nvout, std::vector<CPubKey> &vpks)
+{
+    uint8_t evalcode;
+    uint256 tokenid;
+    std::vector<CPubKey> pks;
+    std::vector<std::pair<uint8_t, vscript_t>> oprets;
+
+    if (tokentx.vout.size() > 0 && DecodeTokenOpRet(tokentx.vout.back().scriptPubKey, evalcode, tokenid, pks, oprets) != 0)
+    {
+        struct CCcontract_info *cp, C;
+        cp = CCinit(&C, EVAL_TOKENS);
+
+        for (auto vin : tokentx.vin)
+        {
+            if (cp->ismyvin(vin.scriptSig))
+            {
+                uint256 hashBlock, tokenIdOpret;
+                vscript_t opret;
+                CTransaction prevtx;
+
+                // get spent token tx
+                if (GetTransaction(vin.prevout.hash, prevtx, hashBlock, true) &&
+                    prevtx.vout.size() > 1 &&
+                    DecodeTokenOpRet(prevtx.vout.back().scriptPubKey, evalcode, tokenIdOpret, pks, oprets) != 0)
+                {
+                    for (int32_t v = 0; v < prevtx.vout.size(); v++)
+                    {
+                        if (IsTokensvout(false, true, cp, NULL, prevtx, v, tokenid))  // if true token vout
+                        {
+                            prevtxout = prevtx;
+                            nvout = v;
+                            vpks = pks; // validation pubkeys
+                            return true;
+                        }
+                    }
+                }
+                else
+                {
+                    CCerror = "can't load or decode prev token tx";
+                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load prev token tx txid=" << tokenid.GetHex() << std::endl);
+                }
+                break;
+            }
+        }
+    }
+    return false;
+}
 
 // check if token has been burned
 static bool IsNFTmine(uint256 tokenid)
@@ -128,7 +176,8 @@ static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
     if (hextx.empty())
         return std::string("error:") + CCerror;
 
-    /* case with sending tx just inside the rpc
+    /* feature with sending tx inside the rpc
+    // decided not todo this - for reviewing by the user
     // send the tx:
     // unmarshal tx to get it txid;
     vuint8_t vtx = ParseHex(hextx);
@@ -797,14 +846,14 @@ static std::string SpendEnclosure(int64_t txfee, KogsEnclosure enc, CPubKey dest
 // deposit (send) container to destination pubkey
 std::string KogsDepositContainer_NotUsed(int64_t txfee, uint256 containerid, CPubKey destpk)
 {
-    KogsBaseObject *baseobj = LoadGameObject(containerid);
+    std::shared_ptr<KogsBaseObject>spbaseobj( LoadGameObject(containerid) );
     
-    if (baseobj == nullptr || baseobj->objectType != KOGSID_CONTAINER) {
+    if (spbaseobj == nullptr || spbaseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return std::string("");
     }
 
-    KogsContainer *containerobj = (KogsContainer*)baseobj;
+    KogsContainer *containerobj = (KogsContainer*)spbaseobj.get();
     KogsEnclosure enc(containerid);
     enc.vdata = containerobj->Marshal();
     std::string hextx = SpendEnclosure(txfee, enc, destpk);
@@ -812,17 +861,18 @@ std::string KogsDepositContainer_NotUsed(int64_t txfee, uint256 containerid, CPu
 }
 
 // add kogs to the container and send the changed container to self
+/*
 std::string KogsAddKogsToContainer_NotUsed(int64_t txfee, uint256 containerid, std::set<uint256> tokenids)
 {
-    KogsBaseObject *baseobj = LoadGameObject(containerid);
+    std::shared_ptr<KogsBaseObject>spbaseobj(LoadGameObject(containerid));
     CPubKey mypk = pubkey2pk(Mypubkey());
 
-    if (baseobj == nullptr || baseobj->objectType != KOGSID_CONTAINER) {
+    if (spbaseobj == nullptr || spbaseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return std::string("");
     }
 
-    KogsContainer *containerobj = (KogsContainer*)baseobj;
+    KogsContainer *containerobj = (KogsContainer*)spbaseobj.get();
     
     // add new tokenids to container
     for (auto t : tokenids)
@@ -833,19 +883,21 @@ std::string KogsAddKogsToContainer_NotUsed(int64_t txfee, uint256 containerid, s
     std::string hextx = SpendEnclosure(txfee, enc, mypk);
     return hextx;
 }
+*/
 
 // delete kogs from the container and send the changed container to self
+/*
 std::string KogsRemoveKogsFromContainer_NotUsed(int64_t txfee, uint256 containerid, std::set<uint256> tokenids)
 {
-    KogsBaseObject *baseobj = LoadGameObject(containerid);
+    std::shared_ptr<KogsBaseObject>spbaseobj(LoadGameObject(containerid));
     CPubKey mypk = pubkey2pk(Mypubkey());
 
-    if (baseobj == nullptr || baseobj->objectType != KOGSID_CONTAINER) {
+    if (spbaseobj == nullptr || spbaseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return std::string("");
     }
 
-    KogsContainer *containerobj = (KogsContainer*)baseobj;
+    KogsContainer *containerobj = (KogsContainer*)spbaseobj.get();
     // remove tokenids from container 
     for (auto t : tokenids)
     {
@@ -860,24 +912,24 @@ std::string KogsRemoveKogsFromContainer_NotUsed(int64_t txfee, uint256 container
     std::string hextx = SpendEnclosure(txfee, enc, mypk);
     return hextx;
 }
+*/
 
-
-// deposit (send) container to destination pubkey
+// deposit (send) container to 1of2 game txid pubkey
 std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 containerid)
 {
-    KogsBaseObject *baseobj = LoadGameObject(gameid);
-    if (baseobj == nullptr || baseobj->objectType != KOGSID_GAME) {
+    std::shared_ptr<KogsBaseObject>spgamebaseobj(LoadGameObject(gameid));
+    if (spgamebaseobj == nullptr || spgamebaseobj->objectType != KOGSID_GAME) {
         CCerror = "can't load game data";
         return std::string("");
     }
 
-    baseobj = LoadGameObject(containerid);
-    if (baseobj == nullptr || baseobj->objectType != KOGSID_CONTAINER) {
+    std::shared_ptr<KogsBaseObject>spcontbaseobj(LoadGameObject(containerid));
+    if (spcontbaseobj == nullptr || spcontbaseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return std::string("");
     }
 
-    // TODO: check if this player has already deposited a container
+    // TODO: check if this player has already deposited a container. Seems the doc state only one container is possible
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -892,6 +944,53 @@ std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 contai
 
     std::string hextx = TokenTransferExt(0, containerid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, gametxidPk }, 1); // amount = 1 always for NFTs
     return hextx;
+}
+
+// claim sending container from 1of2 game txid to origin pubkey
+std::string KogsClaimDepositedContainer(int64_t txfee, uint256 gameid, uint256 containerid)
+{
+    std::shared_ptr<KogsBaseObject>spgamebaseobj(LoadGameObject(gameid));
+    if (spgamebaseobj == nullptr || spgamebaseobj->objectType != KOGSID_GAME) {
+        CCerror = "can't load game data";
+        return std::string("");
+    }
+
+    std::shared_ptr<KogsBaseObject>spcontbaseobj(LoadGameObject(containerid));
+    if (spcontbaseobj == nullptr || spcontbaseobj->objectType != KOGSID_CONTAINER) {
+        CCerror = "can't load container";
+        return std::string("");
+    }
+
+    KogsContainer *pcontainer = (KogsContainer *)spcontbaseobj.get();
+    CTransaction lasttx, prevtx;
+    int32_t nvout;
+    std::vector<CPubKey> pks;
+
+    if (GetNFTUnspentTx(pcontainer->creationtxid, lasttx) && GetNFTPrevVout(lasttx, prevtx, nvout, pks))
+    {
+        // send container back to the sender:
+        struct CCcontract_info *cp, C;
+        cp = CCinit(&C, EVAL_KOGS);
+        uint8_t kogsPriv[32];
+        CPubKey kogsPk = GetUnspendable(cp, kogsPriv);
+        CPubKey mypk = pubkey2pk(Mypubkey());
+
+        char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+        CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
+
+        char tokensrcaddr[64];
+        GetTokensCCaddress(cp, tokensrcaddr, mypk);
+
+        CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);  // make probe cc for signing 1of2 game txid addr
+
+        //std::string hextx = TokenTransferExt(0, containerid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) }, std::vector<CPubKey>{ pcontainer->encOrigPk }, 1); // amount = 1 always for NFTs
+        std::string hextx = TokenTransferSpk(0, pcontainer->creationtxid, tokensrcaddr, prevtx.vout[nvout].scriptPubKey, 1, pks);
+
+        cc_free(probeCond); // free probe cc
+
+        return hextx;
+    }
+    return std::string();
 }
 
 // check if container NFT is on 1of2 address (kogsPk, gametxidpk)
@@ -919,26 +1018,25 @@ static int CheckIsMyContainer(uint256 gameid, uint256 containerid)
 {
     CPubKey mypk = pubkey2pk(Mypubkey());
 
-    KogsBaseObject *baseobj = LoadGameObject(containerid);
-    if (baseobj == nullptr || baseobj->objectType != KOGSID_CONTAINER) {
+    std::shared_ptr<KogsBaseObject>spcontbaseobj( LoadGameObject(containerid) );
+    if (spcontbaseobj == nullptr || spcontbaseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return -1;
     }
-    KogsContainer *pcontainer = (KogsContainer *)baseobj;
+    KogsContainer *pcontainer = (KogsContainer *)spcontbaseobj.get();
 
     if (!gameid.IsNull())
     {
-        KogsBaseObject *baseobj = LoadGameObject(gameid);
-        if (baseobj == nullptr || baseobj->objectType != KOGSID_GAME) {
+        std::shared_ptr<KogsBaseObject>spgamebaseobj( LoadGameObject(gameid) );
+        if (spgamebaseobj == nullptr || spgamebaseobj->objectType != KOGSID_GAME) {
             CCerror = "can't load container";
             return -1;
         }
-        KogsGame *pgame = (KogsGame *)baseobj;
-
+        KogsGame *pgame = (KogsGame *)spgamebaseobj.get();
         if (IsContainerDeposited(*pgame, *pcontainer)) 
         {
-            if (mypk != pgame->encOrigPk) {
-                CCerror = "can't remove kogs: container is deposited and you are not the game creator";
+            if (mypk != pgame->encOrigPk) {  // TODO: why is only game owner allowed to modify container?
+                CCerror = "can't add or remove kogs: container is deposited and you are not the game creator";
                 return 0;
             }
             else
@@ -959,7 +1057,7 @@ static int CheckIsMyContainer(uint256 gameid, uint256 containerid)
         if (v == MakeTokensCC1vout(EVAL_KOGS, 1, mypk)) 
             return 1;
     
-    CCerror = "this is not your container to remove kogs";
+    CCerror = "this is not your container to add or remove kogs";
     return 0;
 }
 
@@ -996,7 +1094,6 @@ std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 contain
     DeactivateUtxoLock();
     return result;
 }
-
 
 // remove kogs from the container by sending kogs from the container 1of2 address to self
 std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids)
@@ -1093,64 +1190,6 @@ std::string KogsAddSlamParams(KogsSlamParams newslamparams)
     }
 }
 
-// transfer token to scriptPubKey
-static std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, CScript spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
-{
-    const std::string empty;
-    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk; 
-    int64_t CCchange = 0, inputs = 0;  
-
-    struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_TOKENS);
-
-    if (total < 0) {
-        CCerror = strprintf("negative total");
-        return empty;
-    }
-    if (txfee == 0)
-        txfee = 10000;
-    mypk = pubkey2pk(Mypubkey());
-
-    if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
-    {
-        if ((inputs = AddTokenCCInputs(cp, mtx, mypk, tokenid, total, 60)) > 0)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
-        {
-            if (inputs < total) {  
-                CCerror = strprintf("insufficient token inputs");
-                return empty;
-            }
-
-            uint8_t destEvalCode = EVAL_TOKENS;
-            if (cp->additionalTokensEvalcode2 != 0)
-                destEvalCode = cp->additionalTokensEvalcode2; // this is NFT
-
-            // check if it is NFT
-            //if (vopretNonfungible.size() > 0)
-            //    destEvalCode = vopretNonfungible.begin()[0];
-
-            if (inputs > total)
-                CCchange = (inputs - total);
-            mtx.vout.push_back(CTxOut(total, spk));
-            if (CCchange != 0)
-                mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, CCchange, mypk));
-
-            std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vscript_t())));
-            if (hextx.empty())
-                CCerror = "could not finalize tx";
-            return hextx;
-        }
-        else {
-            CCerror = strprintf("no token inputs");
-        }
-    }
-    else 
-    {
-        CCerror = "insufficient normal inputs for tx fee";
-    }
-    return empty;
-}
-
 static bool IsGameObjectDeleted(uint256 tokenid)
 {
     uint256 spenttxid;
@@ -1169,83 +1208,64 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
 
     if (IsNFTBurned(packid, burntx) && !IsGameObjectDeleted(packid))
     {
-        struct CCcontract_info *cp, C;
-        cp = CCinit(&C, EVAL_TOKENS);
+        CTransaction prevtx;
+        int32_t nvout;
+        std::vector<CPubKey> pks;
 
-        // find who burned the pack and send to him the tokens from the pack
-        for (auto vin : burntx.vin)
+        if (GetNFTPrevVout(burntx, prevtx, nvout, pks))     // find who burned the pack and send to him the tokens from the pack
         {
-            if (cp->ismyvin(vin.scriptSig))
+            // load pack:
+            std::shared_ptr<KogsBaseObject> sppackbaseobj( LoadGameObject(packid) );
+            if (sppackbaseobj == nullptr || sppackbaseobj->objectType != KOGSID_PACK)
             {
-                uint256 hashBlock, tokenIdOpret;
-                vscript_t opret;
-                uint8_t evalcode;
-                std::vector<CPubKey> pks;
-                std::vector<std::pair<uint8_t, vscript_t>> oprets;
+                CCerror = "can't load pack NFT or not a pack";
+                return emptyresult;
+            }
 
-                // get spent token tx
-                if (GetTransaction(vin.prevout.hash, prevtx, hashBlock, true) &&  
-                    prevtx.vout.size() > 1 &&
-                    DecodeTokenOpRet(prevtx.vout.back().scriptPubKey, evalcode, tokenIdOpret, pks, oprets) != 0)
-                {
-                    for (int32_t v = 0; v < prevtx.vout.size(); v++)
-                    {
-                        if (IsTokensvout(false, true, cp, NULL, prevtx, v, packid))  // find token vout
-                        {
-                            // load pack:
-                            KogsBaseObject *obj = LoadGameObject(packid);
-                            if (obj == nullptr || obj->objectType != KOGSID_PACK)
-                            {
-                                CCerror = "can't load pack NFT or not a pack";
-                                return emptyresult;
-                            }
+            KogsPack *pack = (KogsPack *)sppackbaseobj.get();  
+            if (!pack->DecryptContent(encryptkey, iv))
+            {
+                CCerror = "can't decrypt pack content";
+                return emptyresult;
+            }
 
-                            std::shared_ptr<KogsPack> pack((KogsPack *)obj);  // use auto-delete ptr
-                            if (!pack->DecryptContent(encryptkey, iv))
-                            {
-                                CCerror = "can't decrypt pack content";
-                                return emptyresult;
-                            }
+            std::vector<std::string> hextxns;
 
-                            std::vector<std::string> hextxns;
+            ActivateUtxoLock();
 
-                            ActivateUtxoLock();
+            // create txns sending the pack's kog NFTs to pack's vout address:
+            for (auto tokenid : pack->tokenids)
+            {
+                char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
+                CPubKey mypk = pubkey2pk(Mypubkey());
+                struct CCcontract_info *cp, C;
 
-                            // create txns sending the pack's kog NFTs to pack's vout address:
-                            for (auto tokenid : pack->tokenids)
-                            {
-                                std::string hextx = TokenTransferSpk(0, tokenid, prevtx.vout[v].scriptPubKey, 1, pks);
-                                if (hextx.empty()) {
-                                    hextxns.push_back("error: can't create transfer tx (nft could be already sent!): " + CCerror);
-                                    CCerror.clear(); // clear used CCerror
-                                }
-                                else
-                                    hextxns.push_back(hextx);
-                            }
+                cp = CCinit(&C, EVAL_TOKENS);
+                GetTokensCCaddress(cp, tokensrcaddr, mypk);
 
-                            if (hextxns.size() > 0)
-                            {
-                                // create tx removing pack by spending the kogs marker
-                                std::string hextx = KogsRemoveObject(packid, TOKEN_KOGS_MARKER_VOUT);
-                                if (hextx.empty()) {
-                                    hextxns.push_back("error: can't create pack removal tx: " + CCerror);
-                                    CCerror.clear(); // clear used CCerror
-                                }
-                                else
-                                    hextxns.push_back(hextx);
-                            }
-
-                            DeactivateUtxoLock();
-                            return hextxns;
-                        }
-                    }
+                std::string hextx = TokenTransferSpk(0, tokenid, tokensrcaddr, prevtx.vout[nvout].scriptPubKey, 1, pks);
+                if (hextx.empty()) {
+                    hextxns.push_back("error: can't create transfer tx (nft could be already sent!): " + CCerror);
+                    CCerror.clear(); // clear used CCerror
                 }
                 else
-                {
-                    CCerror = "can't load or decode latest token tx";
-                }
-                break;
+                    hextxns.push_back(hextx);
             }
+
+            if (hextxns.size() > 0)
+            {
+                // create tx removing pack by spending the kogs marker
+                std::string hextx = KogsRemoveObject(packid, TOKEN_KOGS_MARKER_VOUT);
+                if (hextx.empty()) {
+                    hextxns.push_back("error: can't create pack removal tx: " + CCerror);
+                    CCerror.clear(); // clear used CCerror
+                }
+                else
+                    hextxns.push_back(hextx);
+            }
+
+            DeactivateUtxoLock();
+            return hextxns;
         }
     }
     else

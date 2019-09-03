@@ -632,7 +632,7 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
     {
         throw runtime_error(
             "kogsdepositcontainer gameid containerid\n"
-            "deposits the container to the game address\n"
+            "deposits container to the game address\n"
             "parameters:\n"
             "gameid - id of the transaction created by kogsstartgame rpc\n"
             "containerid - id of container creation transaction\n" "\n");
@@ -647,6 +647,42 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
         throw runtime_error("incorrect containerid\n");
     
     std::string hextx = KogsDepositContainerV2(0, gameid, containerid);
+    RETURN_IF_ERROR(CCerror);
+
+    result.push_back(std::make_pair("result", "success"));
+    result.push_back(std::make_pair("hextx", hextx));
+    return result;
+}
+
+// rpc kogsclaimdepositedcontainer impl
+UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp)
+{
+    UniValue result(UniValue::VOBJ);
+    CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+    if (fHelp || (params.size() != 2))
+    {
+        throw runtime_error(
+            "kogsclaimdepositedcontainer gameid containerid\n"
+            "claims deposited container back from the game address\n"
+            "parameters:\n"
+            "gameid - id of the transaction created by kogsstartgame rpc\n"
+            "containerid - id of container creation transaction\n" "\n");
+    }
+
+    uint256 gameid = Parseuint256(params[0].get_str().c_str());
+    if (gameid.IsNull())
+        throw runtime_error("incorrect gameid\n");
+
+    uint256 containerid = Parseuint256(params[1].get_str().c_str());
+    if (containerid.IsNull())
+        throw runtime_error("incorrect containerid\n");
+
+    std::string hextx = KogsClaimDepositedContainer(0, gameid, containerid);
     RETURN_IF_ERROR(CCerror);
 
     result.push_back(std::make_pair("result", "success"));
@@ -1174,6 +1210,7 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsunsealpack",         &kogsunsealpack,          true },
     { "kogs",         "kogscreatecontainer",    &kogscreatecontainer,     true },
     { "kogs",         "kogsdepositcontainer",   &kogsdepositcontainer,    true },
+    { "kogs",         "kogsclaimdepositedcontainer",   &kogsclaimdepositedcontainer,    true },
     { "kogs",         "kogsaddkogstocontainer",   &kogsaddkogstocontainer,    true },
     { "kogs",         "kogsremovekogsfromcontainer",   &kogsremovekogsfromcontainer,    true },
     { "kogs",         "kogsaddress",            &kogsaddress,             true },
