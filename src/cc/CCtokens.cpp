@@ -1033,7 +1033,7 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 }
 
 // transfer token to scriptPubKey
-std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, char *tokenaddr, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
+std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
 {
     const std::string empty;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -1073,6 +1073,10 @@ std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, char *tokenaddr, co
             mtx.vout.push_back(CTxOut(total, spk));
             if (CCchange != 0)
                 mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, CCchange, mypk));
+
+            // add optional probe conds to non-usual sign vins
+            for (auto p : probeconds)
+                CCAddVintxCond(cp, p.first, p.second);
 
             std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vscript_t())));
             if (hextx.empty())
