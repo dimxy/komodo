@@ -1034,6 +1034,63 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 	return std::string();
 }
 
+// transfer token to scriptPubKey
+std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, char *tokenaddr, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
+{
+    const std::string empty;
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    CPubKey mypk;
+    int64_t CCchange = 0, inputs = 0;
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_TOKENS);
+
+    if (total < 0) {
+        CCerror = strprintf("negative total");
+        return empty;
+    }
+    if (txfee == 0)
+        txfee = 10000;
+    mypk = pubkey2pk(Mypubkey());
+
+    if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
+    {
+        if ((inputs = AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, 60)) > 0)
+        {
+            if (inputs < total) {
+                CCerror = strprintf("insufficient token inputs");
+                return empty;
+            }
+
+            uint8_t destEvalCode = EVAL_TOKENS;
+            if (cp->additionalTokensEvalcode2 != 0)
+                destEvalCode = cp->additionalTokensEvalcode2; // this is NFT
+
+            // check if it is NFT
+            //if (vopretNonfungible.size() > 0)
+            //    destEvalCode = vopretNonfungible.begin()[0];
+
+            if (inputs > total)
+                CCchange = (inputs - total);
+            mtx.vout.push_back(CTxOut(total, spk));
+            if (CCchange != 0)
+                mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, CCchange, mypk));
+
+            std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vscript_t())));
+            if (hextx.empty())
+                CCerror = "could not finalize tx";
+            return hextx;
+        }
+        else {
+            CCerror = strprintf("no token inputs");
+        }
+    }
+    else
+    {
+        CCerror = "insufficient normal inputs for tx fee";
+    }
+    return empty;
+}
 
 int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 {

@@ -888,6 +888,7 @@ std::vector<std::string> KogsUnsealPackToOwner(uint256 packid, vuint8_t encryptk
 //std::string KogsCreateContainer(KogsContainer newcontainer, const std::set<uint256> &tokenids, std::vector<uint256> &duptokenids);
 std::vector<std::string> KogsCreateContainerV2(KogsContainer newcontainer, const std::set<uint256> &tokenids);
 std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 containerid);
+std::string KogsClaimDepositedContainer(int64_t txfee, uint256 gameid, uint256 containerid);
 std::vector<std::string> KogsAddKogsToContainerV2(int64_t txfee, uint256 containerid, std::set<uint256> tokenids);
 std::vector<std::string> KogsRemoveKogsFromContainerV2(int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids);
 void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containerids);
