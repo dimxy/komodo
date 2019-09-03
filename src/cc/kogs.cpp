@@ -983,6 +983,7 @@ std::string KogsClaimDepositedContainer(int64_t txfee, uint256 gameid, uint256 c
 
         CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);  // make probe cc for signing 1of2 game txid addr
 
+        CCAddVintxCond(cp, probeCond, kogsPriv); // add probe cc
         //std::string hextx = TokenTransferExt(0, containerid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) }, std::vector<CPubKey>{ pcontainer->encOrigPk }, 1); // amount = 1 always for NFTs
         std::string hextx = TokenTransferSpk(0, pcontainer->creationtxid, tokensrcaddr, prevtx.vout[nvout].scriptPubKey, 1, pks);
 
