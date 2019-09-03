@@ -979,7 +979,7 @@ std::string KogsClaimDepositedContainer(int64_t txfee, uint256 gameid, uint256 c
         CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
 
         char tokensrcaddr[64];
-        GetTokensCCaddress(cp, tokensrcaddr, mypk);
+        GetTokensCCaddress1of2(cp, tokensrcaddr, kogsPk, gametxidPk);
 
         CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);  // make probe cc for signing 1of2 game txid addr
 
