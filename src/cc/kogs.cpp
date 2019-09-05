@@ -1179,7 +1179,7 @@ std::string KogsAddSlamParams(KogsSlamParams newslamparams)
     SetCCunspents(addressUnspents, myccaddr, true);    // look for baton on my cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
-        if (it->second.satoshis == 20000) // picking batons with markers=20000
+        if (it->second.satoshis == 20000) // picking batons with marker=20000
         {
             std::shared_ptr<KogsBaseObject> spbaton(LoadGameObject(it->first.txhash));
             if (spbaton != nullptr && spbaton->objectType == KOGSID_BATON)
@@ -1190,7 +1190,7 @@ std::string KogsAddSlamParams(KogsSlamParams newslamparams)
                     std::shared_ptr<KogsBaseObject> spplayer(LoadGameObject(newslamparams.playerid));
                     if (spplayer.get() != nullptr && spplayer->objectType == KOGSID_PLAYER)
                     {
-                        KogsPlayer* pplayer = (KogsPlayer*)spbaton.get();
+                        KogsPlayer* pplayer = (KogsPlayer*)spplayer.get();
                         if (pplayer->encOrigPk == mypk)
                         {
                             batontxid = it->first.txhash;
@@ -1587,7 +1587,6 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
 
     case KOGSID_PLAYER:
         playerobj = (KogsPlayer*)spobj.get();
-        info.push_back(std::make_pair("originatorPubKey", HexStr(playerobj->encOrigPk)));
         break;
 
     default:
