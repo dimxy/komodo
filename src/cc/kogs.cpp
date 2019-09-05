@@ -962,34 +962,39 @@ std::string KogsClaimDepositedContainer(int64_t txfee, uint256 gameid, uint256 c
     }
 
     KogsContainer *pcontainer = (KogsContainer *)spcontbaseobj.get();
-    CTransaction lasttx, prevtx;
-    int32_t nvout;
-    std::vector<CPubKey> pks;
+    CTransaction lasttx;
+    CPubKey mypk = pubkey2pk(Mypubkey());
 
-    if (GetNFTUnspentTx(pcontainer->creationtxid, lasttx) && GetNFTPrevVout(lasttx, prevtx, nvout, pks))
+    if (pcontainer->encOrigPk == mypk)  // We do not allow to transfer container to other users, so only primary origPk is considered as user pk
     {
-        // send container back to the sender:
-        struct CCcontract_info *cp, C;
-        cp = CCinit(&C, EVAL_KOGS);
-        uint8_t kogsPriv[32];
-        CPubKey kogsPk = GetUnspendable(cp, kogsPriv);
-        CPubKey mypk = pubkey2pk(Mypubkey());
+        if (GetNFTUnspentTx(pcontainer->creationtxid, lasttx))
+        {
+            // send container back to the sender:
+            struct CCcontract_info *cp, C;
+            cp = CCinit(&C, EVAL_KOGS);
+            uint8_t kogsPriv[32];
+            CPubKey kogsPk = GetUnspendable(cp, kogsPriv);
 
-        char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-        CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
+            char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+            CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
 
-        char tokensrcaddr[64];
-        GetTokensCCaddress1of2(cp, tokensrcaddr, kogsPk, gametxidPk);
+            char tokensrcaddr[64];
+            GetTokensCCaddress1of2(cp, tokensrcaddr, kogsPk, gametxidPk);
 
-        CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);  // make probe cc for signing 1of2 game txid addr
+            CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);  // make probe cc for signing 1of2 game txid addr
 
-        //std::string hextx = TokenTransferExt(0, containerid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) }, std::vector<CPubKey>{ pcontainer->encOrigPk }, 1); // amount = 1 always for NFTs
-        std::string hextx = TokenTransferSpk(0, pcontainer->creationtxid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) }, prevtx.vout[nvout].scriptPubKey, 1, pks);
+            std::string hextx = TokenTransferExt(0, containerid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) }, std::vector<CPubKey>{ mypk }, 1); // amount = 1 always for NFTs
 
-        cc_free(probeCond); // free probe cc
+            cc_free(probeCond); // free probe cc
+            return hextx;
+        }
+        else
+            CCerror = "cant get last tx for container";
 
-        return hextx;
     }
+    else
+        CCerror = "not my container";
+
     return std::string();
 }
 
