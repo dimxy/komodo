@@ -161,6 +161,12 @@ static bool IsNFTBurned(uint256 tokenid, CTransaction &lasttx)
         return false;
 }
 
+// checks if game finished
+bool IsGameFinished(const KogsGameConfig &gameconfig, const KogsBaton &baton) 
+{ 
+    return baton.kogsInStack.empty() || baton.prevturncount >= baton.playerids.size() * gameconfig.maxTurns; 
+}
+
 // create game object NFT by calling token cc function
 static std::string CreateGameObjectNFT(struct KogsBaseObject *baseobj)
 {
@@ -1786,6 +1792,7 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "some containers are from the same owner" << std::endl);
         return false;
     }
+    
 
     // TODO: check that the pubkeys are from this game's players
 
@@ -1919,8 +1926,6 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     newbaton.gameid = gameid;
                     newbaton.gameconfigid = gameconfigid;
 
-                    
-
                     std::shared_ptr<KogsBaseObject> spGameConfig(LoadGameObject(gameconfigid));
                     if (spGameConfig->objectType != KOGSID_GAMECONFIG)
                     {
@@ -1929,17 +1934,16 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     }
 
                     KogsGameConfig *pGameConfig = (KogsGameConfig*)spGameConfig.get();
-                    auto IsGameFinished = [&]() { return newbaton.kogsInStack.empty() || newbaton.prevturncount >= newbaton.playerids.size() * pGameConfig->maxTurns; };
 
                     // calc slam results and kogs ownership and fill the new baton
                     KogsBaton *prevbaton = (KogsBaton *)spBaton.get();
-                    if (IsGameFinished() || KogsManageStack(*pGameConfig, spSlamData.get(), prevbaton, newbaton, containers))
+                    if (KogsManageStack(*pGameConfig, spSlamData.get(), prevbaton, newbaton, containers))
                     {
                         std::vector<CTransaction> myTransactions; // store transactions in this buffer as minersTransactions could have other modules created txns
 
                         // first requirement: finish the game if turncount == player.size * maxTurns and send kogs to the winners
                         // my addition: finish if stack is empty
-                        if (IsGameFinished())
+                        if (IsGameFinished(*pGameConfig, newbaton))
                         {                            
                             // send containers back:
                             uint8_t kogsPriv[32];
@@ -1991,7 +1995,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             }
                             cc_free(probeCond);
                             
-                            if (myTransactions.empty())  // nothing to send back - create finish baton
+                            //if (myTransactions.empty())  // nothing to send back - create finish baton
                             {
                                 KogsGameFinished gamefinished;
                              
@@ -2023,8 +2027,27 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 myTransactions.push_back(batontx);
                             }
                         }
-                        for (auto &tx : myTransactions)
-                            minersTransactions.push_back(tx);
+                        //for (const auto &tx : myTransactions)
+                        //    minersTransactions.push_back(tx);
+
+                        for (const auto &tx : myTransactions)
+                        {
+                            std::string hextx = HexStr(E_MARSHAL(ss << tx));
+                            UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
+                            txparam.setStr(hextx);
+                            rpcparams.push_back(txparam);
+                            try {
+                                sendrawtransaction(rpcparams, false);  // NOTE: throws error!
+                            }
+                            catch (std::runtime_error error)
+                            {
+                                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("cant send transaction: bad parameters: ") + error.what());
+                            }
+                            catch (UniValue error)
+                            {
+                                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("error: can't send tx: ") + error.getValStr());
+                            }
+                        }
                     }
                 }
                 else
