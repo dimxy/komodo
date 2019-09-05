@@ -1919,6 +1919,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     newbaton.gameid = gameid;
                     newbaton.gameconfigid = gameconfigid;
 
+                    
+
                     std::shared_ptr<KogsBaseObject> spGameConfig(LoadGameObject(gameconfigid));
                     if (spGameConfig->objectType != KOGSID_GAMECONFIG)
                     {
@@ -1927,16 +1929,17 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     }
 
                     KogsGameConfig *pGameConfig = (KogsGameConfig*)spGameConfig.get();
+                    auto IsGameFinished = [&]() { return newbaton.kogsInStack.empty() || newbaton.prevturncount >= newbaton.playerids.size() * pGameConfig->maxTurns; };
 
                     // calc slam results and kogs ownership and fill the new baton
                     KogsBaton *prevbaton = (KogsBaton *)spBaton.get();
-                    if (KogsManageStack(*pGameConfig, spSlamData.get(), prevbaton, newbaton, containers))
+                    if (IsGameFinished() || KogsManageStack(*pGameConfig, spSlamData.get(), prevbaton, newbaton, containers))
                     {
                         std::vector<CTransaction> myTransactions; // store transactions in this buffer as minersTransactions could have other modules created txns
 
                         // first requirement: finish the game if turncount == player.size * maxTurns and send kogs to the winners
                         // my addition: finish if stack is empty
-                        if (newbaton.kogsInStack.empty() || newbaton.prevturncount >= newbaton.playerids.size() * pGameConfig->maxTurns)
+                        if (IsGameFinished())
                         {                            
                             // send containers back:
                             uint8_t kogsPriv[32];
