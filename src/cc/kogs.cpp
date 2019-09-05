@@ -255,6 +255,7 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
 {
     const CAmount  txfee = 10000;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    CPubKey mypk = pubkey2pk(Mypubkey());
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -264,7 +265,7 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
     enc.name = pbaton->nameId;
     enc.description = pbaton->descriptionId;
 
-    if (AddNormalinputs(mtx, destpk, txfee, 8) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, 8) > 0)
     {
         mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2 * txfee, destpk)); // baton to indicate whose turn is now
@@ -309,7 +310,7 @@ static std::string CreateSlamParamTx(uint256 prevtxid, int32_t prevn, const Kogs
         // TODO: maybe send this baton to 1of2 (kogs global, gametxid) addr? 
         // But now a miner searches games or slamparams utxos on kogs global addr, 
         // so he would have to search on both addresses...  
-        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2 * txfee, GetUnspendable(cp, NULL))); // baton to indicate whose turn is now
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2 * txfee, GetUnspendable(cp, NULL))); // baton for miner to indicate the slam data added
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
@@ -1185,16 +1186,19 @@ std::string KogsAddSlamParams(KogsSlamParams newslamparams)
             if (spbaton != nullptr && spbaton->objectType == KOGSID_BATON)
             {
                 KogsBaton* pbaton = (KogsBaton*)spbaton.get();
-                if (pbaton->nextplayerid == newslamparams.playerid)
+                if (pbaton->gameid == newslamparams.gameid)
                 {
-                    std::shared_ptr<KogsBaseObject> spplayer(LoadGameObject(newslamparams.playerid));
-                    if (spplayer.get() != nullptr && spplayer->objectType == KOGSID_PLAYER)
+                    if (pbaton->nextplayerid == newslamparams.playerid)
                     {
-                        KogsPlayer* pplayer = (KogsPlayer*)spplayer.get();
-                        if (pplayer->encOrigPk == mypk)
+                        std::shared_ptr<KogsBaseObject> spplayer(LoadGameObject(newslamparams.playerid));
+                        if (spplayer.get() != nullptr && spplayer->objectType == KOGSID_PLAYER)
                         {
-                            batontxid = it->first.txhash;
-                            break;
+                            KogsPlayer* pplayer = (KogsPlayer*)spplayer.get();
+                            if (pplayer->encOrigPk == mypk)
+                            {
+                                batontxid = it->first.txhash;
+                                break;
+                            }
                         }
                     }
                 }
