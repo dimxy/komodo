@@ -844,6 +844,7 @@ static std::string SpendEnclosure(int64_t txfee, KogsEnclosure enc, CPubKey dest
 }
 
 // deposit (send) container to destination pubkey
+/*
 std::string KogsDepositContainer_NotUsed(int64_t txfee, uint256 containerid, CPubKey destpk)
 {
     std::shared_ptr<KogsBaseObject>spbaseobj( LoadGameObject(containerid) );
@@ -859,6 +860,7 @@ std::string KogsDepositContainer_NotUsed(int64_t txfee, uint256 containerid, CPu
     std::string hextx = SpendEnclosure(txfee, enc, destpk);
     return hextx;
 }
+*/
 
 // add kogs to the container and send the changed container to self
 /*
@@ -922,14 +924,28 @@ std::string KogsDepositContainerV2(int64_t txfee, uint256 gameid, uint256 contai
         CCerror = "can't load game data";
         return std::string("");
     }
+    KogsGame *pgame = (KogsGame *)spgamebaseobj.get();
+
+    std::shared_ptr<KogsBaseObject>spgameconfigbaseobj(LoadGameObject(pgame->gameconfigid));
+    if (spgameconfigbaseobj == nullptr || spgameconfigbaseobj->objectType != KOGSID_GAMECONFIG) {
+        CCerror = "can't load game config data";
+        return std::string("");
+    }
+    KogsGameConfig *pgameconfig = (KogsGameConfig *)spgameconfigbaseobj.get();
 
     std::shared_ptr<KogsBaseObject>spcontbaseobj(LoadGameObject(containerid));
     if (spcontbaseobj == nullptr || spcontbaseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
         return std::string("");
     }
+    KogsContainer *pcontainer = (KogsContainer *)spcontbaseobj.get();
+    ListContainerTokenids(*pcontainer);
 
-    // TODO: check if this player has already deposited a container. Seems the doc state only one container is possible
+    // TODO: check if this player has already deposited a container. Seems the doc states only one container is possible
+    if (pcontainer->tokenids.size() != pgameconfig->numKogsInContainer)     {
+        CCerror = "kogs number in container does not match game requirement";
+        return std::string("");
+    }
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);

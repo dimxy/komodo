@@ -674,6 +674,8 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp)
             "containerid - id of container creation transaction\n" "\n");
     }
 
+    throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
     uint256 gameid = Parseuint256(params[0].get_str().c_str());
     if (gameid.IsNull())
         throw runtime_error("incorrect gameid\n");
@@ -1210,7 +1212,7 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsunsealpack",         &kogsunsealpack,          true },
     { "kogs",         "kogscreatecontainer",    &kogscreatecontainer,     true },
     { "kogs",         "kogsdepositcontainer",   &kogsdepositcontainer,    true },
-    { "kogs",         "kogsclaimdepositedcontainer",   &kogsclaimdepositedcontainer,    true },
+//    { "kogs",         "kogsclaimdepositedcontainer",   &kogsclaimdepositedcontainer,    true },
     { "kogs",         "kogsaddkogstocontainer",   &kogsaddkogstocontainer,    true },
     { "kogs",         "kogsremovekogsfromcontainer",   &kogsremovekogsfromcontainer,    true },
     { "kogs",         "kogsaddress",            &kogsaddress,             true },
