@@ -270,6 +270,8 @@ public:
                         }
                         isEof = ss.eof(); );
 
+                    std::cerr << __func__ << " " << "opretEvalcode=" << opretEvalcode << " opretFuncid=" << (char)opretFuncid << " checkTxid=" << checkTxid << " opretTxid=" << opretTxid.GetHex() << std::endl;
+
                     if( parseOk /*parseOk=true only if eof reached*/|| !isEof /*if more data it means okay*/)
                     {
                         if (evalcode == opretEvalcode && std::find(funcids.begin(), funcids.end(), (char)opretFuncid) != funcids.end() && (!checkTxid || filtertxid == opretTxid))
