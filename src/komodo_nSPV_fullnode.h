@@ -407,12 +407,12 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
 
     for (uint16_t i = 0; i < ptr->numutxos; i++)
     {
-        ptr->utxos->satoshis = utxoAdded[i].nValue;
-        ptr->utxos->txid = utxoAdded[i].txid;
-        ptr->utxos->vout = utxoAdded[i].vout;
+        ptr->utxos[i].satoshis = utxoAdded[i].nValue;
+        ptr->utxos[i].txid = utxoAdded[i].txid;
+        ptr->utxos[i].vout = utxoAdded[i].vout;
     }
    
-    len = (int32_t)(sizeof(*ptr) - sizeof(ptr->utxos)/*not serialized part*/ + sizeof(*ptr->utxos)*ptr->numutxos);
+    len = (int32_t)(sizeof(*ptr) - sizeof(ptr->utxos)/*subtract not serialized part of NSPV_utxoresp*/ + sizeof(*ptr->utxos)*ptr->numutxos);
     if (len < maxlen) 
         return len;  // good length
     else
