@@ -403,7 +403,7 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
     ptr->CCflag = 1;
     ptr->numutxos = (uint16_t)utxoAdded.size();
     ptr->total = total;
-    ptr->utxos = (NSPV_utxoresp*)calloc(ptr->numutxos, sizeof(ptr->utxos));
+    ptr->utxos = (NSPV_utxoresp*)calloc(ptr->numutxos, sizeof(ptr->utxos[0]));
 
     for (uint16_t i = 0; i < ptr->numutxos; i++)
     {
