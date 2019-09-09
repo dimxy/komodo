@@ -327,15 +327,17 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
     {
         if (myIsutxo_spentinmempool(ignoretxid, ignorevin, it->first.txhash, (int32_t)it->first.index) == 0)
         {
-            const CCoins *pcoins = pcoinsTip->AccessCoins(it->first.txhash);
+            //const CCoins *pcoins = pcoinsTip->AccessCoins(it->first.txhash); <-- no opret in coins
+            CTransaction tx;
+            uint256 hashBlock;
             int32_t nvout = it->first.index;
-            if (pcoins)
+            if (myGetTransaction(it->first.txhash, tx, hashBlock))
             {
                 class BaseCCChecker *baseChecker = ccCheckerTable[evalcode];
 
-                if (baseChecker && baseChecker->checkCC(pcoins->vout, nvout, evalcode, funcids, filtertxid) || defaultCCChecker.checkCC(pcoins->vout, nvout, evalcode, funcids, filtertxid))
+                if (baseChecker && baseChecker->checkCC(tx.vout, nvout, evalcode, funcids, filtertxid) || defaultCCChecker.checkCC(tx.vout, nvout, evalcode, funcids, filtertxid))
                 {
-                    std::cerr << __func__ << " " << "filtered utxo with amount=" << pcoins->vout[nvout].nValue << std::endl;
+                    std::cerr << __func__ << " " << "filtered utxo with amount=" << tx.vout[nvout].nValue << std::endl;
 
                     struct CC_utxo utxo;
                     utxo.txid = it->first.txhash;
@@ -347,7 +349,7 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
                 }
             }
             else
-                std::cerr << __func__ << " " << "ERROR: coins not found for txid, please reindex" << std::endl;
+                std::cerr << __func__ << " " << "ERROR: cant load tx for txid, please reindex" << std::endl;
         }
     }
 
