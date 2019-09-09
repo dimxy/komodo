@@ -398,7 +398,7 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
         ptr->utxos->vout = utxoAdded[i].vout;
     }
    
-    len = (int32_t)(sizeof(*ptr) + sizeof(*ptr->utxos)*ptr->numutxos);
+    len = (int32_t)(sizeof(*ptr) - sizeof(ptr->utxos)/*not serialized part*/ + sizeof(*ptr->utxos)*ptr->numutxos);
     if (len < maxlen) 
         return len;  // good length
     else
@@ -1106,12 +1106,14 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                             memset(&U, 0, sizeof(U));
                             if ((slen = NSPV_getccmoduleutxos(&U, coinaddr, amount, evalcode, funcids, filtertxid)) > 0)
                             {
+                                std::cerr << __func__ << " " << "created utxos, slen=" << slen << std::endl;
                                 response.resize(1 + slen);
                                 response[0] = NSPV_CCMODULEUTXOSRESP;
                                 if (NSPV_rwutxosresp(1, &response[1], &U) == slen)
                                 {
                                     pfrom->PushMessage("nSPV", response);
                                     pfrom->prevtimes[ind] = timestamp;
+                                    std::cerr << __func__ << " " << "returned nSPV response" << std::endl;
                                 }
                                 NSPV_utxosresp_purge(&U);
                             }
