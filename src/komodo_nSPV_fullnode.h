@@ -285,7 +285,7 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
 {
     int64_t total = 0, totaladded = 0; 
     uint32_t locktime; 
-    int32_t tipheight=0, len, maxlen, txheight;
+    int32_t tipheight=0, len, maxlen;
     int32_t maxinputs = CC_MAXVINS;
 
     std::vector<struct CC_utxo> utxoSelected;
@@ -299,14 +299,13 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
     
     ptr->utxos = NULL;
     ptr->numutxos = 0;
-    //ptr->numutxos = (uint16_t)unspentOutputs.size();
 
-    /*
-    if (ptr->numutxos >= 0 && ptr->numutxos < maxlen)
-    {
-        tipheight = chainActive.LastTip()->GetHeight();
-        ptr->nodeheight = tipheight;
-    }*/
+    //ptr->numutxos = (uint16_t)unspentOutputs.size();
+    //if (ptr->numutxos >= 0 && ptr->numutxos < maxlen)
+    //{
+    tipheight = chainActive.LastTip()->GetHeight();  
+    ptr->nodeheight = tipheight; // will be checked in libnspv
+    //}
     
 
     // select all appropriate utxos:
