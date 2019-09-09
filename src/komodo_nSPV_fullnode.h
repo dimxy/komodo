@@ -257,11 +257,22 @@ public:
                     uint8_t opretEvalcode, opretFuncid;
                     uint256 opretTxid;
                     bool isEof = true;
+                    bool checkTxid = false;
 
                     // parse opret first 3 fields:
-                    if (E_UNMARSHAL(vopret, ss >> opretEvalcode; ss >> opretFuncid; ss >> opretTxid; isEof = ss.eof();) || !isEof /*data after is okay*/)
+                    bool parseOk = E_UNMARSHAL(vopret, 
+                        ss >> opretEvalcode; 
+                        ss >> opretFuncid; 
+                        if (funcids.size() >= 2 && opretFuncid != funcids[0]) // this means that we check txid only for second+ funcid in array (considering that the first funcid is the creation txid itself like tokens) 
+                        {
+                            ss >> opretTxid;
+                            checkTxid = true;
+                        }
+                        isEof = ss.eof(); );
+
+                    if( parseOk /*parseOk=true only if eof reached*/|| !isEof /*if more data it means okay*/)
                     {
-                        if (evalcode == opretEvalcode && std::find(funcids.begin(), funcids.end(), (char)opretFuncid) != funcids.end() && filtertxid == opretTxid)
+                        if (evalcode == opretEvalcode && std::find(funcids.begin(), funcids.end(), (char)opretFuncid) != funcids.end() && (!checkTxid || filtertxid == opretTxid))
                         {
                             return true;
                         }
