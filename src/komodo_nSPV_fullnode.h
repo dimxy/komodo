@@ -1099,7 +1099,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                         {
                             memcpy(funcids, &request[n], funcidslen);
                             funcids[funcidslen] = 0;
-                            n += request[n];
+                            n += funcidslen;
                             iguana_rwbignum(0, &request[n], sizeof(filtertxid), (uint8_t *)&filtertxid);
                             std::cerr << __func__ << " " << "request addr=" << coinaddr << " amount=" << amount << " evalcode=" << (int)evalcode << " funcids=" << funcids << " filtertxid=" << filtertxid.GetHex() << std::endl;
 
