@@ -343,7 +343,8 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
     if (amount == 0) {
         // just return total value
         ptr->total = total;
-        return 0;
+        len = (int32_t)(sizeof(*ptr);
+        return len;
     }
 
     // pick optimal utxos for the requested amount
@@ -397,7 +398,7 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
         ptr->utxos->vout = utxoAdded[i].vout;
     }
    
-    len = (int32_t)(sizeof(*ptr) + sizeof(*ptr->utxos)*ptr->numutxos - sizeof(ptr->utxos));
+    len = (int32_t)(sizeof(*ptr) + sizeof(*ptr->utxos)*ptr->numutxos);
     if (len < maxlen) 
         return len;  // good length
     else
@@ -1082,23 +1083,25 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                 if (len >= minreqlen && len <= maxreqlen)
                 {
                     n = 1;
-                    if (request[n] < sizeof(coinaddr))
+                    int32_t addrlen = request[n++];
+                    if (addrlen < sizeof(coinaddr))
                     {
-                        memcpy(coinaddr, &request[n + 1], request[n]);
-                        coinaddr[request[n]] = 0;
-                        n += request[n];
+                        memcpy(coinaddr, &request[n], addrlen);
+                        coinaddr[addrlen] = 0;
+                        n += addrlen;
                         iguana_rwnum(0, &request[n], sizeof(amount), &amount);
                         n += sizeof(amount);
                         iguana_rwnum(0, &request[n], sizeof(evalcode), &evalcode);
                         n += sizeof(evalcode);
 
-                        if (request[n] < sizeof(funcids))
+                        int32_t funcidslen = request[n++];
+                        if (funcidslen < sizeof(funcids))
                         {
-                            memcpy(funcids, &request[n + 1], request[n]);
-                            funcids[request[n]] = 0;
+                            memcpy(funcids, &request[n], funcidslen);
+                            funcids[funcidslen] = 0;
                             n += request[n];
                             iguana_rwbignum(0, &request[n], sizeof(filtertxid), (uint8_t *)&filtertxid);
-                            std::cerr << __func__ << " " << "request addr=" << coinaddr << " amount=" << amount << " funcids=" << funcids << " filtertxid=" << filtertxid.GetHex() << std::endl;
+                            std::cerr << __func__ << " " << "request addr=" << coinaddr << " amount=" << amount << " evalcode=" << (int)evalcode << " funcids=" << funcids << " filtertxid=" << filtertxid.GetHex() << std::endl;
 
                             memset(&U, 0, sizeof(U));
                             if ((slen = NSPV_getccmoduleutxos(&U, coinaddr, amount, evalcode, funcids, filtertxid)) > 0)
