@@ -363,7 +363,7 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
     if (amount == 0) {
         // just return total value
         ptr->total = total;
-        len = (int32_t)(sizeof(*ptr));
+        len = (int32_t)(sizeof(*ptr) - sizeof(ptr->utxos)/*subtract not serialized part of NSPV_utxoresp*/);
         return len;
     }
 
