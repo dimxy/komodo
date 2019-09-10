@@ -992,6 +992,8 @@ UniValue NSPV_spentinfo(uint256 txid,int32_t vout);
 UniValue NSPV_notarizations(int32_t height);
 UniValue NSPV_hdrsproof(int32_t prevheight,int32_t nextheight);
 UniValue NSPV_txproof(int32_t vout,uint256 txid,int32_t height);
+UniValue NSPV_ccmoduleutxos(char *coinaddr, int64_t amount, uint8_t evalcode, std::string funcids, uint256 filtertxid);
+
 uint256 Parseuint256(const char *hexstr);
 extern std::string NSPV_address;
 
@@ -1165,4 +1167,20 @@ UniValue nspv_broadcast(const UniValue& params, bool fHelp)
     if ( KOMODO_NSPV_FULLNODE )
         throw runtime_error("-nSPV=1 must be set to use nspv\n");
     return(NSPV_broadcast((char *)params[0].get_str().c_str()));
+}
+
+UniValue nspv_listccmoduleunspent(const UniValue& params, bool fHelp)
+{
+    int32_t skipcount = 0, CCflag = 0;
+    if (fHelp || params.size() != 5)
+        throw runtime_error("nspv_listccmoduleunspent address amount evalcode funcids txid\n");
+    if (KOMODO_NSPV_FULLNODE)
+        throw runtime_error("-nSPV=1 must be set to use nspv\n");
+
+    std::string address = params[0].get_str().c_str();
+    int64_t amount = atof(params[1].get_str().c_str());
+    uint8_t evalcode = atoi(params[2].get_str().c_str());
+    std::string funcids = params[3].get_str().c_str();
+    uint256 txid = Parseuint256( params[4].get_str().c_str() );
+    return(NSPV_ccmoduleutxos((char*)address.c_str(), amount, evalcode, funcids, txid));
 }
