@@ -1173,10 +1173,11 @@ UniValue nspv_listccmoduleunspent(const UniValue& params, bool fHelp)
 {
     int32_t skipcount = 0, CCflag = 0;
     if (fHelp || params.size() != 5)
-        throw runtime_error("nspv_listccmoduleunspent address amount evalcode funcids txid\n" 
-        "returns utxos from the address filtered by evalcode funcids and txid in opret\n"
-        "if amount is 0 just returns no utxos and available total\n"
-        "funcids is a string of funcid symbols. The first symbol is considered as the creation funcid, so the txid param will be compared to the creation tx id. For the second+ funcids txid param will be compared to txid in opreturn\n" );
+        throw runtime_error("nspv_listccmoduleunspent address amount evalcode funcids txid\n\n" 
+        "returns utxos from the address, filtered by evalcode funcids and txid in opret.\n"
+        "if amount is 0 just returns no utxos and available total.\n"
+        "funcids is a string of funcid symbols. The first symbol is considered as the creation funcid, so the txid param will be compared to the creation tx id.\n"
+        "For the second+ funcids the txid param will be compared to txid in opreturn\n\n" );
     if (KOMODO_NSPV_FULLNODE)
         throw runtime_error("-nSPV=1 must be set to use nspv\n");
 
