@@ -214,7 +214,7 @@ public:
     /// @param evalcode which must be in the opret
     /// @param funcids allowed funcids in string
     /// @param filtertxid txid that should be in the opret (after funcid)
-    virtual bool checkCC(const std::vector<CTxOut> &vouts, int32_t nvout, uint8_t evalcode, std::string funcids, uint256 filtertxid) = 0;
+    virtual bool checkCC(uint256 txid, const std::vector<CTxOut> &vouts, int32_t nvout, uint8_t evalcode, std::string funcids, uint256 filtertxid) = 0;
 };
 
 /// default cc vout checker for use in NSPV_getccmoduleutxos
@@ -227,7 +227,7 @@ private:
 
 public:
     DefaultCCChecker() { }
-    virtual bool checkCC(const std::vector<CTxOut> &vouts, int32_t nvout, uint8_t evalcode, std::string funcids, uint256 filtertxid)
+    virtual bool checkCC(uint256 txid, const std::vector<CTxOut> &vouts, int32_t nvout, uint8_t evalcode, std::string funcids, uint256 filtertxid)
     {
         CScript opret, dummy;
         std::vector< vscript_t > vParams;
@@ -257,24 +257,29 @@ public:
                     uint8_t opretEvalcode, opretFuncid;
                     uint256 opretTxid;
                     bool isEof = true;
-                    bool checkTxid = false;
+                    bool isCreateTx = false;
 
                     // parse opret first 3 fields:
                     bool parseOk = E_UNMARSHAL(vopret, 
                         ss >> opretEvalcode; 
                         ss >> opretFuncid; 
-                        if (funcids.size() >= 2 && opretFuncid != funcids[0]) // this means that we check txid only for second+ funcid in array (considering that the first funcid is the creation txid itself like tokens) 
+                        if (funcids.size() > 0 && opretFuncid == funcids[0]) // this means that we check txid only for second+ funcid in array (considering that the first funcid is the creation txid itself like tokens) 
+                        {
+                            isCreateTx = true;
+                        }
+                        else
                         {
                             ss >> opretTxid;
-                            checkTxid = true;
+                            isCreateTx = false;
                         }
                         isEof = ss.eof(); );
 
-                    std::cerr << __func__ << " " << "opretEvalcode=" << opretEvalcode << " opretFuncid=" << (char)opretFuncid << " checkTxid=" << checkTxid << " opretTxid=" << opretTxid.GetHex() << std::endl;
+                    std::cerr << __func__ << " " << "opretEvalcode=" << opretEvalcode << " opretFuncid=" << (char)opretFuncid << " isCreateTx=" << isCreateTx << " opretTxid=" << opretTxid.GetHex() << std::endl;
 
                     if( parseOk /*parseOk=true only if eof reached*/|| !isEof /*if more data it means okay*/)
                     {
-                        if (evalcode == opretEvalcode && std::find(funcids.begin(), funcids.end(), (char)opretFuncid) != funcids.end() && (!checkTxid || filtertxid == opretTxid))
+                        if (evalcode == opretEvalcode && std::find(funcids.begin(), funcids.end(), (char)opretFuncid) != funcids.end() && 
+                            (isCreateTx && filtertxid == txid || !isCreateTx && filtertxid == opretTxid))
                         {
                             return true;
                         }
@@ -335,7 +340,8 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
             {
                 class BaseCCChecker *baseChecker = ccCheckerTable[evalcode];
 
-                if (baseChecker && baseChecker->checkCC(tx.vout, nvout, evalcode, funcids, filtertxid) || defaultCCChecker.checkCC(tx.vout, nvout, evalcode, funcids, filtertxid))
+                // if a checker is set for evalcode use it otherwise use the default checker:
+                if (baseChecker && baseChecker->checkCC(it->first.txhash, tx.vout, nvout, evalcode, funcids, filtertxid) || defaultCCChecker.checkCC(it->first.txhash, tx.vout, nvout, evalcode, funcids, filtertxid))
                 {
                     std::cerr << __func__ << " " << "filtered utxo with amount=" << tx.vout[nvout].nValue << std::endl;
 
