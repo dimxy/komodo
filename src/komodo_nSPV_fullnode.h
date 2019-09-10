@@ -299,6 +299,10 @@ static std::map<uint8_t, class BaseCCChecker*> ccCheckerTable =
 {
 };
 
+// implements SPV server's part, gets cc module utxos, filtered by evalcode, funcid and txid on opret, for the specified amount
+// if the amount param is 0 returns total available filtere utxo amount and returns no utxos 
+// first char funcid in the string param is considered as the creation tx funcid so filtertxid is compared to the creation txid itself
+// for other funcids filtertxid is compared to the txid in opreturn
 int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_t amount, uint8_t evalcode,  std::string funcids, uint256 filtertxid)
 {
     int64_t total = 0, totaladded = 0; 
