@@ -315,17 +315,17 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
     maxlen = MAX_BLOCK_SIZE(tipheight) - 512;
     //maxlen /= sizeof(*ptr->utxos);  // TODO why was this? we need maxlen in bytes, don't we? 
     
-    ptr->utxos = NULL;
-    ptr->numutxos = 0;
-
     //ptr->numutxos = (uint16_t)unspentOutputs.size();
     //if (ptr->numutxos >= 0 && ptr->numutxos < maxlen)
     //{
+    ptr->utxos = NULL;
+    ptr->numutxos = 0;
+    strncpy(ptr->coinaddr, coinaddr, sizeof(ptr->coinaddr) - 1);
+    ptr->CCflag = 1;
     tipheight = chainActive.LastTip()->GetHeight();  
     ptr->nodeheight = tipheight; // will be checked in libnspv
     //}
-    
-
+   
     // select all appropriate utxos:
     std::cerr << __func__ << " " << "searching addr=" << coinaddr << std::endl;
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
@@ -404,9 +404,6 @@ int32_t NSPV_getccmoduleutxos(struct NSPV_utxosresp *ptr, char *coinaddr, int64_
         if (utxoAdded.size() >= maxinputs)  // reached maxinputs
             break;
     }
-
-    strncpy(ptr->coinaddr, coinaddr, sizeof(ptr->coinaddr) - 1);
-    ptr->CCflag = 1;
     ptr->numutxos = (uint16_t)utxoAdded.size();
     ptr->total = total;
     ptr->utxos = (NSPV_utxoresp*)calloc(ptr->numutxos, sizeof(ptr->utxos[0]));
