@@ -932,6 +932,9 @@ UniValue NSPV_broadcast(char *hex)
 }
 
 // gets cc utxos filtered by evalcode, funcid and txid in opret, for the specified amount
+// if amount == 0 returns total and no utxos
+// funcids is string of funcid symbols like "ct". The first symbol is considered as creation tx funcid and filtertxid will be compared to the creation tx id itself. 
+// For second+ funcids the filtertxid will be compared to txid in opret
 UniValue NSPV_ccmoduleutxos(char *coinaddr, int64_t amount, uint8_t evalcode, std::string funcids, uint256 filtertxid)
 {
     UniValue result(UniValue::VOBJ); uint8_t msg[512]; int32_t i, iter, slen, len = 0;
