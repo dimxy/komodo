@@ -274,9 +274,9 @@ public:
                         }
                         isEof = ss.eof(); );
 
+                    opretTxid = revuint256(opretTxid);
                     std::cerr << __func__ << " " << "opretEvalcode=" << opretEvalcode << " opretFuncid=" << (char)opretFuncid << " isCreateTx=" << isCreateTx << " opretTxid=" << opretTxid.GetHex() << std::endl;
-
-                    if( parseOk /*parseOk=true only if eof reached*/|| !isEof /*if more data it means okay*/)
+                    if( parseOk /*parseOk=true if eof reached*/|| !isEof /*more data means okay*/)
                     {
                         if (evalcode == opretEvalcode && std::find(funcids.begin(), funcids.end(), (char)opretFuncid) != funcids.end() && 
                             (isCreateTx && filtertxid == txid || !isCreateTx && filtertxid == opretTxid))
