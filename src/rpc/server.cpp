@@ -429,6 +429,7 @@ static const CRPCCommand vRPCCommands[] =
     { "nSPV",   "nspv_spend",           &nspv_spend,    true },
     { "nSPV",   "nspv_broadcast",       &nspv_broadcast,    true },
     { "nSPV",   "nspv_logout",          &nspv_logout,    true },
+    { "nSPV",   "nspv_listccmoduleunspent",     &nspv_listccmoduleunspent,  true },
 
     // rewards
     { "rewards",       "rewardslist",       &rewardslist,     true },
