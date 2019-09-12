@@ -322,6 +322,23 @@ typedef std::vector<uint8_t> vuint8_t;      // typdef for other cases (apart fro
 
 extern struct NSPV_CCmtxinfo NSPV_U;  //!< global variable with info about mtx object and used utxo
 
+/// store cond to vin indexes map allowing to sign cc vins of partially signed mtx on superlite clients where myprivkey is available
+struct NSPVSigData {
+
+    struct CCVinInfo
+    {
+        int32_t vini;
+        std::string ccjson;
+        CAmount amount;
+        CScript scriptPubKey;  // for normals
+    };
+
+    std::string hexTx;  // partially signed tx in hex
+    //std::map<std::string, std::vector<int32_t>> ccvinmap;  // map conds in json to not signed vin index array
+    std::vector<CCVinInfo> ccvininfo;
+    std::string CCerror;
+};
+
 #ifdef ENABLE_WALLET
 extern CWallet* pwalletMain;  //!< global wallet object pointer to access wallet functionality
 #endif
@@ -1047,6 +1064,8 @@ void LockUtxo(uint256 txid, int32_t nvout);
 bool AddInMemoryTransaction(const CTransaction &tx);
 bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
 
+// convert NSPVSigData to UniValue:
+UniValue NSPVSigData2UniValue(const NSPVSigData &sigData);
 #ifndef LOGSTREAM_DEFINED
 #define LOGSTREAM_DEFINED 
 // bitcoin LogPrintStr with category "-debug" cmdarg support for C++ ostringstream:
