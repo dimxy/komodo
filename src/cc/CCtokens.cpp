@@ -837,26 +837,27 @@ CPubKey GetTokenOriginatorPubKey(CScript scriptPubKey) {
 
 std::string CreateToken(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData)
 {
-    return CreateTokenExt(txfee, tokensupply, name, description, nonfungibleData, 0, false);
+    NSPVSigData sigData = CreateTokenExt(CPubKey(), txfee, tokensupply, name, description, nonfungibleData, 0, false);
+    return sigData.hexTx;
 }
 
 // returns token creation signed raw tx
 // params: txfee amount, token amount, token name and description, optional NFT data, 
-std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode, bool addTxInMemory)
+NSPVSigData CreateTokenExt(CPubKey mypk, int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode, bool addTxInMemory)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-	CPubKey mypk; 
     struct CCcontract_info *cp, C;
+    NSPVSigData sigData, emptyResult;
 
 	if (tokensupply < 0)	{
         CCerror = "negative tokensupply";
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << "=" << tokensupply << std::endl);
-		return std::string("");
+		return emptyResult;
 	}
     if (!nonfungibleData.empty() && tokensupply != 1) {
         CCerror = "for non-fungible tokens tokensupply should be equal to 1";
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << std::endl);
-        return std::string("");
+        return emptyResult;
     }
 
 	cp = CCinit(&C, EVAL_TOKENS);
@@ -864,7 +865,7 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
 	{
         LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << "name len=" << name.size() << " or description len=" << description.size() << " is too big" << std::endl);
         CCerror = "name should be <= 32, description should be <= 4096";
-		return("");
+		return emptyResult;
 	}
 	if (txfee == 0)
 		txfee = 10000;
@@ -873,6 +874,11 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
     if (additionalMarkerEvalCode > 0)
         txfeeCount++;
 
+    if (!mypk.IsFullyValid())
+    {
+        CCerror = "mypk is not set";
+        return emptyResult;
+    }
 
     CAmount totalInputs;
 	if ((totalInputs = AddNormalinputs2(mtx, tokensupply + txfeeCount * txfee, 64)) > 0)
@@ -880,7 +886,7 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
         int64_t mypkInputs = TotalPubkeyNormalInputs(mtx, mypk);  
         if (mypkInputs < tokensupply) {     // check that the token amount is really issued with mypk (because in the wallet there may be some other privkeys)
             CCerror = "some inputs signed not with mypubkey (-pubkey=pk)";
-            return std::string("");
+            return emptyResult;
         }
         
         uint8_t destEvalCode = EVAL_TOKENS;
@@ -894,27 +900,27 @@ std::string CreateTokenExt(int64_t txfee, int64_t tokensupply, std::string name,
         //mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, txfee, GetUnspendable(cp, NULL)));          // ...moved to vout=0 for matching with rogue-game token
         if (additionalMarkerEvalCode > 0) 
         {
-            // add additional marker:
+            // add additional marker for NFT cc evalcode:
             struct CCcontract_info *cp2, C2;
             cp2 = CCinit(&C2, additionalMarkerEvalCode);
             mtx.vout.push_back(MakeCC1vout(additionalMarkerEvalCode, txfee, GetUnspendable(cp2, NULL)));
         }
 
-		std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', Mypubkey(), name, description, nonfungibleData));
-        if (hextx.empty()) {
+		sigData = FinalizeCCTxExt(0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', vscript_t(mypk.begin(), mypk.end()), name, description, nonfungibleData));
+        if (sigData.hexTx.empty()) {
             CCerror = "couldnt finalize token tx";
-            return std::string();
+            return emptyResult;
         }
         if (addTxInMemory)
         {
             // add tx to in-mem array to use in subsequent AddNormalinputs()
             AddInMemoryTransaction(mtx);
         }
-        return hextx;
+        return sigData;
 	}
 
     CCerror = "cant find normal inputs";
-    return std::string("");
+    return emptyResult;
 }
 
 // transfer tokens from mypk to another pubkey
@@ -933,7 +939,8 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, CPubKey destpubkey, in
         cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT
     GetTokensCCaddress(cp, tokenaddr, mypk);
 
-    return TokenTransferExt(txfee, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>(), std::vector<CPubKey> {destpubkey}, total);
+    NSPVSigData sigData = TokenTransferExt(CPubKey(), txfee, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>(), std::vector<CPubKey> {destpubkey}, total);
+    return sigData.hexTx;
 }
 
 // token transfer extended version
@@ -945,28 +952,31 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, CPubKey destpubkey, in
 // destpubkeys - if size=1 then it is the dest pubkey, if size=2 then the dest address is 1of2 addr
 // total - token amount to transfer
 // returns: signed transfer tx in hex
-std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total)
+NSPVSigData TokenTransferExt(CPubKey mypk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-	CPubKey mypk; uint64_t mask; int64_t CCchange = 0, inputs = 0;  struct CCcontract_info *cp, C;
+	uint64_t mask; int64_t CCchange = 0, inputs = 0;  struct CCcontract_info *cp, C;
+    NSPVSigData emptyResult;
     
 	if (total < 0)	{
         CCerror = strprintf("negative total");
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << "=" << total << std::endl);
-		return std::string();
+		return emptyResult;
 	}
 
 	cp = CCinit(&C, EVAL_TOKENS);
 
 	if (txfee == 0)
 		txfee = 10000;
-	mypk = pubkey2pk(Mypubkey());
-    /*if ( cp->tokens1of2addr[0] == 0 )
+
+    if (!mypk.IsFullyValid())
     {
-        GetTokensCCaddress(cp, cp->tokens1of2addr, mypk);
-        fprintf(stderr,"set tokens1of2addr <- %s\n",cp->tokens1of2addr);
-    }*/
-    if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
+        CCerror = "mypk is not set";
+        return emptyResult;
+    }
+
+    int64_t normalInputs = AddNormalinputs(mtx, mypk, txfee, 3);
+    if (normalInputs > 0)
 	{
 		mask = ~((1LL << mtx.vin.size()) - 1);  // seems, mask is not used anymore
         
@@ -975,7 +985,7 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 			if (inputs < total) {   //added dimxy
                 CCerror = strprintf("insufficient token inputs");
                 LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << std::endl);
-				return std::string();
+				return emptyResult;
 			}
 
             uint8_t destEvalCode = EVAL_TOKENS;
@@ -994,7 +1004,7 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
             else
             {
                 CCerror = "zero or unsupported destination pk count";
-                return std::string();
+                return emptyResult;
             }
 
 			if (CCchange != 0)
@@ -1011,12 +1021,12 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
-			std::string hextx = FinalizeCCTx(mask, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutTokenPubkeys, std::make_pair((uint8_t)0, vscript_t()))); 
-            if (hextx.empty())
+			NSPVSigData sigData = FinalizeCCTxExt(mask, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutTokenPubkeys, std::make_pair((uint8_t)0, vscript_t()))); 
+            if (sigData.hexTx.empty())
                 CCerror = "could not finalize tx";
             else
                 AddInMemoryTransaction(mtx);  // to be able to spend mtx change
-            return hextx;
+            return sigData;
                                                                                                                                                    
 		}
 		else {
@@ -1029,15 +1039,15 @@ std::string TokenTransferExt(int64_t txfee, uint256 tokenid, char *tokenaddr, st
         CCerror = strprintf("insufficient normal inputs for tx fee");
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << std::endl);
 	}
-	return std::string();
+	return emptyResult;
 }
 
 // transfer token to scriptPubKey
-std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
+NSPVSigData TokenTransferSpk(CPubKey mypk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
 {
-    const std::string empty;
+    const NSPVSigData emptyResult;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk;
+    //CPubKey mypk;
     int64_t CCchange = 0, inputs = 0;
 
     struct CCcontract_info *cp, C;
@@ -1045,11 +1055,17 @@ std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, char *tokenaddr, st
 
     if (total < 0) {
         CCerror = strprintf("negative total");
-        return empty;
+        return emptyResult;
     }
     if (txfee == 0)
         txfee = 10000;
-    mypk = pubkey2pk(Mypubkey());
+    //mypk = pubkey2pk(Mypubkey());
+
+    if (!mypk.IsFullyValid())
+    {
+        CCerror = "mypk is not set";
+        return emptyResult;
+    }
 
     if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
     {
@@ -1057,7 +1073,7 @@ std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, char *tokenaddr, st
         {
             if (inputs < total) {
                 CCerror = strprintf("insufficient token inputs");
-                return empty;
+                return emptyResult;
             }
 
             uint8_t destEvalCode = EVAL_TOKENS;
@@ -1078,10 +1094,10 @@ std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, char *tokenaddr, st
             for (auto p : probeconds)
                 CCAddVintxCond(cp, p.first, p.second);
 
-            std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vscript_t())));
-            if (hextx.empty())
+            NSPVSigData sigData = FinalizeCCTxExt(0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vscript_t())));
+            if (sigData.hexTx.empty())
                 CCerror = "could not finalize tx";
-            return hextx;
+            return sigData;
         }
         else {
             CCerror = strprintf("no token inputs");
@@ -1091,7 +1107,7 @@ std::string TokenTransferSpk(int64_t txfee, uint256 tokenid, char *tokenaddr, st
     {
         CCerror = "insufficient normal inputs for tx fee";
     }
-    return empty;
+    return emptyResult;
 }
 
 int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
@@ -1134,8 +1150,8 @@ UniValue TokenInfo(uint256 tokenid)
     std::vector<std::pair<uint8_t, vscript_t>>  oprets;
     vscript_t vopretNonfungible;
     std::string name, description; 
-    struct CCcontract_info *cpTokens, tokensCCinfo;
 
+    struct CCcontract_info *cpTokens, tokensCCinfo;
     cpTokens = CCinit(&tokensCCinfo, EVAL_TOKENS);
 
 	if( !myGetTransaction(tokenid, tokenbaseTx, hashBlock) )

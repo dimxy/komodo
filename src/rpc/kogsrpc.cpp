@@ -81,10 +81,10 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 3))
+    if (fHelp || (params.size() < 3 || params.size() > 4))
     {
         throw runtime_error(
-            "kogscreategameconfig name description '{\"KogsInContainer\":n, \"KogsInStack\":n, \"KogsToAdd\":n, \"MaxTurns\":n, \"HeightRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n },...], \"StrengthRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n},...]}'\n"
+            "kogscreategameconfig name description '{\"KogsInContainer\":n, \"KogsInStack\":n, \"KogsToAdd\":n, \"MaxTurns\":n, \"HeightRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n },...], \"StrengthRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n},...]}' [mypubkey]\n"
             "creates a game configuration\n"
             "returns gameconfig transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
@@ -232,10 +232,19 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
         }
     }
 
-    std::string hextx = KogsCreateGameConfig(newgameconfig);
+    CPubKey mypk;
+    if (params.size() == 4)
+        mypk = pubkey2pk(ParseHex(params[3].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    NSPVSigData sigData = KogsCreateGameConfig(mypk, newgameconfig);
     RETURN_IF_ERROR(CCerror);
+
+    result = NSPVSigData2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
     return result;
 }
 
@@ -250,10 +259,10 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 3))
+    if (fHelp || (params.size() < 3 || params.size() > 4))
     {
         throw runtime_error(
-            "kogscreateplayer name description '{ param1, param2, ... }'\n"
+            "kogscreateplayer name description '{ param1, param2, ... }' [mypubkey]\n"
             "creates a player object\n"
             "returns player object transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
@@ -275,28 +284,27 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp)
     std::vector<std::string> ikeys = jsonParams.getKeys();
     std::vector<std::string>::const_iterator iter;
 
-    int reqparamcount = 0;
-
     iter = std::find(ikeys.begin(), ikeys.end(), "param1");
     UniValue param;
     if (iter != ikeys.end()) {
         param = jsonParams[iter - ikeys.begin()];
         newplayer.param1 = param.isNum() ? param.get_int() : atoi(param.get_str());
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newplayer.param1=" << newplayer.param1 << std::endl);
-        //if (newplayer.param1 < 1 || newplayer.param1 > 100)
-        //    throw runtime_error("param1 param is incorrect\n");
-
-        reqparamcount++;
     }
 
-    //if (reqparamcount < 1)
-    //    throw runtime_error("not all required game object data passed\n");
+    CPubKey mypk;
+    if (params.size() == 4)
+        mypk = pubkey2pk(ParseHex(params[3].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
 
-
-    std::string hextx = KogsCreatePlayer(newplayer);
+    NSPVSigData sigData = KogsCreatePlayer(mypk, newplayer);
     RETURN_IF_ERROR(CCerror);
+
+    result = NSPVSigData2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
     return result;
 }
 
@@ -304,16 +312,18 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp)
 UniValue kogsstartgame(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
+    UniValue jsonParams;
+
     CCerror.clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 3))
+    if (fHelp || (params.size() < 2 || params.size() > 3))
     {
         throw runtime_error(
-            "kogsstartgame gameconfigid playerid1, playerid2, ...\n"
+            "kogsstartgame gameconfigid '[playerid1, playerid2, ...]' [mypubkey] \n"
             "starts a new game with 2 or more players\n"
             "returns game transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
@@ -323,26 +333,43 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp)
     if (newgame.gameconfigid.IsNull())
         throw runtime_error("incorrect gameconfigid param\n");
 
+    // parse json array object:
+    if (params[1].getType() == UniValue::VARR)
+        jsonParams = params[1].get_obj();
+    else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '[...]'
+        jsonParams.read(params[1].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VARR || jsonParams.empty())
+        throw runtime_error("parameter 1 must be array\n");
+
     std::set<uint256> playerids;
-    for (int i = 1; i < params.size(); i++)
+    for (int i = 0; i < jsonParams.getValues().size(); i++)
     {
-        uint256 playerid = Parseuint256(params[i].get_str().c_str());
+        uint256 playerid = Parseuint256(jsonParams.getValues()[i].get_str().c_str());
         if (!playerid.IsNull())
             playerids.insert(playerid);
         else
-            throw runtime_error(std::string("incorrect playerid=") + params[i].get_str() + std::string("\n"));
+            throw runtime_error(std::string("incorrect playerid=") + jsonParams.getValues()[i].get_str() + std::string("\n"));
     }
 
-    if (playerids.size() != params.size() - 1)
+    if (playerids.size() != jsonParams.getValues().size())
         throw runtime_error("duplicate playerids in params\n");
 
     for (auto p : playerids)
         newgame.playerids.push_back(p);
 
-    std::string hextx = KogsStartGame(newgame);
+    CPubKey mypk;
+    if (params.size() == 3)
+        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    NSPVSigData sigData = KogsStartGame(mypk, newgame);
     RETURN_IF_ERROR(CCerror);
+
+    result = NSPVSigData2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
     return result;
 }
 
@@ -420,13 +447,21 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
         }
     }
 
-    std::vector<std::string> hextxns = KogsCreateMatchObjectNFTs(gameobjects);
+    CPubKey mypk;
+    if (params.size() == 2)
+        mypk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    std::vector<NSPVSigData> sigDatas = KogsCreateMatchObjectNFTs(mypk, gameobjects);
     RETURN_IF_ERROR(CCerror);
 
     UniValue resarray(UniValue::VARR);
-    for (int i = 0; i < hextxns.size(); i++)
+    for (const auto &s : sigDatas)
     {
-        resarray.push_back(hextxns[i]);
+        resarray.push_back(NSPVSigData2UniValue(s));
     }
 
     result.push_back(std::make_pair("result", "success"));
@@ -443,10 +478,10 @@ UniValue kogscreatekogs(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 1))
+    if (fHelp || (params.size() < 1 || params.size() > 2))
     {
         throw runtime_error(
-            "kogscreatekogs '{\"kogs\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}'\n"
+            "kogscreatekogs '{\"kogs\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}' [mypubkey]\n"
             "creates array of kog NFT creation transactions to be sent via sendrawtransaction rpc\n" "\n");
     }
     return CreateMatchObjects(params, true);
@@ -461,10 +496,10 @@ UniValue kogscreateslammers(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 1))
+    if (fHelp || (params.size() < 1 || params.size() > 2))
     {
         throw runtime_error(
-            "kogscreateslammers '{\"slammers\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}'\n"
+            "kogscreateslammers '{\"slammers\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}' [mypubkey]\n"
             "creates array of slammer NFT creation transactions to be sent via sendrawtransaction rpc\n" "\n");
     }
     return CreateMatchObjects(params, false);
@@ -480,10 +515,10 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 5))
+    if (fHelp || (params.size() < 5 || params.size() > 6))
     {
         throw runtime_error(
-            "kogscreatepack name description packsize encryptkey initvector\n"
+            "kogscreatepack name description packsize encryptkey initvector [mypubkey]\n"
             "creates a pack with the 'number' of randomly selected kogs. The pack content is encrypted (to decrypt it later after purchasing)\n" "\n");
     }
 
@@ -504,11 +539,19 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp)
     if (iv.size() != WALLET_CRYPTO_KEY_SIZE)
         throw runtime_error(std::string("initvector length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
 
-    std::string hextx = KogsCreatePack(newpack, packsize, enckey, iv);
+    CPubKey mypk;
+    if (params.size() == 6)
+        mypk = pubkey2pk(ParseHex(params[5].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    NSPVSigData sigData = KogsCreatePack(mypk, newpack, packsize, enckey, iv);
     RETURN_IF_ERROR(CCerror);
 
+    result = NSPVSigData2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
     return result;
 }
 
@@ -522,10 +565,10 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 3))
+    if (fHelp || (params.size() < 3 || params.size() > 4))
     {
         throw runtime_error(
-            "kogsunsealpack packid encryptkey initvector\n"
+            "kogsunsealpack packid encryptkey initvector [mypubkey]\n"
             "unseals pack (decrypts its content) and sends kog tokens to the pack owner\n" "\n");
     }
 
@@ -537,16 +580,24 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
     if (enckey.size() != WALLET_CRYPTO_KEY_SIZE)
         throw runtime_error(std::string("encryption key length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
 
-    vuint8_t iv = ParseHex(params[1].get_str().c_str());
+    vuint8_t iv = ParseHex(params[2].get_str().c_str());
     if (iv.size() != WALLET_CRYPTO_KEY_SIZE)
         throw runtime_error(std::string("init vector length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
 
-    std::vector<std::string> hextxns = KogsUnsealPackToOwner(packid, enckey, iv);
+    CPubKey mypk;
+    if (params.size() == 4)
+        mypk = pubkey2pk(ParseHex(params[3].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    std::vector<NSPVSigData> sigDatas = KogsUnsealPackToOwner(mypk, packid, enckey, iv);
     RETURN_IF_ERROR(CCerror);
 
-    for (auto hextx : hextxns)
+    for (const auto &s : sigDatas)
     {
-        resarray.push_back(hextx);
+        resarray.push_back(NSPVSigData2UniValue(s));
     }
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextxns", resarray));
@@ -558,6 +609,8 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
+    UniValue jsonParams;
+
     CCerror.clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
@@ -567,7 +620,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 5))
     {
         throw runtime_error(
-            "kogscreatecontainer name description playerid tokenid1, tokenid2,...\n"
+            "kogscreatecontainer name description playerid '[tokenid1, tokenid2,...]' [mypubkey]\n"
             "creates a container with the passed 40 kog ids and one slammer id\n" "\n");
     }
 
@@ -579,38 +632,41 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
         throw runtime_error("incorrect playerid\n");
     newcontainer.InitContainer(playerid);
 
-    std::set<uint256> tokenids;
+    // parse json array object:
+    if (params[3].getType() == UniValue::VARR)
+        jsonParams = params[3].get_obj();
+    else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '[...]'
+        jsonParams.read(params[3].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VARR || jsonParams.empty())
+        throw runtime_error("parameter 1 must be array\n");
 
-    for (int i = 3; i < params.size(); i++)
+    std::set<uint256> tokenids;
+    for (int i = 0; i < jsonParams.getValues().size(); i++)
     {
-        uint256 tokenid = Parseuint256(params[i].get_str().c_str());
+        uint256 tokenid = Parseuint256(jsonParams.getValues()[i].get_str().c_str());
         if (!tokenid.IsNull())
             tokenids.insert(tokenid);
         else
-            throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
+            throw runtime_error(std::string("incorrect tokenid=") + jsonParams.getValues()[i].get_str() + std::string("\n"));
     }
-
-    if (tokenids.size() != params.size() - 3)
+    if (tokenids.size() != jsonParams.getValues().size())
         throw runtime_error("duplicate tokenids in params\n");
 
-    std::vector<std::string> hextxns = KogsCreateContainerV2(newcontainer, tokenids);
+    CPubKey mypk;
+    if (params.size() == 3)
+        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    std::vector<NSPVSigData> sigDatas = KogsCreateContainerV2(mypk, newcontainer, tokenids);
     RETURN_IF_ERROR(CCerror);
 
-    for (auto hextx : hextxns)
+    for (const auto &s : sigDatas)
     {
-        resarray.push_back(hextx);
+        resarray.push_back(NSPVSigData2UniValue(s));
     }
-
-    /*if (!duptokenids.empty()) 
-    {
-        result.push_back(std::make_pair("result", "error"));
-        result.push_back(std::make_pair("error", "tokenids already included in other containers"));
-        UniValue resarray(UniValue::VARR);
-        for (auto d : duptokenids)
-            resarray.push_back(d.GetHex());
-        result.push_back(std::make_pair("duplicates", resarray));
-        return result;
-    }*/
 
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextxns", resarray));
@@ -628,10 +684,10 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 2))
+    if (fHelp || (params.size() < 2 || params.size() > 3))
     {
         throw runtime_error(
-            "kogsdepositcontainer gameid containerid\n"
+            "kogsdepositcontainer gameid containerid [mypubkey]\n"
             "deposits container to the game address\n"
             "parameters:\n"
             "gameid - id of the transaction created by kogsstartgame rpc\n"
@@ -646,11 +702,19 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
     
-    std::string hextx = KogsDepositContainerV2(0, gameid, containerid);
+    CPubKey mypk;
+    if (params.size() == 3)
+        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    NSPVSigData sigData = KogsDepositContainerV2(mypk, 0, gameid, containerid);
     RETURN_IF_ERROR(CCerror);
 
+    result = NSPVSigData2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
     return result;
 }
 
@@ -664,10 +728,10 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 2))
+    if (fHelp || (params.size() < 2 || params.size() > 3))
     {
         throw runtime_error(
-            "kogsclaimdepositedcontainer gameid containerid\n"
+            "kogsclaimdepositedcontainer gameid containerid [mypubkey]\n"
             "claims deposited container back from the game address\n"
             "parameters:\n"
             "gameid - id of the transaction created by kogsstartgame rpc\n"
@@ -684,11 +748,19 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp)
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
-    std::string hextx = KogsClaimDepositedContainer(0, gameid, containerid);
+    CPubKey mypk;
+    if (params.size() == 3)
+        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    NSPVSigData sigData = KogsClaimDepositedContainer(mypk, 0, gameid, containerid);
     RETURN_IF_ERROR(CCerror);
 
+    result = NSPVSigData2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
     return result;
 }
 
@@ -697,16 +769,17 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
+    UniValue jsonParams;
     CCerror.clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 2))
+    if (fHelp || (params.size() < 2 || params.size() > 3))
     {
         throw runtime_error(
-            "kogsaddkogstocontainer containerid tokenid1, tokenid2, ...\n"
+            "kogsaddkogstocontainer containerid '[tokenid1, tokenid2, ...]' [mypubkey]\n"
             "adds kog tokenids to container\n" "\n");
     }
 
@@ -714,24 +787,40 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
+    // parse json object:
+    if (params[1].getType() == UniValue::VARR)
+        jsonParams = params[1].get_obj();
+    else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '[...]'
+        jsonParams.read(params[1].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VARR || jsonParams.empty())
+        throw runtime_error("parameter 1 must be array\n");
+
     std::set<uint256> tokenids;
-    for (int i = 1; i < params.size(); i++)
+    for (int i = 0; i < jsonParams.getValues().size(); i++)
     {
-        uint256 tokenid = Parseuint256(params[i].get_str().c_str());
+        uint256 tokenid = Parseuint256(jsonParams.getValues()[i].get_str().c_str());
         if (!tokenid.IsNull())
             tokenids.insert(tokenid);
         else
-            throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
+            throw runtime_error(std::string("incorrect tokenid=") + jsonParams.getValues()[i].get_str() + std::string("\n"));
     }
-    if (tokenids.size() != params.size() - 1)
+    if (tokenids.size() != jsonParams.getValues().size())
         throw runtime_error("duplicate tokenids in params\n");
 
-    std::vector<std::string> hextxns = KogsAddKogsToContainerV2(0, containerid, tokenids);
+    CPubKey mypk;
+    if (params.size() == 3)
+        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    std::vector<NSPVSigData> sigDatas = KogsAddKogsToContainerV2(mypk, 0, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
 
-    for (auto hextx : hextxns)
+    for (const auto &s : sigDatas)
     {
-        resarray.push_back(hextx);
+        resarray.push_back(NSPVSigData2UniValue(s));
     }
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextxns", resarray));
@@ -750,10 +839,10 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 1))
+    if (fHelp || (params.size() < 1 || params.size() > 2))
     {
         throw runtime_error(
-            "kogsremovekogsfromcontainer '{ \"containerid\":\"id\", \"gameid\":\"id\", \"tokenids\" : [tokenid1, tokenid2, ...] }'\n"
+            "kogsremovekogsfromcontainer '{ \"containerid\":\"id\", \"gameid\":\"id\", \"tokenids\" : [tokenid1, tokenid2, ...] } [mypubkey]'\n"
             "removes kog tokenids from container\n" 
             "gameid is optional and is passed when container is deposited to the game\n" "\n");
 
@@ -811,11 +900,20 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
-    std::vector<std::string> hextxns = KogsRemoveKogsFromContainerV2(0, gameid, containerid, tokenids);
+    CPubKey mypk;
+    if (params.size() == 2)
+        mypk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    std::vector<NSPVSigData> sigData = KogsRemoveKogsFromContainerV2(mypk, 0, gameid, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
-    for (auto &hextx : hextxns)
+    for (const auto &s : sigData)
     {
-        resarray.push_back(hextx);
+        UniValue u = NSPVSigData2UniValue(s);
+        resarray.push_back(u);
     }
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextxns", resarray));
@@ -835,10 +933,10 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 3))
+    if (fHelp || (params.size() < 3 || params.size() > 4))
     {
         throw runtime_error(
-            "kogsslamdata gameid playerid '{ \"armheight\":value, \"armstrength\":value }'\n"
+            "kogsslamdata gameid playerid '{ \"armheight\":value, \"armstrength\":value }' [mypubkey]\n"
             "sends slam data to the chain, triggers stack reloading\n" "\n");
     }
 
@@ -882,11 +980,19 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp)
     if (slamparams.armStrength < 0 || slamparams.armStrength > 100)
         throw runtime_error("incorrect armstrength value\n");
 
-    std::string hextx = KogsAddSlamParams(slamparams);
+    CPubKey mypk;
+    if (params.size() == 4)
+        mypk = pubkey2pk(ParseHex(params[3].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    NSPVSigData sigData = KogsAddSlamParams(mypk, slamparams);
     RETURN_IF_ERROR(CCerror);
 
+    result = NSPVSigData2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
     return result;
 }
 
@@ -901,10 +1007,10 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 1))
+    if (fHelp || (params.size() < 1 || params.size() > 2))
     {
         throw runtime_error(
-            "kogsburntoken tokenid\n"
+            "kogsburntoken tokenid [mypubkey]\n"
             "burns a game object NFT\n" "\n");
     }
 
@@ -912,11 +1018,19 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp)
     if (tokenid.IsNull())
         throw runtime_error("tokenid incorrect\n");
 
-    std::string hextx = KogsBurnNFT(tokenid);
+    CPubKey mypk;
+    if (params.size() == 2)
+        mypk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    NSPVSigData sigData = KogsBurnNFT(mypk, tokenid);
     RETURN_IF_ERROR(CCerror);
 
+    result = NSPVSigData2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
     return result;
 }
 
@@ -930,10 +1044,10 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() != 2))
+    if (fHelp || (params.size() != 2 && params.size() != 3))
     {
         throw runtime_error(
-            "kogsremoveobject txid nvout\n"
+            "kogsremoveobject txid nvout [mypubkey]\n"
             "removes a game object by spending its marker (admin feature)\n" "\n");
     }
 
@@ -943,11 +1057,19 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp)
 
     int32_t nvout = atoi(params[1].get_str().c_str());
 
-    std::string hextx = KogsRemoveObject(txid, nvout);
+    CPubKey mypk;
+    if (params.size() == 3)
+        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
+    else
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    NSPVSigData sigData = KogsRemoveObject(mypk, txid, nvout);
     RETURN_IF_ERROR(CCerror);
 
+    result = NSPVSigData2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
-    result.push_back(std::make_pair("hextx", hextx));
     return result;
 }
 

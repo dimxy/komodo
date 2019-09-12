@@ -201,14 +201,6 @@ static void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAd
 }
 */
 
-/*
- FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and the opreturn.
-
- This allows the contract transaction functions to create the appropriate vins and vouts and have FinalizeCCTx create a properly signed transaction.
-
- By using -addressindex=1, it allows tracking of all the CC addresses
- */
-
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey)
 {
 #ifdef ENABLE_WALLET
@@ -247,7 +239,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
 	char myaddr[64], destaddr[64], unspendable[64], mytokensaddr[64], mysingletokensaddr[64], unspendabletokensaddr[64],CC1of2CCaddr[64];
     uint8_t *privkey = NULL, myprivkey[32] = { '\0' }, unspendablepriv[32] = { '\0' }, /*tokensunspendablepriv[32],*/ *msg32 = 0;
 	CC *mycond=0, *othercond=0, *othercond2=0,*othercond4=0, *othercond3=0, *othercond1of2=NULL, *othercond1of2tokens = NULL, *cond=0,  *condCC2=0,*mytokenscond = NULL, *mysingletokenscond = NULL, *othertokenscond = NULL, *vectcond = NULL;
-	CPubKey unspendablepk /*, tokensunspendablepk*/;
+	CPubKey unspendablepk;
 	struct CCcontract_info *cpTokens, tokensC;
     UniValue sigData(UniValue::VARR),result(UniValue::VOBJ);
     const UniValue sigDataNull = NullUniValue;
@@ -528,7 +520,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                     }
                 }
                 uint256 sighash = SignatureHash(CCPubKey(cond), mtx, i, SIGHASH_ALL,utxovalues[i],consensusBranchId, &txdata);
-                if ( 0 )
+                if ( 0 )  // trace privkey
                 {
                     int32_t z;
                     for (z=0; z<32; z++)
@@ -566,6 +558,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
 
                     AddSigData2UniValue(sigData, i, ccjson, std::string(), vintx.vout[utxovout].nValue);  // store vin i with scriptPubKey
                 }
+
             }
         } else fprintf(stderr,"FinalizeCCTx2 couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
     }
@@ -595,6 +588,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
         cc_free(vectcond);
     memset(myprivkey,0,sizeof(myprivkey));
     std::string strHex = EncodeHexTx(mtx);
+
     if ( strHex.size() > 0 )
         result.push_back(Pair(JSON_HEXTX, strHex));
     else {
@@ -1025,12 +1019,6 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
     Getscriptaddress(coinaddr,CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
     SetCCunspents(unspentOutputs,coinaddr,false);
 
-    /*if (lookInMempool)
-    {
-        // add outputs also from mempool
-        SetCCunspentsInMempool(unspentOutputs, coinaddr, false);
-    }*/
-
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
         txid = it->first.txhash;
@@ -1061,7 +1049,7 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
                 if ( i != n )
                     continue;
             }
-            if (/*lookInMempool ||*/ myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
+            if ( myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
             {
                 up = &utxos[n++];
                 up->txid = txid;
