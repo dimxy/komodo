@@ -501,6 +501,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                             Getscriptaddress(coinaddr, CCPubKey(vectcond));
                             // std::cerr << __func__ << " destaddr=" << destaddr << " coinaddr=" << coinaddr << std::endl;
                             if (strcmp(destaddr, coinaddr) == 0) {
+                                // std::cerr << __func__ << " matched vintxprobe destaddr=" << destaddr << std::endl;
                                 if (t.CCpriv[0])
                                     privkey = t.CCpriv;
                                 else

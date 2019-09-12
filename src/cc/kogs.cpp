@@ -262,7 +262,7 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
 {
     const CAmount  txfee = 10000;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk = pubkey2pk(Mypubkey());
+    CPubKey mypk = pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -718,43 +718,8 @@ NSPVSigData KogsStartGame(CPubKey mypk, KogsGame newgame)
     //return CreateGameObjectNFT(&newgame);
     return CreateEnclosureTx(mypk, &newgame, false, true);
 }
-// create container for passed tokenids
-// check for duplicated
-// container content is tokenid list
-// this is not a very good container impl: to deposit container we would need also to deposit all tokens inside it.
-// (hmm, but I have done packs impl in a similar way. And I have to do this: pack content should be encrypted..)
-/*
-std::string KogsCreateContainer_NotUsed(KogsContainer newcontainer, const std::set<uint256> &tokenids, std::vector<uint256> &duptokenids)
-{
-    const std::string emptyresult;
-    //std::vector<std::shared_ptr<KogsBaseObject>> koglist;
-    std::vector<std::shared_ptr<KogsBaseObject>> containerlist;
 
-    // get all containers
-    ListGameObjects(KOGSID_CONTAINER, false, containerlist);
-
-    duptokenids.clear();
-    // check tokens that are not in any container
-    for (auto &t : tokenids)
-    {
-        bool found = false;
-        for (auto &c : containerlist) {
-            KogsContainer *container = (KogsContainer *)c.get();
-            if (std::find(container->tokenids.begin(), container->tokenids.end(), t) != container->tokenids.end())  // token found in other container. TODO: check for allowed n-duplicates
-                found = true;
-        }
-        if (found)
-            duptokenids.push_back(t);
-    }
-
-    if (duptokenids.size() > 0)
-        return emptyresult;
-
-    return CreateEnclosureTx(&newcontainer, true, false);
-}
-*/
-
-// another impl for container: its an NFT token
+// container is an NFT token
 // to add tokens to it we just send them to container 1of2 addr (kogs-global, container-create-txid)
 // it's better for managing NFTs inside the container, easy to deposit: if container NFT is sent to some adddr that would mean all nfts inside it are also on this addr
 // and the kogs validation code would allow to spend nfts from 1of2 addr to whom who owns the container nft
