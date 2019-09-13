@@ -7037,16 +7037,15 @@ UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& mypk)
             ENTER_CRITICAL_SECTION(cs_main);
             ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
         }
-        NSPVSigData sigData = FaucetFund(pk, 0,(uint64_t) funds);
+        result = FaucetFund(mypk, 0,(uint64_t) funds);
         if (lockWallet)
         {
             LEAVE_CRITICAL_SECTION(pwalletMain->cs_wallet);
             LEAVE_CRITICAL_SECTION(cs_main);
         }
 
-        if ( sigData.hexTx.size() > 0 )
+        if ( result["hextx"].getValStr().size() > 0 )
         {
-            result = NSPVSigData2UniValue(sigData);
             result.push_back(Pair("result", "success"));
             //result.push_back(Pair("hex", hex));
         } else ERR_RESULT("couldnt create faucet funding transaction");
@@ -7086,15 +7085,14 @@ UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& mypk)
         ENTER_CRITICAL_SECTION(cs_main);
         ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
     }
-    NSPVSigData sigData = FaucetGet(pk, 0);
+    result = FaucetGet(mypk, 0);
     if (lockWallet)
     {
         LEAVE_CRITICAL_SECTION(pwalletMain->cs_wallet);
         LEAVE_CRITICAL_SECTION(cs_main);
     }
 
-    if ( sigData.hexTx.size() > 0 ) {
-        result = NSPVSigData2UniValue(sigData);
+    if (result["hexTx"].getValStr().size() > 0 ) {
         result.push_back(Pair("result", "success"));
         //result.push_back(Pair("hex", hex));
     } else ERR_RESULT("couldnt create faucet get transaction");

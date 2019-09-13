@@ -25,8 +25,8 @@
 bool FaucetValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn);
 
 // CCcustom
-NSPVSigData FaucetFund(CPubKey mypk,uint64_t txfee,int64_t funds);
-NSPVSigData FaucetGet(CPubKey mypk,uint64_t txfee);
+UniValue FaucetFund(CPubKey mypk,uint64_t txfee,int64_t funds);
+UniValue FaucetGet(CPubKey mypk,uint64_t txfee);
 UniValue FaucetInfo();
 
 #endif

@@ -177,7 +177,7 @@ int64_t AddFaucetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPub
     return(totalinputs);
 }
 
-NSPVSigData FaucetGet(CPubKey mypk, uint64_t txfee)
+UniValue FaucetGet(CPubKey mypk, uint64_t txfee)
 {
     CMutableTransaction tmpmtx,mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey faucetpk; int64_t inputs,CCchange=0,nValue=FAUCETSIZE; struct CCcontract_info *cp,C; std::string rawhex; uint32_t j; int32_t i,len; uint8_t buf[32768]; bits256 hash;
@@ -198,11 +198,11 @@ NSPVSigData FaucetGet(CPubKey mypk, uint64_t txfee)
         for (i=0; i<1000000; i++,j++)
         {
             tmpmtx = mtx;
-            NSPVSigData sigData = FinalizeCCTxExt(-1LL,cp,tmpmtx,mypk,txfee,CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_FAUCET << (uint8_t)'G' << j));
-            if ( (len= (int32_t)sigData.hexTx.size()) > 0 && len < 65536 )
+            UniValue sigData = FinalizeCCTxExt(-1LL,cp,tmpmtx,mypk,txfee,CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_FAUCET << (uint8_t)'G' << j));
+            if ( (len= (int32_t)sigData["hextx"].getValStr().size()) > 0 && len < 65536 )
             {
                 len >>= 1;
-                decode_hex(buf,len,(char *)sigData.hexTx.c_str());
+                decode_hex(buf,len,(char *)sigData["hextx"].getValStr().c_str());
                 hash = bits256_doublesha256(0,buf,len);
                 if ( (hash.bytes[0] & 0xff) == 0 && (hash.bytes[31] & 0xff) == 0 )
                 {
@@ -213,16 +213,16 @@ NSPVSigData FaucetGet(CPubKey mypk, uint64_t txfee)
             }
         }
         fprintf(stderr,"couldnt generate valid txid %u\n",(uint32_t)time(NULL));
-        return NSPVSigData();
+        return NullUniValue;
     } else fprintf(stderr,"cant find faucet inputs\n");
-    return NSPVSigData();
+    return NullUniValue;
 }
 
-NSPVSigData FaucetFund(CPubKey mypk, uint64_t txfee,int64_t funds)
+UniValue FaucetFund(CPubKey mypk, uint64_t txfee,int64_t funds)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey faucetpk; CScript opret; struct CCcontract_info *cp,C;
-
+    errno = E_FAIL;
     cp = CCinit(&C,EVAL_FAUCET);
     if ( txfee == 0 )
         txfee = 10000;
@@ -233,7 +233,7 @@ NSPVSigData FaucetFund(CPubKey mypk, uint64_t txfee,int64_t funds)
         mtx.vout.push_back(MakeCC1vout(EVAL_FAUCET,funds,faucetpk));
         return(FinalizeCCTxExt(0,cp,mtx,mypk,txfee,opret));
     }
-    return NSPVSigData(); //empty result
+    return NullUniValue; //empty result
 }
 
 UniValue FaucetInfo()

@@ -42,13 +42,13 @@ By using -addressindex=1, it allows tracking of all the CC addresses
 */
 std::string FinalizeCCTx(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
 {
-    NSPVSigData signData = FinalizeCCTxExt(CCmask, cp, mtx, mypk, txfee, opret, pubkeys);
-    return signData.hexTx;
+    UniValue sigData = FinalizeCCTxExt(CCmask, cp, mtx, mypk, txfee, opret, pubkeys);
+    return sigData["hextx"].getValStr();
 }
 
 
 // extended version that supports signInfo object with conds to vins map for remote cc calls
-NSPVSigData FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
+UniValue FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
 {
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTransaction vintx; std::string hex; CPubKey globalpk; uint256 hashBlock; uint64_t mask=0,nmask=0,vinimask=0;
@@ -59,7 +59,8 @@ NSPVSigData FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutabl
 	CC *mycond=0, *othercond=0, *othercond2=0,*othercond4=0, *othercond3=0, *othercond1of2=NULL, *othercond1of2tokens = NULL, *cond=0,  *condCC2=0,*mytokenscond = NULL, *mysingletokenscond = NULL, *othertokenscond = NULL;
 	CPubKey unspendablepk /*, tokensunspendablepk*/;
 	struct CCcontract_info *cpTokens, tokensC;
-    NSPVSigData sigData, emptyResult;
+    UniValue sigData(UniValue::VOBJ);
+    const UniValue sigDataNull = NullUniValue;
 
     globalpk = GetUnspendable(cp,0);
     n = mtx.vout.size();
@@ -72,7 +73,7 @@ NSPVSigData FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutabl
     if ( (n= mtx.vin.size()) > CC_MAXVINS )
     {
         fprintf(stderr,"FinalizeCCTx: %d is too many vins\n",n);
-        sigData.hexTx = "0";
+        sigData.push_back(Pair("hextx", "0"));
         return sigData;
     }
 
@@ -127,7 +128,7 @@ NSPVSigData FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutabl
         {
             fprintf(stderr,"vin.%d vout.%d is bigger than vintx.%d\n",i,mtx.vin[i].prevout.n,(int32_t)vintx.vout.size());
             memset(myprivkey,0,32);
-            return emptyResult;
+            return UniValue(UniValue::VOBJ);
         }
     }
     if (normalvins>1 && ccvins)
@@ -191,7 +192,7 @@ NSPVSigData FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutabl
                     {
                         // if no myprivkey for mypk it means remote call from nspv superlite client
                         // add sigData for superlite client
-                        sigData.ccvininfo.push_back(NSPVSigData::CCVinInfo{ i, std::string(), vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey });  // store vin i with scriptPubKey
+                        AddSigData2UniValue(sigData, i, std::string(), vintx.vout[utxovout].scriptPubKey.ToString(), vintx.vout[utxovout].nValue );  // store vin i with scriptPubKey
                     }
                 }
                 else
@@ -309,7 +310,7 @@ NSPVSigData FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutabl
                     {
                         fprintf(stderr,"CC signing error: vini.%d has unknown CC address.(%s)\n",i,destaddr);
                         memset(myprivkey,0,32);
-                        return emptyResult;
+                        return sigDataNull;
                     }
                 }
                 uint256 sighash = SignatureHash(CCPubKey(cond), mtx, i, SIGHASH_ALL,utxovalues[i],consensusBranchId, &txdata);
@@ -334,7 +335,7 @@ NSPVSigData FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutabl
                     {
                         fprintf(stderr, "vini.%d has CC signing error address.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
                         memset(myprivkey, 0, sizeof(myprivkey));
-                        return emptyResult;
+                        return sigDataNull;
                     }
                 }
                 else   // no privkey locally - remote call
@@ -345,9 +346,10 @@ NSPVSigData FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutabl
                     {
                         fprintf(stderr, "vini.%d can't serialize CC.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
                         memset(myprivkey, 0, sizeof(myprivkey));
-                        return emptyResult;
+                        return sigDataNull;
                     }
-                    sigData.ccvininfo.push_back(NSPVSigData::CCVinInfo{ i, ccjson, vintx.vout[utxovout].nValue });  // store vin i with cc
+
+                    AddSigData2UniValue(sigData, i, ccjson, std::string(), vintx.vout[utxovout].nValue);  // store vin i with scriptPubKey
                 }
             }
         } else fprintf(stderr,"FinalizeCCTx2 couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
@@ -377,9 +379,9 @@ NSPVSigData FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutabl
     memset(myprivkey,0,sizeof(myprivkey));
     std::string strHex = EncodeHexTx(mtx);
     if ( strHex.size() > 0 )
-        sigData.hexTx = strHex;
+        sigData.push_back(Pair("hextx", strHex));
     else {
-        sigData.hexTx = "0";
+        sigData.push_back(Pair("hextx", "0"));
     }
     return sigData;
 }
@@ -825,21 +827,21 @@ int64_t AddNormalinputs3(CMutableTransaction &mtx, CPubKey mypk, int64_t total, 
     return(0);
 }
 
-UniValue NSPVSigData2UniValue(const NSPVSigData &sigData)
+UniValue AddSigData2UniValue(UniValue &result, int32_t vini, std::string ccjson, std::string sscriptpubkey, int64_t amount)
 {
-    UniValue result(UniValue::VOBJ);
-    UniValue array(UniValue::VARR);
+    UniValue array = result["sigData"];
+    if (!array.isArray())
+        array = UniValue(UniValue::VARR);
 
-    result.push_back(Pair("hextx", sigData.hexTx));
-    for (const auto &ccvin : sigData.ccvininfo)
-    {
-        UniValue elem(UniValue::VOBJ);
-        elem.push_back(Pair("cc", ccvin.ccjson));
-        elem.push_back(Pair("vin", ccvin.vini));
-        elem.push_back(Pair("scriptPubKey", ccvin.scriptPubKey.ToString()));
-        elem.push_back(Pair("amount", ccvin.amount));
-        array.push_back(elem);
-    }
+    UniValue elem(UniValue::VOBJ);
+    elem.push_back(Pair("vin", vini));
+    if (!ccjson.empty())
+        elem.push_back(Pair("cc", ccjson));
+    if (!sscriptpubkey.empty())
+        elem.push_back(Pair("scriptPubKey", sscriptpubkey));
+    elem.push_back(Pair("amount", amount));
+    array.push_back(elem);
+
     result.push_back(Pair("sigData", array));
     return result;
 }
