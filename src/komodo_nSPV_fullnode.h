@@ -655,6 +655,7 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
     UniValue request;
     request.read(json);
     strcpy(ptr->method,request["method"].getValStr().c_str());
+    len+=strlen(ptr->method);
     const CRPCCommand *cmd=tableRPC[request["method"].getValStr()];
      if (!cmd)
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
@@ -662,7 +663,8 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
     {
         std::string response=result.write();
         memcpy(ptr->json,response.c_str(),response.size());
-        return response.size();
+        len+=response.size();
+        return (len);
     }
     memset(ptr,0,sizeof(*ptr));
     return(0);
