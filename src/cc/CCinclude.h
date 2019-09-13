@@ -155,6 +155,24 @@ struct oracleprice_info
 typedef std::vector<uint8_t> vscript_t;
 extern struct NSPV_CCmtxinfo NSPV_U;
 
+/// store cond to vin indexes map allowing to sign cc vins of partially signed mtx on superlite clients where myprivkey is available
+struct NSPVSigData {
+
+    struct CCVinInfo
+    {
+        int32_t vini;
+        std::string ccjson;
+        CAmount amount;
+        CScript scriptPubKey;  // for normals
+    };
+
+    std::string hexTx;  // partially signed tx in hex
+                        //std::map<std::string, std::vector<int32_t>> ccvinmap;  // map conds in json to not signed vin index array
+    std::vector<CCVinInfo> ccvininfo;
+    std::string CCerror;
+};
+
+
 #ifdef ENABLE_WALLET
 extern CWallet* pwalletMain;
 #endif
@@ -290,12 +308,14 @@ CPubKey check_signing_pubkey(CScript scriptSig);
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey);
 extern std::vector<CPubKey> NULL_pubkeys;
 std::string FinalizeCCTx(uint64_t skipmask,struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey mypk,uint64_t txfee,CScript opret,std::vector<CPubKey> pubkeys = NULL_pubkeys);
+NSPVSigData FinalizeCCTxExt(uint64_t skipmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys = NULL_pubkeys);
 void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool CCflag = true);
 void SetCCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,char *coinaddr,bool CCflag = true);
 void SetCCtxids(std::vector<uint256> &txids,char *coinaddr,bool ccflag, uint8_t evalcode, uint256 filtertxid, uint8_t func);
 int64_t NSPV_AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs,struct NSPV_CCmtxinfo *ptr);
 int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs);
 int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinputs);
+int64_t AddNormalinputs3(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs);
 int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCflag);
 int32_t CC_vinselect(int32_t *aboveip, int64_t *abovep, int32_t *belowip, int64_t *belowp, struct CC_utxo utxos[], int32_t numunspents, int64_t value);
 
@@ -312,6 +332,9 @@ UniValue ValueFromAmount(const CAmount& amount);
 int64_t TotalPubkeyNormalInputs(const CTransaction &tx, const CPubKey &pubkey);
 int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
+
+// convert NSPVSigData to UniValue:
+UniValue NSPVSigData2UniValue(const NSPVSigData &sigData);
 
 // bitcoin LogPrintStr with category "-debug" cmdarg support for C++ ostringstream:
 #define CCLOG_INFO   0
