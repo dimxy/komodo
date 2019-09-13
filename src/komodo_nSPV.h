@@ -431,6 +431,12 @@ void NSPV_broadcast_purge(struct NSPV_broadcastresp *ptr)
         memset(ptr,0,sizeof(*ptr));
 }
 
+void NSPV_remoterpc_purge(struct NSPV_remoterpcresp *ptr)
+{
+    if ( ptr != 0 )
+        memset(ptr,0,sizeof(*ptr));
+}
+
 // useful utility functions
 
 uint256 NSPV_doublesha256(uint8_t *data,int32_t datalen)

@@ -654,9 +654,14 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
     std::vector<uint256> txids; int32_t i,len = 0; UniValue result;
     UniValue request;
     request.read(json);
-    if ((result = tableRPC.execute(request["method"].getValStr(),request["params"])).isObject())
+    const CRPCCommand *cmd=tableRPC[request["method"].getValStr()];
+     if (!cmd)
+        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
+    if ((result = cmd->actor(request["params"],false)).isObject())
     {
-        cout << result.write();
+        std::string response=result.write();
+        memcpy(ptr->json,response.c_str(),response.size());
+        return response.size();
     }
     memset(ptr,0,sizeof(*ptr));
     return(0);
@@ -1099,27 +1104,23 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
         }
         else if ( request[0] == NSPV_REMOTERPC )
         {
+            printf("gggggg\n");
             if ( timestamp > pfrom->prevtimes[ind] )
             {
                 struct NSPV_remoterpcresp R; uint32_t n,offset; uint256 txid; char json[11000];
                 n = 1;
                 slen = request[n++];
-                if ( slen < 63 )
+                memcpy(json,&request[n],slen), n += slen;
+                memset(&R,0,sizeof(R));
+                offset = 1 + sizeof(txid) + sizeof(n);
+                if (slen=NSPV_remoterpc(&R,json)>0 )
                 {
-                    memcpy(json,&request[n],slen), n += slen;
-                    memset(&R,0,sizeof(R));
-                    offset = 1 + sizeof(txid) + sizeof(n);
-                    if (slen=NSPV_remoterpc(&R,json)>0 )
-                    {
-                        response.resize(1 + slen);
-                        response[0] = NSPV_REMOTERPC;
-                        // if ( NSPV_rwremoterpcresp(1,&response[1],&R) == slen )
-                        // {
-                        //     pfrom->PushMessage("nSPV",response);
-                        //     pfrom->prevtimes[ind] = timestamp;
-                        // }
-                        //NSPV_broadcast_purge(&R);
-                    }
+                    response.resize(1 + slen);
+                    response[0] = NSPV_REMOTERPC;
+                    memcpy(&response[1],json,slen);
+                    pfrom->PushMessage("nSPV",response);
+                    pfrom->prevtimes[ind] = timestamp;
+                    NSPV_remoterpc_purge(&R);
                 }
             }
         }
