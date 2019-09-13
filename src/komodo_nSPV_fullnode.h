@@ -1119,7 +1119,6 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     response.resize(1 + slen);
                     response[0] = NSPV_REMOTERPCRESP;
                     NSPV_rwremoterpcresp(1,&response[1],&R,slen);
-                    cout << std::string(response.begin(), response.end()) << std::endl;
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
                     NSPV_remoterpc_purge(&R);
