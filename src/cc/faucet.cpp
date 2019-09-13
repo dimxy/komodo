@@ -222,7 +222,7 @@ UniValue FaucetFund(CPubKey mypk, uint64_t txfee,int64_t funds)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey faucetpk; CScript opret; struct CCcontract_info *cp,C;
-    errno = E_FAIL;
+
     cp = CCinit(&C,EVAL_FAUCET);
     if ( txfee == 0 )
         txfee = 10000;
