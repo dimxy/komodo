@@ -20,6 +20,7 @@
 // NSPV_get... functions need to return the exact serialized length, which is the size of the structure minus size of pointers, plus size of allocated data
 
 #include "notarisationdb.h"
+#include "rpc/server.h"
 
 struct NSPV_ntzargs
 {
@@ -648,6 +649,19 @@ int32_t NSPV_mempooltxids(struct NSPV_mempoolresp *ptr,char *coinaddr,uint8_t is
     return(0);
 }
 
+int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
+{
+    std::vector<uint256> txids; int32_t i,len = 0; UniValue result;
+    UniValue request;
+    request.read(json);
+    if ((result = tableRPC.execute(request["method"].getValStr(),request["params"])).isObject())
+    {
+        cout << result.write();
+    }
+    memset(ptr,0,sizeof(*ptr));
+    return(0);
+}
+
 uint8_t *NSPV_getrawtx(CTransaction &tx,uint256 &hashBlock,int32_t *txlenp,uint256 txid)
 {
     uint8_t *rawtx = 0;
@@ -1079,6 +1093,32 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                             pfrom->prevtimes[ind] = timestamp;
                         }
                         NSPV_broadcast_purge(&B);
+                    }
+                }
+            }
+        }
+        else if ( request[0] == NSPV_REMOTERPC )
+        {
+            if ( timestamp > pfrom->prevtimes[ind] )
+            {
+                struct NSPV_remoterpcresp R; uint32_t n,offset; uint256 txid; char json[11000];
+                n = 1;
+                slen = request[n++];
+                if ( slen < 63 )
+                {
+                    memcpy(json,&request[n],slen), n += slen;
+                    memset(&R,0,sizeof(R));
+                    offset = 1 + sizeof(txid) + sizeof(n);
+                    if (slen=NSPV_remoterpc(&R,json)>0 )
+                    {
+                        response.resize(1 + slen);
+                        response[0] = NSPV_REMOTERPC;
+                        // if ( NSPV_rwremoterpcresp(1,&response[1],&R) == slen )
+                        // {
+                        //     pfrom->PushMessage("nSPV",response);
+                        //     pfrom->prevtimes[ind] = timestamp;
+                        // }
+                        //NSPV_broadcast_purge(&R);
                     }
                 }
             }
