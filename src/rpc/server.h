@@ -477,6 +477,7 @@ extern UniValue nspv_txproof(const UniValue& params, bool fHelp);
 extern UniValue nspv_spend(const UniValue& params, bool fHelp);
 extern UniValue nspv_broadcast(const UniValue& params, bool fHelp);
 extern UniValue nspv_logout(const UniValue& params, bool fHelp);
+extern UniValue nspv_listccmoduleunspent(const UniValue& params, bool fHelp);
 
 extern UniValue getblocksubsidy(const UniValue& params, bool fHelp);
 
