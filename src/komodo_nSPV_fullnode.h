@@ -654,6 +654,7 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
     std::vector<uint256> txids; int32_t i,len = 0; UniValue result;
     UniValue request;
     request.read(json);
+    strcpy(ptr->method,request["method"].getValStr().c_str());
     const CRPCCommand *cmd=tableRPC[request["method"].getValStr()];
      if (!cmd)
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
@@ -1104,7 +1105,6 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
         }
         else if ( request[0] == NSPV_REMOTERPC )
         {
-            printf("gggggg\n");
             if ( timestamp > pfrom->prevtimes[ind] )
             {
                 struct NSPV_remoterpcresp R; uint32_t n,offset; uint256 txid; char json[11000];
@@ -1113,10 +1113,11 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                 memcpy(json,&request[n],slen), n += slen;
                 memset(&R,0,sizeof(R));
                 offset = 1 + sizeof(txid) + sizeof(n);
-                if (slen=NSPV_remoterpc(&R,json)>0 )
+                if ((slen=NSPV_remoterpc(&R,json))>0 )
                 {
+                    cout << slen << " " << R.json << std::endl;
                     response.resize(1 + slen);
-                    response[0] = NSPV_REMOTERPC;
+                    response[0] = NSPV_REMOTERPCRESP;
                     memcpy(&response[1],json,slen);
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
