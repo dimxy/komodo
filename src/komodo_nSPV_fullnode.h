@@ -655,7 +655,7 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
     UniValue request;
     request.read(json);
     strcpy(ptr->method,request["method"].getValStr().c_str());
-    len+=strlen(ptr->method)+1;
+    len+=sizeof(ptr->method);
     const CRPCCommand *cmd=tableRPC[request["method"].getValStr()];
      if (!cmd)
         throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
@@ -1109,16 +1109,16 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
         {
             if ( timestamp > pfrom->prevtimes[ind] )
             {
-                struct NSPV_remoterpcresp R;
+                struct NSPV_remoterpcresp R; char json[10000];
                 n = 1;
                 slen = request[n++];
+                memcpy(json,&request[n],slen);
                 memset(&R,0,sizeof(R));
-                if ((slen=NSPV_remoterpc(&R,R.json))>0 )
+                if ((slen=NSPV_remoterpc(&R,json))>0 )
                 {
-                    cout << slen << " " << R.json << std::endl;
                     response.resize(1 + slen);
                     response[0] = NSPV_REMOTERPCRESP;
-                    NSPV_rwremoterpcresp(1,&response[1],&R);
+                    NSPV_rwremoterpcresp(1,&response[1],&R,slen);
                     cout << std::string(response.begin(), response.end()) << std::endl;
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
@@ -1126,7 +1126,6 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                 }
             }
         }
-
         else if (request[0] == NSPV_CCMODULEUTXOS)  // get cc module utxos from coinaddr for the requested amount, evalcode, funcid list and txid
         {
             //fprintf(stderr,"utxos: %u > %u, ind.%d, len.%d\n",timestamp,pfrom->prevtimes[ind],ind,len);
