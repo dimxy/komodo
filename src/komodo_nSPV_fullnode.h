@@ -651,23 +651,36 @@ int32_t NSPV_mempooltxids(struct NSPV_mempoolresp *ptr,char *coinaddr,uint8_t is
 
 int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
 {
-    std::vector<uint256> txids; int32_t i,len = 0; UniValue result;
+    std::vector<uint256> txids; int32_t i,len = 0; UniValue result; std::string response;
     UniValue request;
     request.read(json);
     strcpy(ptr->method,request["method"].getValStr().c_str());
     len+=sizeof(ptr->method);
-    const CRPCCommand *cmd=tableRPC[request["method"].getValStr()];
-     if (!cmd)
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
-    if ((result = cmd->actor(request["params"],false)).isObject())
+    try
     {
-        std::string response=result.write();
-        memcpy(ptr->json,response.c_str(),response.size());
-        len+=response.size();
-        return (len);
+        const CRPCCommand *cmd=tableRPC[request["method"].getValStr()];
+        if (!cmd)
+            throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
+        if ((result = cmd->actor(request["params"],false)).isObject())
+        {
+            response=result.write();
+            memcpy(ptr->json,response.c_str(),response.size());
+            len+=response.size();
+            return (len);
+        }
+        else throw JSONRPCError(RPC_MISC_ERROR, "Error in executing RPC on remote node");        
     }
-    memset(ptr,0,sizeof(*ptr));
-    return(0);
+    catch (const UniValue& objError)
+    {
+        response=objError.write();
+    }
+    catch (const std::exception& e)
+    {
+        response=JSONRPCError(RPC_PARSE_ERROR, e.what()).write();
+    }
+    memcpy(ptr->json,response.c_str(),response.size());
+    len+=response.size();
+    return (len);
 }
 
 uint8_t *NSPV_getrawtx(CTransaction &tx,uint256 &hashBlock,int32_t *txlenp,uint256 txid)
@@ -1122,7 +1135,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
                     NSPV_remoterpc_purge(&R);
-                }
+                }                
             }
         }
         else if (request[0] == NSPV_CCMODULEUTXOS)  // get cc module utxos from coinaddr for the requested amount, evalcode, funcid list and txid
