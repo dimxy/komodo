@@ -180,7 +180,7 @@ int64_t AddFaucetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPub
 NSPVSigData FaucetGet(CPubKey mypk, uint64_t txfee)
 {
     CMutableTransaction tmpmtx,mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk,faucetpk; int64_t inputs,CCchange=0,nValue=FAUCETSIZE; struct CCcontract_info *cp,C; std::string rawhex; uint32_t j; int32_t i,len; uint8_t buf[32768]; bits256 hash;
+    CPubKey faucetpk; int64_t inputs,CCchange=0,nValue=FAUCETSIZE; struct CCcontract_info *cp,C; std::string rawhex; uint32_t j; int32_t i,len; uint8_t buf[32768]; bits256 hash;
     cp = CCinit(&C,EVAL_FAUCET);
     if ( txfee == 0 )
         txfee = 10000;
@@ -221,7 +221,7 @@ NSPVSigData FaucetGet(CPubKey mypk, uint64_t txfee)
 NSPVSigData FaucetFund(CPubKey mypk, uint64_t txfee,int64_t funds)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk,faucetpk; CScript opret; struct CCcontract_info *cp,C;
+    CPubKey faucetpk; CScript opret; struct CCcontract_info *cp,C;
 
     cp = CCinit(&C,EVAL_FAUCET);
     if ( txfee == 0 )
