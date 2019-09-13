@@ -434,8 +434,8 @@ void NSPV_broadcast_purge(struct NSPV_broadcastresp *ptr)
 int32_t NSPV_rwremoterpcresp(int32_t rwflag,uint8_t *serialized,struct NSPV_remoterpcresp *ptr, int32_t slen)
 {
     int32_t len = 0;
-    len+=iguana_rwbuf(rwflag,&serialized[len],sizeof(ptr->method),(uint8_t *)ptr);
-    len+=iguana_rwbuf(rwflag,&serialized[len],slen-len,(uint8_t *)ptr);
+    len+=iguana_rwbuf(rwflag,&serialized[len],sizeof(ptr->method),(uint8_t*)ptr->method);
+    len+=iguana_rwbuf(rwflag,&serialized[len],slen-len,(uint8_t*)ptr->json);
     return(len);
 }
 
