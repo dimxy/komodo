@@ -652,18 +652,21 @@ int32_t NSPV_mempooltxids(struct NSPV_mempoolresp *ptr,char *coinaddr,uint8_t is
 int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
 {
     std::vector<uint256> txids; int32_t i,len = 0; UniValue result; std::string response;
-    UniValue request;
-    request.read(json);
-    strcpy(ptr->method,request["method"].getValStr().c_str());
-    len+=sizeof(ptr->method);
+    UniValue request(UniValue::VOBJ),rpc_result(UniValue::VOBJ); JSONRequest jreq;
+
     try
     {
-        const CRPCCommand *cmd=tableRPC[request["method"].getValStr()];
+        request.read(json);
+        jreq.parse(request);
+        strcpy(ptr->method,jreq.strMethod.c_str());
+        len+=sizeof(ptr->method);
+        const CRPCCommand *cmd=tableRPC[jreq.strMethod];
         if (!cmd)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
-        if ((result = cmd->actor(request["params"],false)).isObject())
+        if ((result = cmd->actor(jreq.params,false)).isObject())
         {
-            response=result.write();
+            rpc_result = JSONRPCReplyObj(result, NullUniValue, jreq.id);
+            response=rpc_result.write();
             memcpy(ptr->json,response.c_str(),response.size());
             len+=response.size();
             return (len);
@@ -672,11 +675,18 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
     }
     catch (const UniValue& objError)
     {
-        response=objError.write();
+        rpc_result = JSONRPCReplyObj(NullUniValue, objError, jreq.id);
+        response=rpc_result.write();
+    }
+    catch (const runtime_error& e)
+    {
+        rpc_result = JSONRPCReplyObj(NullUniValue,JSONRPCError(RPC_PARSE_ERROR, e.what()), jreq.id);
+        response=rpc_result.write();
     }
     catch (const std::exception& e)
     {
-        response=JSONRPCError(RPC_PARSE_ERROR, e.what()).write();
+        rpc_result = JSONRPCReplyObj(NullUniValue,JSONRPCError(RPC_PARSE_ERROR, e.what()), jreq.id);
+        response=rpc_result.write();
     }
     memcpy(ptr->json,response.c_str(),response.size());
     len+=response.size();
