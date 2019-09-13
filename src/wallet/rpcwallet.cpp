@@ -6999,8 +6999,8 @@ UniValue faucetinfo(const UniValue& params, bool fHelp)
 UniValue faucetfund(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ); int64_t funds; std::string hex;
-    if ( fHelp || params.size() > 1 )
-        throw runtime_error("faucetfund amount\n");
+    if ( fHelp || params.size() < 1 || params.size() > 2)
+        throw runtime_error("faucetfund amount [mypubkey]\n");
     funds = atof(params[0].get_str().c_str()) * COIN + 0.00000000499999;
     if ( (0) && KOMODO_NSPV_SUPERLITE )
     {
@@ -7012,14 +7012,39 @@ UniValue faucetfund(const UniValue& params, bool fHelp)
     }
     if ( ensure_CCrequirements(EVAL_FAUCET) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
+    CPubKey mypk;
+    if (params.size() == 2)
+        mypk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
+    else 
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    //const CKeyStore& keystore = *pwalletMain;
+    //LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    bool lockWallet = false;
+    if (mypk == pubkey2pk(Mypubkey()))   // for other mypks we never use wallet in AddNormalInputs (see check for this there)
+        lockWallet = true;
+
     if (funds > 0) {
-        hex = FaucetFund(0,(uint64_t) funds);
-        if ( hex.size() > 0 )
+        if (lockWallet)
         {
+            ENTER_CRITICAL_SECTION(cs_main);
+            ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
+        }
+        NSPVSigData sigData = FaucetFund(mypk, 0,(uint64_t) funds);
+        if (lockWallet)
+        {
+            LEAVE_CRITICAL_SECTION(pwalletMain->cs_wallet);
+            LEAVE_CRITICAL_SECTION(cs_main);
+        }
+
+        if ( sigData.hexTx.size() > 0 )
+        {
+            result = NSPVSigData2UniValue(sigData);
             result.push_back(Pair("result", "success"));
-            result.push_back(Pair("hex", hex));
+            //result.push_back(Pair("hex", hex));
         } else ERR_RESULT("couldnt create faucet funding transaction");
     } else ERR_RESULT( "funding amount must be positive");
     return(result);
@@ -7028,16 +7053,43 @@ UniValue faucetfund(const UniValue& params, bool fHelp)
 UniValue faucetget(const UniValue& params, bool fHelp)
 {
     UniValue result(UniValue::VOBJ); std::string hex;
-    if ( fHelp || params.size() > 0 )
-        throw runtime_error("faucetget\n");
+    if ( fHelp || params.size() > 1 )
+        throw runtime_error("faucetget [mypubkey]\n");
     if ( ensure_CCrequirements(EVAL_FAUCET) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    const CKeyStore& keystore = *pwalletMain;
-    LOCK2(cs_main, pwalletMain->cs_wallet);
-    hex = FaucetGet(0);
-    if ( hex.size() > 0 ) {
+
+    CPubKey mypk;
+    if (params.size() == 1)
+        mypk = pubkey2pk(ParseHex(params[0].get_str().c_str()));
+    else 
+        mypk = pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+        throw runtime_error("mypk is not set\n");
+
+    bool lockWallet = false;
+    if (mypk == pubkey2pk(Mypubkey()))   // for other mypks we never use wallet in AddNormalInputs (see check for this there)
+        lockWallet = true;
+
+    //const CKeyStore& keystore = *pwalletMain;
+    //LOCK2(cs_main, pwalletMain->cs_wallet);
+
+    if (lockWallet)
+    {
+        // use this instead LOCK2 because we need conditional wallet lock
+        ENTER_CRITICAL_SECTION(cs_main);
+        ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
+    }
+    NSPVSigData sigData = FaucetGet(mypk, 0);
+    if (lockWallet)
+    {
+        LEAVE_CRITICAL_SECTION(pwalletMain->cs_wallet);
+        LEAVE_CRITICAL_SECTION(cs_main);
+    }
+
+    if ( sigData.hexTx.size() > 0 ) {
+        result = NSPVSigData2UniValue(sigData);
         result.push_back(Pair("result", "success"));
-        result.push_back(Pair("hex", hex));
+        //result.push_back(Pair("hex", hex));
     } else ERR_RESULT("couldnt create faucet get transaction");
     return(result);
 }

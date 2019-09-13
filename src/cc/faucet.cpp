@@ -177,7 +177,7 @@ int64_t AddFaucetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPub
     return(totalinputs);
 }
 
-std::string FaucetGet(uint64_t txfee)
+NSPVSigData FaucetGet(CPubKey mypk, uint64_t txfee)
 {
     CMutableTransaction tmpmtx,mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey mypk,faucetpk; int64_t inputs,CCchange=0,nValue=FAUCETSIZE; struct CCcontract_info *cp,C; std::string rawhex; uint32_t j; int32_t i,len; uint8_t buf[32768]; bits256 hash;
@@ -185,7 +185,7 @@ std::string FaucetGet(uint64_t txfee)
     if ( txfee == 0 )
         txfee = 10000;
     faucetpk = GetUnspendable(cp,0);
-    mypk = pubkey2pk(Mypubkey());
+    //mypk = pubkey2pk(Mypubkey());
     if ( (inputs= AddFaucetInputs(cp,mtx,faucetpk,nValue+txfee,60)) > 0 )
     {
         if ( inputs > nValue )
@@ -198,27 +198,27 @@ std::string FaucetGet(uint64_t txfee)
         for (i=0; i<1000000; i++,j++)
         {
             tmpmtx = mtx;
-            rawhex = FinalizeCCTx(-1LL,cp,tmpmtx,mypk,txfee,CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_FAUCET << (uint8_t)'G' << j));
-            if ( (len= (int32_t)rawhex.size()) > 0 && len < 65536 )
+            NSPVSigData sigData = FinalizeCCTxExt(-1LL,cp,tmpmtx,mypk,txfee,CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_FAUCET << (uint8_t)'G' << j));
+            if ( (len= (int32_t)sigData.hexTx.size()) > 0 && len < 65536 )
             {
                 len >>= 1;
-                decode_hex(buf,len,(char *)rawhex.c_str());
+                decode_hex(buf,len,(char *)sigData.hexTx.c_str());
                 hash = bits256_doublesha256(0,buf,len);
                 if ( (hash.bytes[0] & 0xff) == 0 && (hash.bytes[31] & 0xff) == 0 )
                 {
                     fprintf(stderr,"found valid txid after %d iterations %u\n",i,(uint32_t)time(NULL));
-                    return(rawhex);
+                    return sigData;
                 }
                 //fprintf(stderr,"%02x%02x ",hash.bytes[0],hash.bytes[31]);
             }
         }
         fprintf(stderr,"couldnt generate valid txid %u\n",(uint32_t)time(NULL));
-        return("");
+        return NSPVSigData();
     } else fprintf(stderr,"cant find faucet inputs\n");
-    return("");
+    return NSPVSigData();
 }
 
-std::string FaucetFund(uint64_t txfee,int64_t funds)
+NSPVSigData FaucetFund(CPubKey mypk, uint64_t txfee,int64_t funds)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CPubKey mypk,faucetpk; CScript opret; struct CCcontract_info *cp,C;
@@ -226,14 +226,14 @@ std::string FaucetFund(uint64_t txfee,int64_t funds)
     cp = CCinit(&C,EVAL_FAUCET);
     if ( txfee == 0 )
         txfee = 10000;
-    mypk = pubkey2pk(Mypubkey());
+    // mypk = pubkey2pk(Mypubkey());
     faucetpk = GetUnspendable(cp,0);
-    if ( AddNormalinputs(mtx,mypk,funds+txfee,64) > 0 )
+    if ( AddNormalinputs3(mtx,mypk,funds+txfee,64) > 0 )
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_FAUCET,funds,faucetpk));
-        return(FinalizeCCTx(0,cp,mtx,mypk,txfee,opret));
+        return(FinalizeCCTxExt(0,cp,mtx,mypk,txfee,opret));
     }
-    return("");
+    return NSPVSigData(); //empty result
 }
 
 UniValue FaucetInfo()

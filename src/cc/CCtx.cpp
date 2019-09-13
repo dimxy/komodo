@@ -19,14 +19,6 @@
 std::vector<CPubKey> NULL_pubkeys;
 struct NSPV_CCmtxinfo NSPV_U;
 
-/*
- FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and the opreturn.
-
- This allows the contract transaction functions to create the appropriate vins and vouts and have FinalizeCCTx create a properly signed transaction.
-
- By using -addressindex=1, it allows tracking of all the CC addresses
- */
-
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey)
 {
 #ifdef ENABLE_WALLET
@@ -41,17 +33,34 @@ bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScrip
     return(false);
 }
 
-std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey mypk,uint64_t txfee,CScript opret,std::vector<CPubKey> pubkeys)
+/*
+FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and the opreturn.
+
+This allows the contract transaction functions to create the appropriate vins and vouts and have FinalizeCCTx create a properly signed transaction.
+
+By using -addressindex=1, it allows tracking of all the CC addresses
+*/
+std::string FinalizeCCTx(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
+{
+    NSPVSigData signData = FinalizeCCTxExt(CCmask, cp, mtx, mypk, txfee, opret, pubkeys);
+    return signData.hexTx;
+}
+
+
+// extended version that supports signInfo object with conds to vins map for remote cc calls
+NSPVSigData FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
 {
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTransaction vintx; std::string hex; CPubKey globalpk; uint256 hashBlock; uint64_t mask=0,nmask=0,vinimask=0;
     int64_t utxovalues[CC_MAXVINS],change,normalinputs=0,totaloutputs=0,normaloutputs=0,totalinputs=0,normalvins=0,ccvins=0; 
     int32_t i,flag,mgret,utxovout,n,err = 0;
 	char myaddr[64], destaddr[64], unspendable[64], mytokensaddr[64], mysingletokensaddr[64], unspendabletokensaddr[64],CC1of2CCaddr[64];
-    uint8_t *privkey, myprivkey[32], unspendablepriv[32], /*tokensunspendablepriv[32],*/ *msg32 = 0;
+    uint8_t *privkey = NULL, myprivkey[32] = { '\0' }, unspendablepriv[32] = { '\0' }, /*tokensunspendablepriv[32],*/ *msg32 = 0;
 	CC *mycond=0, *othercond=0, *othercond2=0,*othercond4=0, *othercond3=0, *othercond1of2=NULL, *othercond1of2tokens = NULL, *cond=0,  *condCC2=0,*mytokenscond = NULL, *mysingletokenscond = NULL, *othertokenscond = NULL;
 	CPubKey unspendablepk /*, tokensunspendablepk*/;
 	struct CCcontract_info *cpTokens, tokensC;
+    NSPVSigData sigData, emptyResult;
+
     globalpk = GetUnspendable(cp,0);
     n = mtx.vout.size();
     for (i=0; i<n; i++)
@@ -63,9 +72,18 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
     if ( (n= mtx.vin.size()) > CC_MAXVINS )
     {
         fprintf(stderr,"FinalizeCCTx: %d is too many vins\n",n);
-        return("0");
+        sigData.hexTx = "0";
+        return sigData;
     }
-    Myprivkey(myprivkey);
+
+    //Myprivkey(myprivkey);  // for NSPV mode we need to add myprivkey for the explicitly defined mypk param
+#ifdef ENABLE_WALLET
+    // get privkey for mypk
+    CKeyID keyID = mypk.GetID();
+    CKey vchSecret;
+    if (pwalletMain->GetKey(keyID, vchSecret))
+        memcpy(myprivkey, vchSecret.begin(), sizeof(myprivkey));
+#endif
 
     GetCCaddress(cp,myaddr,mypk);
     mycond = MakeCCcond1(cp->evalcode,mypk);
@@ -109,7 +127,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
         {
             fprintf(stderr,"vin.%d vout.%d is bigger than vintx.%d\n",i,mtx.vin[i].prevout.n,(int32_t)vintx.vout.size());
             memset(myprivkey,0,32);
-            return("");
+            return emptyResult;
         }
     }
     if (normalvins>1 && ccvins)
@@ -164,8 +182,17 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
             {
                 if ( KOMODO_NSPV_FULLNODE )
                 {
-                    if ( SignTx(mtx,i,vintx.vout[utxovout].nValue,vintx.vout[utxovout].scriptPubKey) == 0 )
-                        fprintf(stderr,"signing error for vini.%d of %llx\n",i,(long long)vinimask);
+                    if (myprivkey[0])
+                    {
+                        if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0)
+                            fprintf(stderr, "signing error for vini.%d of %llx\n", i, (long long)vinimask);
+                    }
+                    else
+                    {
+                        // if no myprivkey for mypk it means remote call from nspv superlite client
+                        // add sigData for superlite client
+                        sigData.ccvininfo.push_back(NSPVSigData::CCVinInfo{ i, std::string(), vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey });  // store vin i with scriptPubKey
+                    }
                 }
                 else
                 {
@@ -282,7 +309,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                     {
                         fprintf(stderr,"CC signing error: vini.%d has unknown CC address.(%s)\n",i,destaddr);
                         memset(myprivkey,0,32);
-                        return("");
+                        return emptyResult;
                     }
                 }
                 uint256 sighash = SignatureHash(CCPubKey(cond), mtx, i, SIGHASH_ALL,utxovalues[i],consensusBranchId, &txdata);
@@ -296,15 +323,31 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                         fprintf(stderr,"%02x",((uint8_t *)sighash.begin())[z]);
                     fprintf(stderr," sighash [%d] %.8f %x\n",i,(double)utxovalues[i]/COIN,consensusBranchId);
                 }
-                if ( cc_signTreeSecp256k1Msg32(cond,privkey,sighash.begin()) != 0 )
+
+                if (privkey && privkey[0])  // we have privkey in the wallet
                 {
-                     mtx.vin[i].scriptSig = CCSig(cond);
+                    if (cc_signTreeSecp256k1Msg32(cond, privkey, sighash.begin()) != 0)
+                    {
+                        mtx.vin[i].scriptSig = CCSig(cond);
+                    }
+                    else
+                    {
+                        fprintf(stderr, "vini.%d has CC signing error address.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
+                        memset(myprivkey, 0, sizeof(myprivkey));
+                        return emptyResult;
+                    }
                 }
-                else
+                else   // no privkey locally - remote call
                 {
-                    fprintf(stderr,"vini.%d has CC signing error address.(%s) %s\n",i,destaddr,EncodeHexTx(mtx).c_str());
-                    memset(myprivkey,0,sizeof(myprivkey));
-                    return("");
+                    // serialize cc:
+                    std::string ccjson = cc_conditionToJSONString(cond);
+                    if (ccjson.empty())
+                    {
+                        fprintf(stderr, "vini.%d can't serialize CC.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
+                        memset(myprivkey, 0, sizeof(myprivkey));
+                        return emptyResult;
+                    }
+                    sigData.ccvininfo.push_back(NSPVSigData::CCVinInfo{ i, ccjson, vintx.vout[utxovout].nValue });  // store vin i with cc
                 }
             }
         } else fprintf(stderr,"FinalizeCCTx2 couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
@@ -334,8 +377,11 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
     memset(myprivkey,0,sizeof(myprivkey));
     std::string strHex = EncodeHexTx(mtx);
     if ( strHex.size() > 0 )
-        return(strHex);
-    else return("0");
+        sigData.hexTx = strHex;
+    else {
+        sigData.hexTx = "0";
+    }
+    return sigData;
 }
 
 void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool ccflag);
@@ -584,6 +630,10 @@ int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int3
     int32_t abovei,belowi,ind,vout,i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; uint256 txid,hashBlock; std::vector<COutput> vecOutputs; CTransaction tx; struct CC_utxo *utxos,*up;
     if ( KOMODO_NSPV_SUPERLITE )
         return(NSPV_AddNormalinputs(mtx,mypk,total,maxinputs,&NSPV_U));
+
+    if (mypk != pubkey2pk(Mypubkey()))  //remote superlite mypk, do not use wallet since it is not locked for non-equal pks (see rpcs with nspv support)!
+        return(AddNormalinputs3(mtx, mypk, total, maxinputs));
+
 #ifdef ENABLE_WALLET
     assert(pwalletMain != NULL);
     const CKeyStore& keystore = *pwalletMain;
@@ -675,12 +725,20 @@ int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int3
     return(0);
 }
 
-int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinputs)
+// always uses -pubkey param as mypk
+int64_t AddNormalinputs2(CMutableTransaction &mtx, int64_t total, int32_t maxinputs)
+{
+    CPubKey mypk = pubkey2pk(Mypubkey());
+    return AddNormalinputs3(mtx, mypk, total, maxinputs);
+}
+
+// has additional mypk param for nspv calls
+int64_t AddNormalinputs3(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs)
 {
     int32_t abovei,belowi,ind,vout,i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; char coinaddr[64]; uint256 txid,hashBlock; CTransaction tx; struct CC_utxo *utxos,*up;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
     if ( KOMODO_NSPV_SUPERLITE )
-        return(NSPV_AddNormalinputs(mtx,pubkey2pk(Mypubkey()),total,maxinputs,&NSPV_U));
+        return(NSPV_AddNormalinputs(mtx,mypk,total,maxinputs,&NSPV_U));
     utxos = (struct CC_utxo *)calloc(CC_MAXVINS,sizeof(*utxos));
     if ( maxinputs > CC_MAXVINS )
         maxinputs = CC_MAXVINS;
@@ -688,7 +746,7 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinput
         threshold = total/maxinputs;
     else threshold = total;
     sum = 0;
-    Getscriptaddress(coinaddr,CScript() << Mypubkey() << OP_CHECKSIG);
+    Getscriptaddress(coinaddr,CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
     SetCCunspents(unspentOutputs,coinaddr,false);
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
@@ -765,4 +823,23 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinput
         return(totalinputs);
     }
     return(0);
+}
+
+UniValue NSPVSigData2UniValue(const NSPVSigData &sigData)
+{
+    UniValue result(UniValue::VOBJ);
+    UniValue array(UniValue::VARR);
+
+    result.push_back(Pair("hextx", sigData.hexTx));
+    for (const auto &ccvin : sigData.ccvininfo)
+    {
+        UniValue elem(UniValue::VOBJ);
+        elem.push_back(Pair("cc", ccvin.ccjson));
+        elem.push_back(Pair("vin", ccvin.vini));
+        elem.push_back(Pair("scriptPubKey", ccvin.scriptPubKey.ToString()));
+        elem.push_back(Pair("amount", ccvin.amount));
+        array.push_back(elem);
+    }
+    result.push_back(Pair("sigData", array));
+    return result;
 }
