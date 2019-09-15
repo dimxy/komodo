@@ -6393,6 +6393,29 @@ UniValue marmara_releaseactivatedcoins(const UniValue& params, bool fHelp)
     return result;
 }
 
+// marmaraposstat rpc impl, return PoS statistics
+UniValue marmara_posstat(const UniValue& params, bool fHelp)
+{
+    CCerror.clear();
+    if (fHelp || params.size() != 2)
+    {
+        throw runtime_error("marmaraposstat begin-height end-height\n"
+            "returns PoS statistics for the marmara chain from begin-height to end-height block.\n"
+            "If begin-height is 0 the statistics is collected from the beginning of the chain\n"
+            "If end-height is 0 the statistics is collected to the last block of the chain""\n");
+    }
+
+    int32_t beginHeight = atoi(params[0].get_str().c_str());
+    if (beginHeight < 0 || beginHeight > chainActive.Height())
+        throw runtime_error("begin-height out of block range\n");
+    int32_t endHeight = atoi(params[1].get_str().c_str());
+    if (endHeight < 0 || endHeight > chainActive.Height())
+        throw runtime_error("end-height out of block range\n");
+
+    UniValue result = MarmaraPoSStat(beginHeight, endHeight);
+    RETURN_IF_ERROR(CCerror);
+    return result;
+}
 
 UniValue channelslist(const UniValue& params, bool fHelp)
 {
