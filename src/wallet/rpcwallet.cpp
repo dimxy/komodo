@@ -6421,13 +6421,15 @@ UniValue marmara_posstat(const UniValue& params, bool fHelp)
 UniValue marmara_unlock(const UniValue& params, bool fHelp)
 {
     CCerror.clear();
-    if (fHelp || params.size() != 0)
+    if (fHelp || params.size() != 1)
     {
-        throw runtime_error("marmaraunlock\n"
+        throw runtime_error("marmaraunlock satoshis\n"
             "unlocks activated coins on my pubkey and sends coins to normal address.\n" "\n");
     }
 
-    UniValue result = MarmaraUnlockActivatedCoins();
+    CAmount sat = atoll(params[0].get_str().c_str());
+
+    UniValue result = MarmaraUnlockActivatedCoins(sat);
     RETURN_IF_ERROR(CCerror);
     return result;
 }
