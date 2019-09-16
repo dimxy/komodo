@@ -324,7 +324,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                     }
                 }
                 uint256 sighash = SignatureHash(CCPubKey(cond), mtx, i, SIGHASH_ALL,utxovalues[i],consensusBranchId, &txdata);
-                if ( true )
+                if ( false )
                 {
                     int32_t z;
                     for (z=0; z<32; z++)
@@ -335,7 +335,7 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                     fprintf(stderr," sighash [%d] %.8f %x\n",i,(double)utxovalues[i]/COIN,consensusBranchId);
 
                     char *jsonstr = cc_conditionToJSONString(cond);
-                    std::cerr << "json cond=" << jsonstr << std::endl;
+                    std::cerr << "ccjson=" << jsonstr << std::endl;
                     if (jsonstr) 
                         free(jsonstr);
 
