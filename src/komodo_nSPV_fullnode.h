@@ -651,23 +651,50 @@ int32_t NSPV_mempooltxids(struct NSPV_mempoolresp *ptr,char *coinaddr,uint8_t is
 
 int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
 {
-    std::vector<uint256> txids; int32_t i,len = 0; UniValue result;
-    UniValue request;
-    request.read(json);
-    strcpy(ptr->method,request["method"].getValStr().c_str());
-    len+=sizeof(ptr->method);
-    const CRPCCommand *cmd=tableRPC[request["method"].getValStr()];
-     if (!cmd)
-        throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
-    if ((result = cmd->actor(request["params"],false)).isObject())
+    std::vector<uint256> txids; int32_t i,len = 0; UniValue result; std::string response;
+    UniValue request(UniValue::VOBJ),rpc_result(UniValue::VOBJ); JSONRequest jreq;
+
+    try
     {
-        std::string response=result.write();
-        memcpy(ptr->json,response.c_str(),response.size());
-        len+=response.size();
-        return (len);
+        request.read(json);
+        jreq.parse(request);
+        strcpy(ptr->method,jreq.strMethod.c_str());
+        len+=sizeof(ptr->method);
+        const CRPCCommand *cmd=tableRPC[jreq.strMethod];
+        if (!cmd)
+            throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
+        std::string str=jreq.params[jreq.params.size()-1].get_str();
+        CPubKey mypk=pubkey2pk(ParseHex(str));
+        if (mypk.IsValid()==false)
+            throw JSONRPCError(RPC_PARSE_ERROR, "Not valid pubkey passed in remote rpc call");
+        if ((result = cmd->actor(jreq.params,false,mypk)).isObject())
+        {
+            rpc_result = JSONRPCReplyObj(result, NullUniValue, jreq.id);
+            response=rpc_result.write();
+            memcpy(ptr->json,response.c_str(),response.size());
+            len+=response.size();
+            return (len);
+        }
+        else throw JSONRPCError(RPC_MISC_ERROR, "Error in executing RPC on remote node");        
     }
-    memset(ptr,0,sizeof(*ptr));
-    return(0);
+    catch (const UniValue& objError)
+    {
+        rpc_result = JSONRPCReplyObj(NullUniValue, objError, jreq.id);
+        response=rpc_result.write();
+    }
+    catch (const runtime_error& e)
+    {
+        rpc_result = JSONRPCReplyObj(NullUniValue,JSONRPCError(RPC_PARSE_ERROR, e.what()), jreq.id);
+        response=rpc_result.write();
+    }
+    catch (const std::exception& e)
+    {
+        rpc_result = JSONRPCReplyObj(NullUniValue,JSONRPCError(RPC_PARSE_ERROR, e.what()), jreq.id);
+        response=rpc_result.write();
+    }
+    memcpy(ptr->json,response.c_str(),response.size());
+    len+=response.size();
+    return (len);
 }
 
 uint8_t *NSPV_getrawtx(CTransaction &tx,uint256 &hashBlock,int32_t *txlenp,uint256 txid)
@@ -1122,7 +1149,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
                     NSPV_remoterpc_purge(&R);
-                }
+                }                
             }
         }
         else if (request[0] == NSPV_CCMODULEUTXOS)  // get cc module utxos from coinaddr for the requested amount, evalcode, funcid list and txid
