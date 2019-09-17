@@ -481,10 +481,10 @@ std::string ChannelOpen(const CPubKey& pk, uint64_t txfee,CPubKey destpub,int32_
     funds = numpayments * payment;
     if (tokenid!=zeroid)
     {
-        amount=AddNormalinputs(mtx,mypk,txfee+2*CC_MARKER_VALUE,5);
+        amount=pk.IsValid()?AddNormalinputs3(mtx,mypk,txfee+2*CC_MARKER_VALUE,5):AddNormalinputs(mtx,mypk,txfee+2*CC_MARKER_VALUE,5);
         tokens=AddTokenCCInputs(cpTokens, mtx, mypk, tokenid, funds, 64);       
     }
-    else amount=AddNormalinputs(mtx,mypk,funds+txfee+2*CC_MARKER_VALUE,64);
+    else amount=pk.IsValid()?AddNormalinputs3(mtx,mypk,funds+txfee+2*CC_MARKER_VALUE,64):AddNormalinputs(mtx,mypk,funds+txfee+2*CC_MARKER_VALUE,64);
     if (amount+tokens >= funds+txfee+2*CC_MARKER_VALUE)
     {
         hentropy = DiceHashEntropy(entropy,mtx.vin[0].prevout.hash,mtx.vin[0].prevout.n,1);
