@@ -461,7 +461,7 @@ int64_t AddChannelsInputs(struct CCcontract_info *cp,CMutableTransaction &mtx, C
     else return 0;
 }
 
-std::string ChannelOpen(uint64_t txfee,CPubKey destpub,int32_t numpayments,int64_t payment, uint256 tokenid)
+std::string ChannelOpen(const CPubKey& pk, uint64_t txfee,CPubKey destpub,int32_t numpayments,int64_t payment, uint256 tokenid)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     uint8_t hash[32],hashdest[32]; uint64_t amount,tokens=0,funds; int32_t i; uint256 hashchain,entropy,hentropy;
@@ -477,7 +477,7 @@ std::string ChannelOpen(uint64_t txfee,CPubKey destpub,int32_t numpayments,int64
     cpTokens = CCinit(&CTokens,EVAL_TOKENS);
     if ( txfee == 0 )
         txfee = 10000;
-    mypk = pubkey2pk(Mypubkey());
+    mypk = pk.IsValid()?pk:pubkey2pk(Mypubkey());
     funds = numpayments * payment;
     if (tokenid!=zeroid)
     {

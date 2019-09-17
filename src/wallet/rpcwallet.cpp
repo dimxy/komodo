@@ -5761,8 +5761,8 @@ UniValue pricesaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if ( params.size() == 1 )
         pubkey = ParseHex(params[0].get_str().c_str());
     result = CCaddress(cp,(char *)"Prices",pubkey);
-    if (mypk==CPubKey()) pk = pubkey2pk(Mypubkey());
-    else pk=mypk;
+    if (mypk.IsValid()) pk=mypk;
+    else pk = pubkey2pk(Mypubkey());
     pricespk = GetUnspendable(cp,0);
     GetCCaddress(assetscp,myaddr,pk);
     GetCCaddress1of2(assetscp,houseaddr,pricespk,planpk);
@@ -6202,7 +6202,7 @@ UniValue channelsopen(const UniValue& params, bool fHelp, const CPubKey& mypk)
     {
         tokenid=Parseuint256((char *)params[3].get_str().c_str());
     }
-    hex = ChannelOpen(0,pubkey2pk(destpub),numpayments,payment,tokenid);
+    hex = ChannelOpen(mypk,0,pubkey2pk(destpub),numpayments,payment,tokenid);
     RETURN_IF_ERROR(CCerror);
     if ( hex.size() > 0 )
     {
@@ -6997,7 +6997,7 @@ UniValue faucetinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(FaucetInfo());
 }
 
-UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& pk)
+UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); int64_t funds; std::string hex;
     if ( fHelp || params.size() < 1 || params.size() > 2)
@@ -7013,22 +7013,22 @@ UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& pk)
     }
     if ( ensure_CCrequirements(EVAL_FAUCET) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    CPubKey mypk;
+    CPubKey pk;
     if (params.size() == 2)
-        mypk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
+        pk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
     else 
     {
-        if (pk==CPubKey()) mypk = pubkey2pk(Mypubkey());
-        else mypk=pk;
+        if (mypk.IsValid()) pk=mypk;
+        else pk = pubkey2pk(Mypubkey());
     }
-    if (!mypk.IsFullyValid())
+    if (!pk.IsFullyValid())
         throw runtime_error("mypk is not set\n");
 
     //const CKeyStore& keystore = *pwalletMain;
     //LOCK2(cs_main, pwalletMain->cs_wallet);
 
     bool lockWallet = false;
-    if (mypk == pubkey2pk(Mypubkey()))   // for other mypks we never use wallet in AddNormalInputs (see check for this there)
+    if (pk == pubkey2pk(Mypubkey()))   // for other mypks we never use wallet in AddNormalInputs (see check for this there)
         lockWallet = true;
 
     if (funds > 0) {
@@ -7037,7 +7037,7 @@ UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& pk)
             ENTER_CRITICAL_SECTION(cs_main);
             ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
         }
-        NSPVSigData sigData = FaucetFund(mypk, 0,(uint64_t) funds);
+        NSPVSigData sigData = FaucetFund(pk, 0,(uint64_t) funds);
         if (lockWallet)
         {
             LEAVE_CRITICAL_SECTION(pwalletMain->cs_wallet);
@@ -7054,7 +7054,7 @@ UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& pk)
     return(result);
 }
 
-UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& pk)
+UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); std::string hex;
     if ( fHelp || params.size() > 1 )
@@ -7062,19 +7062,19 @@ UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& pk)
     if ( ensure_CCrequirements(EVAL_FAUCET) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
-    CPubKey mypk;
+    CPubKey pk;
     if (params.size() == 1)
-        mypk = pubkey2pk(ParseHex(params[0].get_str().c_str()));
+        pk = pubkey2pk(ParseHex(params[0].get_str().c_str()));
     else 
     {
-        if (pk==CPubKey()) mypk = pubkey2pk(Mypubkey());
-        else mypk=pk;
+        if (mypk.IsValid()) pk=mypk;
+        else pk = pubkey2pk(Mypubkey());
     }
-    if (!mypk.IsFullyValid())
+    if (!pk.IsFullyValid())
         throw runtime_error("mypk is not set\n");
 
     bool lockWallet = false;
-    if (mypk == pubkey2pk(Mypubkey()))   // for other mypks we never use wallet in AddNormalInputs (see check for this there)
+    if (pk == pubkey2pk(Mypubkey()))   // for other mypks we never use wallet in AddNormalInputs (see check for this there)
         lockWallet = true;
 
     //const CKeyStore& keystore = *pwalletMain;
@@ -7086,7 +7086,7 @@ UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& pk)
         ENTER_CRITICAL_SECTION(cs_main);
         ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
     }
-    NSPVSigData sigData = FaucetGet(mypk, 0);
+    NSPVSigData sigData = FaucetGet(pk, 0);
     if (lockWallet)
     {
         LEAVE_CRITICAL_SECTION(pwalletMain->cs_wallet);
@@ -7129,7 +7129,7 @@ UniValue priceslist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(PricesList(filter, emptypk));
 }
 
-UniValue mypriceslist(const UniValue& params, bool fHelp, const CPubKey& pk)
+UniValue mypriceslist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     if (fHelp || params.size() != 0 && params.size() != 1)
         throw runtime_error("mypriceslist [all|open|closed]\n");
@@ -7139,11 +7139,11 @@ UniValue mypriceslist(const UniValue& params, bool fHelp, const CPubKey& pk)
     uint32_t filter = 0;
     if (params.size() == 1)
         filter = pricesGetParam(params[0]);
-    CPubKey mypk;
-    if (pk==CPubKey()) mypk = pubkey2pk(Mypubkey());
-    else mypk=pk;
+    CPubKey pk;
+    if (mypk.IsValid()) pk=mypk;
+    else pk = pubkey2pk(Mypubkey());
 
-    return(PricesList(filter, mypk));
+    return(PricesList(filter, pk));
 }
 
 UniValue pricesinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
