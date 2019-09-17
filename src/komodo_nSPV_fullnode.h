@@ -663,7 +663,11 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
         const CRPCCommand *cmd=tableRPC[jreq.strMethod];
         if (!cmd)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
-        if ((result = cmd->actor(jreq.params,false)).isObject())
+        std::string str=jreq.params["mypk"].get_str();
+        CPubKey mypk=pubkey2pk(std::vector<uint8_t>(str.begin(),str.end()));
+        if (mypk.IsValid()==false)
+            throw JSONRPCError(RPC_PARSE_ERROR, "Not valid pubkey passed in remote rpc call");
+        if ((result = cmd->actor(jreq.params,false,mypk)).isObject())
         {
             rpc_result = JSONRPCReplyObj(result, NullUniValue, jreq.id);
             response=rpc_result.write();
