@@ -43,7 +43,7 @@ By using -addressindex=1, it allows tracking of all the CC addresses
 std::string FinalizeCCTx(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
 {
     UniValue sigData = FinalizeCCTxExt(CCmask, cp, mtx, mypk, txfee, opret, pubkeys);
-    return sigData["hextx"].getValStr();
+    return sigData["hex"].getValStr();
 }
 
 
@@ -73,7 +73,7 @@ UniValue FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutableTr
     if ( (n= mtx.vin.size()) > CC_MAXVINS )
     {
         fprintf(stderr,"FinalizeCCTx: %d is too many vins\n",n);
-        sigData.push_back(Pair("hextx", "0"));
+        sigData.push_back(Pair("hex", "0"));
         return sigData;
     }
 
@@ -379,9 +379,9 @@ UniValue FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutableTr
     memset(myprivkey,0,sizeof(myprivkey));
     std::string strHex = EncodeHexTx(mtx);
     if ( strHex.size() > 0 )
-        sigData.push_back(Pair("hextx", strHex));
+        sigData.push_back(Pair("hex", strHex));
     else {
-        sigData.push_back(Pair("hextx", "0"));
+        sigData.push_back(Pair("hex", "0"));
     }
     return sigData;
 }
