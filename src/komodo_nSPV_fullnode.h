@@ -22,6 +22,8 @@
 #include "notarisationdb.h"
 #include "rpc/server.h"
 
+static std::map<std::string,bool> nspv_remote_commands =  {{"channelsopen", true},{"faucetfund", true},{"faucetget", true}};
+
 struct NSPV_ntzargs
 {
     uint256 txid,desttxid,blockhash;
@@ -660,6 +662,8 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json)
         jreq.parse(request);
         strcpy(ptr->method,jreq.strMethod.c_str());
         len+=sizeof(ptr->method);
+        if (nspv_remote_commands.find(jreq.strMethod)==nspv_remote_commands.end())
+            throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not supported!");        
         const CRPCCommand *cmd=tableRPC[jreq.strMethod];
         if (!cmd)
             throw JSONRPCError(RPC_METHOD_NOT_FOUND, "Method not found");
