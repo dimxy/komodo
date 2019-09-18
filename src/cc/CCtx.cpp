@@ -43,7 +43,7 @@ By using -addressindex=1, it allows tracking of all the CC addresses
 std::string FinalizeCCTx(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
 {
     UniValue sigData = FinalizeCCTxExt(CCmask, cp, mtx, mypk, txfee, opret, pubkeys);
-    return sigData["hex"].getValStr();
+    return sigData[JSON_HEXTX].getValStr();
 }
 
 
@@ -73,7 +73,7 @@ UniValue FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutableTr
     if ( (n= mtx.vin.size()) > CC_MAXVINS )
     {
         fprintf(stderr,"FinalizeCCTx: %d is too many vins\n",n);
-        sigData.push_back(Pair("hex", "0"));
+        sigData.push_back(Pair(JSON_HEXTX, "0"));
         return sigData;
     }
 
@@ -379,9 +379,9 @@ UniValue FinalizeCCTxExt(uint64_t CCmask, struct CCcontract_info *cp, CMutableTr
     memset(myprivkey,0,sizeof(myprivkey));
     std::string strHex = EncodeHexTx(mtx);
     if ( strHex.size() > 0 )
-        sigData.push_back(Pair("hex", strHex));
+        sigData.push_back(Pair(JSON_HEXTX, strHex));
     else {
-        sigData.push_back(Pair("hex", "0"));
+        sigData.push_back(Pair(JSON_HEXTX, "0"));
     }
     return sigData;
 }
@@ -829,7 +829,7 @@ int64_t AddNormalinputs3(CMutableTransaction &mtx, CPubKey mypk, int64_t total, 
 
 UniValue AddSigData2UniValue(UniValue &result, int32_t vini, std::string ccjson, std::string sscriptpubkey, int64_t amount)
 {
-    UniValue array = result["sigData"];
+    UniValue array = result[JSON_SIGDATA];
     if (!array.isArray())
         array = UniValue(UniValue::VARR);
 
@@ -842,6 +842,6 @@ UniValue AddSigData2UniValue(UniValue &result, int32_t vini, std::string ccjson,
     elem.push_back(Pair("amount", amount));
     array.push_back(elem);
 
-    result.push_back(Pair("sigData", array));
+    result.push_back(Pair(JSON_SIGDATA, array));
     return result;
 }

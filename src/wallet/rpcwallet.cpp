@@ -7044,7 +7044,7 @@ UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& mypk)
             LEAVE_CRITICAL_SECTION(cs_main);
         }
 
-        if ( result["hex"].getValStr().size() > 0 )
+        if ( result[JSON_HEXTX].getValStr().size() > 0 )
         {
             result.push_back(Pair("result", "success"));
             //result.push_back(Pair("hex", hex));
@@ -7092,7 +7092,7 @@ UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& mypk)
         LEAVE_CRITICAL_SECTION(cs_main);
     }
 
-    if (result["hex"].getValStr().size() > 0 ) {
+    if (result[JSON_HEXTX].getValStr().size() > 0 ) {
         result.push_back(Pair("result", "success"));
         //result.push_back(Pair("hex", hex));
     } else ERR_RESULT("couldnt create faucet get transaction");

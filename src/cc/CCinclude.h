@@ -315,6 +315,9 @@ int64_t TotalPubkeyNormalInputs(const CTransaction &tx, const CPubKey &pubkey);
 int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
 
+#define JSON_HEXTX "hex"
+#define JSON_SIGDATA "SigData"
+
 /// add sig data for signing partially signed tx to UniValue object
 UniValue AddSigData2UniValue(UniValue &result, int32_t vini, std::string ccjson, std::string sscriptpubkey, int64_t amount);
 
