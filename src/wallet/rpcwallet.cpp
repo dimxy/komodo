@@ -7000,8 +7000,8 @@ UniValue faucetinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
 UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); int64_t funds; std::string hex;
-    if ( fHelp || params.size() < 1 || params.size() > 2)
-        throw runtime_error("faucetfund amount [mypubkey]\n");
+    if ( fHelp || params.size() != 1 )
+        throw runtime_error("faucetfund amount\n");
     funds = atof(params[0].get_str().c_str()) * COIN + 0.00000000499999;
     if ( (0) && KOMODO_NSPV_SUPERLITE )
     {
@@ -7014,13 +7014,9 @@ UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if ( ensure_CCrequirements(EVAL_FAUCET) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     CPubKey pk;
-    if (params.size() == 2)
-        pk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
-    else 
-    {
-        if (mypk.IsValid()) pk=mypk;
-        else pk = pubkey2pk(Mypubkey());
-    }
+    
+    if (mypk.IsValid()) pk=mypk;
+    else pk = pubkey2pk(Mypubkey());
     if (!pk.IsFullyValid())
         throw runtime_error("mypk is not set\n");
 
@@ -7028,16 +7024,17 @@ UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& mypk)
     //LOCK2(cs_main, pwalletMain->cs_wallet);
 
     bool lockWallet = false;
-    if (pk == pubkey2pk(Mypubkey()))   // for other mypks we never use wallet in AddNormalInputs (see check for this there)
+    if (!mypk.IsValid())   // if mypk is not set then it is a local call, use local wallet in AddNormalInputs
         lockWallet = true;
 
-    if (funds > 0) {
+    if (funds > 0) 
+    {
         if (lockWallet)
         {
             ENTER_CRITICAL_SECTION(cs_main);
             ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
         }
-        result = FaucetFund(mypk, 0,(uint64_t) funds);
+        result = FaucetFund(pk, 0,(uint64_t) funds);
         if (lockWallet)
         {
             LEAVE_CRITICAL_SECTION(pwalletMain->cs_wallet);
@@ -7056,24 +7053,19 @@ UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& mypk)
 UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); std::string hex;
-    if ( fHelp || params.size() > 1 )
-        throw runtime_error("faucetget [mypubkey]\n");
+    if ( fHelp || params.size() !=0 )
+        throw runtime_error("faucetget\n");
     if ( ensure_CCrequirements(EVAL_FAUCET) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
     CPubKey pk;
-    if (params.size() == 1)
-        pk = pubkey2pk(ParseHex(params[0].get_str().c_str()));
-    else 
-    {
-        if (mypk.IsValid()) pk=mypk;
-        else pk = pubkey2pk(Mypubkey());
-    }
+    if (mypk.IsValid()) pk=mypk;
+    else pk = pubkey2pk(Mypubkey());
     if (!pk.IsFullyValid())
         throw runtime_error("mypk is not set\n");
 
     bool lockWallet = false;
-    if (pk == pubkey2pk(Mypubkey()))   // for other mypks we never use wallet in AddNormalInputs (see check for this there)
+    if (!mypk.IsValid())   // if mypk is not set then it is a local call, use wallet in AddNormalInputs (see check for this there)
         lockWallet = true;
 
     //const CKeyStore& keystore = *pwalletMain;
@@ -7085,7 +7077,7 @@ UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& mypk)
         ENTER_CRITICAL_SECTION(cs_main);
         ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
     }
-    result = FaucetGet(mypk, 0);
+    result = FaucetGet(pk, 0);
     if (lockWallet)
     {
         LEAVE_CRITICAL_SECTION(pwalletMain->cs_wallet);
