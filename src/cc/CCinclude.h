@@ -317,24 +317,32 @@ inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (s
 #define CCLOG_DEBUG2 2
 #define CCLOG_DEBUG3 3
 #define CCLOG_MAXLEVEL 3
+
+void CCLogPrintStr(const char *category, int level, const std::string &str);
 template <class T>
 void CCLogPrintStream(const char *category, int level, T print_to_stream)
 {
     std::ostringstream stream;
     print_to_stream(stream);
-    if (level < 0)
-        level = 0;
-    if (level > CCLOG_MAXLEVEL)
-        level = CCLOG_MAXLEVEL;
-    for (int i = level; i <= CCLOG_MAXLEVEL; i++)
-        if( LogAcceptCategory((std::string(category) + std::string("-") + std::to_string(i)).c_str())  ||     // '-debug=cctokens-0', '-debug=cctokens-1',...
-            i == 0 && LogAcceptCategory(std::string(category).c_str()) )  {                                  // also supporting '-debug=cctokens' for CCLOG_INFO
-            LogPrintStr(stream.str());
-            break;
-        }
+    CCLogPrintStr(category, level, stream.str()); 
 }
 // use: LOGSTREAM("yourcategory", your-debug-level, stream << "some log data" << data2 << data3 << ... << std::endl);
 #define LOGSTREAM(category, level, logoperator) CCLogPrintStream( category, level, [=](std::ostringstream &stream) {logoperator;} )
 
+template <class T>
+UniValue report_ccerror(const char *category, int level, T print_to_stream)
+{
+    UniValue err(UniValue::VOBJ);
+    std::ostringstream stream;
+    print_to_stream(stream);
+
+    stream << "std::endl";
+
+    err.push_back(Pair("result", "error"));
+    CCLogPrintStr(category, level, stream.str());
+    return err;
+}
+
+#define CCERR_RESULT(category,level,logoperator) report_ccerror(category, level, [=](std::ostringstream &stream) {logoperator;})
 
 #endif
