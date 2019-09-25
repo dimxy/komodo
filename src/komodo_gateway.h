@@ -2380,6 +2380,7 @@ void komodo_cbopretupdate(int32_t forceflag)
         if (size > 0) {
             komodo_PriceCache_shift();
             memcpy(PriceCache[0], pricebuf, size * sizeof(uint32_t));
+            flags = 1;  //old code compatibility
         }
 
         /*
