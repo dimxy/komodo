@@ -2454,6 +2454,9 @@ void komodo_cbopretupdate(int32_t forceflag)
 
         if ( flags != 0 )
         {
+            if (Mineropret.size() < size)
+                Mineropret.resize(size);
+
             if ( (flags & 1) != 0 )
                 lastbtc = now;
             if ( (flags & 2) != 0 )
