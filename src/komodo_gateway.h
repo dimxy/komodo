@@ -16,6 +16,7 @@
 // paxdeposit equivalent in reverse makes opreturn and KMD does the same in reverse
 #include "komodo_defs.h"
 
+#include "cc/CCprices.h"
 #include "cc/pricesfeed.h"
 
 /*#include "secp256k1/include/secp256k1.h"
@@ -1579,11 +1580,13 @@ extern std::vector<uint8_t> Mineropret; // opreturn data set by the data gatheri
 
 #define issue_curl(cmdstr) bitcoind_RPC(0,(char *)"CBCOINBASE",cmdstr,0,0,0)
 
+/*
 const char *Cryptos[] = { "KMD", "ETH" }; // must be on binance (for now)
 // "LTC", "BCHABC", "XMR", "IOTA", "ZEC", "WAVES",  "LSK", "DCR", "RVN", "DASH", "XEM", "BTS", "ICX", "HOT", "STEEM", "ENJ", "STRAT"
 const char *Forex[] =
 { "BGN","NZD","ILS","RUB","CAD","PHP","CHF","AUD","JPY","TRY","HKD","MYR","HRK","CZK","IDR","DKK","NOK","HUF","GBP","MXN","THB","ISK","ZAR","BRL","SGD","PLN","INR","KRW","RON","CNY","SEK","EUR"
 }; // must be in ECB list
+*/
 
 struct komodo_extremeprice
 {
@@ -1596,7 +1599,7 @@ struct komodo_extremeprice
 struct komodo_priceinfo
 {
     FILE *fp;
-    char symbol[64];
+    char symbol[PRICES_MAXNAMELENGTH];   // TODO: it was 64 
 } PRICES[KOMODO_MAXPRICES];
 
 uint32_t PriceCache[KOMODO_LOCALPRICE_CACHESIZE][KOMODO_MAXPRICES];//4+sizeof(Cryptos)/sizeof(*Cryptos)+sizeof(Forex)/sizeof(*Forex)];
@@ -2038,6 +2041,7 @@ cJSON *get_urljson(char *url)
     return(json);
 }
 
+#ifdef OLD_CODE
 int32_t get_stockprices(uint32_t now,uint32_t *prices,std::vector<std::string> symbols)
 {
     char url[32768],*symbol,*timestr; cJSON *json,*obj; int32_t i,n=0,retval=-1; uint32_t uprice,timestamp;
@@ -2133,6 +2137,7 @@ int32_t get_cryptoprices(uint32_t *prices,const char *list[],int32_t n,std::vect
     fprintf(stderr," errs.%d\n",errs);
     return(-errs);
 }
+#endif
 
 // calc total and count of double value in json by path like "objectname/objectname/itemname"
 double get_average_double_json(const cJSON *json, const char *path)
@@ -2324,7 +2329,7 @@ int32_t get_btcusd(uint32_t pricebits[4])
 
 // komodo_cbopretupdate() obtains the external price data and encodes it into Mineropret, which will then be used by the miner and validation
 // save history, use new data to approve past rejection, where is the auto-reconsiderblock?
-
+/*
 int32_t komodo_cbopretsize(uint64_t flags)
 {
     int32_t size = 0;
@@ -2342,13 +2347,13 @@ int32_t komodo_cbopretsize(uint64_t flags)
     }
     return(size);
 }
-
+*/
 extern uint256 Queued_reconsiderblock;
 
 void komodo_cbopretupdate(int32_t forceflag)
 {
     static uint32_t lasttime,lastbtc,pending;
-    static uint32_t pricebits[4],pricebuf[KOMODO_MAXPRICES],forexprices[sizeof(Forex)/sizeof(*Forex)];
+    static uint32_t pricebits[4], pricebuf[KOMODO_MAXPRICES]; //, forexprices[sizeof(Forex) / sizeof(*Forex)];
     uint32_t count; 
     uint32_t flags=0, now; 
     CBlockIndex *pindex;
@@ -2377,7 +2382,7 @@ void komodo_cbopretupdate(int32_t forceflag)
 
         if (count == PF_BUFOVERFLOW) {
             std::cerr << "price buffer overflow, shutdown..." << std::endl;
-            Shutdown();
+            StartShutdown();
         }
 
         if (count > 0) {
@@ -2493,7 +2498,9 @@ int64_t komodo_pricemult(int32_t ind)
     int32_t i,j;
     if ( (ASSETCHAINS_CBOPRET & 1) != 0 && ind < KOMODO_MAXPRICES )
     {
-        if ( PriceMult[0] == 0 )
+        return PricesFeedMultiplier(ind);
+
+/*        if ( PriceMult[0] == 0 )
         {
             for (i=0; i<4; i++)
                 PriceMult[i] = 10000;
@@ -2518,7 +2525,7 @@ int64_t komodo_pricemult(int32_t ind)
                     PriceMult[i++] = 1000000;
             }
         }
-        return(PriceMult[ind]);
+        return(PriceMult[ind]); */
     }
     return(0);
 }
@@ -2528,6 +2535,12 @@ char *komodo_pricename(char *name,int32_t ind)
     strcpy(name,"error");
     if ( (ASSETCHAINS_CBOPRET & 1) != 0 && ind < KOMODO_MAXPRICES )
     {
+        if (ind == 0) {
+            strcpy(name, "timestamp");
+            return name;
+        }
+        return PricesFeedName(name, ind);
+/*        
         if ( ind < 4 )
         {
             switch ( ind )
@@ -2595,14 +2608,16 @@ char *komodo_pricename(char *name,int32_t ind)
                 }
                 else ind -= ASSETCHAINS_METALSTOCKS.size();
             }
-        }
+        }*/
     }
     return(0);
 }
 // finds index for its symbol name
 int32_t komodo_priceind(const char *symbol)
 {
-    char name[65]; int32_t i,n = (int32_t)(komodo_cbopretsize(ASSETCHAINS_CBOPRET) / sizeof(uint32_t));
+    char name[PRICES_MAXNAMELENGTH + 1]; 
+    int32_t i,n = (int32_t)(komodo_cbopretsize(ASSETCHAINS_CBOPRET) / sizeof(uint32_t));
+
     for (i=1; i<n; i++)
     {
         komodo_pricename(name,i);
