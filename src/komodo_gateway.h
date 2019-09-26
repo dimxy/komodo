@@ -2875,7 +2875,7 @@ bool komodo_pricesnames_ready()
 {
     bool isready = (PricesFeedNamesCount() == PricesFeedTotalSize() - 1);
     if (!isready)
-        std::cerr << "komodo_prices names still not loaded..." << std::endl;
+        std::cerr << "komodo_prices names still not loaded... (PricesFeedNamesCount=" << PricesFeedNamesCount() << " PricesFeedTotalSize()-1=" << PricesFeedTotalSize()-1 << std::endl;
     return isready;
 }
 
