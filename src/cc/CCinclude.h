@@ -312,6 +312,7 @@ int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
 
 // bitcoin LogPrintStr with category "-debug" cmdarg support for C++ ostringstream:
+#define CCLOG_ERROR  (-1)
 #define CCLOG_INFO   0
 #define CCLOG_DEBUG1 1
 #define CCLOG_DEBUG2 2
@@ -320,14 +321,20 @@ inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (s
 
 void CCLogPrintStr(const char *category, int level, const std::string &str);
 template <class T>
-void CCLogPrintStream(const char *category, int level, T print_to_stream)
+void CCLogPrintStream(const char *category, int level, const char *functionName, T print_to_stream)
 {
     std::ostringstream stream;
+    if (functionName != NULL)
+        stream << functionName << " ";
+    if (level < 0)
+        stream << "ERROR:" << " ";
+
     print_to_stream(stream);
     CCLogPrintStr(category, level, stream.str()); 
 }
 // use: LOGSTREAM("yourcategory", your-debug-level, stream << "some log data" << data2 << data3 << ... << std::endl);
-#define LOGSTREAM(category, level, logoperator) CCLogPrintStream( category, level, [=](std::ostringstream &stream) {logoperator;} )
+#define LOGSTREAM(category, level, logoperator) CCLogPrintStream( category, level, NULL, [=](std::ostringstream &stream) {logoperator;} )
+#define LOGSTREAMFN(category, level, logoperator) CCLogPrintStream( category, level, __func__, [=](std::ostringstream &stream) {logoperator;} )
 
 template <class T>
 UniValue report_ccerror(const char *category, int level, T print_to_stream)
