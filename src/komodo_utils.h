@@ -1924,6 +1924,7 @@ void komodo_args(char *argv0)
                     StartShutdown();
                 }
             }
+            std::cerr << __func__ << "\t" << "ASSETCHAINS_CBOPRET=" << ASSETCHAINS_CBOPRET << std::endl;
             fprintf(stderr, "%d -ac_feeds\n", (int32_t)PricesFeedSymbolsCount());  // print size with default prices
         }
         hexstr = GetArg("-ac_mineropret","");
