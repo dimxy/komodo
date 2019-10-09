@@ -1343,8 +1343,8 @@ UniValue PegsAccountInfo(uint256 pegstxid)
     {
         UniValue obj(UniValue::VOBJ);
         obj.push_back(Pair("token",PegsGetTokenName(it->first)));
-        obj.push_back(Pair("deposit",(double)accounts[it->first].first/COIN));
-        obj.push_back(Pair("debt",(double)accounts[it->first].second/COIN));
+        obj.push_back(Pair("deposit",accounts[it->first].first));
+        obj.push_back(Pair("debt",accounts[it->first].second));
         if (accounts[it->first].first==0 || accounts[it->first].second==0 || PegsGetTokenPrice(it->first)<=0) obj.push_back(Pair("ratio",0));
         else obj.push_back(Pair("ratio",strprintf("%.2f%%",PegsGetRatio(it->first,accounts[it->first]))));         
         acc.push_back(obj);
