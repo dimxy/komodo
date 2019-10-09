@@ -16,6 +16,8 @@
 #include "CCPegs.h"
 #include "../importcoin.h"
 #include "key_io.h"
+#include <gmp.h>
+
 
 /*
 pegs CC is able to create a coin backed (by any supported coin with gateways CC deposits) and pegged to any synthetic price that is able to be calculated based on prices CC
@@ -88,9 +90,10 @@ pegs CC is able to create a coin backed (by any supported coin with gateways CC 
 // start of consensus code
 #ifndef PEGS_THRESHOLDS
 #define PEGS_THRESHOLDS
+#define PEGS_ACCOUNT_MAX_DEBT 80
+#define PEGS_GLOBAL_RED_ZONE 60
 #define PEGS_ACCOUNT_YELLOW_ZONE 60
-#define PEGS_ACCOUNT_THRESHOLD 90
-#define PEGS_GLOBAL_THRESHOLD 60
+#define PEGS_ACCOUNT_RED_ZONE 90
 #endif // PEGS_THRESHOLDS
 #define CC_MARKER_VALUE 10000
 
@@ -99,6 +102,8 @@ extern uint64_t ASSETCHAINS_PEGSCCPARAMS[3];
 extern uint8_t DecodeGatewaysBindOpRet(char *depositaddr,const CScript &scriptPubKey,uint256 &tokenid,std::string &coin,int64_t &totalsupply,uint256 &oracletxid,uint8_t &M,uint8_t &N,std::vector<CPubKey> &gatewaypubkeys,uint8_t &taddr,uint8_t &prefix,uint8_t &prefix2,uint8_t &wiftype);
 extern int64_t GetTokenBalance(CPubKey pk, uint256 tokenid);
 extern int32_t komodo_currentheight();
+extern int32_t prices_syntheticvec(std::vector<uint16_t> &vec, std::vector<std::string> synthetic);
+extern int64_t prices_syntheticprice(std::vector<uint16_t> vec, int32_t height, int32_t minmax, int16_t leverage);
 
 CScript EncodePegsCreateOpRet(std::vector<uint256> bindtxids)
 {
@@ -512,21 +517,17 @@ char PegsFindAccount(struct CCcontract_info *cp,CPubKey pk,uint256 pegstxid, uin
     else return(0);
 }
 
-double PegsGetTokenPrice(uint256 tokenid)
+int64_t PegsGetTokenPrice(uint256 tokenid)
 {
-    int64_t *tokensyn,*btcusd; double price; CTransaction tokentx; uint256 hashBlock;
+    int64_t price; CTransaction tokentx; uint256 hashBlock; std::vector<uint16_t> exp;
     std::string name,desc; std::vector<uint8_t> vorigpubkey; int32_t numvouts;
 
     if (myGetTransaction(tokenid,tokentx,hashBlock)!=0 && (numvouts=tokentx.vout.size())>0 && DecodeTokenCreateOpRet(tokentx.vout[numvouts-1].scriptPubKey,vorigpubkey,name,desc)=='c')
     {
-        tokensyn = (int64_t *)calloc(sizeof(*tokensyn) * 3, 1 + PRICES_DAYWINDOW * 2 + PRICES_SMOOTHWIDTH);
-        btcusd = (int64_t *)calloc(sizeof(*btcusd) * 3, 1 + PRICES_DAYWINDOW * 2 + PRICES_SMOOTHWIDTH);
-        if (komodo_priceget(tokensyn,  komodo_priceind((name+"_BTC").c_str()), komodo_currentheight(), 1) >= 0 && komodo_priceget(btcusd,  komodo_priceind("BTC_USD"), komodo_currentheight(), 1) >= 0)
-        {
-            price=tokensyn[2]*btcusd[2];
-            price=price/COIN/COIN;
+        std::vector<std::string> vexpr;
+        SplitStr(desc, vexpr);
+        if (prices_syntheticvec(exp, vexpr)>=0 && (price = prices_syntheticprice(exp, komodo_currentheight(), 0, 1))>=0)
             return (price);
-        }
     }
     return (0);
 }
@@ -544,6 +545,34 @@ std::string PegsGetTokenName(uint256 tokenid)
     return("");
 }
 
+int64_t PegsGetTokensAmountPerPrice(int64_t amount,uint256 tokenid)
+{      
+    mpz_t res,a,b;
+    mpz_init(res);
+    mpz_init(a);
+    mpz_init(b);
+    mpz_set_si(a, amount);
+    mpz_set_si(b, COIN);
+    mpz_mul(res, a, b);
+    mpz_set_si(a, PegsGetTokenPrice(tokenid));   
+    mpz_tdiv_q(res, res, a);
+    return (mpz_get_si(res));           
+}
+
+double PegsGetRatio(uint256 tokenid,std::pair<int64_t,int64_t> account)
+{      
+    mpz_t res,a,b;
+    mpz_init(res);
+    mpz_init(a);
+    mpz_init(b);
+    mpz_set_si(a, account.first);
+    mpz_set_si(b, PegsGetTokenPrice(tokenid));
+    mpz_mul(res, a, b);
+    mpz_set_si(a, COIN);
+    mpz_tdiv_q(res, res, a);
+    return ((double)account.second)*100/mpz_get_si(res);           
+}
+
 double PegsGetAccountRatio(uint256 pegstxid,uint256 tokenid,uint256 accounttxid)
 {
     int64_t amount; uint256 hashBlock,tmptokenid,tmppegstxid;
@@ -555,7 +584,7 @@ double PegsGetAccountRatio(uint256 pegstxid,uint256 tokenid,uint256 accounttxid)
         (funcid=DecodePegsOpRet(tx,tmppegstxid,tmptokenid))!=0 && pegstxid==tmppegstxid && tokenid==tmptokenid)
     {  
         PegsDecodeAccountTx(tx,pk,amount,account);           
-        return ((double)account.second*100/(account.first*PegsGetTokenPrice(tokenid)));           
+        return PegsGetRatio(tokenid,account);        
     }
     return (0);
 }
@@ -565,7 +594,7 @@ double PegsGetGlobalRatio(uint256 pegstxid)
     char coinaddr[64]; int64_t nValue,amount,globaldebt=0; uint256 txid,accounttxid,hashBlock,tmppegstxid,tokenid;
     CTransaction tx; int32_t numvouts,vout; char funcid; CPubKey mypk,pegspk,pk;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs; std::pair<int64_t,int64_t> account;
-    std::map<uint256,std::pair<int64_t,int64_t>> globalaccounts; double globaldeposit=0;
+    std::map<uint256,std::pair<int64_t,int64_t>> globalaccounts;
     struct CCcontract_info *cp,C;
 
     cp = CCinit(&C,EVAL_PEGS);
@@ -598,12 +627,30 @@ double PegsGetGlobalRatio(uint256 pegstxid)
             globalaccounts[tokenid].first+=nValue;
         }
     }
+    mpz_t res,globaldeposit,a,b;
+    mpz_init(res);
+    mpz_init(globaldeposit);
+    mpz_init(a);
+    mpz_init(b);
+    mpz_set_si(globaldeposit, 0);
     for (std::map<uint256,std::pair<int64_t,int64_t>>::iterator it = globalaccounts.begin(); it != globalaccounts.end(); ++it)
     {
-        globaldeposit+=globalaccounts[it->first].first*PegsGetTokenPrice(it->first);
+        mpz_set_si(res, 0);
+        mpz_set_si(a, globalaccounts[it->first].first);
+        mpz_set_si(b, PegsGetTokenPrice(it->first));
+        mpz_mul(res,a,b);
+        mpz_add(globaldeposit,globaldeposit,res);
         globaldebt+=globalaccounts[it->first].second;
     }
-    if (globaldebt>0) return ((double)globaldebt*100/globaldeposit);
+    if (globaldebt>0)
+    {       
+        mpz_set_si(res, 0); 
+        mpz_set_si(b, PegsGetTokenPrice(tokenid));
+        mpz_mul(res, globaldeposit, b);
+        mpz_set_si(a, COIN);
+        mpz_tdiv_q(res, res, a);
+        return ((double)globaldebt)*100/mpz_get_si(res); 
+    }
     return (0);
 }
 
@@ -822,6 +869,12 @@ std::string PegsGet(uint64_t txfee,uint256 pegstxid, uint256 tokenid, int64_t am
     // coin issue
     vouts.push_back(CTxOut(amount,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
     account.second+=amount;
+    if (PegsGetRatio(tokenid,account)>PEGS_ACCOUNT_MAX_DEBT)
+    {
+        CCerror = strprintf("not possible to take more than %d%% of the deposit",PEGS_ACCOUNT_MAX_DEBT);
+        LOGSTREAM("pegscc",CCLOG_INFO, stream << CCerror << std::endl);
+        return(""); 
+    }
     LOGSTREAM("pegscc",CCLOG_DEBUG2, stream << "new account [deposit=" << account.first << ",debt=" << account.second << "]" << std::endl);
     // burn tx does not exist in pegs method but it must be created in order for import validation to pass
     // fictive burntx input of previous account state tx
@@ -1021,7 +1074,7 @@ std::string PegsExchange(uint64_t txfee,uint256 pegstxid, uint256 tokenid, int64
     { 
         if ((pegsfunds=AddPegsInputs(cp,mtx,pegspk,CPubKey(),txfee,1))>=txfee)
         {
-            tokenamount=amount/PegsGetTokenPrice(tokenid); 
+            tokenamount=PegsGetTokensAmountPerPrice(amount,tokenid); 
             tokenfunds=AddPegsTokenInputs(cp,mtx,pegstxid,tokenid,pegspk,CPubKey(),tokenamount,64);
             if (tokenfunds<tokenamount)
             {
@@ -1098,7 +1151,7 @@ std::string PegsExchange(uint64_t txfee,uint256 pegstxid, uint256 tokenid, int64
 std::string PegsLiquidate(uint64_t txfee,uint256 pegstxid, uint256 tokenid, uint256 liquidatetxid)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight()); std::string coin;
-    CTransaction pegstx,tx; int32_t numvouts; int64_t totalsupply,pegsfunds=0,funds=0,tokenfunds=0,amount,burnamount;
+    CTransaction pegstx,tx; int32_t numvouts; int64_t totalsupply,pegsfunds=0,funds=0,tokenfunds=0,amount,tmpamount,tokenamount,burnamount;
     CPubKey mypk,pegspk,tmppk; struct CCcontract_info *cp,*cpTokens,CTokens,C; char depositaddr[64],coinaddr[64]; std::pair <int64_t,int64_t> account(0,0),myaccount(0,0);
     uint8_t M,N,taddr,prefix,prefix2,wiftype; std::vector<CPubKey> pubkeys; bool found=false; std::vector<uint256> bindtxids;
     uint256 hashBlock,txid,tmptokenid,oracletxid,accounttxid;
@@ -1159,9 +1212,9 @@ std::string PegsLiquidate(uint64_t txfee,uint256 pegstxid, uint256 tokenid, uint
         LOGSTREAM("pegscc",CCLOG_INFO, stream << CCerror << std::endl);
         return(""); 
     }
-    if (PegsGetAccountRatio(pegstxid,tokenid,liquidatetxid)<(ASSETCHAINS_PEGSCCPARAMS[0]?ASSETCHAINS_PEGSCCPARAMS[0]:PEGS_ACCOUNT_THRESHOLD) || PegsGetGlobalRatio(pegstxid)<(ASSETCHAINS_PEGSCCPARAMS[1]?ASSETCHAINS_PEGSCCPARAMS[1]:PEGS_GLOBAL_THRESHOLD))
+    if (PegsGetAccountRatio(pegstxid,tokenid,liquidatetxid)<(ASSETCHAINS_PEGSCCPARAMS[0]?ASSETCHAINS_PEGSCCPARAMS[0]:PEGS_ACCOUNT_RED_ZONE) || PegsGetGlobalRatio(pegstxid)<(ASSETCHAINS_PEGSCCPARAMS[1]?ASSETCHAINS_PEGSCCPARAMS[1]:PEGS_GLOBAL_RED_ZONE))
     {
-        CCerror = strprintf("not able to liquidate account until account ratio > %lu%% and global ratio > %lu%%",(ASSETCHAINS_PEGSCCPARAMS[0]?ASSETCHAINS_PEGSCCPARAMS[0]:PEGS_ACCOUNT_THRESHOLD),(ASSETCHAINS_PEGSCCPARAMS[1]?ASSETCHAINS_PEGSCCPARAMS[1]:PEGS_GLOBAL_THRESHOLD));
+        CCerror = strprintf("not able to liquidate account until account ratio > %lu%% and global ratio > %lu%%",(ASSETCHAINS_PEGSCCPARAMS[0]?ASSETCHAINS_PEGSCCPARAMS[0]:PEGS_ACCOUNT_RED_ZONE),(ASSETCHAINS_PEGSCCPARAMS[1]?ASSETCHAINS_PEGSCCPARAMS[1]:PEGS_GLOBAL_RED_ZONE));
         LOGSTREAM("pegscc",CCLOG_INFO, stream << CCerror << std::endl);
         return("");
     }
@@ -1178,9 +1231,11 @@ std::string PegsLiquidate(uint64_t txfee,uint256 pegstxid, uint256 tokenid, uint
         return(""); 
     }
     LOGSTREAM("pegscc",CCLOG_DEBUG2, stream << "current accounttxid=" << accounttxid.GetHex() << " [deposit=" << account.first << ",debt=" << account.second << "]" << std::endl);
-    amount=account.first;
-    burnamount=account.second*0.9;
-    if ((funds=AddNormalinputs(mtx,mypk,txfee+account.second,64))>=txfee+burnamount)
+    tokenamount=account.first;
+    burnamount=account.second;
+    tmpamount=PegsGetTokensAmountPerPrice(burnamount,tokenid)*105/100;
+    amount=tmpamount+((tokenamount-tmpamount)*10/100);
+    if ((funds=AddNormalinputs(mtx,mypk,account.second,64))>=burnamount)
     { 
         if (liquidatetxid!=zeroid && (pegsfunds=AddPegsInputs(cp,mtx,pegspk,CPubKey(),txfee,1))>=txfee)
         {
@@ -1189,14 +1244,14 @@ std::string PegsLiquidate(uint64_t txfee,uint256 pegstxid, uint256 tokenid, uint
             mtx.vin.push_back(CTxIn(liquidatetxid,1,CScript()));
             GetCCaddress1of2(cp,coinaddr,tmppk,pegspk);
             CCaddr1of2set(cp,tmppk,pegspk,cp->CCpriv,coinaddr);            
-            if ((tokenfunds=AddPegsTokenInputs(cp,mtx,pegstxid,tokenid,tmppk,pegspk,amount,64))==amount)
+            if ((tokenfunds=AddPegsTokenInputs(cp,mtx,pegstxid,tokenid,tmppk,pegspk,tokenamount,64))==tokenamount)
             {
                 if (pegsfunds>=txfee+2*CC_MARKER_VALUE)
                 {        
                     mtx.vout.push_back(MakeCC1of2vout(EVAL_PEGS,CC_MARKER_VALUE,pegspk,pegspk));
                     mtx.vout.push_back(MakeCC1of2vout(EVAL_PEGS,CC_MARKER_VALUE,tmppk,pegspk));
-                    mtx.vout.push_back(MakeTokensCC1vout(EVAL_TOKENS,(int64_t)(amount*0.95),mypk));
-                    mtx.vout.push_back(MakeTokensCC1vout(EVAL_PEGS,amount-(int64_t)(amount*0.95),pegspk));
+                    mtx.vout.push_back(MakeTokensCC1vout(EVAL_TOKENS,amount,mypk));
+                    mtx.vout.push_back(MakeTokensCC1vout(EVAL_PEGS,tokenamount-amount,pegspk));
                     mtx.vout.push_back(CTxOut(burnamount,CScript() << ParseHex(HexStr(CCtxidaddr(coinaddr,pegstxid))) << OP_CHECKSIG));
                     if (pegsfunds>txfee+2*CC_MARKER_VALUE) mtx.vout.push_back(MakeCC1vout(EVAL_PEGS,pegsfunds-(txfee+2*CC_MARKER_VALUE),pegspk));
                     account.first=0;
@@ -1288,10 +1343,10 @@ UniValue PegsAccountInfo(uint256 pegstxid)
     {
         UniValue obj(UniValue::VOBJ);
         obj.push_back(Pair("token",PegsGetTokenName(it->first)));
-        obj.push_back(Pair("deposit",(double)accounts[it->first].first/COIN));
-        obj.push_back(Pair("debt",(double)accounts[it->first].second/COIN));
-        if (accounts[it->first].first==0 || accounts[it->first].second==0 || PegsGetTokenPrice(it->first)==0) obj.push_back(Pair("ratio",0));
-        else obj.push_back(Pair("ratio",strprintf("%.2f%%",(double)accounts[it->first].second*100/(accounts[it->first].first*PegsGetTokenPrice(it->first)))));         
+        obj.push_back(Pair("deposit",accounts[it->first].first));
+        obj.push_back(Pair("debt",accounts[it->first].second));
+        if (accounts[it->first].first==0 || accounts[it->first].second==0 || PegsGetTokenPrice(it->first)<=0) obj.push_back(Pair("ratio",0));
+        else obj.push_back(Pair("ratio",strprintf("%.2f%%",PegsGetRatio(it->first,accounts[it->first]))));         
         acc.push_back(obj);
     }
     result.push_back(Pair("account info",acc));    
@@ -1321,9 +1376,9 @@ UniValue PegsWorstAccounts(uint256 pegstxid)
             (funcid=DecodePegsOpRet(tx,tmppegstxid,tokenid))!=0 && pegstxid==tmppegstxid)
         {               
             PegsDecodeAccountTx(tx,pk,amount,account);
-            if (account.first==0 || account.second==0 || PegsGetTokenPrice(tokenid)==0) ratio=0;
-            else ratio=(double)account.second*100/(account.first*PegsGetTokenPrice(tokenid));
-            if (ratio>80)
+            if (account.first==0 || account.second==0 || PegsGetTokenPrice(tokenid)<=0) ratio=0;
+            else ratio=PegsGetRatio(tokenid,account);
+            if (ratio>PEGS_ACCOUNT_RED_ZONE)
             {
                 UniValue obj(UniValue::VOBJ);
                 obj.push_back(Pair("accounttxid",txid.GetHex()));
@@ -1396,8 +1451,8 @@ UniValue PegsInfo(uint256 pegstxid)
         obj.push_back(Pair("token",PegsGetTokenName(it->first)));
         obj.push_back(Pair("total deposit",globalaccounts[it->first].first));
         obj.push_back(Pair("total debt",globalaccounts[it->first].second));
-        if (globalaccounts[it->first].first==0 || globalaccounts[it->first].second==0 || PegsGetTokenPrice(it->first)==0) obj.push_back(Pair("total ratio",0));
-        else obj.push_back(Pair("total ratio",strprintf("%.2f%%",(double)globalaccounts[it->first].second*100/(globalaccounts[it->first].first*PegsGetTokenPrice(it->first)))));                
+        if (globalaccounts[it->first].first==0 || globalaccounts[it->first].second==0 || PegsGetTokenPrice(it->first)<=0) obj.push_back(Pair("total ratio",0));
+        else obj.push_back(Pair("total ratio",strprintf("%.2f%%",PegsGetRatio(it->first,globalaccounts[it->first]))));                
         acc.push_back(obj);
     }
     result.push_back(Pair("info",acc));
