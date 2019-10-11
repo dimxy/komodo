@@ -333,12 +333,6 @@ std::string FinalizeCCTx(uint64_t CCmask,struct CCcontract_info *cp,CMutableTran
                     for (z=0; z<32; z++)
                         fprintf(stderr,"%02x",((uint8_t *)sighash.begin())[z]);
                     fprintf(stderr," sighash [%d] %.8f %x\n",i,(double)utxovalues[i]/COIN,consensusBranchId);
-
-                    char *jsonstr = cc_conditionToJSONString(cond);
-                    std::cerr << "ccjson=" << jsonstr << std::endl;
-                    if (jsonstr) 
-                        free(jsonstr);
-
                 }
                 if ( cc_signTreeSecp256k1Msg32(cond,privkey,sighash.begin()) != 0 )
                 {
