@@ -327,6 +327,7 @@ int32_t iguana_rwbignum(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
 int64_t CCaddress_balance(char *coinaddr,int32_t CCflag);
 CPubKey CCtxidaddr(char *txidaddr,uint256 txid);
+CPubKey CCtxidaddr_tweak(char *txidaddr, uint256 txid);
 CPubKey CCCustomtxidaddr(char *txidaddr,uint256 txid,uint8_t taddr,uint8_t prefix,uint8_t prefix2);
 bool GetCCParams(Eval* eval, const CTransaction &tx, uint32_t nIn,
                  CTransaction &txOut, std::vector<std::vector<unsigned char>> &preConditions, std::vector<std::vector<unsigned char>> &params);
