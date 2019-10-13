@@ -433,11 +433,11 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
 // LOGSTREAM checks if logging category is enabled by -debug cmd arg
 // but CCLOG_ERROR level is always printed independently whether category enabled or not by -debug arg
 // use like: LOGSTREAM("yourcategory", your-debug-level, stream << "some data1=" << data1 << " data2=" << data2 << " some text" << ... << std::endl);
-#define LOGSTREAM(category, level, logoperator) CCLogPrintStream( category, level, NULL, [=](std::ostringstream &stream) {logoperator;} )
+#define LOGSTREAM(category, level, logoperator) CCLogPrintStream( category, level, NULL, [&](std::ostringstream &stream) {logoperator;} )
 
 // LOGSTREAMFN is a version of LOGSTREAM macro which adds calling function name with the standard define __func__ at the beginning of the printed string 
 // LOGSTREAMFN parameters are the same as in LOGSTREAM
-#define LOGSTREAMFN(category, level, logoperator) CCLogPrintStream( category, level, __func__, [=](std::ostringstream &stream) {logoperator;} )
+#define LOGSTREAMFN(category, level, logoperator) CCLogPrintStream( category, level, __func__, [&](std::ostringstream &stream) {logoperator;} )
 
 #endif // #ifndef LOGSTREAM_DEFINED
 
