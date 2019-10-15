@@ -392,6 +392,8 @@ int64_t TotalPubkeyNormalInputs(const CTransaction &tx, const CPubKey &pubkey);
 int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
 
+#define RETURN_IF_ERROR(CCerror) if ( CCerror != "" ) { UniValue result(UniValue::VOBJ); ERR_RESULT(CCerror); return(result); }
+
 #ifndef LOGSTREAM_DEFINED
 #define LOGSTREAM_DEFINED
 // bitcoin LogPrintStr with category "-debug" cmdarg support for C++ ostringstream:
