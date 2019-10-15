@@ -1102,7 +1102,7 @@ UniValue GatewaysClaim(const CPubKey& pk, uint64_t txfee,uint256 bindtxid,std::s
     }                                               
     if ( (depositamount=GatewaysDepositval(tx,mypk)) != amount )
     {
-        CCerror = strprintf("invalid Gateways deposittxid %s %.8f != %.8f",uint256_str(str,deposittxid),(double)depositamount/COIN,(double)amount/COIN);
+        CCerror = strprintf("invalid Gateways deposittxid %s %.8f != %.8f, remember claim must be done from destination pubkey from deposit tx!",uint256_str(str,deposittxid),(double)depositamount/COIN,(double)amount/COIN);
         LOGSTREAM("gatewayscc",CCLOG_INFO, stream << CCerror << std::endl);
         return("");
     }

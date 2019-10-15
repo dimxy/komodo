@@ -647,7 +647,7 @@ int32_t GetLatestTimestamp(int32_t height)
 
 bool OraclesValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn)
 {
-    uint256 oracletxid,batontxid; uint64_t txfee=10000; int32_t numvins,numvouts,preventCCvins,preventCCvouts; int64_t amount; uint256 hashblock;
+    uint256 oracletxid,batontxid,txid; uint64_t txfee=10000; int32_t numvins,numvouts,preventCCvins,preventCCvouts; int64_t amount; uint256 hashblock;
     uint8_t *script; std::vector<uint8_t> vopret,data; CPubKey publisher,tmppk,oraclespk; char tmpaddress[64],vinaddress[64],oraclesaddr[64];
     CTransaction tmptx; std::string name,desc,format;
 
@@ -702,10 +702,16 @@ bool OraclesValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &t
                             return eval->Invalid("invalid marker for oraclescreate!");
                         else if ( IsCCInput(tx.vin[0].scriptSig) != 0 )
                             return eval->Invalid("vin.0 is normal for oraclesregister!");
-                        else if ((*cp->ismyvin)(tx.vin[tx.vin.size()-1].scriptSig) == 0 || myGetTransaction(tx.vin[tx.vin.size()-1].prevout.hash,tmptx,hashblock)==0
+                        else if ((*cp->ismyvin)(tx.vin[1].scriptSig) == 0 && (*cp->ismyvin)(tx.vin[tx.vin.size()-1].scriptSig) == 0)
+                            return eval->Invalid("there is no CC vin from oraclesfund tx");
+                        else if ((*cp->ismyvin)(tx.vin[1].scriptSig) == 1 && (myGetTransaction(tx.vin[1].prevout.hash,tmptx,hashblock)==0 || DecodeOraclesOpRet(tmptx.vout[tmptx.vout.size()-1].scriptPubKey,txid,tmppk,amount)!='F'
+                                || tmptx.vout[tx.vin[1].prevout.n].nValue!=CC_MARKER_VALUE || !Getscriptaddress(vinaddress,tmptx.vout[tx.vin[1].prevout.n].scriptPubKey)
+                                || !GetCCaddress(cp,tmpaddress,tmppk) || strcmp(tmpaddress,vinaddress)!=0) || oracletxid!=txid)
+                            return eval->Invalid("invalid vin.1 for oraclesregister, it must be CC vin or pubkey not same as vin pubkey, register and fund tx must be done from owner of pubkey that registers to oracle!!");    
+                        else if ((*cp->ismyvin)(tx.vin[tx.vin.size()-1].scriptSig) == 1 && (myGetTransaction(tx.vin[tx.vin.size()-1].prevout.hash,tmptx,hashblock)==0 || DecodeOraclesOpRet(tmptx.vout[tmptx.vout.size()-1].scriptPubKey,txid,tmppk,amount)!='F'
                                 || tmptx.vout[tx.vin[tx.vin.size()-1].prevout.n].nValue!=CC_MARKER_VALUE || !Getscriptaddress(vinaddress,tmptx.vout[tx.vin[tx.vin.size()-1].prevout.n].scriptPubKey)
-                                || !GetCCaddress(cp,tmpaddress,tmppk) || strcmp(tmpaddress,vinaddress)!=0)
-                            return eval->Invalid("vin."+std::to_string(tx.vin.size()-1)+" is CC for oraclesregister or pubkey not same as vin pubkey, register must be done from owner of pubkey that registers to oracle!!");
+                                || !GetCCaddress(cp,tmpaddress,tmppk) || strcmp(tmpaddress,vinaddress)!=0) || oracletxid!=txid)
+                            return eval->Invalid("invalid vin."+std::to_string(tx.vin.size()-1)+" for oraclesregister, it must be CC vin or pubkey not same as vin pubkey, register and fund tx must be done from owner of pubkey that registers to oracle!!");
                         else if (CCtxidaddr(tmpaddress,oracletxid).IsValid() && ConstrainVout(tx.vout[0],0,tmpaddress,txfee)==0)
                             return eval->Invalid("invalid marker for oraclesregister!");
                         else if (!Getscriptaddress(tmpaddress,CScript() << ParseHex(HexStr(tmppk)) << OP_CHECKSIG) || ConstrainVout(tx.vout[2],0,tmpaddress,CC_MARKER_VALUE)==0)
