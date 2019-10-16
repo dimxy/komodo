@@ -40,7 +40,12 @@ struct IssuerEndorserOptParams {
     CAmount blockageAmount;
     int32_t avalCount;
 
-    // default values:
+	std::string tcno;
+    std::string ad;
+    std::string soyad;
+    std::string dogumtarihi;
+    
+	// default values:
     IssuerEndorserOptParams()
     {
         autoSettlement = 1;
@@ -50,6 +55,7 @@ struct IssuerEndorserOptParams {
         avalCount = 0;
         escrowOn = false;
         blockageAmount = 0LL;
+		
     }
 };
 
