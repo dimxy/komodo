@@ -85,7 +85,11 @@ struct CreditLoopOpret {
     int32_t disputeExpiresHeight;
     uint8_t escrowOn;
     CAmount blockageAmount;
-
+	std::string tcno;
+	std::string ad;
+	std::string soyad;
+	std::string dogumtarihi;
+	
     // last issuer/endorser/receiver data:
     uint256 createtxid;
     CPubKey issuerpk;       // first pk. We need this var to make sure MarmaraDecodeLoopOpret does not override the value in pk.
@@ -113,7 +117,12 @@ struct CreditLoopOpret {
         avalCount = 0;
         escrowOn = false;
         blockageAmount = 0LL;
-
+		
+		//std::string tcno;
+		//std::string ad;
+		//std::string soyad;
+		//std::string dogumtarihi;
+		
         remaining = 0L;
     }
 };
@@ -239,14 +248,14 @@ CScript MarmaraEncodeLoopCreateOpret(CPubKey senderpk, int64_t amount, int32_t m
     return(opret);
 }
 
-CScript MarmaraEncodeLoopIssuerOpret(uint256 createtxid, CPubKey receiverpk, uint8_t autoSettlement, uint8_t autoInsurance, int32_t avalCount, int32_t disputeExpiresHeight, uint8_t escrowOn, CAmount blockageAmount)
+CScript MarmaraEncodeLoopIssuerOpret(uint256 createtxid, CPubKey receiverpk, uint8_t autoSettlement, uint8_t autoInsurance, int32_t avalCount, int32_t disputeExpiresHeight, uint8_t escrowOn, CAmount blockageAmount, std::string tcno, std::string ad, std::string soyad, std::string dogumtarihi)
 {
     CScript opret;
     uint8_t evalcode = EVAL_MARMARA;
     uint8_t funcid = 'I'; // issuance tx
     uint8_t version = MARMARA_OPRET_VERSION;
 
-    opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version << createtxid << receiverpk << autoSettlement << autoInsurance << avalCount << disputeExpiresHeight << escrowOn << blockageAmount);
+    opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version << createtxid << receiverpk << autoSettlement << autoInsurance << avalCount << disputeExpiresHeight << escrowOn << blockageAmount << tcno << ad << soyad << dogumtarihi);
     return(opret);
 }
 
@@ -317,7 +326,7 @@ uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct CreditLoopOpre
                     }
                 }
                 else if (funcid == 'I') {
-                    if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk; ss >> loopData.autoSettlement; ss >> loopData.autoInsurance; ss >> loopData.avalCount >> loopData.disputeExpiresHeight >> loopData.escrowOn >> loopData.blockageAmount)) {
+                    if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk; ss >> loopData.autoSettlement; ss >> loopData.autoInsurance; ss >> loopData.avalCount >> loopData.disputeExpiresHeight >> loopData.escrowOn >> loopData.blockageAmount >> loopData.tcno >> loopData.ad >> loopData.soyad >> loopData.dogumtarihi )) {
                         loopData.hasIssuanceOpret = true;
                         return loopData.lastfuncid;
                     }
@@ -2356,7 +2365,7 @@ UniValue MarmaraIssue(int64_t txfee, uint8_t funcid, CPubKey receiverpk, const s
 
                         CScript opret;
                         if (funcid == 'I')
-                            opret = MarmaraEncodeLoopIssuerOpret(createtxid, receiverpk, optParams.autoSettlement, optParams.autoInsurance, optParams.avalCount, optParams.disputeExpiresOffset, optParams.escrowOn, optParams.blockageAmount);
+                            opret = MarmaraEncodeLoopIssuerOpret(createtxid, receiverpk, optParams.autoSettlement, optParams.autoInsurance, optParams.avalCount, optParams.disputeExpiresOffset, optParams.escrowOn, optParams.blockageAmount, optParams.tcno, optParams.ad, optParams.soyad, optParams.dogumtarihi);
                         else
                             opret = MarmaraEncodeLoopTransferOpret(createtxid, receiverpk, optParams.avalCount);
 
@@ -2512,6 +2521,10 @@ UniValue MarmaraCreditloop(uint256 txid)
                         result.push_back(Pair("batonaddr", normaladdr));
                         GetCCaddress(cp, batonCCaddr, loopData.pk);  // baton address
                         result.push_back(Pair("batonCCaddr", batonCCaddr));
+						result.push_back(Pair("tcno", loopData.tcno));
+						result.push_back(Pair("ad", loopData.ad));
+						result.push_back(Pair("soyad", loopData.soyad));
+						result.push_back(Pair("dogumtarihi", loopData.dogumtarihi));
                         Getscriptaddress(normaladdr, lasttx.vout[0].scriptPubKey);
                         if (strcmp(normaladdr, batonCCaddr) != 0)  // TODO: how is this possible?
                         {
