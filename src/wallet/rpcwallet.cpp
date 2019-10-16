@@ -6116,7 +6116,26 @@ UniValue marmara_issue(const UniValue& params, bool fHelp)
         optParams.blockageAmount = atoll(jsonParams[iter - keys.begin()].get_str().c_str());
         std::cerr << __func__ << " test output BlockageAmount=" << optParams.blockageAmount << std::endl;
     }
-
+	iter = std::find(keys.begin(), keys.end(), "tcno");
+    if (iter != keys.end()) {
+        std::string value = jsonParams[iter - keys.begin()].get_str();
+        optParams.tcno = value;
+    }    
+    iter = std::find(keys.begin(), keys.end(), "ad");
+    if (iter != keys.end()) {
+        std::string value = jsonParams[iter - keys.begin()].get_str();
+        optParams.ad = value;
+    }
+    iter = std::find(keys.begin(), keys.end(), "soyad");
+    if (iter != keys.end()) {
+        std::string value = jsonParams[iter - keys.begin()].get_str();
+        optParams.soyad = value;
+    }
+    iter = std::find(keys.begin(), keys.end(), "dogumtarihi");
+    if (iter != keys.end()) {
+        std::string value = jsonParams[iter - keys.begin()].get_str();
+        optParams.dogumtarihi = value;
+	}
     requesttxid = Parseuint256((char *)params[2].get_str().c_str());
     if (requesttxid.IsNull())
         throw runtime_error("incorrect requesttxid\n");
