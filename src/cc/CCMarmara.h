@@ -40,7 +40,7 @@ struct IssuerEndorserOptParams {
     CAmount blockageAmount;
     int32_t avalCount;
 
-	std::string tcno;
+    std::string tcno;
     std::string ad;
     std::string soyad;
     std::string dogumtarihi;
