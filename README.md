@@ -10,8 +10,8 @@ Blockchain Digital Kimlik Saklama Projesi bir Marmara Credit Loop (MCL Core Team
 
 ## List of Komodo Platform Technologies
 
-- Delayed Proof of Work (dPoW) - Additional security layer and Komodos own consensus algorithm  
-- zk-SNARKs - Komodo Platform's privacy technology for shielded transactions  
+- yazı 2
+- yazı 3  
 
 
 ## Tech Specification
