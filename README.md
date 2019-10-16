@@ -1,8 +1,3 @@
-[![Build Status](https://travis-ci.org/KomodoPlatform/komodo.svg?branch=dev)](https://travis-ci.org/KomodoPlatform/komodo)
----
-![Komodo Logo](https://i.imgur.com/vIwVtqv.png "Komodo Logo")
-
-
 ## Komodo
 
 This is the official Komodo sourcecode repository based on https://github.com/jl777/komodo. 
