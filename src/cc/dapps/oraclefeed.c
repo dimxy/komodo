@@ -27,6 +27,7 @@ void myprintf(const char* format, ...)
    va_list marker;
    va_start( marker, format );
    vfprintf(stdout, format, marker);
+   fflush(stdout);
    va_end( marker );
 }
 
