@@ -644,11 +644,10 @@ double PegsGetGlobalRatio(uint256 pegstxid)
     }
     if (globaldebt>0)
     {       
-        mpz_set_si(res, 0); 
-        mpz_set_si(b, PegsGetTokenPrice(tokenid));
-        mpz_mul(res, globaldeposit, b);
+        mpz_set_si(res, 0);
         mpz_set_si(a, COIN);
-        mpz_tdiv_q(res, res, a);
+        mpz_tdiv_q(res, globaldeposit, a);
+        printf("%lu %lu\n",globaldebt,mpz_get_si(res));
         return ((double)globaldebt)*100/mpz_get_si(res); 
     }
     return (0);
