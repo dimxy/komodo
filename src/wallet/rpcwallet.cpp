@@ -7315,12 +7315,6 @@ UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
     if ( ensure_CCrequirements(EVAL_FAUCET) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    CPubKey pk;
-    
-    if (mypk.IsValid()) pk=mypk;
-    else pk = pubkey2pk(Mypubkey());
-    if (!pk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
 
     //const CKeyStore& keystore = *pwalletMain;
     //LOCK2(cs_main, pwalletMain->cs_wallet);
@@ -7336,7 +7330,7 @@ UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& mypk)
             ENTER_CRITICAL_SECTION(cs_main);
             ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
         }
-        result = FaucetFund(pk, 0,(uint64_t) funds);
+        result = FaucetFund(mypk, 0,(uint64_t) funds);
         if (lockWallet)
         {
             LEAVE_CRITICAL_SECTION(pwalletMain->cs_wallet);
@@ -7360,12 +7354,6 @@ UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if ( ensure_CCrequirements(EVAL_FAUCET) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
-    CPubKey pk;
-    if (mypk.IsValid()) pk=mypk;
-    else pk = pubkey2pk(Mypubkey());
-    if (!pk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
     bool lockWallet = false;
     if (!mypk.IsValid())   // if mypk is not set then it is a local call, use wallet in AddNormalInputs (see check for this there)
         lockWallet = true;
@@ -7379,7 +7367,7 @@ UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& mypk)
         ENTER_CRITICAL_SECTION(cs_main);
         ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
     }
-    result = FaucetGet(pk, 0);
+    result = FaucetGet(mypk, 0);
     if (lockWallet)
     {
         LEAVE_CRITICAL_SECTION(pwalletMain->cs_wallet);
