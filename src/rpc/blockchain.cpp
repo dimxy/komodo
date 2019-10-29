@@ -1629,7 +1629,7 @@ inline CBlockIndex* LookupBlockIndex(const uint256& hash)
     return it == mapBlockIndex.end() ? nullptr : it->second;
 }
 
-UniValue getchaintxstats(const UniValue& params, bool fHelp)
+UniValue getchaintxstats(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     if (fHelp || params.size() > 2)
         throw runtime_error(
