@@ -22,16 +22,25 @@
 #include "notarisationdb.h"
 #include "rpc/server.h"
 
+// cc rpc commands allowed for nspv calls
+// parameters: method-name, is-mypk-required 
 static std::map<std::string,bool> nspv_remote_commands =  {
-    
-{"channelsopen", true},{"channelspayment", true},{"channelsclose", true},{"channelsrefund", true},
-{"channelslist", true},{"channelsinfo", true},
-{"oraclescreate", true},{"oraclesfund", true},{"oraclesregister", true},{"oraclessubscribe", true}, 
-{"oraclesdata", true},{"oraclesinfo", false},{"oracleslist", false},
-{"gatewaysbind", true},{"gatewaysdeposit", true},{"gatewaysclaim", true},{"gatewayswithdraw", true},
-{"gatewayswithdrawsign", true},{"gatewaysmarkdone", true},{"gatewayspendingdeposits", true},{"gatewayspendingsignwithdraws", true},{"gatewayssignedwithdraws", true},
-{"gatewaysinfo", false},{"gatewayslist", false},{"faucetfund", true},{"faucetget", true},
-{ "marmaralock", false },{ "marmaraissue", false },{ "marmaratransfer", true },{ "marmarareceive", true },{ "marmarainfo", true },{ "marmaracreditloop", true }
+    // channels:
+    {"channelsopen", true}, {"channelspayment", true}, {"channelsclose", true}, {"channelsrefund", true},
+    {"channelslist", true}, {"channelsinfo", true},
+    // oracles:
+    {"oraclescreate", true}, {"oraclesfund", true}, {"oraclesregister", true}, {"oraclessubscribe", true},
+    {"oraclesdata", true}, {"oraclesinfo", false}, {"oracleslist", false},
+    // gateways:
+    {"gatewaysbind", true}, {"gatewaysdeposit", true}, {"gatewaysclaim", true}, {"gatewayswithdraw", true},
+    {"gatewayspartialsign", true}, {"gatewayscompletesigning", true}, {"gatewaysmarkdone", true}, {"gatewayspendingdeposits", true}, {"gatewayspendingwithdraws", true},
+    {"gatewaysprocessed", true}, {"gatewaysinfo", false}, {"gatewayslist", false},
+    // faucet:
+    {"faucetfund", true}, {"faucetget", true},
+    // marmara:
+    { "marmaralock", false },{ "marmaraissue", false },{ "marmaratransfer", true },{ "marmarareceive", true },{ "marmarainfo", true },{ "marmaracreditloop", true },
+    // kogs:
+    { "kogskoglist", false }, { "kogscreategameconfig", true }
 };
 
 struct NSPV_ntzargs
