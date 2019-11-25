@@ -879,21 +879,21 @@ public:
     }
 };
 
-NSPVSigData KogsCreateGameConfig(CPubKey mypk, KogsGameConfig newgameconfig);
-NSPVSigData KogsCreatePlayer(CPubKey mypk, KogsPlayer newplayer);
-NSPVSigData KogsStartGame(CPubKey mypk, KogsGame newgame);
-std::vector<NSPVSigData> KogsCreateMatchObjectNFTs(CPubKey mypk, std::vector<KogsMatchObject> & newkogs);
-NSPVSigData KogsCreatePack(CPubKey mypk, KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv);
-std::vector<NSPVSigData> KogsUnsealPackToOwner(CPubKey mypk, uint256 packid, vuint8_t encryptkey, vuint8_t iv);
-std::vector<NSPVSigData> KogsCreateContainerV2(CPubKey mypk, KogsContainer newcontainer, const std::set<uint256> &tokenids);
-NSPVSigData KogsDepositContainerV2(CPubKey mypk, int64_t txfee, uint256 gameid, uint256 containerid);
-NSPVSigData KogsClaimDepositedContainer(CPubKey mypk, int64_t txfee, uint256 gameid, uint256 containerid);
-std::vector<NSPVSigData> KogsAddKogsToContainerV2(CPubKey mypk, int64_t txfee, uint256 containerid, std::set<uint256> tokenids);
-std::vector<NSPVSigData> KogsRemoveKogsFromContainerV2(CPubKey mypk, int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids);
+UniValue KogsCreateGameConfig(CPubKey mypk, KogsGameConfig newgameconfig);
+UniValue KogsCreatePlayer(CPubKey mypk, KogsPlayer newplayer);
+UniValue KogsStartGame(CPubKey mypk, KogsGame newgame);
+std::vector<UniValue> KogsCreateMatchObjectNFTs(CPubKey mypk, std::vector<KogsMatchObject> & newkogs);
+UniValue KogsCreatePack(CPubKey mypk, KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv);
+std::vector<UniValue> KogsUnsealPackToOwner(CPubKey mypk, uint256 packid, vuint8_t encryptkey, vuint8_t iv);
+std::vector<UniValue> KogsCreateContainerV2(CPubKey mypk, KogsContainer newcontainer, const std::set<uint256> &tokenids);
+UniValue KogsDepositContainerV2(CPubKey mypk, int64_t txfee, uint256 gameid, uint256 containerid);
+UniValue KogsClaimDepositedContainer(CPubKey mypk, int64_t txfee, uint256 gameid, uint256 containerid);
+std::vector<UniValue> KogsAddKogsToContainerV2(CPubKey mypk, int64_t txfee, uint256 containerid, std::set<uint256> tokenids);
+std::vector<UniValue> KogsRemoveKogsFromContainerV2(CPubKey mypk, int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids);
 void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containerids);
-NSPVSigData KogsAddSlamParams(CPubKey mypk, KogsSlamParams newslamparams);
-NSPVSigData KogsRemoveObject(CPubKey mypk, uint256 txid, int32_t nvout);
-NSPVSigData KogsBurnNFT(CPubKey mypk, uint256 tokenid);
+UniValue KogsAddSlamParams(CPubKey mypk, KogsSlamParams newslamparams);
+UniValue KogsRemoveObject(CPubKey mypk, uint256 txid, int32_t nvout);
+UniValue KogsBurnNFT(CPubKey mypk, uint256 tokenid);
 void KogsCreationTxidList(uint8_t objectType, bool onlymy, std::vector<uint256> &tokenids);
 UniValue KogsObjectInfo(uint256 gameobjectid);
 

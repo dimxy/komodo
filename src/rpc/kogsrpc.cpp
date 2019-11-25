@@ -51,10 +51,10 @@ int32_t ensure_CCrequirements(uint8_t evalcode);
 UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
 
 // rpc kogsaddress impl
-UniValue kogsaddress(const UniValue& params, bool fHelp)
+UniValue kogsaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     struct CCcontract_info *cp, C; 
-    std::vector<unsigned char> vpubkey;
+    vuint8_t vpubkey;
     int error;
 
     cp = CCinit(&C, EVAL_KOGS);
@@ -68,11 +68,16 @@ UniValue kogsaddress(const UniValue& params, bool fHelp)
 
     if (params.size() == 1)
         vpubkey = ParseHex(params[0].get_str().c_str());
+    else if (mypk.IsValid())
+        vpubkey = vuint8_t(mypk.begin(), mypk.end());
+    else
+        vpubkey = Mypubkey();
+
     return(CCaddress(cp, (char *)"Kogs", vpubkey));
 }
 
 // rpc kogscreategameconfig impl
-UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
+UniValue kogscreategameconfig(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -84,7 +89,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 3 || params.size() > 4))
     {
         throw runtime_error(
-            "kogscreategameconfig name description '{\"KogsInContainer\":n, \"KogsInStack\":n, \"KogsToAdd\":n, \"MaxTurns\":n, \"HeightRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n },...], \"StrengthRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n},...]}' [mypubkey]\n"
+            "kogscreategameconfig name description '{\"KogsInContainer\":n, \"KogsInStack\":n, \"KogsToAdd\":n, \"MaxTurns\":n, \"HeightRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n },...], \"StrengthRanges\" : [{\"Left\":n, \"Right\":n, \"UpperValue\":n},...]}'\n"
             "creates a game configuration\n"
             "returns gameconfig transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
@@ -232,25 +237,16 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp)
         }
     }
 
-    CPubKey mypk;
-    if (params.size() == 4)
-        mypk = pubkey2pk(ParseHex(params[3].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    NSPVSigData sigData = KogsCreateGameConfig(mypk, newgameconfig);
+    UniValue sigData = KogsCreateGameConfig(mypk, newgameconfig);
     RETURN_IF_ERROR(CCerror);
 
-    result = NSPVSigData2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
 
 
 // rpc kogscreateplayer impl
-UniValue kogscreateplayer(const UniValue& params, bool fHelp)
+UniValue kogscreateplayer(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -262,7 +258,7 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 3 || params.size() > 4))
     {
         throw runtime_error(
-            "kogscreateplayer name description '{ param1, param2, ... }' [mypubkey]\n"
+            "kogscreateplayer name description '{ param1, param2, ... }' \n"
             "creates a player object\n"
             "returns player object transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
@@ -292,24 +288,16 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp)
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newplayer.param1=" << newplayer.param1 << std::endl);
     }
 
-    CPubKey mypk;
-    if (params.size() == 4)
-        mypk = pubkey2pk(ParseHex(params[3].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    NSPVSigData sigData = KogsCreatePlayer(mypk, newplayer);
+    UniValue sigData = KogsCreatePlayer(mypk, newplayer);
     RETURN_IF_ERROR(CCerror);
 
-    result = NSPVSigData2UniValue(sigData);
+    //result = UniValue2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
 
 // rpc kogsstartgame impl
-UniValue kogsstartgame(const UniValue& params, bool fHelp)
+UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
     UniValue jsonParams;
@@ -323,7 +311,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 2 || params.size() > 3))
     {
         throw runtime_error(
-            "kogsstartgame gameconfigid '[playerid1, playerid2, ...]' [mypubkey] \n"
+            "kogsstartgame gameconfigid '[playerid1, playerid2, ...]'  \n"
             "starts a new game with 2 or more players\n"
             "returns game transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
@@ -357,18 +345,9 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp)
     for (auto p : playerids)
         newgame.playerids.push_back(p);
 
-    CPubKey mypk;
-    if (params.size() == 3)
-        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    NSPVSigData sigData = KogsStartGame(mypk, newgame);
+    UniValue sigData = KogsStartGame(mypk, newgame);
     RETURN_IF_ERROR(CCerror);
 
-    result = NSPVSigData2UniValue(sigData);
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
@@ -455,13 +434,13 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
     if (!mypk.IsFullyValid())
         throw runtime_error("mypk is not set\n");
 
-    std::vector<NSPVSigData> sigDatas = KogsCreateMatchObjectNFTs(mypk, gameobjects);
+    std::vector<UniValue> sigDatas = KogsCreateMatchObjectNFTs(mypk, gameobjects);
     RETURN_IF_ERROR(CCerror);
 
     UniValue resarray(UniValue::VARR);
     for (const auto &s : sigDatas)
     {
-        resarray.push_back(NSPVSigData2UniValue(s));
+        resarray.push_back(s);
     }
 
     result.push_back(std::make_pair("result", "success"));
@@ -470,7 +449,7 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
 }
 
 // rpc kogscreatekogs impl
-UniValue kogscreatekogs(const UniValue& params, bool fHelp)
+UniValue kogscreatekogs(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
 
@@ -481,14 +460,14 @@ UniValue kogscreatekogs(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 1 || params.size() > 2))
     {
         throw runtime_error(
-            "kogscreatekogs '{\"kogs\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}' [mypubkey]\n"
+            "kogscreatekogs '{\"kogs\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}' \n"
             "creates array of kog NFT creation transactions to be sent via sendrawtransaction rpc\n" "\n");
     }
     return CreateMatchObjects(params, true);
 }
 
 // rpc kogscreateslammers impl
-UniValue kogscreateslammers(const UniValue& params, bool fHelp)
+UniValue kogscreateslammers(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
 
@@ -499,14 +478,14 @@ UniValue kogscreateslammers(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 1 || params.size() > 2))
     {
         throw runtime_error(
-            "kogscreateslammers '{\"slammers\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}' [mypubkey]\n"
+            "kogscreateslammers '{\"slammers\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}' \n"
             "creates array of slammer NFT creation transactions to be sent via sendrawtransaction rpc\n" "\n");
     }
     return CreateMatchObjects(params, false);
 }
 
 // rpc kogscreatepack impl
-UniValue kogscreatepack(const UniValue& params, bool fHelp)
+UniValue kogscreatepack(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear();
@@ -518,7 +497,7 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 5 || params.size() > 6))
     {
         throw runtime_error(
-            "kogscreatepack name description packsize encryptkey initvector [mypubkey]\n"
+            "kogscreatepack name description packsize encryptkey initvector \n"
             "creates a pack with the 'number' of randomly selected kogs. The pack content is encrypted (to decrypt it later after purchasing)\n" "\n");
     }
 
@@ -539,24 +518,16 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp)
     if (iv.size() != WALLET_CRYPTO_KEY_SIZE)
         throw runtime_error(std::string("initvector length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
 
-    CPubKey mypk;
-    if (params.size() == 6)
-        mypk = pubkey2pk(ParseHex(params[5].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    NSPVSigData sigData = KogsCreatePack(mypk, newpack, packsize, enckey, iv);
+    UniValue sigData = KogsCreatePack(mypk, newpack, packsize, enckey, iv);
     RETURN_IF_ERROR(CCerror);
 
-    result = NSPVSigData2UniValue(sigData);
+    result = sigData;
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
 
 // rpc kogsunsealpack impl
-UniValue kogsunsealpack(const UniValue& params, bool fHelp)
+UniValue kogsunsealpack(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -568,7 +539,7 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 3 || params.size() > 4))
     {
         throw runtime_error(
-            "kogsunsealpack packid encryptkey initvector [mypubkey]\n"
+            "kogsunsealpack packid encryptkey initvector \n"
             "unseals pack (decrypts its content) and sends kog tokens to the pack owner\n" "\n");
     }
 
@@ -584,20 +555,12 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
     if (iv.size() != WALLET_CRYPTO_KEY_SIZE)
         throw runtime_error(std::string("init vector length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
 
-    CPubKey mypk;
-    if (params.size() == 4)
-        mypk = pubkey2pk(ParseHex(params[3].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    std::vector<NSPVSigData> sigDatas = KogsUnsealPackToOwner(mypk, packid, enckey, iv);
+    std::vector<UniValue> sigDatas = KogsUnsealPackToOwner(mypk, packid, enckey, iv);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &s : sigDatas)
     {
-        resarray.push_back(NSPVSigData2UniValue(s));
+        resarray.push_back(s);
     }
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextxns", resarray));
@@ -605,7 +568,7 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp)
 }
 
 // rpc kogscreatecontainer impl
-UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
+UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
@@ -620,7 +583,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 5))
     {
         throw runtime_error(
-            "kogscreatecontainer name description playerid '[tokenid1, tokenid2,...]' [mypubkey]\n"
+            "kogscreatecontainer name description playerid '[tokenid1, tokenid2,...]' \n"
             "creates a container with the passed 40 kog ids and one slammer id\n" "\n");
     }
 
@@ -652,20 +615,12 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
     if (tokenids.size() != jsonParams.getValues().size())
         throw runtime_error("duplicate tokenids in params\n");
 
-    CPubKey mypk;
-    if (params.size() == 3)
-        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    std::vector<NSPVSigData> sigDatas = KogsCreateContainerV2(mypk, newcontainer, tokenids);
+    std::vector<UniValue> sigDatas = KogsCreateContainerV2(mypk, newcontainer, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &s : sigDatas)
     {
-        resarray.push_back(NSPVSigData2UniValue(s));
+        resarray.push_back(s);
     }
 
     result.push_back(std::make_pair("result", "success"));
@@ -675,7 +630,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp)
 
 
 // rpc kogsdepositcontainer impl
-UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
+UniValue kogsdepositcontainer(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear();
@@ -687,7 +642,7 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 2 || params.size() > 3))
     {
         throw runtime_error(
-            "kogsdepositcontainer gameid containerid [mypubkey]\n"
+            "kogsdepositcontainer gameid containerid \n"
             "deposits container to the game address\n"
             "parameters:\n"
             "gameid - id of the transaction created by kogsstartgame rpc\n"
@@ -702,24 +657,16 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp)
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
     
-    CPubKey mypk;
-    if (params.size() == 3)
-        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    NSPVSigData sigData = KogsDepositContainerV2(mypk, 0, gameid, containerid);
+    UniValue sigData = KogsDepositContainerV2(mypk, 0, gameid, containerid);
     RETURN_IF_ERROR(CCerror);
 
-    result = NSPVSigData2UniValue(sigData);
+    result = sigData;
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
 
 // rpc kogsclaimdepositedcontainer impl
-UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp)
+UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear();
@@ -731,7 +678,7 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 2 || params.size() > 3))
     {
         throw runtime_error(
-            "kogsclaimdepositedcontainer gameid containerid [mypubkey]\n"
+            "kogsclaimdepositedcontainer gameid containerid \n"
             "claims deposited container back from the game address\n"
             "parameters:\n"
             "gameid - id of the transaction created by kogsstartgame rpc\n"
@@ -748,24 +695,16 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp)
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
-    CPubKey mypk;
-    if (params.size() == 3)
-        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    NSPVSigData sigData = KogsClaimDepositedContainer(mypk, 0, gameid, containerid);
+    UniValue sigData = KogsClaimDepositedContainer(mypk, 0, gameid, containerid);
     RETURN_IF_ERROR(CCerror);
 
-    result = NSPVSigData2UniValue(sigData);
+    result = sigData;
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
 
 // rpc kogsaddkogstocontainer impl
-UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
+UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
@@ -779,7 +718,7 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 2 || params.size() > 3))
     {
         throw runtime_error(
-            "kogsaddkogstocontainer containerid '[tokenid1, tokenid2, ...]' [mypubkey]\n"
+            "kogsaddkogstocontainer containerid '[tokenid1, tokenid2, ...]' \n"
             "adds kog tokenids to container\n" "\n");
     }
 
@@ -807,20 +746,12 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
     if (tokenids.size() != jsonParams.getValues().size())
         throw runtime_error("duplicate tokenids in params\n");
 
-    CPubKey mypk;
-    if (params.size() == 3)
-        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    std::vector<NSPVSigData> sigDatas = KogsAddKogsToContainerV2(mypk, 0, containerid, tokenids);
+    std::vector<UniValue> sigDatas = KogsAddKogsToContainerV2(mypk, 0, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &s : sigDatas)
     {
-        resarray.push_back(NSPVSigData2UniValue(s));
+        resarray.push_back(s);
     }
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextxns", resarray));
@@ -828,7 +759,7 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp)
 }
 
 // rpc kogsremovekogsfromcontainer impl
-UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
+UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
     UniValue jsonParams(UniValue::VOBJ);
@@ -842,7 +773,7 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 1 || params.size() > 2))
     {
         throw runtime_error(
-            "kogsremovekogsfromcontainer '{ \"containerid\":\"id\", \"gameid\":\"id\", \"tokenids\" : [tokenid1, tokenid2, ...] } [mypubkey]'\n"
+            "kogsremovekogsfromcontainer '{ \"containerid\":\"id\", \"gameid\":\"id\", \"tokenids\" : [tokenid1, tokenid2, ...] } '\n"
             "removes kog tokenids from container\n" 
             "gameid is optional and is passed when container is deposited to the game\n" "\n");
 
@@ -900,20 +831,11 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
-    CPubKey mypk;
-    if (params.size() == 2)
-        mypk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    std::vector<NSPVSigData> sigData = KogsRemoveKogsFromContainerV2(mypk, 0, gameid, containerid, tokenids);
+    std::vector<UniValue> sigData = KogsRemoveKogsFromContainerV2(mypk, 0, gameid, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
     for (const auto &s : sigData)
     {
-        UniValue u = NSPVSigData2UniValue(s);
-        resarray.push_back(u);
+        resarray.push_back(s);
     }
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextxns", resarray));
@@ -922,7 +844,7 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp)
 
 
 // rpc kogsslamdata impl
-UniValue kogsslamdata(const UniValue& params, bool fHelp)
+UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
     UniValue jsonParams(UniValue::VOBJ);
@@ -936,7 +858,7 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 3 || params.size() > 4))
     {
         throw runtime_error(
-            "kogsslamdata gameid playerid '{ \"armheight\":value, \"armstrength\":value }' [mypubkey]\n"
+            "kogsslamdata gameid playerid '{ \"armheight\":value, \"armstrength\":value }' \n"
             "sends slam data to the chain, triggers stack reloading\n" "\n");
     }
 
@@ -980,25 +902,17 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp)
     if (slamparams.armStrength < 0 || slamparams.armStrength > 100)
         throw runtime_error("incorrect armstrength value\n");
 
-    CPubKey mypk;
-    if (params.size() == 4)
-        mypk = pubkey2pk(ParseHex(params[3].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    NSPVSigData sigData = KogsAddSlamParams(mypk, slamparams);
+    UniValue sigData = KogsAddSlamParams(mypk, slamparams);
     RETURN_IF_ERROR(CCerror);
 
-    result = NSPVSigData2UniValue(sigData);
+    result = sigData;
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
 
 
 // rpc kogsburntoken impl (to burn nft objects)
-UniValue kogsburntoken(const UniValue& params, bool fHelp)
+UniValue kogsburntoken(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -1010,7 +924,7 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() < 1 || params.size() > 2))
     {
         throw runtime_error(
-            "kogsburntoken tokenid [mypubkey]\n"
+            "kogsburntoken tokenid \n"
             "burns a game object NFT\n" "\n");
     }
 
@@ -1018,24 +932,16 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp)
     if (tokenid.IsNull())
         throw runtime_error("tokenid incorrect\n");
 
-    CPubKey mypk;
-    if (params.size() == 2)
-        mypk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    NSPVSigData sigData = KogsBurnNFT(mypk, tokenid);
+    UniValue sigData = KogsBurnNFT(mypk, tokenid);
     RETURN_IF_ERROR(CCerror);
 
-    result = NSPVSigData2UniValue(sigData);
+    result = sigData;
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
 
 // rpc kogsremoveobject impl (to remove objects with errors)
-UniValue kogsremoveobject(const UniValue& params, bool fHelp)
+UniValue kogsremoveobject(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -1047,7 +953,7 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp)
     if (fHelp || (params.size() != 2 && params.size() != 3))
     {
         throw runtime_error(
-            "kogsremoveobject txid nvout [mypubkey]\n"
+            "kogsremoveobject txid nvout \n"
             "removes a game object by spending its marker (admin feature)\n" "\n");
     }
 
@@ -1057,24 +963,16 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp)
 
     int32_t nvout = atoi(params[1].get_str().c_str());
 
-    CPubKey mypk;
-    if (params.size() == 3)
-        mypk = pubkey2pk(ParseHex(params[2].get_str().c_str()));
-    else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
-
-    NSPVSigData sigData = KogsRemoveObject(mypk, txid, nvout);
+    UniValue sigData = KogsRemoveObject(mypk, txid, nvout);
     RETURN_IF_ERROR(CCerror);
 
-    result = NSPVSigData2UniValue(sigData);
+    result = sigData;
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
 
 // rpc kogskoglist impl (to return all kog tokenids)
-UniValue kogskoglist(const UniValue& params, bool fHelp)
+UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1108,7 +1006,7 @@ UniValue kogskoglist(const UniValue& params, bool fHelp)
 }
 
 // rpc kogsslammerlist impl (to return all slammer tokenids)
-UniValue kogsslammerlist(const UniValue& params, bool fHelp)
+UniValue kogsslammerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1142,7 +1040,7 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp)
 }
 
 // rpc kogspacklist impl (to return all pack tokenids)
-UniValue kogspacklist(const UniValue& params, bool fHelp)
+UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1166,7 +1064,7 @@ UniValue kogspacklist(const UniValue& params, bool fHelp)
 }
 
 // rpc kogscontainerlist impl (to return all container tokenids)
-UniValue kogscontainerlist(const UniValue& params, bool fHelp)
+UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1200,7 +1098,7 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp)
 }
 
 // rpc kogsdepositedcontainerlist impl (to return all container tokenids)
-UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp)
+UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1228,7 +1126,7 @@ UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp)
 }
 
 // rpc kogsplayerlist impl (to return all player creationids)
-UniValue kogsplayerlist(const UniValue& params, bool fHelp)
+UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1252,7 +1150,7 @@ UniValue kogsplayerlist(const UniValue& params, bool fHelp)
 }
 
 // rpc kogsgameconfiglist impl (to return all gameconfig creationids)
-UniValue kogsgameconfiglist(const UniValue& params, bool fHelp)
+UniValue kogsgameconfiglist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1276,7 +1174,7 @@ UniValue kogsgameconfiglist(const UniValue& params, bool fHelp)
 }
 
 // rpc kogsgamelist impl (to return all game creationids)
-UniValue kogsgamelist(const UniValue& params, bool fHelp)
+UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1300,7 +1198,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp)
 }
 
 // rpc kogsobjectinfo impl (to return info about a game object based on its tokenid)
-UniValue kogsobjectinfo(const UniValue& params, bool fHelp)
+UniValue kogsobjectinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear();

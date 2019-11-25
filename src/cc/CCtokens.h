@@ -29,10 +29,10 @@
 bool TokensValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn);
 bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t &inputs, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 tokenid);
 std::string CreateToken(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData);
-NSPVSigData CreateTokenExt(CPubKey mypk, int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t markerEvalCode, bool addTxInMemory);
+UniValue CreateTokenExt(CPubKey mypk, int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t markerEvalCode, bool addTxInMemory);
 std::string TokenTransfer(int64_t txfee, uint256 assetid, CPubKey destpk, int64_t total);
-NSPVSigData TokenTransferExt(CPubKey mypk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total);
-NSPVSigData TokenTransferSpk(CPubKey mypk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys);
+UniValue TokenTransferExt(CPubKey mypk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total);
+UniValue TokenTransferSpk(CPubKey mypk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys);
 int64_t HasBurnedTokensvouts(/*struct CCcontract_info *cp, Eval* eval,*/ const CTransaction& tx, uint256 reftokenid);
 CPubKey GetTokenOriginatorPubKey(CScript scriptPubKey);
 bool IsTokenMarkerVout(CTxOut vout);
