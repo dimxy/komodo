@@ -120,8 +120,9 @@ enum opretid : uint8_t {
     // non-cc contract data blob ids start from 0x80
     // such datablobs do not have eval code at their beginnings 
     // so for them eval cryptoconditions are not added into token vouts 
-    // and they are not used in IsTokensvout checking    OPRETID_FIRSTNONCCDATA = 0x80,
+    // and they are not used in IsTokensvout checking    
     /*! \endcond */
+    OPRETID_FIRSTNONCCDATA = 0x80,
     OPRETID_BURNDATA = 0x80,        //!< burned token data id
     OPRETID_IMPORTDATA = 0x81       //!< imported token data id
 };
@@ -318,12 +319,13 @@ struct oracleprice_info
 /// \endcond
 
 
-typedef std::vector<uint8_t> vuint8_t;      // typdef for other cases (apart from oprets)
+typedef std::vector<uint8_t> vscript_t;     // opret data
+typedef std::vector<uint8_t> vuint8_t;      // typedef for other cases (apart from oprets)
 
 extern struct NSPV_CCmtxinfo NSPV_U;  //!< global variable with info about mtx object and used utxo
 
 /// store cond to vin indexes map allowing to sign cc vins of partially signed mtx on superlite clients where myprivkey is available
-struct NSPVSigData {
+/*struct NSPVSigData {
 
     struct CCVinInfo
     {
@@ -337,7 +339,7 @@ struct NSPVSigData {
     //std::map<std::string, std::vector<int32_t>> ccvinmap;  // map conds in json to not signed vin index array
     std::vector<CCVinInfo> ccvininfo;
     std::string CCerror;
-};
+};*/
 
 #ifdef ENABLE_WALLET
 extern CWallet* pwalletMain;  //!< global wallet object pointer to access wallet functionality
@@ -466,10 +468,11 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 /// An overload that also returns NFT data in vopretNonfungible parameter
 /// the rest parameters are the same as in the first AddTokenCCInputs overload
 /// @see AddTokenCCInputs
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible);
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs);
 
 /// @private overload used in kogs
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible);
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs);
+
 /// Checks if a transaction vout is true token vout, for this check pubkeys and eval code in token opreturn are used to recreate vout and compare it with the checked vout.
 /// Verifies that the transaction total token inputs value equals to total token outputs (that is, token balance is not changed in this transaction)
 /// @param goDeeper also recursively checks the previous token transactions (or the creation transaction) and ensures token balance is not changed for them too
@@ -1049,12 +1052,16 @@ int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
 /*! \endcond */
 
+/*! \cond INTERNAL */
 #define JSON_HEXTX "hex"
 #define JSON_SIGDATA "SigData"
+#define JSON_CCERROR "CCError"
+/*! \endcond */
 
 /// @private add sig data for signing partially signed tx to UniValue object
 void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount);
 
+/*! \cond INTERNAL */
 // locking and reservation of utxo to prevent adding utxo to several mtx objects and allow use of normal change utxos:
 void ActivateUtxoLock();
 void DeactivateUtxoLock();
@@ -1063,9 +1070,11 @@ bool isUtxoLocked(uint256 txid, int32_t nvout);
 void LockUtxo(uint256 txid, int32_t nvout);
 bool AddInMemoryTransaction(const CTransaction &tx);
 bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
+/*! \endcond */
 
 // convert NSPVSigData to UniValue:
-UniValue NSPVSigData2UniValue(const NSPVSigData &sigData);
+//UniValue NSPVSigData2UniValue(const NSPVSigData &sigData);
+
 #ifndef LOGSTREAM_DEFINED
 #define LOGSTREAM_DEFINED 
 // bitcoin LogPrintStr with category "-debug" cmdarg support for C++ ostringstream:
