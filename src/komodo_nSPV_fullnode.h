@@ -40,7 +40,7 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     // marmara:
     { "marmaralock", false },{ "marmaraissue", false },{ "marmaratransfer", true },{ "marmarareceive", true },{ "marmarainfo", true },{ "marmaracreditloop", true },
     // kogs:
-    { "kogskoglist", false }, { "kogscreategameconfig", true }
+    { "kogskoglist", true }, { "kogscreategameconfig", true }, { "kogsstartgame", true }
 };
 
 struct NSPV_ntzargs
