@@ -308,7 +308,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 2 || params.size() > 3))
+    if (fHelp || params.size() != 2)
     {
         throw runtime_error(
             "kogsstartgame gameconfigid '[playerid1, playerid2, ...]'  \n"
@@ -323,7 +323,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
     // parse json array object:
     if (params[1].getType() == UniValue::VARR)
-        jsonParams = params[1].get_obj();
+        jsonParams = params[1].get_array();
     else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '[...]'
         jsonParams.read(params[1].get_str().c_str());
     if (jsonParams.getType() != UniValue::VARR || jsonParams.empty())
