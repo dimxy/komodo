@@ -38,7 +38,7 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     // faucet:
     {"faucetfund", true}, {"faucetget", true},
     // kogs:
-    { "kogskoglist", false }, { "kogscreategameconfig", true }
+    { "kogskoglist", true }, { "kogscreategameconfig", true }, { "kogsstartgame", true }
 };
 
 struct NSPV_ntzargs
