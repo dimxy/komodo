@@ -597,7 +597,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
 
     // parse json array object:
     if (params[3].getType() == UniValue::VARR)
-        jsonParams = params[3].get_obj();
+        jsonParams = params[3].get_array();
     else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '[...]'
         jsonParams.read(params[3].get_str().c_str());
     if (jsonParams.getType() != UniValue::VARR || jsonParams.empty())
@@ -728,7 +728,7 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKe
 
     // parse json object:
     if (params[1].getType() == UniValue::VARR)
-        jsonParams = params[1].get_obj();
+        jsonParams = params[1].get_array();
     else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '[...]'
         jsonParams.read(params[1].get_str().c_str());
     if (jsonParams.getType() != UniValue::VARR || jsonParams.empty())
