@@ -245,10 +245,10 @@ static UniValue CreateEnclosureTx(CPubKey mypk, KogsBaseObject *baseobj, bool is
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
         UniValue sigData = FinalizeCCTxExt(mypk.IsValid(), 0, cp, mtx, mypk, txfee, opret);
-        if (!sigData[JSON_HEXTX].empty())
+        if (!sigData[JSON_HEXTX].getValStr().empty())
             return sigData;
         else
-            CCerror = "can't finalize or sign pack tx";
+            CCerror = "can't finalize or sign tx";
     }
     else
         CCerror = "can't find normals for 2 txfee";
