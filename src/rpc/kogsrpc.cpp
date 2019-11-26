@@ -348,6 +348,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& mypk)
     UniValue sigData = KogsStartGame(mypk, newgame);
     RETURN_IF_ERROR(CCerror);
 
+    result = sigData;
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
