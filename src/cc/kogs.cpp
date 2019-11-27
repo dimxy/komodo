@@ -585,7 +585,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 // rpc impl:
 
 // iterate match object params and call NFT creation function
-std::vector<UniValue> KogsCreateMatchObjectNFTs( CPubKey mypk, std::vector<KogsMatchObject> & matchobjects)
+std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::vector<KogsMatchObject> & matchobjects)
 {
     std::vector<UniValue> results;
 
@@ -608,7 +608,7 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs( CPubKey mypk, std::vector<KogsM
         if (obj.objectType == KOGSID_SLAMMER)
             obj.borderId = rand() % 2 + 1; // 1..2
 
-        UniValue sigData = CreateGameObjectNFT(mypk, &obj);
+        UniValue sigData = CreateGameObjectNFT(remotepk, &obj);
         if (!ResultHasTx(sigData)) {
             results = NullResults;
             break;
@@ -804,7 +804,7 @@ static UniValue SpendEnclosure(const CPubKey &remotepk, int64_t txfee, KogsEnclo
     {
         if (enc.latesttxid.IsNull()) {
             CCerror = strprintf("incorrect latesttx in container");
-            return empty;
+            return NullUniValue;
         }
 
         mtx.vin.push_back(CTxIn(enc.latesttxid, 0));
@@ -826,7 +826,7 @@ static UniValue SpendEnclosure(const CPubKey &remotepk, int64_t txfee, KogsEnclo
     {
         CCerror = "insufficient normal inputs for tx fee";
     }
-    return empty;
+    return NullUniValue;
 }
 */
 
@@ -1276,8 +1276,6 @@ UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid)
 // special feature to hide object by spending its cc eval kog marker (for nfts it is in vout=2)
 UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout)
 {
-    const UniValue empty;
-
     // create burn tx
     const CAmount  txfee = 10000;
     bool isRemote = IS_REMOTE(remotepk);

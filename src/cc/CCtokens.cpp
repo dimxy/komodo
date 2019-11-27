@@ -944,7 +944,7 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, CPubKey destpubkey, in
     GetTokensCCaddress(cp, tokenaddr, mypk);
 
     UniValue sigData = TokenTransferExt(CPubKey(), txfee, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>(), std::vector<CPubKey> {destpubkey}, total);
-    return sigData[JSON_HEXTX].getValStr();
+    return ResultGetTx(sigData);
 }
 
 // token transfer extended version
