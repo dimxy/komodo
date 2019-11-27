@@ -23,6 +23,8 @@
 #define KOMODO_ADDRESS_BUFSIZE 64
 #endif
 
+#define IS_REMOTE(mypk) (mypk.IsValid())
+
 // helpers
 
 static CPubKey GetSystemPubKey()
@@ -235,7 +237,7 @@ static UniValue CreateEnclosureTx(CPubKey mypk, KogsBaseObject *baseobj, bool is
     if (needBaton)
         nfees += 2;
 
-    if (AddNormalinputs(mtx, mypk, nfees * txfee, 8) > 0)
+    if (AddNormalinputs(mtx, mypk, nfees * txfee, 8, IS_REMOTE(mypk)) > 0)
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, txfee, GetUnspendable(cp, NULL)));  // kogs cc marker
@@ -261,7 +263,7 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
 {
     const CAmount  txfee = 10000;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk = pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
+    CPubKey minerpk = pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -271,14 +273,14 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
     enc.name = pbaton->nameId;
     enc.description = pbaton->descriptionId;
 
-    if (AddNormalinputs(mtx, mypk, txfee, 8) > 0)
+    if (AddNormalinputs(mtx, minerpk, txfee, 8, false) > 0)
     {
         mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2 * txfee, destpk)); // baton to indicate whose turn is now
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
-        std::string hextx = FinalizeCCTx(0, cp, mtx, destpk, txfee, opret);
+        std::string hextx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
         if (hextx.empty())
         {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
