@@ -835,15 +835,16 @@ CPubKey GetTokenOriginatorPubKey(CScript scriptPubKey) {
     return CPubKey(); //return invalid pubkey
 }
 
-std::string CreateToken(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData)
+std::string CreateTokenLocal(int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData)
 {
-    UniValue sigData = CreateTokenExt(CPubKey(), txfee, tokensupply, name, description, nonfungibleData, 0, false);
+    CPubKey nullpk = CPubKey();
+    UniValue sigData = CreateTokenExt(nullpk, txfee, tokensupply, name, description, nonfungibleData, 0, false);
     return sigData[JSON_HEXTX].getValStr();
 }
 
 // returns token creation signed raw tx
 // params: txfee amount, token amount, token name and description, optional NFT data, 
-UniValue CreateTokenExt(CPubKey mypk, int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode, bool addTxInMemory)
+UniValue CreateTokenExt(const CPubKey &remotepk, int64_t txfee, int64_t tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode, bool addTxInMemory)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     struct CCcontract_info *cp, C;
@@ -852,12 +853,12 @@ UniValue CreateTokenExt(CPubKey mypk, int64_t txfee, int64_t tokensupply, std::s
 	if (tokensupply < 0)	{
         CCerror = "negative tokensupply";
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << "=" << tokensupply << std::endl);
-		return UniValue(UniValue::VNULL);
+		return NullUniValue;
 	}
     if (!nonfungibleData.empty() && tokensupply != 1) {
         CCerror = "for non-fungible tokens tokensupply should be equal to 1";
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << std::endl);
-        return UniValue(UniValue::VNULL);
+        return NullUniValue;
     }
 
 	cp = CCinit(&C, EVAL_TOKENS);
@@ -865,7 +866,7 @@ UniValue CreateTokenExt(CPubKey mypk, int64_t txfee, int64_t tokensupply, std::s
 	{
         LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << "name len=" << name.size() << " or description len=" << description.size() << " is too big" << std::endl);
         CCerror = "name should be <= 32, description should be <= 4096";
-		return UniValue(UniValue::VNULL);
+		return NullUniValue;
 	}
 	if (txfee == 0)
 		txfee = 10000;
@@ -873,29 +874,23 @@ UniValue CreateTokenExt(CPubKey mypk, int64_t txfee, int64_t tokensupply, std::s
     int32_t txfeeCount = 2;
     if (additionalMarkerEvalCode > 0)
         txfeeCount++;
-
-    bool isRemote;
-    if (!mypk.IsValid())
-    {
-        isRemote = false;
-        mypk = pubkey2pk(Mypubkey());
-    }
-    else
-        isRemote = true;
     
-    if (!mypk.IsFullyValid())
-    {
-        CCerror = "mypk is not set";
-        return UniValue(UniValue::VNULL);
+    bool isRemote = remotepk.IsValid();
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())    {
+        CCerror = "mypk is not set or invalid";
+        return NullUniValue;
     } 
 
     CAmount totalInputs;
-	if ((totalInputs = AddNormalinputs2(mtx, tokensupply + txfeeCount * txfee, 64)) > 0)
+    // always add inputs only from the mypk passed in the param to prove the token creator has the token originator pubkey
+    // This what the AddNormalinputsRemote does (and it is not necessary that this is done only for nspv calls):
+	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfeeCount * txfee, 64)) > 0)
 	{
         int64_t mypkInputs = TotalPubkeyNormalInputs(mtx, mypk);  
         if (mypkInputs < tokensupply) {     // check that the token amount is really issued with mypk (because in the wallet there may be some other privkeys)
             CCerror = "some inputs signed not with mypubkey (-pubkey=pk)";
-            return UniValue(UniValue::VNULL);
+            return NullUniValue;
         }
         
         uint8_t destEvalCode = EVAL_TOKENS;
@@ -916,9 +911,9 @@ UniValue CreateTokenExt(CPubKey mypk, int64_t txfee, int64_t tokensupply, std::s
         }
 
 		sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', vscript_t(mypk.begin(), mypk.end()), name, description, nonfungibleData));
-        if (sigData[JSON_HEXTX].empty()) {
+        if (!ResultHasTx(sigData)) {
             CCerror = "couldnt finalize token tx";
-            return UniValue(UniValue::VNULL);
+            return NullUniValue;
         }
         if (addTxInMemory)
         {
@@ -929,7 +924,7 @@ UniValue CreateTokenExt(CPubKey mypk, int64_t txfee, int64_t tokensupply, std::s
 	}
 
     CCerror = "cant find normal inputs";
-    return UniValue(UniValue::VNULL);
+    return NullUniValue;
 }
 
 // transfer tokens from mypk to another pubkey
@@ -961,7 +956,7 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, CPubKey destpubkey, in
 // destpubkeys - if size=1 then it is the dest pubkey, if size=2 then the dest address is 1of2 addr
 // total - token amount to transfer
 // returns: signed transfer tx in hex
-UniValue TokenTransferExt(CPubKey mypk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total)
+UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	uint64_t mask; int64_t CCchange = 0, inputs = 0;  struct CCcontract_info *cp, C;
@@ -969,7 +964,7 @@ UniValue TokenTransferExt(CPubKey mypk, int64_t txfee, uint256 tokenid, char *to
 	if (total < 0)	{
         CCerror = strprintf("negative total");
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << "=" << total << std::endl);
-        return UniValue(UniValue::VNULL);
+        return NullUniValue;
 	}
 
 	cp = CCinit(&C, EVAL_TOKENS);
@@ -977,22 +972,14 @@ UniValue TokenTransferExt(CPubKey mypk, int64_t txfee, uint256 tokenid, char *to
 	if (txfee == 0)
 		txfee = 10000;
 
-    bool isRemote;
-    if (!mypk.IsValid())
-    {
-        isRemote = false;
-        mypk = pubkey2pk(Mypubkey());
-    }
-    else
-        isRemote = true;
-
-    if (!mypk.IsFullyValid())
-    {
-        CCerror = "mypk is not set";
-        return  UniValue(UniValue::VNULL);
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())     {
+        CCerror = "mypk is not set or invalid";
+        return  NullUniValue;
     }
 
-    int64_t normalInputs = AddNormalinputs(mtx, mypk, txfee, 3);
+    int64_t normalInputs = AddNormalinputs(mtx, mypk, txfee, 3, isRemote);
     if (normalInputs > 0)
 	{
 		mask = ~((1LL << mtx.vin.size()) - 1);  // seems, mask is not used anymore
@@ -1002,7 +989,7 @@ UniValue TokenTransferExt(CPubKey mypk, int64_t txfee, uint256 tokenid, char *to
 			if (inputs < total) {   //added dimxy
                 CCerror = strprintf("insufficient token inputs");
                 LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << std::endl);
-				return  UniValue(UniValue::VNULL);
+				return  NullUniValue;
 			}
 
             uint8_t destEvalCode = EVAL_TOKENS;
@@ -1021,7 +1008,7 @@ UniValue TokenTransferExt(CPubKey mypk, int64_t txfee, uint256 tokenid, char *to
             else
             {
                 CCerror = "zero or unsupported destination pk count";
-                return  UniValue(UniValue::VNULL);
+                return  NullUniValue;
             }
 
 			if (CCchange != 0)
@@ -1039,7 +1026,7 @@ UniValue TokenTransferExt(CPubKey mypk, int64_t txfee, uint256 tokenid, char *to
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
 			UniValue sigData = FinalizeCCTxExt(isRemote, mask, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutTokenPubkeys, std::make_pair((uint8_t)0, vscript_t()))); 
-            if (sigData[JSON_HEXTX].empty())
+            if (!ResultHasTx(sigData))
                 CCerror = "could not finalize tx";
             else
                 AddInMemoryTransaction(mtx);  // to be able to spend mtx change
@@ -1056,14 +1043,13 @@ UniValue TokenTransferExt(CPubKey mypk, int64_t txfee, uint256 tokenid, char *to
         CCerror = strprintf("insufficient normal inputs for tx fee");
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << CCerror << std::endl);
 	}
-	return  UniValue(UniValue::VNULL);
+	return  NullUniValue;
 }
 
 // transfer token to scriptPubKey
-UniValue TokenTransferSpk(CPubKey mypk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
+UniValue TokenTransferSpk(const CPubKey &remotepk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    //CPubKey mypk;
     int64_t CCchange = 0, inputs = 0;
 
     struct CCcontract_info *cp, C;
@@ -1071,33 +1057,26 @@ UniValue TokenTransferSpk(CPubKey mypk, int64_t txfee, uint256 tokenid, char *to
 
     if (total < 0) {
         CCerror = strprintf("negative total");
-        return  UniValue(UniValue::VNULL);
+        return NullUniValue;
     }
     if (txfee == 0)
         txfee = 10000;
 
-    bool isRemote;
-    if (!mypk.IsValid())
-    {
-        isRemote = false;
-        mypk = pubkey2pk(Mypubkey());
-    }
-    else
-        isRemote = true;
-
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
     if (!mypk.IsFullyValid())
     {
-        CCerror = "mypk is not set";
-        return  UniValue(UniValue::VNULL);
+        CCerror = "mypk is not set or invalid";
+        return NullUniValue;
     }
 
-    if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, 3, isRemote) > 0)
     {
         if ((inputs = AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, 60)) > 0)
         {
             if (inputs < total) {
                 CCerror = strprintf("insufficient token inputs");
-                return  UniValue(UniValue::VNULL);
+                return NullUniValue;
             }
 
             uint8_t destEvalCode = EVAL_TOKENS;
@@ -1119,7 +1098,7 @@ UniValue TokenTransferSpk(CPubKey mypk, int64_t txfee, uint256 tokenid, char *to
                 CCAddVintxCond(cp, p.first, p.second);
 
             UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vscript_t())));
-            if (sigData[JSON_HEXTX].empty())
+            if (!ResultHasTx(sigData))
                 CCerror = "could not finalize tx";
             return sigData;
         }
@@ -1131,7 +1110,7 @@ UniValue TokenTransferSpk(CPubKey mypk, int64_t txfee, uint256 tokenid, char *to
     {
         CCerror = "insufficient normal inputs for tx fee";
     }
-    return  UniValue(UniValue::VNULL);
+    return  NullUniValue;
 }
 
 int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)

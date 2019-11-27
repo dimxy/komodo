@@ -23,8 +23,6 @@
 #define KOMODO_ADDRESS_BUFSIZE 64
 #endif
 
-#define IS_REMOTE(mypk) (mypk.IsValid())
-
 // helpers
 
 static CPubKey GetSystemPubKey()
@@ -42,9 +40,10 @@ static CPubKey GetSystemPubKey()
 
 static bool CheckSysPubKey()
 {
+    // TODO: use remote pk
     CPubKey mypk = pubkey2pk(Mypubkey());
     CPubKey syspk = GetSystemPubKey();
-    if (!syspk.IsValid() || syspk.size() != 33)
+    if (!syspk.IsValid() || syspk.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
     {
         CCerror = "invalid kogssyspk";
         return false;
@@ -170,19 +169,19 @@ bool IsGameFinished(const KogsGameConfig &gameconfig, const KogsBaton &baton)
 }
 
 // create game object NFT by calling token cc function
-static UniValue CreateGameObjectNFT(CPubKey mypk, struct KogsBaseObject *baseobj)
+static UniValue CreateGameObjectNFT(const CPubKey &remotepk, struct KogsBaseObject *baseobj)
 {
     vscript_t vnftdata = baseobj->Marshal(); // E_MARSHAL(ss << baseobj);
     if (vnftdata.empty())
     {
         CCerror = std::string("can't marshal object with id=") + std::string(1, (char)baseobj->objectType);
-        return UniValue(UniValue::VNULL); // return empty obj
+        return NullUniValue; // return empty obj
     }
 
-   UniValue sigData = CreateTokenExt(mypk, 0, 1, baseobj->nameId, baseobj->descriptionId, vnftdata, EVAL_KOGS, true);
+    UniValue sigData = CreateTokenExt(remotepk, 0, 1, baseobj->nameId, baseobj->descriptionId, vnftdata, EVAL_KOGS, true);
 
-    if (sigData[JSON_HEXTX].empty())
-        return UniValue(UniValue::VNULL);  // return empty obj
+    if (!ResultHasTx(sigData))
+        return NullUniValue;  // return empty obj
 
     /* feature with sending tx inside the rpc
     // decided not todo this - for reviewing by the user
@@ -218,11 +217,13 @@ static UniValue CreateGameObjectNFT(CPubKey mypk, struct KogsBaseObject *baseobj
 }
 
 // create enclosure tx (similar but not exactly like NFT as enclosure could be changed) with game object inside
-static UniValue CreateEnclosureTx(CPubKey mypk, KogsBaseObject *baseobj, bool isSpendable, bool needBaton)
+static UniValue CreateEnclosureTx(const CPubKey &remotepk, KogsBaseObject *baseobj, bool isSpendable, bool needBaton)
 {
     const CAmount  txfee = 10000;
-    //CPubKey mypk = pubkey2pk(Mypubkey());
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -237,7 +238,7 @@ static UniValue CreateEnclosureTx(CPubKey mypk, KogsBaseObject *baseobj, bool is
     if (needBaton)
         nfees += 2;
 
-    if (AddNormalinputs(mtx, mypk, nfees * txfee, 8, IS_REMOTE(mypk)) > 0)
+    if (AddNormalinputs(mtx, mypk, nfees * txfee, 8, isRemote) > 0)
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, txfee, GetUnspendable(cp, NULL)));  // kogs cc marker
@@ -246,15 +247,15 @@ static UniValue CreateEnclosureTx(CPubKey mypk, KogsBaseObject *baseobj, bool is
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
-        UniValue sigData = FinalizeCCTxExt(mypk.IsValid(), 0, cp, mtx, mypk, txfee, opret);
-        if (!sigData[JSON_HEXTX].getValStr().empty())
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret);
+        if (ResultHasTx(sigData))
             return sigData;
         else
             CCerror = "can't finalize or sign tx";
     }
     else
         CCerror = "can't find normals for 2 txfee";
-    return UniValue(UniValue::VNULL);
+    return NullUniValue;
 }
 
 // create baton tx to pass turn to the next player
@@ -296,12 +297,13 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
 }
 
 // create slam param tx to send slam height and strength to the chain
-static UniValue CreateSlamParamTx(CPubKey mypk, uint256 prevtxid, int32_t prevn, const KogsSlamParams &slamparam)
+static UniValue CreateSlamParamTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const KogsSlamParams &slamparam)
 {
     const CAmount  txfee = 10000;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 
-    //CPubKey mypk = pubkey2pk(Mypubkey());
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -313,7 +315,7 @@ static UniValue CreateSlamParamTx(CPubKey mypk, uint256 prevtxid, int32_t prevn,
 
     mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev baton
 
-    if (AddNormalinputs(mtx, mypk, txfee, 8) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, 8, isRemote) > 0)
     {
         // TODO: maybe send this baton to 1of2 (kogs global, gametxid) addr? 
         // But now a miner searches games or slamparams utxos on kogs global addr, 
@@ -322,17 +324,17 @@ static UniValue CreateSlamParamTx(CPubKey mypk, uint256 prevtxid, int32_t prevn,
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
-        UniValue sigData = FinalizeCCTxExt(mypk.IsValid(), 0, cp, mtx, mypk, txfee, opret);
-        if (sigData[JSON_HEXTX].empty()) {
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret);
+        if (!ResultHasTx(sigData)) {
             CCerror = "could not finalize or sign slam param transaction";
-            return UniValue(UniValue::VNULL);
+            return NullUniValue;
         }
         return sigData; 
     }
     else
     {
         CCerror = "could not find normal inputs for txfee";
-        return UniValue(UniValue::VNULL); // empty 
+        return NullUniValue; // empty 
     }
 }
 
@@ -585,11 +587,10 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 // iterate match object params and call NFT creation function
 std::vector<UniValue> KogsCreateMatchObjectNFTs( CPubKey mypk, std::vector<KogsMatchObject> & matchobjects)
 {
-    std::vector<UniValue> result;
-    const std::vector<UniValue> empty;
+    std::vector<UniValue> results;
 
     if (!CheckSysPubKey())
-        return empty;
+        return NullResults;
     
     ActivateUtxoLock();
 
@@ -608,17 +609,17 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs( CPubKey mypk, std::vector<KogsM
             obj.borderId = rand() % 2 + 1; // 1..2
 
         UniValue sigData = CreateGameObjectNFT(mypk, &obj);
-        if (sigData[JSON_HEXTX].empty()) {
-            result = empty;
+        if (!ResultHasTx(sigData)) {
+            results = NullResults;
             break;
         }
         else
-            result.push_back(sigData);
+            results.push_back(sigData);
     }
 
     DeactivateUtxoLock();
 
-    return result;
+    return results;
 }
 
 // create pack of 'packsize' kog ids and encrypt its content
@@ -629,13 +630,13 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs( CPubKey mypk, std::vector<KogsM
 // after this the system user sends the NFTs from the pack to the puchaser.
 // NOTE: for packs we cannot use more robust algorithm of sending kogs on the pack's 1of2 address (like in containers) 
 // because in such a case the pack content would be immediately available for everyone
-UniValue KogsCreatePack(CPubKey mypk, KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
+UniValue KogsCreatePack(const CPubKey &remotepk, KogsPack newpack, int32_t packsize, vuint8_t encryptkey, vuint8_t iv)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> koglist;
     std::vector<std::shared_ptr<KogsBaseObject>> packlist;
 
     if (!CheckSysPubKey())
-        return UniValue(UniValue::VNULL);;
+        return NullUniValue;
 
     // get all kogs on the syspubkey 
     ListGameObjects(KOGSID_KOG, true, koglist);
@@ -648,7 +649,7 @@ UniValue KogsCreatePack(CPubKey mypk, KogsPack newpack, int32_t packsize, vuint8
         KogsPack *pack = (KogsPack*)p.get();
         if (!pack->DecryptContent(encryptkey, iv)) {
             CCerror = "cant decrypt pack";
-            return UniValue(UniValue::VNULL);;
+            return NullUniValue;;
         }
     }
 
@@ -672,7 +673,7 @@ UniValue KogsCreatePack(CPubKey mypk, KogsPack newpack, int32_t packsize, vuint8
     // check the kogs num is sufficient
     if (packsize > freekogids.size()) {
         CCerror = "requested kogs num not available";
-        return UniValue(UniValue::VNULL);;
+        return NullUniValue;;
     }
 
     // randomly get kogs txids
@@ -688,35 +689,35 @@ UniValue KogsCreatePack(CPubKey mypk, KogsPack newpack, int32_t packsize, vuint8
     if (!newpack.EncryptContent(encryptkey, iv))
     {
         CCerror = "cant encrypt new pack";
-        return UniValue(UniValue::VNULL);;
+        return NullUniValue;;
     }
 
-    return CreateGameObjectNFT(mypk, &newpack);
+    return CreateGameObjectNFT(remotepk, &newpack);
 }
 
 // create game config object
-UniValue KogsCreateGameConfig(CPubKey mypk, KogsGameConfig newgameconfig)
+UniValue KogsCreateGameConfig(const CPubKey &remotepk, KogsGameConfig newgameconfig)
 {
-    return CreateEnclosureTx(mypk, &newgameconfig, false, false);
+    return CreateEnclosureTx(remotepk, &newgameconfig, false, false);
 }
 
 // create player object with player's params
-UniValue KogsCreatePlayer(CPubKey mypk, KogsPlayer newplayer)
+UniValue KogsCreatePlayer(const CPubKey &remotepk, KogsPlayer newplayer)
 {
-    return CreateEnclosureTx(mypk, &newplayer, true, false);
+    return CreateEnclosureTx(remotepk, &newplayer, true, false);
 }
 
-UniValue KogsStartGame(CPubKey mypk, KogsGame newgame)
+UniValue KogsStartGame(const CPubKey &remotepk, KogsGame newgame)
 {
     KogsBaseObject *baseobj = LoadGameObject(newgame.gameconfigid);
     if (baseobj == nullptr || baseobj->objectType != KOGSID_GAMECONFIG)
     {
         CCerror = "can't load game config";
-        return UniValue();
+        return NullUniValue;
     }
 
     //return CreateGameObjectNFT(&newgame);
-    return CreateEnclosureTx(mypk, &newgame, false, true);
+    return CreateEnclosureTx(remotepk, &newgame, false, true);
 }
 
 // container is an NFT token
@@ -725,39 +726,41 @@ UniValue KogsStartGame(CPubKey mypk, KogsGame newgame)
 // and the kogs validation code would allow to spend nfts from 1of2 addr to whom who owns the container nft
 // simply and effective
 // returns hextx list of container creation tx and token transfer tx
-std::vector<UniValue> KogsCreateContainerV2(CPubKey mypk, KogsContainer newcontainer, const std::set<uint256> &tokenids)
+std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContainer newcontainer, const std::set<uint256> &tokenids)
 {
-    const std::vector<UniValue> empty;
-    std::vector<UniValue> result;
-    //CPubKey mypk = pubkey2pk(Mypubkey());
+    std::vector<UniValue> results;
 
     std::shared_ptr<KogsBaseObject>spobj( LoadGameObject(newcontainer.playerid) );
     if (spobj == nullptr || spobj->objectType != KOGSID_PLAYER)
     {
         CCerror = "could not load this playerid";
-        return empty;
+        return NullResults;
     }
+
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+
     if (((KogsPlayer*)spobj.get())->encOrigPk != mypk)
     {
         CCerror = "not your playerid";
-        return empty;
+        return NullResults;
     }
 
     //call this before txns creation
     ActivateUtxoLock();  
 
-    UniValue sigData = CreateGameObjectNFT(mypk, &newcontainer);
-    if (sigData[JSON_HEXTX].empty())
-        return empty;
+    UniValue sigData = CreateGameObjectNFT(remotepk, &newcontainer);
+    if (!ResultHasTx(sigData))
+        return NullResults;
 
-    result.push_back(sigData);
+    results.push_back(sigData);
 
     // unmarshal tx to get it txid;
-    vuint8_t vtx = ParseHex(sigData[JSON_HEXTX].getValStr());
+    vuint8_t vtx = ParseHex(ResultGetTx(sigData));
     CTransaction containertx;
     if (!E_UNMARSHAL(vtx, ss >> containertx)) {
         CCerror = "can't unmarshal container tx";
-        return empty;
+        return NullResults;
     }
     
     struct CCcontract_info *cp, C;
@@ -773,30 +776,31 @@ std::vector<UniValue> KogsCreateContainerV2(CPubKey mypk, KogsContainer newconta
 
     for (auto t : tokenids)
     {
-        UniValue sigData = TokenTransferExt(mypk, 0, t, tokenaddr, std::vector<std::pair<CC*,uint8_t*>>(), std::vector<CPubKey> {kogsPk, createtxidPk}, 1);
-        if (sigData[JSON_HEXTX].empty()) {
-            result = empty;
+        UniValue sigData = TokenTransferExt(remotepk, 0, t, tokenaddr, std::vector<std::pair<CC*,uint8_t*>>(), std::vector<CPubKey> {kogsPk, createtxidPk}, 1);
+        if (!ResultHasTx(sigData)) {
+            results = NullResults;
             break;
         }
-        result.push_back(sigData);
+        results.push_back(sigData);
     }
     // after txns creation
     DeactivateUtxoLock();
-    return result;
+    return results;
 }
 
 // transfer container to destination pubkey
 /*
-static UniValue SpendEnclosure(CPubKey mypk, int64_t txfee, KogsEnclosure enc, CPubKey destpk)
+static UniValue SpendEnclosure(const CPubKey &remotepk, int64_t txfee, KogsEnclosure enc, CPubKey destpk)
 {
-    const UniValue empty;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    //CPubKey mypk = pubkey2pk(Mypubkey());
-    if (AddNormalinputs(mtx, mypk, txfee, 4) > 0)
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+
+    if (AddNormalinputs(mtx, mypk, txfee, 4, isRemote) > 0)
     {
         if (enc.latesttxid.IsNull()) {
             CCerror = strprintf("incorrect latesttx in container");
@@ -809,10 +813,10 @@ static UniValue SpendEnclosure(CPubKey mypk, int64_t txfee, KogsEnclosure enc, C
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
         UniValue sigData = FinalizeCCTxExt(true, 0, cp, mtx, mypk, txfee, opret);
-        if (sigData[JSON_HEXTX].empty())
+        if (!ResultHasTx(sigData))
         {
             CCerror = strprintf("could not finalize transfer container tx");
-            return empty;
+            return nullUnivalue;
         }
 
         return sigData;
@@ -827,26 +831,29 @@ static UniValue SpendEnclosure(CPubKey mypk, int64_t txfee, KogsEnclosure enc, C
 */
 
 // deposit (send) container to 1of2 game txid pubkey
-UniValue KogsDepositContainerV2(CPubKey mypk, int64_t txfee, uint256 gameid, uint256 containerid)
+UniValue KogsDepositContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid)
 {
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+
     std::shared_ptr<KogsBaseObject>spgamebaseobj(LoadGameObject(gameid));
     if (spgamebaseobj == nullptr || spgamebaseobj->objectType != KOGSID_GAME) {
         CCerror = "can't load game data";
-        return UniValue();
+        return NullUniValue;
     }
     KogsGame *pgame = (KogsGame *)spgamebaseobj.get();
 
     std::shared_ptr<KogsBaseObject>spgameconfigbaseobj(LoadGameObject(pgame->gameconfigid));
     if (spgameconfigbaseobj == nullptr || spgameconfigbaseobj->objectType != KOGSID_GAMECONFIG) {
         CCerror = "can't load game config data";
-        return UniValue();
+        return NullUniValue;
     }
     KogsGameConfig *pgameconfig = (KogsGameConfig *)spgameconfigbaseobj.get();
 
     std::shared_ptr<KogsBaseObject>spcontbaseobj(LoadGameObject(containerid));
     if (spcontbaseobj == nullptr || spcontbaseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
-        return UniValue();
+        return NullUniValue;
     }
     KogsContainer *pcontainer = (KogsContainer *)spcontbaseobj.get();
     ListContainerTokenids(*pcontainer);
@@ -854,7 +861,7 @@ UniValue KogsDepositContainerV2(CPubKey mypk, int64_t txfee, uint256 gameid, uin
     // TODO: check if this player has already deposited a container. Seems the doc states only one container is possible
     if (pcontainer->tokenids.size() != pgameconfig->numKogsInContainer)     {
         CCerror = "kogs number in container does not match game requirement";
-        return UniValue();
+        return NullUniValue;
     }
 
     struct CCcontract_info *cp, C;
@@ -868,28 +875,30 @@ UniValue KogsDepositContainerV2(CPubKey mypk, int64_t txfee, uint256 gameid, uin
     char tokenaddr[64];
     GetTokensCCaddress(cp, tokenaddr, mypk);
 
-    UniValue sigData = TokenTransferExt(mypk, 0, containerid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, gametxidPk }, 1); // amount = 1 always for NFTs
+    // passing remotepk for TokenTransferExt to correctly call FinalizeCCTx
+    UniValue sigData = TokenTransferExt(remotepk, 0, containerid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, gametxidPk }, 1); // amount = 1 always for NFTs
     return sigData;
 }
 
 // claim sending container from 1of2 game txid to origin pubkey
-UniValue KogsClaimDepositedContainer(CPubKey mypk, int64_t txfee, uint256 gameid, uint256 containerid)
+UniValue KogsClaimDepositedContainer(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid)
 {
     std::shared_ptr<KogsBaseObject>spgamebaseobj(LoadGameObject(gameid));
     if (spgamebaseobj == nullptr || spgamebaseobj->objectType != KOGSID_GAME) {
         CCerror = "can't load game data";
-        return UniValue();
+        return NullUniValue;
     }
 
     std::shared_ptr<KogsBaseObject>spcontbaseobj(LoadGameObject(containerid));
     if (spcontbaseobj == nullptr || spcontbaseobj->objectType != KOGSID_CONTAINER) {
         CCerror = "can't load container";
-        return UniValue();
+        return NullUniValue;
     }
 
     KogsContainer *pcontainer = (KogsContainer *)spcontbaseobj.get();
     CTransaction lasttx;
-    //CPubKey mypk = pubkey2pk(Mypubkey());
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
     if (pcontainer->encOrigPk == mypk)  // We do not allow to transfer container to other users, so only primary origPk is considered as user pk
     {
@@ -909,7 +918,7 @@ UniValue KogsClaimDepositedContainer(CPubKey mypk, int64_t txfee, uint256 gameid
 
             CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);  // make probe cc for signing 1of2 game txid addr
 
-            UniValue sigData = TokenTransferExt(mypk, 0, containerid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) }, std::vector<CPubKey>{ mypk }, 1); // amount = 1 always for NFTs
+            UniValue sigData = TokenTransferExt(remotepk, 0, containerid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) }, std::vector<CPubKey>{ mypk }, 1); // amount = 1 always for NFTs
 
             cc_free(probeCond); // free probe cc
             return sigData;
@@ -921,7 +930,7 @@ UniValue KogsClaimDepositedContainer(CPubKey mypk, int64_t txfee, uint256 gameid
     else
         CCerror = "not my container";
 
-    return UniValue();
+    return NullUniValue;
 }
 
 // check if container NFT is on 1of2 address (kogsPk, gametxidpk)
@@ -945,9 +954,10 @@ static bool IsContainerDeposited(KogsGame game, KogsContainer container)
 }
 
 // checks if container deposited to gamepk and gamepk is mypk or if it is not deposited and on mypk
-static int CheckIsMyContainer(uint256 gameid, uint256 containerid)
+static int CheckIsMyContainer(const CPubKey &remotepk, uint256 gameid, uint256 containerid)
 {
-    CPubKey mypk = pubkey2pk(Mypubkey());
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
     std::shared_ptr<KogsBaseObject>spcontbaseobj( LoadGameObject(containerid) );
     if (spcontbaseobj == nullptr || spcontbaseobj->objectType != KOGSID_CONTAINER) {
@@ -993,18 +1003,18 @@ static int CheckIsMyContainer(uint256 gameid, uint256 containerid)
 }
 
 // add kogs to the container by sending kogs to container 1of2 address
-std::vector<UniValue> KogsAddKogsToContainerV2(CPubKey mypk, int64_t txfee, uint256 containerid, std::set<uint256> tokenids)
+std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 containerid, std::set<uint256> tokenids)
 {
-    const std::vector<UniValue> empty;
     std::vector<UniValue> result;
 
-    if (CheckIsMyContainer(zeroid, containerid) <= 0)
-        return empty;
+    if (CheckIsMyContainer(remotepk, zeroid, containerid) <= 0)
+        return NullResults;
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
     CPubKey kogsPk = GetUnspendable(cp, NULL);
-    //CPubKey mypk = pubkey2pk(Mypubkey());
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey containertxidPk = CCtxidaddr(txidaddr, containerid);
@@ -1015,9 +1025,9 @@ std::vector<UniValue> KogsAddKogsToContainerV2(CPubKey mypk, int64_t txfee, uint
 
     for (auto tokenid : tokenids)
     {
-        UniValue sigData = TokenTransferExt(mypk, 0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, containertxidPk }, 1); // amount = 1 always for NFTs
-        if (sigData[JSON_HEXTX].empty()) {
-            result = empty;
+        UniValue sigData = TokenTransferExt(remotepk, 0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, containertxidPk }, 1); // amount = 1 always for NFTs
+        if (!ResultHasTx(sigData)) {
+            result = NullResults;
             break;
         }
         result.push_back(sigData);
@@ -1027,16 +1037,16 @@ std::vector<UniValue> KogsAddKogsToContainerV2(CPubKey mypk, int64_t txfee, uint
 }
 
 // remove kogs from the container by sending kogs from the container 1of2 address to self
-std::vector<UniValue> KogsRemoveKogsFromContainerV2(CPubKey mypk, int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids)
+std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid, std::set<uint256> tokenids)
 {
-    const std::vector<UniValue> empty;
-    std::vector<UniValue> result;
+    std::vector<UniValue> results;
     KogsBaseObject *baseobj;
 
-    // CPubKey mypk = pubkey2pk(Mypubkey());
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
-    if (CheckIsMyContainer(gameid, containerid) <= 0)
-        return empty;
+    if (CheckIsMyContainer(remotepk, gameid, containerid) <= 0)
+        return NullResults;
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -1051,25 +1061,25 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(CPubKey mypk, int64_t txfee,
 
     for (auto tokenid : tokenids)
     {
-        UniValue sigData = TokenTransferExt(mypk, 0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogspriv) }, std::vector<CPubKey>{ mypk }, 1); // amount = 1 always for NFTs
-        if (sigData[JSON_HEXTX].empty()) {
-            result = empty;
+        UniValue sigData = TokenTransferExt(remotepk, 0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogspriv) }, std::vector<CPubKey>{ mypk }, 1); // amount = 1 always for NFTs
+        if (!ResultHasTx(sigData)) {
+            results = NullResults;
             break;
         }
-        result.push_back(sigData);
+        results.push_back(sigData);
     }
     DeactivateUtxoLock();
     cc_free(probeCond);
-    return result;
+    return results;
 }
 
-UniValue KogsAddSlamParams(CPubKey mypk, KogsSlamParams newslamparams)
+UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams)
 {
     std::shared_ptr<KogsBaseObject> spbaseobj( LoadGameObject(newslamparams.gameid) );
     if (spbaseobj == nullptr || spbaseobj->objectType != KOGSID_GAME)
     {
         CCerror = "can't load game";
-        return UniValue();
+        return NullUniValue;
     }
 
     // find the baton on mypk:
@@ -1079,7 +1089,8 @@ UniValue KogsAddSlamParams(CPubKey mypk, KogsSlamParams newslamparams)
     cp = CCinit(&C, EVAL_KOGS);
 
     char myccaddr[64];
-    //CPubKey mypk = pubkey2pk(Mypubkey());
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
     GetCCaddress(cp, myccaddr, mypk);
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "finding 'my turn' baton on mypk" << std::endl);
@@ -1120,7 +1131,7 @@ UniValue KogsAddSlamParams(CPubKey mypk, KogsSlamParams newslamparams)
     else
     {
         CCerror = "could not find baton for your pubkey (not your turn)";
-        return UniValue();
+        return NullUniValue;
     }
 }
 
@@ -1135,9 +1146,8 @@ static bool IsGameObjectDeleted(uint256 tokenid)
 // create txns to unseal pack and send NFTs to pack owner address
 // this is the really actual case when we need to create many transaction in one rpc:
 // when a pack has been unpacked then all the NFTs in it should be sent to the purchaser in several token transfer txns
-std::vector<UniValue> KogsUnsealPackToOwner(CPubKey mypk, uint256 packid, vuint8_t encryptkey, vuint8_t iv)
+std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 packid, vuint8_t encryptkey, vuint8_t iv)
 {
-    const std::vector<UniValue> empty;
     CTransaction burntx, prevtx;
 
     if (IsNFTBurned(packid, burntx) && !IsGameObjectDeleted(packid))
@@ -1153,14 +1163,14 @@ std::vector<UniValue> KogsUnsealPackToOwner(CPubKey mypk, uint256 packid, vuint8
             if (sppackbaseobj == nullptr || sppackbaseobj->objectType != KOGSID_PACK)
             {
                 CCerror = "can't load pack NFT or not a pack";
-                return empty;
+                return NullResults;
             }
 
             KogsPack *pack = (KogsPack *)sppackbaseobj.get();  
             if (!pack->DecryptContent(encryptkey, iv))
             {
                 CCerror = "can't decrypt pack content";
-                return empty;
+                return NullResults;
             }
 
             std::vector<UniValue> results;
@@ -1171,17 +1181,16 @@ std::vector<UniValue> KogsUnsealPackToOwner(CPubKey mypk, uint256 packid, vuint8
             for (auto tokenid : pack->tokenids)
             {
                 char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
-                //CPubKey mypk = pubkey2pk(Mypubkey());
+                bool isRemote = IS_REMOTE(remotepk);
+                CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
                 struct CCcontract_info *cp, C;
 
                 cp = CCinit(&C, EVAL_TOKENS);
                 GetTokensCCaddress(cp, tokensrcaddr, mypk);
 
-                UniValue sigData = TokenTransferSpk(mypk, 0, tokenid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{}, prevtx.vout[nvout].scriptPubKey, 1, pks);
-                if (sigData[JSON_HEXTX].empty()) {
-                    UniValue errSigData(UniValue::VOBJ);
-                    errSigData.push_back(std::make_pair(JSON_CCERROR, "error: can't create transfer tx (nft could be already sent!): " + CCerror));
-                    results.push_back(errSigData);
+                UniValue sigData = TokenTransferSpk(remotepk, 0, tokenid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{}, prevtx.vout[nvout].scriptPubKey, 1, pks);
+                if (!ResultHasTx(sigData)) {
+                    results.push_back(MakeResultError("can't create transfer tx (nft could be already sent!): " + CCerror));
                     CCerror.clear(); // clear read CCerror
                 }
                 else
@@ -1191,11 +1200,9 @@ std::vector<UniValue> KogsUnsealPackToOwner(CPubKey mypk, uint256 packid, vuint8
             if (results.size() > 0)
             {
                 // create tx removing pack by spending the kogs marker
-                UniValue sigData = KogsRemoveObject(mypk, packid, TOKEN_KOGS_MARKER_VOUT);
-                if (sigData[JSON_HEXTX].empty()) {
-                    UniValue errSigData;
-                    errSigData.push_back(std::make_pair(JSON_CCERROR, "error: can't create pack removal tx: " + CCerror));
-                    results.push_back(errSigData);
+                UniValue sigData = KogsRemoveObject(remotepk, packid, TOKEN_KOGS_MARKER_VOUT);
+                if (!ResultHasTx(sigData)) {
+                    results.push_back(MakeResultError("can't create pack removal tx: " + CCerror));
                     CCerror.clear(); // clear used CCerror
                 }
                 else
@@ -1210,30 +1217,22 @@ std::vector<UniValue> KogsUnsealPackToOwner(CPubKey mypk, uint256 packid, vuint8
     {
         CCerror = "can't unseal, pack NFT not burned yet or already removed";
     }
-    return empty;
+    return NullResults;
 }
 
 // temp burn error object by spending its eval_kog marker in vout=2
-UniValue KogsBurnNFT(CPubKey mypk, uint256 tokenid)
+UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid)
 {
-    const UniValue empty;
-
     // create burn tx
     const CAmount  txfee = 10000;
-    //CPubKey mypk = pubkey2pk(Mypubkey());
 
-    bool isRemote;
-    if (!mypk.IsValid())
-    {
-        isRemote = false;
-        mypk = pubkey2pk(Mypubkey());
-    }
-    else
-        isRemote = true;
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+
     if (!mypk.IsFullyValid())
     {
         CCerror = "mypk is not set";
-        return  UniValue(UniValue::VNULL);
+        return  NullUniValue;
     }
 
     CPubKey burnpk = pubkey2pk(ParseHex(CC_BURNPUBKEY));
@@ -1242,7 +1241,7 @@ UniValue KogsBurnNFT(CPubKey mypk, uint256 tokenid)
 
     cp = CCinit(&C, EVAL_TOKENS);
 
-    if (AddNormalinputs(mtx, mypk, txfee, 4) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, 4, isRemote) > 0)
     {
         if (AddTokenCCInputs(cp, mtx, mypk, tokenid, 1, 1) > 0)
         {
@@ -1261,7 +1260,7 @@ UniValue KogsBurnNFT(CPubKey mypk, uint256 tokenid)
             mtx.vout.push_back(MakeTokensCC1vout(EVAL_KOGS, 1, burnpk));    // burn tokens
             voutPks.push_back(burnpk);
             UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPks, emptyoprets));
-            if (!sigData[JSON_HEXTX].empty())
+            if (ResultHasTx(sigData))
                 return sigData;
             else
                 CCerror = "can't finalize or sign burn tx";
@@ -1271,29 +1270,22 @@ UniValue KogsBurnNFT(CPubKey mypk, uint256 tokenid)
     }
     else
         CCerror = "can't find normals for txfee";
-    return empty;
+    return NullUniValue;
 }
 
 // special feature to hide object by spending its cc eval kog marker (for nfts it is in vout=2)
-UniValue KogsRemoveObject(CPubKey mypk, uint256 txid, int32_t nvout)
+UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout)
 {
     const UniValue empty;
 
     // create burn tx
     const CAmount  txfee = 10000;
-    bool isRemote;
-    if (!mypk.IsValid())
-    {
-        isRemote = false;
-        mypk = pubkey2pk(Mypubkey());
-    }
-    else
-        isRemote = true;
-
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
     if (!mypk.IsFullyValid())
     {
         CCerror = "mypk is not set";
-        return  UniValue(UniValue::VNULL);
+        return  NullUniValue;
     }
 
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -1301,19 +1293,19 @@ UniValue KogsRemoveObject(CPubKey mypk, uint256 txid, int32_t nvout)
 
     cp = CCinit(&C, EVAL_KOGS);
 
-    if (AddNormalinputs(mtx, mypk, txfee, 4) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, 4, isRemote) > 0)
     {
         mtx.vin.push_back(CTxIn(txid, nvout));
         mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
         UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, CScript());
-        if (!sigData[JSON_HEXTX].empty())
+        if (ResultHasTx(sigData))
             return sigData;
         else
             CCerror = "can't finalize or sign removal tx";
     }
     else
         CCerror = "can't find normals for txfee";
-    return UniValue(UniValue::VNULL);;
+    return NullUniValue;;
 }
 
 // retrieve game info: open/finished, won kogs
@@ -1913,11 +1905,11 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 {
                                     UniValue sigData = TokenTransferExt(mypk, 0, c->creationtxid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) },
                                         std::vector<CPubKey>{ c->encOrigPk }, 1); // amount = 1 always for NFTs
-                                    vuint8_t vtx = ParseHex(sigData[JSON_HEXTX].getValStr()); // unmarshal tx to get it txid;
+                                    vuint8_t vtx = ParseHex(ResultGetTx(sigData)); // unmarshal tx to get it txid;
                                     CTransaction transfertx;
-                                    if (!sigData[JSON_HEXTX].empty() && E_UNMARSHAL(vtx, ss >> transfertx)) {
+                                    if (ResultHasTx(sigData) && E_UNMARSHAL(vtx, ss >> transfertx)) {
                                         myTransactions.push_back(transfertx);
-                                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << sigData[JSON_HEXTX].getValStr() << " txid=" << transfertx.GetHash().GetHex() << std::endl);
+                                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << ResultGetTx(sigData) << " txid=" << transfertx.GetHash().GetHex() << std::endl);
                                         txtransfers++;
                                         testcount++;
                                     }

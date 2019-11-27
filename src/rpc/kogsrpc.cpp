@@ -240,6 +240,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp, const CPubKey&
     UniValue sigData = KogsCreateGameConfig(mypk, newgameconfig);
     RETURN_IF_ERROR(CCerror);
 
+    result = sigData;
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
@@ -291,7 +292,7 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp, const CPubKey& myp
     UniValue sigData = KogsCreatePlayer(mypk, newplayer);
     RETURN_IF_ERROR(CCerror);
 
-    //result = UniValue2UniValue(sigData);
+    result = sigData;
     result.push_back(std::make_pair("result", "success"));
     return result;
 }
@@ -435,13 +436,13 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
     if (!mypk.IsFullyValid())
         throw runtime_error("mypk is not set\n");
 
-    std::vector<UniValue> sigDatas = KogsCreateMatchObjectNFTs(mypk, gameobjects);
+    std::vector<UniValue> sigDataArr = KogsCreateMatchObjectNFTs(mypk, gameobjects);
     RETURN_IF_ERROR(CCerror);
 
     UniValue resarray(UniValue::VARR);
-    for (const auto &s : sigDatas)
+    for (const auto &sigData : sigDataArr)
     {
-        resarray.push_back(s);
+        resarray.push_back(sigData);
     }
 
     result.push_back(std::make_pair("result", "success"));
@@ -556,12 +557,12 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (iv.size() != WALLET_CRYPTO_KEY_SIZE)
         throw runtime_error(std::string("init vector length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
 
-    std::vector<UniValue> sigDatas = KogsUnsealPackToOwner(mypk, packid, enckey, iv);
+    std::vector<UniValue> sigDataArr = KogsUnsealPackToOwner(mypk, packid, enckey, iv);
     RETURN_IF_ERROR(CCerror);
 
-    for (const auto &s : sigDatas)
+    for (const auto &sigData : sigDataArr)
     {
-        resarray.push_back(s);
+        resarray.push_back(sigData);
     }
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextxns", resarray));
@@ -616,12 +617,12 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
     if (tokenids.size() != jsonParams.getValues().size())
         throw runtime_error("duplicate tokenids in params\n");
 
-    std::vector<UniValue> sigDatas = KogsCreateContainerV2(mypk, newcontainer, tokenids);
+    std::vector<UniValue> sigDataArr = KogsCreateContainerV2(mypk, newcontainer, tokenids);
     RETURN_IF_ERROR(CCerror);
 
-    for (const auto &s : sigDatas)
+    for (const auto &sigData : sigDataArr)
     {
-        resarray.push_back(s);
+        resarray.push_back(sigData);
     }
 
     result.push_back(std::make_pair("result", "success"));
@@ -747,12 +748,12 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKe
     if (tokenids.size() != jsonParams.getValues().size())
         throw runtime_error("duplicate tokenids in params\n");
 
-    std::vector<UniValue> sigDatas = KogsAddKogsToContainerV2(mypk, 0, containerid, tokenids);
+    std::vector<UniValue> sigDataArr = KogsAddKogsToContainerV2(mypk, 0, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
 
-    for (const auto &s : sigDatas)
+    for (const auto &sigData : sigDataArr)
     {
-        resarray.push_back(s);
+        resarray.push_back(sigData);
     }
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextxns", resarray));
@@ -832,11 +833,11 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const C
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
-    std::vector<UniValue> sigData = KogsRemoveKogsFromContainerV2(mypk, 0, gameid, containerid, tokenids);
+    std::vector<UniValue> sigDataArr = KogsRemoveKogsFromContainerV2(mypk, 0, gameid, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
-    for (const auto &s : sigData)
+    for (const auto &sigData : sigDataArr)
     {
-        resarray.push_back(s);
+        resarray.push_back(sigData);
     }
     result.push_back(std::make_pair("result", "success"));
     result.push_back(std::make_pair("hextxns", resarray));
@@ -999,7 +1000,7 @@ UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     KogsCreationTxidList(KOGSID_KOG, onlymy, tokenids);
     RETURN_IF_ERROR(CCerror);
 
-    for (auto t : tokenids)
+    for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
 
     result.push_back(std::make_pair("kogids", resarray));
@@ -1033,7 +1034,7 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp, const CPubKey& mypk
     KogsCreationTxidList(KOGSID_SLAMMER, onlymy, tokenids);
     RETURN_IF_ERROR(CCerror);
 
-    for (auto t : tokenids)
+    for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
 
     result.push_back(std::make_pair("slammerids", resarray));
@@ -1057,7 +1058,7 @@ UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     KogsCreationTxidList(KOGSID_PACK, false, tokenids);
     RETURN_IF_ERROR(CCerror);
 
-    for (auto t : tokenids)
+    for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
 
     result.push_back(std::make_pair("packids", resarray));
@@ -1091,7 +1092,7 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& my
     KogsCreationTxidList(KOGSID_CONTAINER, onlymy, tokenids);
     RETURN_IF_ERROR(CCerror);
 
-    for (auto t : tokenids)
+    for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
 
     result.push_back(std::make_pair("containerids", resarray));
@@ -1143,7 +1144,7 @@ UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     KogsCreationTxidList(KOGSID_PLAYER, false, creationids);
     RETURN_IF_ERROR(CCerror);
 
-    for (auto i : creationids)
+    for (const auto &i : creationids)
         resarray.push_back(i.GetHex());
 
     result.push_back(std::make_pair("playerids", resarray));
@@ -1167,7 +1168,7 @@ UniValue kogsgameconfiglist(const UniValue& params, bool fHelp, const CPubKey& m
     KogsCreationTxidList(KOGSID_GAMECONFIG, false, creationids);
     RETURN_IF_ERROR(CCerror);
 
-    for (auto i : creationids)
+    for (const auto &i : creationids)
         resarray.push_back(i.GetHex());
 
     result.push_back(std::make_pair("gameconfigids", resarray));
@@ -1191,7 +1192,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     KogsCreationTxidList(KOGSID_GAME, false, creationids);
     RETURN_IF_ERROR(CCerror);
 
-    for (auto i : creationids)
+    for (const auto &i : creationids)
         resarray.push_back(i.GetHex());
 
     result.push_back(std::make_pair("gameids", resarray));
