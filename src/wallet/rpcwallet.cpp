@@ -7641,10 +7641,10 @@ UniValue tokenbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(result);
 }
 
-UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
-    std::string name, description, hextx; 
+    std::string name, description; 
     std::vector<uint8_t> nonfungibleData;
     int64_t supply; // changed from uin64_t to int64_t for this 'if ( supply <= 0 )' to work as expected
 
@@ -7664,6 +7664,7 @@ UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& mypk)
         return(result);
     }
 
+    // TODO: use parseValue instead atof
     supply = atof(params[1].get_str().c_str()) * COIN + 0.00000000499999;   // what for is this '+0.00000000499999'? it will be lost while converting double to int64_t (dimxy)
     if (supply <= 0)    {
         ERR_RESULT("Token supply must be positive");
@@ -7691,13 +7692,20 @@ UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& mypk)
         }
     }
 
-    hextx = CreateToken(0, supply, name, description, nonfungibleData);
-    if( hextx.size() > 0 )     {
-        result.push_back(Pair("result", "success"));
-        result.push_back(Pair("hex", hextx));
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey usepk;
+    if (isRemote)
+        usepk = remotepk;
+    else
+        usepk = pubkey2pk(Mypubkey());
+    UniValue createResult = CreateTokenExt(usepk, 0, supply, name, description, nonfungibleData, 0, false);
+    if( ResultHasTx(createResult) )     {
+        result = createResult;                  // copy "hex" and optional "sigData"
+        if (result[JSON_RESULT].isNull())       // not set already
+            result.push_back(Pair(JSON_RESULT, "success"));
     } 
     else 
-        ERR_RESULT(CCerror);
+        ERR_RESULT(CCerror);  // TODO: use error in UniValue to pass errors
     return(result);
 }
 

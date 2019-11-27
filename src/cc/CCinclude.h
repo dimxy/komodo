@@ -1053,10 +1053,36 @@ inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (s
 /*! \endcond */
 
 /*! \cond INTERNAL */
-#define JSON_HEXTX "hex"
-#define JSON_SIGDATA "SigData"
-#define JSON_CCERROR "CCError"
+#define JSON_RESULT     "result"
+#define JSON_ERROR      "error"
+#define JSON_HEXTX      "hex"
+#define JSON_SIGDATA    "SigData"
+
+inline bool ResultHasTx(const UniValue &result) {
+    return !result[JSON_HEXTX].getValStr().empty();
+}
+inline std::string ResultGetTx(const UniValue &result) {
+    return ResultHasTx(result) ? result[JSON_HEXTX].getValStr() : std::string();
+}
+inline bool ResultIsError(const UniValue &result) {
+    return result.isNull() || !result[JSON_ERROR].getValStr().empty();
+}
+inline std::string ResultGetError(const UniValue &result) {
+    if (!result[JSON_ERROR].getValStr().empty())
+        return result[JSON_ERROR].getValStr();
+    else
+        return std::string();
+}
+inline UniValue MakeResultError(const std::string &err) {
+    UniValue result(UniValue::VOBJ);
+    result.pushKV(std::string(JSON_RESULT), "error");
+    result.pushKV(std::string(JSON_ERROR), err);
+    return result;
+}
+
 /*! \endcond */
+
+#define IS_REMOTE(remotepk) (remotepk.IsValid())
 
 /// @private add sig data for signing partially signed tx to UniValue object
 void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount);
