@@ -369,6 +369,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                     {
                         if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0)
                             fprintf(stderr, "signing error for vini.%d of %llx\n", i, (long long)vinimask);
+                        std::cerr << __func__ << "TRACE signing tx=" << vintx.GetHash().GetHex() << " vout=" << utxovout << std::endl;
                     }
                     else
                     {
@@ -376,6 +377,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                         // add sigData for superlite client
                         UniValue cc(UniValue::VNULL);
                         AddSigData2UniValue(sigData, i, cc, HexStr(vintx.vout[utxovout].scriptPubKey), vintx.vout[utxovout].nValue );  // store vin i with scriptPubKey
+                        std::cerr << __func__ << "TRACE adding sigData tx=" << vintx.GetHash().GetHex() << " vout=" << utxovout << std::endl;
                     }
                 }
                 else
@@ -387,6 +389,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                     }
                     if ( NSPV_SignTx(mtx,i,vintx.vout[utxovout].nValue,vintx.vout[utxovout].scriptPubKey,0) == 0 )
                         fprintf(stderr,"NSPV signing error for vini.%d of %llx\n",i,(long long)vinimask);
+                    std::cerr << __func__ << "TRACE NSPV signing tx=" << vintx.GetHash().GetHex() << " vout=" << utxovout << std::endl;
                 }
             }
             else
