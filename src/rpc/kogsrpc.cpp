@@ -298,7 +298,7 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp, const CPubKey& myp
 }
 
 // rpc kogsstartgame impl
-UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     UniValue jsonParams;
@@ -343,10 +343,10 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (playerids.size() != jsonParams.getValues().size())
         throw runtime_error("duplicate playerids in params\n");
 
-    for (auto p : playerids)
+    for (const auto &p : playerids)
         newgame.playerids.push_back(p);
 
-    UniValue sigData = KogsStartGame(mypk, newgame);
+    UniValue sigData = KogsStartGame(remotepk, newgame);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
