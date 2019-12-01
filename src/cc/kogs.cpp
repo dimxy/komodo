@@ -649,7 +649,7 @@ UniValue KogsCreatePack(const CPubKey &remotepk, KogsPack newpack, int32_t packs
         KogsPack *pack = (KogsPack*)p.get();
         if (!pack->DecryptContent(encryptkey, iv)) {
             CCerror = "cant decrypt pack";
-            return NullUniValue;;
+            return NullUniValue;
         }
     }
 
@@ -673,7 +673,7 @@ UniValue KogsCreatePack(const CPubKey &remotepk, KogsPack newpack, int32_t packs
     // check the kogs num is sufficient
     if (packsize > freekogids.size()) {
         CCerror = "requested kogs num not available";
-        return NullUniValue;;
+        return NullUniValue;
     }
 
     // randomly get kogs txids
@@ -689,7 +689,7 @@ UniValue KogsCreatePack(const CPubKey &remotepk, KogsPack newpack, int32_t packs
     if (!newpack.EncryptContent(encryptkey, iv))
     {
         CCerror = "cant encrypt new pack";
-        return NullUniValue;;
+        return NullUniValue;
     }
 
     return CreateGameObjectNFT(remotepk, &newpack);
@@ -1303,7 +1303,7 @@ UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout)
     }
     else
         CCerror = "can't find normals for txfee";
-    return NullUniValue;;
+    return NullUniValue;
 }
 
 // retrieve game info: open/finished, won kogs
