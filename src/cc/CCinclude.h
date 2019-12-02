@@ -98,15 +98,7 @@ Details.
 /// @see EncodeTokenCreateOpRet(uint8_t funcid, std::vector<uint8_t> origpubkey, std::string name, std::string description, std::vector<std::pair<uint8_t, vscript_t>> oprets)
 /// @see GetOpretBlob
 enum opretid : uint8_t {
-// token transfer opret structure:
-// EVAL_TOKENS 't' tokenid <datablob-1> <datablob-2> ...
-// datablob structure:
-// OPRETID_XXXDATA <opret>
-// opret structure is usual:
-// EVAL_XXX funcid data
-// token opret additional datablob ids:    // cc contracts data (with eval codes)
-    // their eval codes are added in cc vouts as the eval cryptocondition
-    // so they are used in IsTokensvout cc vout validation
+    // cc contracts data:
     OPRETID_NONFUNGIBLEDATA = 0x11, //!< NFT data id
     OPRETID_ASSETSDATA = 0x12,      //!< assets contract data id
     OPRETID_GATEWAYSDATA = 0x13,    //!< gateways contract data id
@@ -120,14 +112,11 @@ enum opretid : uint8_t {
     // non-cc contract data blob ids start from 0x80
     // such datablobs do not have eval code at their beginnings 
     // so for them eval cryptoconditions are not added into token vouts 
-    // and they are not used in IsTokensvout checking    OPRETID_FIRSTNONCCDATA = 0x80,
+    // and they are not used in IsTokensvout checking
     /*! \endcond */
-    OPRETID_BURNDATA = 0x80,        //!< burned token data id
+    OPRETID_FIRSTNONCCDATA = 0x80,    OPRETID_BURNDATA = 0x80,        //!< burned token data id
     OPRETID_IMPORTDATA = 0x81       //!< imported token data id
 };
-// we need this OPRETID_XXX identifier (and could not use only evalcode for this purpose)
-// because there could be datablobs like 'serialized burn transaction', which do not have a dedicated eval code
-// to cover all such cases we introduced OPRETID_XXXs
 
 /// finds opret blob data by opretid in the vector of oprets
 /// @param oprets vector of oprets
@@ -337,6 +326,7 @@ struct oracleprice_info
 
 typedef std::vector<uint8_t> vscript_t;  // for oprets
 typedef std::vector<uint8_t> vuint8_t;   // for other types
+
 
 extern struct NSPV_CCmtxinfo NSPV_U;  //!< global variable with info about mtx object and used utxo
 
@@ -1060,34 +1050,9 @@ inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (s
 #define JSON_HEXTX      "hex"
 #define JSON_SIGDATA    "SigData"
 
-inline bool ResultHasTx(const UniValue &result) {
-    return !result[JSON_HEXTX].getValStr().empty();
-}
-inline std::string ResultGetTx(const UniValue &result) {
-    return ResultHasTx(result) ? result[JSON_HEXTX].getValStr() : std::string();
-}
-inline bool ResultIsError(const UniValue &result) {
-    return result.isNull() || !result[JSON_ERROR].getValStr().empty();
-}
-inline std::string ResultGetError(const UniValue &result) {
-    if (!result[JSON_ERROR].getValStr().empty())
-        return result[JSON_ERROR].getValStr();
-    else
-        return std::string();
-}
-inline UniValue MakeResultError(const std::string &err) {
-    UniValue result(UniValue::VOBJ);
-    result.pushKV(std::string(JSON_RESULT), "error");
-    result.pushKV(std::string(JSON_ERROR), err);
-    return result;
-}
-
-/*! \endcond */
-
-#define IS_REMOTE(remotepk) (remotepk.IsValid())
-
 /// @private add sig data for signing partially signed tx to UniValue object
 void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount);
+
 
 /// returns 0 if requirements for cc module with the evalcode is fulfilled.
 /// @param evalcode eval code for cc module
