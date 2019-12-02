@@ -456,12 +456,12 @@ int32_t oracle_format(uint256 *hashp,int64_t *valp,char *str,uint8_t fmt,uint8_t
 /// @param tokenid id of token which inputs to add
 /// @param total amount to add (if total==0 no inputs are added and all available amount is returned)
 /// @param maxinputs maximum number of inputs to add. If 0 then CC_MAXVINS define is used
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs);
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs);
 
 /// An overload that also returns NFT data in vopretNonfungible parameter
 /// the rest parameters are the same as in the first AddTokenCCInputs overload
 /// @see AddTokenCCInputs
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible);
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs);
 
 /// @private overload used in kogs
 int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible);
@@ -1045,10 +1045,50 @@ int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
 /*! \endcond */
 
+
+/*! \cond INTERNAL */
 #define JSON_RESULT     "result"
 #define JSON_ERROR      "error"
 #define JSON_HEXTX      "hex"
 #define JSON_SIGDATA    "SigData"
+
+inline bool ResultHasTx(const UniValue &result) {
+    return !result[JSON_HEXTX].getValStr().empty();
+}
+inline std::string ResultGetTx(const UniValue &result) {
+    return ResultHasTx(result) ? result[JSON_HEXTX].getValStr() : std::string();
+}
+inline bool ResultIsError(const UniValue &result) {
+    return result.isNull() || !result[JSON_ERROR].getValStr().empty();
+}
+inline std::string ResultGetError(const UniValue &result) {
+    if (!result[JSON_ERROR].getValStr().empty())
+        return result[JSON_ERROR].getValStr();
+    else
+        return std::string();
+}
+inline UniValue MakeResultError(const std::string &err) {
+    UniValue result(UniValue::VOBJ);
+    result.pushKV(std::string(JSON_RESULT), "error");
+    result.pushKV(std::string(JSON_ERROR), err);
+    return result;
+}
+/*! \endcond */
+
+/// @private
+#define IS_REMOTE(remotepk) (remotepk.IsValid())
+
+/*! \cond INTERNAL */
+// locking and reservation of utxo to prevent adding utxo to several mtx objects and allow use of normal change utxos:
+void ActivateUtxoLock();
+void DeactivateUtxoLock();
+bool isLockUtxoActive();
+bool isUtxoLocked(uint256 txid, int32_t nvout);
+void LockUtxo(uint256 txid, int32_t nvout);
+bool AddInMemoryTransaction(const CTransaction &tx);
+bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
+/*! \endcond */
+
 
 /// @private add sig data for signing partially signed tx to UniValue object
 void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount);
@@ -1072,7 +1112,9 @@ bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
 UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
 /*! \endcond */
 
+#ifndef RETURN_IF_ERROR
 #define RETURN_IF_ERROR(CCerror) if ( CCerror != "" ) { UniValue result(UniValue::VOBJ); ERR_RESULT(CCerror); return(result); }
+#endif
 
 #ifndef LOGSTREAM_DEFINED
 #define LOGSTREAM_DEFINED 
