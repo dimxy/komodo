@@ -956,7 +956,7 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, CPubKey destpubkey, in
 // destpubkeys - if size=1 then it is the dest pubkey, if size=2 then the dest address is 1of2 addr
 // total - token amount to transfer
 // returns: signed transfer tx in hex
-UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total)
+UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	uint64_t mask; int64_t CCchange = 0, inputs = 0;  struct CCcontract_info *cp, C;
@@ -1047,7 +1047,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
 }
 
 // transfer token to scriptPubKey
-UniValue TokenTransferSpk(const CPubKey &remotepk, int64_t txfee, uint256 tokenid, char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
+UniValue TokenTransferSpk(const CPubKey &remotepk, int64_t txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     int64_t CCchange = 0, inputs = 0;
