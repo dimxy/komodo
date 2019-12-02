@@ -309,10 +309,10 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() < 2)
     {
         throw runtime_error(
-            "kogsstartgame gameconfigid, 'players:[ playerid1, playerid2, ...]'  \n"
+            "kogsstartgame gameconfigid, playerid1, playerid2, ...  \n"
             "starts a new game with 2 or more players\n"
             "returns game transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
