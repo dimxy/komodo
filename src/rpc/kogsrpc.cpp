@@ -51,7 +51,7 @@ int32_t ensure_CCrequirements(uint8_t evalcode);
 UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
 
 // rpc kogsaddress impl
-UniValue kogsaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsaddress(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     struct CCcontract_info *cp, C; 
     vuint8_t vpubkey;
@@ -68,8 +68,8 @@ UniValue kogsaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
     if (params.size() == 1)
         vpubkey = ParseHex(params[0].get_str().c_str());
-    else if (mypk.IsValid())
-        vpubkey = vuint8_t(mypk.begin(), mypk.end());
+    else if (remotepk.IsValid())
+        vpubkey = vuint8_t(remotepk.begin(), remotepk.end());
     else
         vpubkey = Mypubkey();
 
@@ -77,7 +77,7 @@ UniValue kogsaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
 }
 
 // rpc kogscreategameconfig impl
-UniValue kogscreategameconfig(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogscreategameconfig(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -237,7 +237,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp, const CPubKey&
         }
     }
 
-    UniValue sigData = KogsCreateGameConfig(mypk, newgameconfig);
+    UniValue sigData = KogsCreateGameConfig(remotepk, newgameconfig);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -247,7 +247,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp, const CPubKey&
 
 
 // rpc kogscreateplayer impl
-UniValue kogscreateplayer(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogscreateplayer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -289,7 +289,7 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp, const CPubKey& myp
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "test output newplayer.param1=" << newplayer.param1 << std::endl);
     }
 
-    UniValue sigData = KogsCreatePlayer(mypk, newplayer);
+    UniValue sigData = KogsCreatePlayer(remotepk, newplayer);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -438,15 +438,15 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
         }
     }
 
-    CPubKey mypk;
+    CPubKey remotepk;
     if (params.size() == 2)
-        mypk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
+        remotepk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
     else
-        mypk = pubkey2pk(Mypubkey());
-    if (!mypk.IsFullyValid())
-        throw runtime_error("mypk is not set\n");
+        remotepk = pubkey2pk(Mypubkey());
+    if (!remotepk.IsFullyValid())
+        throw runtime_error("remotepk is not set\n");
 
-    std::vector<UniValue> sigDataArr = KogsCreateMatchObjectNFTs(mypk, gameobjects);
+    std::vector<UniValue> sigDataArr = KogsCreateMatchObjectNFTs(remotepk, gameobjects);
     RETURN_IF_ERROR(CCerror);
 
     UniValue resarray(UniValue::VARR);
@@ -461,7 +461,7 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
 }
 
 // rpc kogscreatekogs impl
-UniValue kogscreatekogs(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogscreatekogs(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
 
@@ -479,7 +479,7 @@ UniValue kogscreatekogs(const UniValue& params, bool fHelp, const CPubKey& mypk)
 }
 
 // rpc kogscreateslammers impl
-UniValue kogscreateslammers(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogscreateslammers(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
 
@@ -497,7 +497,7 @@ UniValue kogscreateslammers(const UniValue& params, bool fHelp, const CPubKey& m
 }
 
 // rpc kogscreatepack impl
-UniValue kogscreatepack(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogscreatepack(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear();
@@ -530,7 +530,7 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (iv.size() != WALLET_CRYPTO_KEY_SIZE)
         throw runtime_error(std::string("initvector length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
 
-    UniValue sigData = KogsCreatePack(mypk, newpack, packsize, enckey, iv);
+    UniValue sigData = KogsCreatePack(remotepk, newpack, packsize, enckey, iv);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -539,7 +539,7 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp, const CPubKey& mypk)
 }
 
 // rpc kogsunsealpack impl
-UniValue kogsunsealpack(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsunsealpack(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -567,7 +567,7 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (iv.size() != WALLET_CRYPTO_KEY_SIZE)
         throw runtime_error(std::string("init vector length should be ") + std::to_string(WALLET_CRYPTO_KEY_SIZE) + std::string("\n"));
 
-    std::vector<UniValue> sigDataArr = KogsUnsealPackToOwner(mypk, packid, enckey, iv);
+    std::vector<UniValue> sigDataArr = KogsUnsealPackToOwner(remotepk, packid, enckey, iv);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &sigData : sigDataArr)
@@ -580,7 +580,7 @@ UniValue kogsunsealpack(const UniValue& params, bool fHelp, const CPubKey& mypk)
 }
 
 // rpc kogscreatecontainer impl
-UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
@@ -639,7 +639,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
         throw runtime_error("duplicate tokenids in params\n");
 
 
-    std::vector<UniValue> sigDataArr = KogsCreateContainerV2(mypk, newcontainer, tokenids);
+    std::vector<UniValue> sigDataArr = KogsCreateContainerV2(remotepk, newcontainer, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &sigData : sigDataArr)
@@ -654,7 +654,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
 
 
 // rpc kogsdepositcontainer impl
-UniValue kogsdepositcontainer(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsdepositcontainer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear();
@@ -681,7 +681,7 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp, const CPubKey&
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
     
-    UniValue sigData = KogsDepositContainerV2(mypk, 0, gameid, containerid);
+    UniValue sigData = KogsDepositContainerV2(remotepk, 0, gameid, containerid);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -690,7 +690,7 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp, const CPubKey&
 }
 
 // rpc kogsclaimdepositedcontainer impl
-UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear();
@@ -719,7 +719,7 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp, const C
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
-    UniValue sigData = KogsClaimDepositedContainer(mypk, 0, gameid, containerid);
+    UniValue sigData = KogsClaimDepositedContainer(remotepk, 0, gameid, containerid);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -728,7 +728,7 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp, const C
 }
 
 // rpc kogsaddkogstocontainer impl
-UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
@@ -783,7 +783,7 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKe
     if (tokenids.size() != params.size())
         throw runtime_error("duplicate tokenids in params\n");
 
-    std::vector<UniValue> sigDataArr = KogsAddKogsToContainerV2(mypk, 0, containerid, tokenids);
+    std::vector<UniValue> sigDataArr = KogsAddKogsToContainerV2(remotepk, 0, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &sigData : sigDataArr)
@@ -796,7 +796,7 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKe
 }
 
 // rpc kogsremovekogsfromcontainer impl
-UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     UniValue jsonParams(UniValue::VOBJ);
@@ -868,7 +868,7 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const C
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
-    std::vector<UniValue> sigDataArr = KogsRemoveKogsFromContainerV2(mypk, 0, gameid, containerid, tokenids);
+    std::vector<UniValue> sigDataArr = KogsRemoveKogsFromContainerV2(remotepk, 0, gameid, containerid, tokenids);
     RETURN_IF_ERROR(CCerror);
     for (const auto &sigData : sigDataArr)
     {
@@ -881,7 +881,7 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const C
 
 
 // rpc kogsslamdata impl
-UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
@@ -944,7 +944,7 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (slamparams.armStrength < 0 || slamparams.armStrength > 100)
         throw runtime_error("incorrect armstrength value\n");
 
-    UniValue sigData = KogsAddSlamParams(mypk, slamparams);
+    UniValue sigData = KogsAddSlamParams(remotepk, slamparams);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -954,7 +954,7 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
 
 // rpc kogsburntoken impl (to burn nft objects)
-UniValue kogsburntoken(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsburntoken(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -974,7 +974,7 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (tokenid.IsNull())
         throw runtime_error("tokenid incorrect\n");
 
-    UniValue sigData = KogsBurnNFT(mypk, tokenid);
+    UniValue sigData = KogsBurnNFT(remotepk, tokenid);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -983,7 +983,7 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp, const CPubKey& mypk)
 }
 
 // rpc kogsremoveobject impl (to remove objects with errors)
-UniValue kogsremoveobject(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsremoveobject(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -1005,7 +1005,7 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp, const CPubKey& myp
 
     int32_t nvout = atoi(params[1].get_str().c_str());
 
-    UniValue sigData = KogsRemoveObject(mypk, txid, nvout);
+    UniValue sigData = KogsRemoveObject(remotepk, txid, nvout);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -1014,7 +1014,7 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp, const CPubKey& myp
 }
 
 // rpc kogskoglist impl (to return all kog tokenids)
-UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1037,7 +1037,7 @@ UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
 
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(KOGSID_KOG, onlymy, tokenids);
+    KogsCreationTxidList(remotepk, KOGSID_KOG, onlymy, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &t : tokenids)
@@ -1048,7 +1048,7 @@ UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 }
 
 // rpc kogsslammerlist impl (to return all slammer tokenids)
-UniValue kogsslammerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsslammerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1071,7 +1071,7 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp, const CPubKey& mypk
     }
 
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(KOGSID_SLAMMER, onlymy, tokenids);
+    KogsCreationTxidList(remotepk, KOGSID_SLAMMER, onlymy, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &t : tokenids)
@@ -1082,7 +1082,7 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp, const CPubKey& mypk
 }
 
 // rpc kogspacklist impl (to return all pack tokenids)
-UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1095,7 +1095,7 @@ UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
 
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(KOGSID_PACK, false, tokenids);
+    KogsCreationTxidList(remotepk, KOGSID_PACK, false, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &t : tokenids)
@@ -1106,7 +1106,7 @@ UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 }
 
 // rpc kogscontainerlist impl (to return all container tokenids)
-UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1129,7 +1129,7 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& my
     }
 
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(KOGSID_CONTAINER, onlymy, tokenids);
+    KogsCreationTxidList(remotepk, KOGSID_CONTAINER, onlymy, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &t : tokenids)
@@ -1140,7 +1140,7 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& my
 }
 
 // rpc kogsdepositedcontainerlist impl (to return all container tokenids)
-UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1168,7 +1168,7 @@ UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp, const CP
 }
 
 // rpc kogsplayerlist impl (to return all player creationids)
-UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1181,7 +1181,7 @@ UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
 
     std::vector<uint256> creationids;
-    KogsCreationTxidList(KOGSID_PLAYER, false, creationids);
+    KogsCreationTxidList(remotepk, KOGSID_PLAYER, false, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &i : creationids)
@@ -1192,7 +1192,7 @@ UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 }
 
 // rpc kogsgameconfiglist impl (to return all gameconfig creationids)
-UniValue kogsgameconfiglist(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsgameconfiglist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1205,7 +1205,7 @@ UniValue kogsgameconfiglist(const UniValue& params, bool fHelp, const CPubKey& m
     }
 
     std::vector<uint256> creationids;
-    KogsCreationTxidList(KOGSID_GAMECONFIG, false, creationids);
+    KogsCreationTxidList(remotepk, KOGSID_GAMECONFIG, false, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &i : creationids)
@@ -1216,7 +1216,7 @@ UniValue kogsgameconfiglist(const UniValue& params, bool fHelp, const CPubKey& m
 }
 
 // rpc kogsgamelist impl (to return all game creationids)
-UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
@@ -1229,7 +1229,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
 
     std::vector<uint256> creationids;
-    KogsCreationTxidList(KOGSID_GAME, false, creationids);
+    KogsCreationTxidList(remotepk, KOGSID_GAME, false, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &i : creationids)
@@ -1240,7 +1240,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& mypk)
 }
 
 // rpc kogsobjectinfo impl (to return info about a game object based on its tokenid)
-UniValue kogsobjectinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
+UniValue kogsobjectinfo(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     CCerror.clear();

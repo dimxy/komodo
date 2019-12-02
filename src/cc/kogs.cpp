@@ -479,10 +479,11 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
     return nullptr;
 }
 
-static void ListGameObjects(uint8_t objectType, bool onlymy, std::vector<std::shared_ptr<KogsBaseObject>> &list)
+static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, bool onlymy, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-    CPubKey mypk = pubkey2pk(Mypubkey());
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
     struct CCcontract_info *cp, C; 
     cp = CCinit(&C, EVAL_KOGS);
@@ -561,12 +562,12 @@ void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containeri
 }
 
 // returns all objects' creationtxid (tokenids or kog object creation txid) for the object with objectType
-void KogsCreationTxidList(uint8_t objectType, bool onlymy, std::vector<uint256> &creationtxids)
+void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool onlymy, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
 
     // get all objects with this objectType
-    ListGameObjects(objectType, onlymy, objlist);
+    ListGameObjects(remotepk, objectType, onlymy, objlist);
 
     for (auto &o : objlist)
     {
@@ -639,10 +640,10 @@ UniValue KogsCreatePack(const CPubKey &remotepk, KogsPack newpack, int32_t packs
         return NullUniValue;
 
     // get all kogs on the syspubkey 
-    ListGameObjects(KOGSID_KOG, true, koglist);
+    ListGameObjects(remotepk, KOGSID_KOG, true, koglist);
 
     // get all packs
-    ListGameObjects(KOGSID_PACK, false, packlist);
+    ListGameObjects(remotepk, KOGSID_PACK, false, packlist);
 
     // decrypt the packs content
     for (auto &p : packlist) {

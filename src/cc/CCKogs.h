@@ -896,7 +896,7 @@ void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containeri
 UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams);
 UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout);
 UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid);
-void KogsCreationTxidList(uint8_t objectType, bool onlymy, std::vector<uint256> &tokenids);
+void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool onlymy, std::vector<uint256> &tokenids);
 UniValue KogsObjectInfo(uint256 gameobjectid);
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
