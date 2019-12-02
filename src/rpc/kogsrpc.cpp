@@ -301,7 +301,6 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp, const CPubKey& myp
 UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
-    UniValue jsonParams;
 
     CCerror.clear();
 
@@ -312,7 +311,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
     if (fHelp || params.size() < 2)
     {
         throw runtime_error(
-            "kogsstartgame gameconfigid, playerid1, playerid2, ...  \n"
+            "kogsstartgame gameconfigid playerid1 playerid2 ...  \n"
             "starts a new game with 2 or more players\n"
             "returns game transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
@@ -325,7 +324,8 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
     std::set<uint256> playerids;
 
     // parse json array object:
-    /* if (params[1].getType() == UniValue::VARR)
+    /* UniValue jsonParams;
+    if (params[1].getType() == UniValue::VARR)
         jsonParams = params[1].get_array();
     else if (params[1].getType() == UniValue::VSTR)      // json in quoted string '[...]'
         jsonParams.read(params[1].get_str().c_str());    // convert to json
@@ -584,19 +584,18 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
 {
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
-    UniValue jsonParams;
-
+    
     CCerror.clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 5))
+    if (fHelp || (params.size() < 4))
     {
         throw runtime_error(
-            "kogscreatecontainer name description playerid '[tokenid1, tokenid2,...]' \n"
-            "creates a container with the passed 40 kog ids and one slammer id\n" "\n");
+            "kogscreatecontainer name description playerid tokenid1 tokenid2... \n"
+            "creates a container for playerid with the passed up to 40 kog ids and one slammer id\n" "\n");
     }
 
     KogsContainer newcontainer;
@@ -607,7 +606,9 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
         throw runtime_error("incorrect playerid\n");
     newcontainer.InitContainer(playerid);
 
+    std::set<uint256> tokenids;
     // parse json array object:
+    /* UniValue jsonParams;
     if (params[3].getType() == UniValue::VARR)
         jsonParams = params[3].get_array();
     else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '[...]'
@@ -615,7 +616,6 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
     if (jsonParams.getType() != UniValue::VARR || jsonParams.empty())
         throw runtime_error("parameter 1 must be array\n");
 
-    std::set<uint256> tokenids;
     for (int i = 0; i < jsonParams.getValues().size(); i++)
     {
         uint256 tokenid = Parseuint256(jsonParams.getValues()[i].get_str().c_str());
@@ -625,7 +625,19 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
             throw runtime_error(std::string("incorrect tokenid=") + jsonParams.getValues()[i].get_str() + std::string("\n"));
     }
     if (tokenids.size() != jsonParams.getValues().size())
+        throw runtime_error("duplicate tokenids in params\n");*/
+
+    for (int i = 3; i < params.size(); i++)
+    {
+        uint256 tokenid = Parseuint256(params.getValues()[i].get_str().c_str());
+        if (!tokenid.IsNull())
+            tokenids.insert(tokenid);
+        else
+            throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
+    }
+    if (tokenids.size() != params.size())
         throw runtime_error("duplicate tokenids in params\n");
+
 
     std::vector<UniValue> sigDataArr = KogsCreateContainerV2(mypk, newcontainer, tokenids);
     RETURN_IF_ERROR(CCerror);
@@ -654,7 +666,7 @@ UniValue kogsdepositcontainer(const UniValue& params, bool fHelp, const CPubKey&
     if (fHelp || (params.size() < 2 || params.size() > 3))
     {
         throw runtime_error(
-            "kogsdepositcontainer gameid containerid \n"
+            "kogsdepositcontainer gameid containerid\n"
             "deposits container to the game address\n"
             "parameters:\n"
             "gameid - id of the transaction created by kogsstartgame rpc\n"
@@ -690,7 +702,7 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp, const C
     if (fHelp || (params.size() < 2 || params.size() > 3))
     {
         throw runtime_error(
-            "kogsclaimdepositedcontainer gameid containerid \n"
+            "kogsclaimdepositedcontainer gameid containerid\n"
             "claims deposited container back from the game address\n"
             "parameters:\n"
             "gameid - id of the transaction created by kogsstartgame rpc\n"
@@ -720,17 +732,16 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKe
 {
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
-    UniValue jsonParams;
     CCerror.clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 2 || params.size() > 3))
+    if (fHelp || params.size() < 2)
     {
         throw runtime_error(
-            "kogsaddkogstocontainer containerid '[tokenid1, tokenid2, ...]' \n"
+            "kogsaddkogstocontainer containerid tokenid1 tokenid2 ... \n"
             "adds kog tokenids to container\n" "\n");
     }
 
@@ -738,7 +749,10 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKe
     if (containerid.IsNull())
         throw runtime_error("incorrect containerid\n");
 
+    std::set<uint256> tokenids;
     // parse json object:
+    /*UniValue jsonParams;
+
     if (params[1].getType() == UniValue::VARR)
         jsonParams = params[1].get_array();
     else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '[...]'
@@ -756,6 +770,17 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKe
             throw runtime_error(std::string("incorrect tokenid=") + jsonParams.getValues()[i].get_str() + std::string("\n"));
     }
     if (tokenids.size() != jsonParams.getValues().size())
+        throw runtime_error("duplicate tokenids in params\n");*/
+
+    for (int i = 1; i < params.size(); i++)
+    {
+        uint256 tokenid = Parseuint256(params[i].get_str().c_str());
+        if (!tokenid.IsNull())
+            tokenids.insert(tokenid);
+        else
+            throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
+    }
+    if (tokenids.size() != params.size())
         throw runtime_error("duplicate tokenids in params\n");
 
     std::vector<UniValue> sigDataArr = KogsAddKogsToContainerV2(mypk, 0, containerid, tokenids);
@@ -933,7 +958,7 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 1 || params.size() > 2))
+    if (fHelp || params.size() != 1)
     {
         throw runtime_error(
             "kogsburntoken tokenid \n"
@@ -1013,7 +1038,7 @@ UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
 
-    result.push_back(std::make_pair("kogids", resarray));
+    result.push_back(std::make_pair("tokenids", resarray));
     return result;
 }
 
@@ -1047,7 +1072,7 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp, const CPubKey& mypk
     for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
 
-    result.push_back(std::make_pair("slammerids", resarray));
+    result.push_back(std::make_pair("tokenids", resarray));
     return result;
 }
 
@@ -1071,7 +1096,7 @@ UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
 
-    result.push_back(std::make_pair("packids", resarray));
+    result.push_back(std::make_pair("tokenids", resarray));
     return result;
 }
 
@@ -1105,7 +1130,7 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& my
     for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
 
-    result.push_back(std::make_pair("containerids", resarray));
+    result.push_back(std::make_pair("tokenids", resarray));
     return result;
 }
 
@@ -1133,7 +1158,7 @@ UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp, const CP
     for (auto t : tokenids)
         resarray.push_back(t.GetHex());
 
-    result.push_back(std::make_pair("DepositedContainerIds", resarray));
+    result.push_back(std::make_pair("tokenids", resarray));
     return result;
 }
 
@@ -1157,7 +1182,7 @@ UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     for (const auto &i : creationids)
         resarray.push_back(i.GetHex());
 
-    result.push_back(std::make_pair("playerids", resarray));
+    result.push_back(std::make_pair("tokenids", resarray));
     return result;
 }
 
@@ -1181,7 +1206,7 @@ UniValue kogsgameconfiglist(const UniValue& params, bool fHelp, const CPubKey& m
     for (const auto &i : creationids)
         resarray.push_back(i.GetHex());
 
-    result.push_back(std::make_pair("gameconfigids", resarray));
+    result.push_back(std::make_pair("tokenids", resarray));
     return result;
 }
 
@@ -1205,7 +1230,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& mypk)
     for (const auto &i : creationids)
         resarray.push_back(i.GetHex());
 
-    result.push_back(std::make_pair("gameids", resarray));
+    result.push_back(std::make_pair("tokenids", resarray));
     return result;
 }
 
