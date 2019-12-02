@@ -312,7 +312,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
     if (fHelp || params.size() != 2)
     {
         throw runtime_error(
-            "kogsstartgame gameconfigid '[playerid1, playerid2, ...]'  \n"
+            "kogsstartgame gameconfigid, 'players:[ playerid1, playerid2, ...]'  \n"
             "starts a new game with 2 or more players\n"
             "returns game transaction to be sent via sendrawtransaction rpc\n" "\n");
     }
@@ -322,15 +322,15 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
     if (newgame.gameconfigid.IsNull())
         throw runtime_error("incorrect gameconfigid param\n");
 
+    std::set<uint256> playerids;
+
     // parse json array object:
-    if (params[1].getType() == UniValue::VARR)
+    /* if (params[1].getType() == UniValue::VARR)
         jsonParams = params[1].get_array();
-    else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '[...]'
-        jsonParams.read(params[1].get_str().c_str());
+    else if (params[1].getType() == UniValue::VSTR)      // json in quoted string '[...]'
+        jsonParams.read(params[1].get_str().c_str());    // convert to json
     if (jsonParams.getType() != UniValue::VARR || jsonParams.empty())
         throw runtime_error("parameter 1 must be array\n");
-
-    std::set<uint256> playerids;
     for (int i = 0; i < jsonParams.getValues().size(); i++)
     {
         uint256 playerid = Parseuint256(jsonParams.getValues()[i].get_str().c_str());
@@ -339,9 +339,19 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
         else
             throw runtime_error(std::string("incorrect playerid=") + jsonParams.getValues()[i].get_str() + std::string("\n"));
     }
-
     if (playerids.size() != jsonParams.getValues().size())
-        throw runtime_error("duplicate playerids in params\n");
+        throw runtime_error("duplicate playerids in params\n"); */
+
+    for (int i = 1; i < params.size(); i++)
+    {
+        uint256 playerid = Parseuint256(params[i].get_str().c_str());
+        if (!playerid.IsNull())
+            playerids.insert(playerid);
+        else
+            throw runtime_error(std::string("incorrect playerid=") + params[i].get_str() + std::string("\n"));
+    }
+    if (playerids.size() != params.size() - 1)
+        throw runtime_error("duplicate playerids in params\n"); 
 
     for (const auto &p : playerids)
         newgame.playerids.push_back(p);

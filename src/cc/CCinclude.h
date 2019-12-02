@@ -98,15 +98,7 @@ Details.
 /// @see EncodeTokenCreateOpRet(uint8_t funcid, std::vector<uint8_t> origpubkey, std::string name, std::string description, std::vector<std::pair<uint8_t, vscript_t>> oprets)
 /// @see GetOpretBlob
 enum opretid : uint8_t {
-// token transfer opret structure:
-// EVAL_TOKENS 't' tokenid <datablob-1> <datablob-2> ...
-// datablob structure:
-// OPRETID_XXXDATA <opret>
-// opret structure is usual:
-// EVAL_XXX funcid data
-// token opret additional datablob ids:    // cc contracts data (with eval codes)
-    // their eval codes are added in cc vouts as the eval cryptocondition
-    // so they are used in IsTokensvout cc vout validation
+    // cc contracts data:
     OPRETID_NONFUNGIBLEDATA = 0x11, //!< NFT data id
     OPRETID_ASSETSDATA = 0x12,      //!< assets contract data id
     OPRETID_GATEWAYSDATA = 0x13,    //!< gateways contract data id
@@ -117,18 +109,11 @@ enum opretid : uint8_t {
 
     /*! \cond INTERNAL */
     // non cc contract data:
-    // non-cc contract data blob ids start from 0x80
-    // such datablobs do not have eval code at their beginnings 
-    // so for them eval cryptoconditions are not added into token vouts 
-    // and they are not used in IsTokensvout checking    
-    /*! \endcond */
     OPRETID_FIRSTNONCCDATA = 0x80,
+    /*! \endcond */
     OPRETID_BURNDATA = 0x80,        //!< burned token data id
     OPRETID_IMPORTDATA = 0x81       //!< imported token data id
 };
-// we need this OPRETID_XXX identifier (and could not use only evalcode for this purpose)
-// because there could be datablobs like 'serialized burn transaction', which do not have a dedicated eval code
-// to cover all such cases we introduced OPRETID_XXXs
 
 /// finds opret blob data by opretid in the vector of oprets
 /// @param oprets vector of oprets
@@ -166,11 +151,13 @@ struct CC_meta
 
 // dimxy
 // class CCWrapper encapsulates and stores cryptocondition encoded in json
-// such stored conds are used in FinalizeCCtx as a probe scriptPubKey to find out the matching vin tx cc vout and make the tx.vin.scriptSig
+// stored cc is used as probe in FinalizeCCtx to find vintx cc vout and make matching tx.vin.scriptSig
 class CCwrapper {
 public:
-    CCwrapper() {}
+    CCwrapper() { }
+
     void setCC(CC *cond) {
+      
         if (cond)
         {
             char *jsonstr = cc_conditionToJSONString(cond);
@@ -178,25 +165,26 @@ public:
                 ccJsonString = jsonstr;
                 free(jsonstr);
             }
+            //std::cerr << "CCwrapper setCC setting ccJsonString" << std::endl;
         }
     }
 
     CC *getCC() {
         char err[1024] = "";
         CC *cond = NULL;
-
+        
         if (!ccJsonString.empty())
             cond = cc_conditionFromJSONString(ccJsonString.c_str(), err);  // caller, please don't forget to cc_free the returned cond!
 
         // debug logging if parse not successful:
-        // std::cerr << "CCwrapper ccJsonString=" << ccJsonString << "\nerr=" << err << std::endl;  
+        //std::cerr << "CCwrapper ccJsonString=" << ccJsonString << "\nerr=" << err << std::endl;  
         // if( cond ) std::cerr << "CCwrapper serialized=" << cc_conditionToJSONString(cond) << std::endl;  //see how it is serialized back
         return cond;
     }
-    ~CCwrapper() {}
+
+    ~CCwrapper() { }
 
 private:
-    // stores cc converted to json:
     std::string ccJsonString;
 };
 
@@ -263,11 +251,12 @@ struct CCcontract_info
     /// \endcode
     bool (*ismyvin)(CScript const& scriptSig);	
 
-	std::vector< struct CCVintxProbe > CCvintxprobes;  //!< stores probe cryptoconditions and privkeys to find vintx cc vouts and sign vins
-
     /// @private
     uint8_t didinit;
 
+	std::vector< struct CCVintxProbe > CCvintxprobes;  //<! list of conds for signing cc vin with specific privkeys and eval codes
+
+    /// @private
     void init_to_zeros() {
         // init to zeros:
         evalcode = 0;
@@ -294,6 +283,7 @@ struct CCcontract_info
         validate = NULL;
         didinit = 0;
     }
+
 };
 
 /// init CCcontract_info structure with global pubkey, privkey and address for the contract identified by the passed evalcode.\n
@@ -319,27 +309,11 @@ struct oracleprice_info
 /// \endcond
 
 
-typedef std::vector<uint8_t> vscript_t;     // opret data
+typedef std::vector<uint8_t> vscript_t;     // typedef for opret data
 typedef std::vector<uint8_t> vuint8_t;      // typedef for other cases (apart from oprets)
 
+
 extern struct NSPV_CCmtxinfo NSPV_U;  //!< global variable with info about mtx object and used utxo
-
-/// store cond to vin indexes map allowing to sign cc vins of partially signed mtx on superlite clients where myprivkey is available
-/*struct NSPVSigData {
-
-    struct CCVinInfo
-    {
-        int32_t vini;
-        std::string ccjson;
-        CAmount amount;
-        CScript scriptPubKey;  // for normals
-    };
-
-    std::string hexTx;  // partially signed tx in hex
-    //std::map<std::string, std::vector<int32_t>> ccvinmap;  // map conds in json to not signed vin index array
-    std::vector<CCVinInfo> ccvininfo;
-    std::string CCerror;
-};*/
 
 #ifdef ENABLE_WALLET
 extern CWallet* pwalletMain;  //!< global wallet object pointer to access wallet functionality
@@ -432,6 +406,9 @@ int64_t CCaddress_balance(char *coinaddr,int32_t CCflag);
 /// @return the public key for the created address 
 CPubKey CCtxidaddr(char *txidaddr,uint256 txid);
 
+/// @private
+CPubKey CCtxidaddr_tweak(char *txidaddr, uint256 txid);
+
 /// Creates a custom bitcoin address from a transaction id. This address can never be spent
 /// @param[out] txidaddr returned address created from txid value 
 /// @param txid transaction id
@@ -468,10 +445,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 /// An overload that also returns NFT data in vopretNonfungible parameter
 /// the rest parameters are the same as in the first AddTokenCCInputs overload
 /// @see AddTokenCCInputs
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs);
-
-/// @private overload used in kogs
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs);
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible);
 
 /// Checks if a transaction vout is true token vout, for this check pubkeys and eval code in token opreturn are used to recreate vout and compare it with the checked vout.
 /// Verifies that the transaction total token inputs value equals to total token outputs (that is, token balance is not changed in this transaction)
@@ -1027,11 +1001,12 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
 /// @param CCflag if true the function searches for cc output, otherwise for normal output
 /// @returns utxo value or 0 if utxo not found
 int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCflag);
-/// @private
-void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, uint8_t *priv = NULL);
 
 /// @private
 int32_t CC_vinselect(int32_t *aboveip, int64_t *abovep, int32_t *belowip, int64_t *belowp, struct CC_utxo utxos[], int32_t numunspents, int64_t value);
+
+/// @private
+void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, const uint8_t *priv = NULL);
 
 /// @private
 bool NSPV_SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey,uint32_t nTime);
@@ -1052,54 +1027,13 @@ int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey);
 inline std::string STR_TOLOWER(const std::string &str) { std::string out; for (std::string::const_iterator i = str.begin(); i != str.end(); i++) out += std::tolower(*i); return out; }
 /*! \endcond */
 
-/*! \cond INTERNAL */
-#define JSON_RESULT     "result"
-#define JSON_ERROR      "error"
-#define JSON_HEXTX      "hex"
-#define JSON_SIGDATA    "SigData"
-
-inline bool ResultHasTx(const UniValue &result) {
-    return !result[JSON_HEXTX].getValStr().empty();
-}
-inline std::string ResultGetTx(const UniValue &result) {
-    return ResultHasTx(result) ? result[JSON_HEXTX].getValStr() : std::string();
-}
-inline bool ResultIsError(const UniValue &result) {
-    return result.isNull() || !result[JSON_ERROR].getValStr().empty();
-}
-inline std::string ResultGetError(const UniValue &result) {
-    if (!result[JSON_ERROR].getValStr().empty())
-        return result[JSON_ERROR].getValStr();
-    else
-        return std::string();
-}
-inline UniValue MakeResultError(const std::string &err) {
-    UniValue result(UniValue::VOBJ);
-    result.pushKV(std::string(JSON_RESULT), "error");
-    result.pushKV(std::string(JSON_ERROR), err);
-    return result;
-}
-
-/*! \endcond */
-
-#define IS_REMOTE(remotepk) (remotepk.IsValid())
+#define JSON_HEXTX "hex"
+#define JSON_SIGDATA "SigData"
 
 /// @private add sig data for signing partially signed tx to UniValue object
 void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount);
 
-/*! \cond INTERNAL */
-// locking and reservation of utxo to prevent adding utxo to several mtx objects and allow use of normal change utxos:
-void ActivateUtxoLock();
-void DeactivateUtxoLock();
-bool isLockUtxoActive();
-bool isUtxoLocked(uint256 txid, int32_t nvout);
-void LockUtxo(uint256 txid, int32_t nvout);
-bool AddInMemoryTransaction(const CTransaction &tx);
-bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
-/*! \endcond */
-
-// convert NSPVSigData to UniValue:
-//UniValue NSPVSigData2UniValue(const NSPVSigData &sigData);
+#define RETURN_IF_ERROR(CCerror) if ( CCerror != "" ) { UniValue result(UniValue::VOBJ); ERR_RESULT(CCerror); return(result); }
 
 #ifndef LOGSTREAM_DEFINED
 #define LOGSTREAM_DEFINED 
@@ -1138,12 +1072,12 @@ void CCLogPrintStream(const char *category, int level, const char *functionName,
 /// @param logoperator to form the log message (the 'stream' name is mandatory)
 /// usage: LOGSTREAM("category", debug-level, stream << "some log data" << data2 << data3 << ... << std::endl);
 /// example: LOGSTREAM("heir", CCLOG_INFO, stream << "heir public key is " << HexStr(heirPk) << std::endl);
-#define LOGSTREAM(category, level, logoperator) CCLogPrintStream( category, level, NULL, [=](std::ostringstream &stream) {logoperator;} )
+#define LOGSTREAM(category, level, logoperator) CCLogPrintStream( category, level, NULL, [&](std::ostringstream &stream) {logoperator;} )
 
 /// LOGSTREAMFN is a version of LOGSTREAM macro which adds calling function name with the standard define \_\_func\_\_ at the beginning of the printed string. 
 /// LOGSTREAMFN parameters are the same as in LOGSTREAM
 /// @see LOGSTREAM
-#define LOGSTREAMFN(category, level, logoperator) CCLogPrintStream( category, level, __func__, [=](std::ostringstream &stream) {logoperator;} )
+#define LOGSTREAMFN(category, level, logoperator) CCLogPrintStream( category, level, __func__, [&](std::ostringstream &stream) {logoperator;} )
 
 /// @private
 template <class T>
@@ -1161,6 +1095,6 @@ UniValue report_ccerror(const char *category, int level, T print_to_stream)
 }
 
 /// @private
-#define CCERR_RESULT(category,level,logoperator) return report_ccerror(category, level, [=](std::ostringstream &stream) {logoperator;})
+#define CCERR_RESULT(category,level,logoperator) return report_ccerror(category, level, [&](std::ostringstream &stream) {logoperator;})
 #endif // #ifndef LOGSTREAM_DEFINED
 #endif
