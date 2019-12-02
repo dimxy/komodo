@@ -884,7 +884,6 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const C
 UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
-    UniValue jsonParams(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
     CCerror.clear();
 
@@ -892,11 +891,11 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 3 || params.size() > 4))
+    if (fHelp || params.size() != 4)
     {
         throw runtime_error(
-            "kogsslamdata gameid playerid '{ \"armheight\":value, \"armstrength\":value }' \n"
-            "sends slam data to the chain, triggers stack reloading\n" "\n");
+            "kogsslamdata gameid playerid armheight armstrength\n"
+            "sends slam data to the chain, triggers kogs stack reloading\n" "\n");
     }
 
     KogsSlamParams slamparams;
@@ -910,6 +909,7 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& mypk)
         throw runtime_error("playerid incorrect\n");
 
     // parse json object:
+/*  UniValue jsonParams(UniValue::VOBJ);
     if (params[2].getType() == UniValue::VOBJ)
         jsonParams = params[2].get_obj();
     else if (params[2].getType() == UniValue::VSTR)  // json in quoted string '{...}'
@@ -927,15 +927,20 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
     else
         throw runtime_error("no armheight value\n");
-    if (slamparams.armHeight < 0 || slamparams.armHeight > 100)
-        throw runtime_error("incorrect armheight value\n");
 
     iter = std::find(paramkeys.begin(), paramkeys.end(), "armstrength");
     if (iter != paramkeys.end()) {
         slamparams.armStrength = atoi(jsonParams[iter - paramkeys.begin()].get_str().c_str());
     }
     else
-        throw runtime_error("no armstrength value\n");
+        throw runtime_error("no armstrength value\n"); */
+
+    slamparams.armHeight = atoi(params[2].get_str().c_str());
+    slamparams.armStrength = atoi(params[3].get_str().c_str());
+
+    if (slamparams.armHeight < 0 || slamparams.armHeight > 100)
+        throw runtime_error("incorrect armheight value\n");
+
     if (slamparams.armStrength < 0 || slamparams.armStrength > 100)
         throw runtime_error("incorrect armstrength value\n");
 
