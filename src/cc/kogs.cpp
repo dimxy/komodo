@@ -479,7 +479,36 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
     return nullptr;
 }
 
-static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, bool onlymy, std::vector<std::shared_ptr<KogsBaseObject>> &list)
+class GOCheckerBase{
+public:
+    virtual bool operator()(KogsBaseObject*) = 0;
+};
+
+// game object checker if NFT is mine
+class IsNFTMineChecker : public GOCheckerBase  {
+public:
+    virtual bool operator()(KogsBaseObject *obj) {
+        return obj != NULL && IsNFTmine(obj->creationtxid);
+    }
+};
+
+class GameHasPlayerIdChecker : public GOCheckerBase {
+public:
+    GameHasPlayerIdChecker(uint256 _playerid) { playerid = _playerid; }
+    virtual bool operator()(KogsBaseObject *obj) {
+        if (obj != NULL && obj->objectType == KOGSID_GAME)
+        {
+            KogsGame *game = (KogsGame*)obj;
+            return std::find(game->playerids.begin(), game->playerids.end(), playerid) != game->playerids.end();
+        }
+        else
+            return false;
+    }
+private:
+    uint256 playerid;
+};
+
+static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, GOCheckerBase *pObjChecker, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
     bool isRemote = IS_REMOTE(remotepk);
@@ -495,7 +524,7 @@ static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, bool on
         if (it->second.satoshis == 10000) // to differenciate it from baton
         {
             struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectType and unmarshal corresponding gameobject
-            if (obj != nullptr && obj->objectType == objectType && (!onlymy || IsNFTmine(obj->creationtxid)))
+            if (obj != nullptr && obj->objectType == objectType && (pObjChecker == NULL || (*pObjChecker)(obj)))
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
         }
     }
@@ -565,15 +594,31 @@ void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containeri
 void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool onlymy, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
+    IsNFTMineChecker checker;
 
     // get all objects with this objectType
-    ListGameObjects(remotepk, objectType, onlymy, objlist);
+    ListGameObjects(remotepk, objectType, onlymy ? &checker : nullptr, objlist);
 
     for (auto &o : objlist)
     {
         creationtxids.push_back(o->creationtxid);
     }
 } 
+
+// returns game list, either in which playerid participates or all
+void KogsGameTxidList(const CPubKey &remotepk, uint256 playerid, std::vector<uint256> &creationtxids)
+{
+    std::vector<std::shared_ptr<KogsBaseObject>> objlist;
+    GameHasPlayerIdChecker checker(playerid);
+
+    // get all objects with this objectType
+    ListGameObjects(remotepk, KOGSID_GAME, !playerid.IsNull() ? &checker : nullptr, objlist);
+
+    for (auto &o : objlist)
+    {
+        creationtxids.push_back(o->creationtxid);
+    }
+}
 
 
 // consensus code
@@ -590,6 +635,7 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::ve
 {
     std::vector<UniValue> results;
 
+    // TODO: do we need to check remote pk or suppose we are always in local mode with sys pk in the wallet?
     if (!CheckSysPubKey())
         return NullResults;
     
@@ -635,15 +681,17 @@ UniValue KogsCreatePack(const CPubKey &remotepk, KogsPack newpack, int32_t packs
 {
     std::vector<std::shared_ptr<KogsBaseObject>> koglist;
     std::vector<std::shared_ptr<KogsBaseObject>> packlist;
+    IsNFTMineChecker checker;
 
+    // TODO: do we need to check remote pk or suppose we are always in local mode with sys pk in the wallet?
     if (!CheckSysPubKey())
         return NullUniValue;
 
     // get all kogs on the syspubkey 
-    ListGameObjects(remotepk, KOGSID_KOG, true, koglist);
+    ListGameObjects(remotepk, KOGSID_KOG, &checker, koglist);
 
     // get all packs
-    ListGameObjects(remotepk, KOGSID_PACK, false, packlist);
+    ListGameObjects(remotepk, KOGSID_PACK, nullptr, packlist);
 
     // decrypt the packs content
     for (auto &p : packlist) {

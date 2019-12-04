@@ -1224,12 +1224,15 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
     if (fHelp || (params.size() > 1))
     {
         throw runtime_error(
-            "kogsgamelist\n"
-            "returns all game ids\n" "\n");
+            "kogsgamelist [playerid]\n"
+            "returns all game ids or in which playerid participates\n" "\n");
     }
 
+    uint256 playerid = zeroid;
+    if (params.size() == 1)
+        playerid = Parseuint256(params[0].get_str().c_str());
     std::vector<uint256> creationids;
-    KogsCreationTxidList(remotepk, KOGSID_GAME, false, creationids);
+    KogsGameTxidList(remotepk, playerid, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &i : creationids)
