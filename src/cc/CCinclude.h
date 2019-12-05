@@ -1099,9 +1099,9 @@ template <class T>
 void CCLogPrintStream(const char *category, int level, const char *functionName, T print_to_stream)
 {
     std::ostringstream stream;
-    print_to_stream(stream);
     if (functionName != NULL)
         stream << functionName << " ";
+    print_to_stream(stream);
     CCLogPrintStr(category, level, stream.str()); 
 }
 /// Macro for logging messages using bitcoin LogAcceptCategory and LogPrintStr functions.
