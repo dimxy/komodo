@@ -1270,21 +1270,23 @@ UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& 
     UniValue crparams(UniValue::VARR);
     UniValue result(UniValue::VOBJ);
 
-    for (int i = 0; i < params.size() - 1; i++)
+    if (fHelp || (params.size() != 1))
+    {
+        throw runtime_error(
+            "kogscreatekogsbunch '{\"kogs\":[...]}' \n"
+            "creates bunch of kogs, \"kogs\" param like in kogscreatekogs\n" "\n");
+    }
+
+    for (int i = 0; i < params.size(); i++)
     {
         crparams.push_back(params[i]);
     }
-
-    
-    //vuint8_t vpubkey = ParseHex(params[params.size() - 1].get_str().c_str());
-    //CPubKey toPk = pubkey2pk(vpubkey);
 
     UniValue crresult = kogscreatekogs(crparams, fHelp, remotepk);
     CPubKey mypk = pubkey2pk(Mypubkey());
 
     if (!crresult["hextxns"].getValues().empty())
     {
-        //std::vector<std::string> kogids;
         UniValue kogids(UniValue::VARR);
 
         for (auto const &v : crresult["hextxns"].getValues()) {
@@ -1332,6 +1334,14 @@ UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& 
 UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
+
+    if (fHelp || (params.size() < 2))
+    {
+        throw runtime_error(
+            "kogstransferkogsbunch tokenid tokenid ... pubkey \n"
+            "transfers bunch of kogs to pubkey\n" "\n");
+    }
+
     std::string topubkey = params[params.size() - 1].get_str();
 
     for (int i = 0; i < params.size()-1; i++ )
