@@ -366,7 +366,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
 
 
 // helper function
-static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
+static UniValue CreateMatchObjects(const CPubKey& remotepk, const UniValue& params, bool isKogs)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
     CCerror.clear();
@@ -438,13 +438,13 @@ static UniValue CreateMatchObjects(const UniValue& params, bool isKogs)
         }
     }
 
-    CPubKey remotepk;
+/*    CPubKey remotepk;
     if (params.size() == 2)
         remotepk = pubkey2pk(ParseHex(params[1].get_str().c_str()));
     else
         remotepk = pubkey2pk(Mypubkey());
     if (!remotepk.IsFullyValid())
-        throw runtime_error("remotepk is not set\n");
+        throw runtime_error("remotepk is not set\n");*/
 
     std::vector<UniValue> sigDataArr = KogsCreateMatchObjectNFTs(remotepk, gameobjects);
     RETURN_IF_ERROR(CCerror);
@@ -475,7 +475,7 @@ UniValue kogscreatekogs(const UniValue& params, bool fHelp, const CPubKey& remot
             "kogscreatekogs '{\"kogs\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}' \n"
             "creates array of kog NFT creation transactions to be sent via sendrawtransaction rpc\n" "\n");
     }
-    return CreateMatchObjects(params, true);
+    return CreateMatchObjects(remotepk, params, true);
 }
 
 // rpc kogscreateslammers impl
@@ -493,7 +493,7 @@ UniValue kogscreateslammers(const UniValue& params, bool fHelp, const CPubKey& r
             "kogscreateslammers '{\"slammers\":[{\"nameId\":\"string\", \"descriptionId\":\"string\",\"imageId\":\"string\",\"setId\":\"string\",\"subsetId\":\"string\"}, {...}]}' \n"
             "creates array of slammer NFT creation transactions to be sent via sendrawtransaction rpc\n" "\n");
     }
-    return CreateMatchObjects(params, false);
+    return CreateMatchObjects(remotepk, params, false);
 }
 
 // rpc kogscreatepack impl
