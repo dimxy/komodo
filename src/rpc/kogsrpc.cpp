@@ -1290,7 +1290,7 @@ UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& 
             UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
             UniValue result(UniValue::VOBJ);
             
-            txparam.setStr(v.getValStr());
+            txparam.setStr(v["hex"].getValStr());
             rpcparams.push_back(txparam);
             try {
                 UniValue sent = sendrawtransaction(rpcparams, false, CPubKey());  // NOTE: throws error!
