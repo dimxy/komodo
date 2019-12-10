@@ -1267,7 +1267,7 @@ UniValue kogsobjectinfo(const UniValue& params, bool fHelp, const CPubKey& remot
 
 UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    UniValue crparams;
+    UniValue crparams(UniValue::VARR);
     UniValue result(UniValue::VOBJ);
 
     for (int i = 0; i < params.size() - 1; i++)
