@@ -1275,7 +1275,7 @@ UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& 
         crparams.push_back(params[i]);
     }
 
-    std::string topubkey = params[params.size() - 1].get_str();
+    
     //vuint8_t vpubkey = ParseHex(params[params.size() - 1].get_str().c_str());
     //CPubKey toPk = pubkey2pk(vpubkey);
 
@@ -1284,7 +1284,8 @@ UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& 
 
     if (!crresult["hextxns"].getValues().empty())
     {
-        std::vector<std::string> kogids;
+        //std::vector<std::string> kogids;
+        UniValue kogids(UniValue::VARR);
 
         for (auto const &v : crresult["hextxns"].getValues()) {
             UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
@@ -1299,7 +1300,7 @@ UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& 
             }
             catch (std::runtime_error error)
             {
-                std::cerr << "cant send kog tx to chain error=" << error.what() << std::endl;
+                std::cerr << "cant send kog tx to chain, error=" << error.what() << std::endl;
                 result.pushKV("result", "error");
                 result.pushKV("error", "cant send kog tx");
                 return result;
@@ -1307,54 +1308,16 @@ UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& 
             }
             catch (UniValue error)
             {
-                std::cerr << "cant send kog tx to chain univalue error=" << error.getValStr() << std::endl;
+                std::cerr << "cant send kog tx to chain, univalue error=" << error.getValStr() << std::endl;
                 result.pushKV("result", "error");
                 result.pushKV("error", "cant send kog tx");
                 return result;
             }
         }
-
-        for (auto const & kogid : kogids)
-        {
-            UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
-            UniValue trparams(UniValue::VARR);
-            trparams.push_back(kogid);
-            trparams.push_back(topubkey);
-            trparams.push_back("1");
-
-            UniValue transferred = tokentransfer(trparams, false, CPubKey());
-
-            if (transferred["hex"].getValStr().empty()) {
-                std::cerr << "tokentransfer did not return hex tx" << std::endl;
-                result.pushKV("result", "error");
-                result.pushKV("error", "cant create tokentransfer");
-                return result;
-            }
-
-            txparam.setStr(transferred["hex"].getValStr());
-            rpcparams.push_back(txparam);
-            try {
-                UniValue sent = sendrawtransaction(rpcparams, false, CPubKey());  // NOTE: throws error!
-                std::cerr << "transferred kog to pk txid=" << sent.getValStr() << std::endl;
-            }
-            catch (std::runtime_error error)
-            {
-                std::cerr <<  "cant send transfer tx to chain error=" << error.what() << std::endl;
-                result.pushKV("result", "error");
-                result.pushKV("error", "cant send tokentransfer");
-                return result;
-            }
-            catch (UniValue error)
-            {
-                std::cerr << "cant send transfer tx to chain univalue error=" <<  error.getValStr() << std::endl;
-                result.pushKV("result", "error");
-                result.pushKV("error", "cant send tokentransfer");
-                return result;
-            }
-        }
-
 
         result.pushKV("result", "success");
+        result.pushKV("createdkogids", kogids);
+
         return result;
     }
     else
@@ -1365,6 +1328,55 @@ UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& 
     }
 
 }
+
+UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ);
+    std::string topubkey = params[params.size() - 1].get_str();
+
+    for (int i = 0; i < params.size()-1; i++ )
+    {
+        UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
+        UniValue trparams(UniValue::VARR);
+        trparams.push_back(params[i].getValStr());
+        trparams.push_back(topubkey);
+        trparams.push_back("1");
+
+        UniValue transferred = tokentransfer(trparams, false, CPubKey());
+
+        if (transferred["hex"].getValStr().empty()) {
+            std::cerr << "tokentransfer did not return hex tx" << std::endl;
+            result.pushKV("result", "error");
+            result.pushKV("error", "cant create tokentransfer" + transferred["error"].getValStr());
+            return result;
+        }
+
+        txparam.setStr(transferred["hex"].getValStr());
+        rpcparams.push_back(txparam);
+        try {
+            UniValue sent = sendrawtransaction(rpcparams, false, CPubKey());  // NOTE: throws error!
+            std::cerr << "transferred kog to pk txid=" << sent.getValStr() << std::endl;
+        }
+        catch (std::runtime_error error)
+        {
+            std::cerr << "cant send transfer tx to chain, error=" << error.what() << std::endl;
+            result.pushKV("result", "error");
+            result.pushKV("error", "cant send tokentransfer");
+            return result;
+        }
+        catch (UniValue error)
+        {
+            std::cerr << "cant send transfer tx to chain, univalue error=" << error.getValStr() << std::endl;
+            result.pushKV("result", "error");
+            result.pushKV("error", "cant send tokentransfer tx");
+            return result;
+        }
+    }
+
+    result.pushKV("result", "success");
+    return result;
+}
+
 
 
 static const CRPCCommand commands[] =
@@ -1395,7 +1407,8 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsremoveobject",       &kogsremoveobject,        true },
     { "kogs",         "kogsslamdata",           &kogsslamdata,            true },
     { "kogs",         "kogsobjectinfo",         &kogsobjectinfo,          true },
-    { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true }
+    { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
+    { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true }
 };
 
 
