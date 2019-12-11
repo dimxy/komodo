@@ -228,7 +228,7 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, KogsBaseObject *baseo
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    KogsEnclosure enc(zeroid);  //'zeroid' means 'for creation'
+    KogsEnclosure enc(mypk);  //'zeroid' means 'for creation'
 
     enc.vdata = baseobj->Marshal();
     enc.name = baseobj->nameId;
@@ -269,7 +269,7 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    KogsEnclosure enc(zeroid);  // 'zeroid' means 'for creation'
+    KogsEnclosure enc(minerpk);  // 'zeroid' means 'for creation'
     enc.vdata = pbaton->Marshal();
     enc.name = pbaton->nameId;
     enc.description = pbaton->descriptionId;
@@ -308,7 +308,7 @@ static UniValue CreateSlamParamTx(const CPubKey &remotepk, uint256 prevtxid, int
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    KogsEnclosure enc(zeroid);  // 'zeroid' means 'for creation'
+    KogsEnclosure enc(mypk);  // 'zeroid' means 'for creation'
     enc.vdata = slamparam.Marshal();
     enc.name = slamparam.nameId;
     enc.description = slamparam.descriptionId;
@@ -443,11 +443,10 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
         }
         else if (vopret.begin()[0] == EVAL_KOGS)
         {
-            KogsEnclosure enc(zeroid);
+            KogsEnclosure enc;
 
             // parse kogs enclosure:
-            // get LATEST TX and get data from the opret
-            if (KogsEnclosure::DecodeLastOpret(tx, enc))
+            if (KogsEnclosure::DecodeLastOpret(tx, enc))   // finds THE FIRST and LATEST TX and gets data from the oprets
             {
                 uint8_t objectType;
 
