@@ -1059,8 +1059,12 @@ template <class T>
 void CCLogPrintStream(const char *category, int level, const char *functionName, T print_to_stream)
 {
     std::ostringstream stream;
+
+    stream << (category ? category : "") << " ";
     if (functionName != NULL)
         stream << functionName << " ";
+    if (level < 0)
+        stream << "ERROR:" << " ";
     print_to_stream(stream);
     CCLogPrintStr(category, level, stream.str()); 
 }
