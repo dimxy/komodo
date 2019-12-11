@@ -510,8 +510,8 @@ struct KogsEnclosure {
             {
                 READWRITE(name);
                 READWRITE(description);
-                if (!ser_action.ForRead())  // if 'for write' ...
-                    origpk = pubkey2pk(Mypubkey()); // ... then store mypk
+                //if (!ser_action.ForRead())  // if 'for write' ...
+                //    origpk = pubkey2pk(Mypubkey()); // ... then store mypk
                 READWRITE(origpk);
 
             }
@@ -601,12 +601,17 @@ struct KogsEnclosure {
 
     // pass creationtxid for spending existing
     // pass zeroid for creation of new tx or deserialization
-    KogsEnclosure(uint256 creationtxid_)  { 
+    KogsEnclosure(const CPubKey & pk_)  {   // constructor for creation
         evalcode = EVAL_KOGS;
         version = KOGS_VERSION;
-        creationtxid = creationtxid_;  // should be zeroid for new object for writing
+        creationtxid = zeroid;  // should be zeroid for new object for writing
+        origpk = pk_;
     }
-    KogsEnclosure() = delete;  // cannot allow to create without explicit creationtxid
+    KogsEnclosure() {                       // constructor for reading
+        evalcode = EVAL_KOGS;
+        version = KOGS_VERSION;
+        creationtxid = zeroid;      // should be zeroid for new object for writing
+    }
 };
 
 
