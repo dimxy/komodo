@@ -134,10 +134,10 @@ static bool GetNFTPrevVout(const CTransaction &tokentx, CTransaction &prevtxout,
 }
 
 // check if token has been burned
-static bool IsNFTmine(uint256 tokenid)
+static bool IsNFTmine(uint256 tokenid, const CPubKey &mypk)
 {
     CTransaction lasttx;
-    CPubKey mypk = pubkey2pk(Mypubkey());
+    //CPubKey mypk = pubkey2pk(Mypubkey());
 
     if (GetNFTUnspentTx(tokenid, lasttx) &&
         lasttx.vout.size() > 1)
@@ -487,9 +487,12 @@ public:
 // game object checker if NFT is mine
 class IsNFTMineChecker : public GOCheckerBase  {
 public:
+    IsNFTMineChecker(const CPubKey &_mypk) { mypk = _mypk; }
     virtual bool operator()(KogsBaseObject *obj) {
-        return obj != NULL && IsNFTmine(obj->creationtxid);
+        return obj != NULL && IsNFTmine(obj->creationtxid, mypk);
     }
+private:
+    CPubKey mypk;
 };
 
 class GameHasPlayerIdChecker : public GOCheckerBase {
@@ -594,7 +597,7 @@ void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containeri
 void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool onlymy, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
-    IsNFTMineChecker checker;
+    IsNFTMineChecker checker( IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey()) );
 
     // get all objects with this objectType
     ListGameObjects(remotepk, objectType, onlymy ? &checker : nullptr, objlist);
@@ -681,7 +684,7 @@ UniValue KogsCreatePack(const CPubKey &remotepk, KogsPack newpack, int32_t packs
 {
     std::vector<std::shared_ptr<KogsBaseObject>> koglist;
     std::vector<std::shared_ptr<KogsBaseObject>> packlist;
-    IsNFTMineChecker checker;
+    IsNFTMineChecker checker(IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey()));
 
     // TODO: do we need to check remote pk or suppose we are always in local mode with sys pk in the wallet?
     if (!CheckSysPubKey())
