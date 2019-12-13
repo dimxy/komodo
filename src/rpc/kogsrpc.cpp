@@ -591,10 +591,10 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
     if (error < 0)
         throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
 
-    if (fHelp || (params.size() < 4))
+    if (fHelp || (params.size() < 3))
     {
         throw runtime_error(
-            "kogscreatecontainer name description playerid tokenid1 tokenid2... \n"
+            "kogscreatecontainer name description playerid [tokenid1 tokenid2...] \n"
             "creates a container for playerid with the passed up to 40 kog ids and one slammer id\n" "\n");
     }
 
