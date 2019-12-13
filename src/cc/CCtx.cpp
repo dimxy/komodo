@@ -114,15 +114,18 @@ bool GetInMemoryTransaction(uint256 txid, CTransaction &tx)
 // utxosInMem output utxo array
 static void GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vector<CC_utxo> &utxosInMem)
 {
-    for (const auto &elem : txnsInMem)
+    if (pWallet)
     {
-        for (int32_t i = 0; i < elem.second.vout.size(); i ++)
+        for (const auto &elem : txnsInMem)
         {
-            if (isCC && elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition())
+            for (int32_t i = 0; i < elem.second.vout.size(); i++)
             {
-                if (pWallet->IsMine(elem.second.vout[i]))
+                if (isCC && elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition())
                 {
-                    utxosInMem.push_back(CC_utxo{ elem.second.GetHash(), elem.second.vout[i].nValue, i });
+                    if (pWallet->IsMine(elem.second.vout[i]))
+                    {
+                        utxosInMem.push_back(CC_utxo{ elem.second.GetHash(), elem.second.vout[i].nValue, i });
+                    }
                 }
             }
         }
