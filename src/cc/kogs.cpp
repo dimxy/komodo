@@ -808,12 +808,12 @@ std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContain
 
     results.push_back(sigData);
 
+    /* this code does not work in NSPV mode (containerid is unknown at this time)
     // unmarshal tx to get it txid;
     vuint8_t vtx = ParseHex(ResultGetTx(sigData));
     CTransaction containertx;
-    if (E_UNMARSHAL(vtx, ss >> containertx)) {
-
-
+    if (E_UNMARSHAL(vtx, ss >> containertx)) 
+    {
         struct CCcontract_info *cp, C;
         cp = CCinit(&C, EVAL_KOGS);
         CPubKey kogsPk = GetUnspendable(cp, NULL);
@@ -822,7 +822,7 @@ std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContain
         char txidaddr[KOMODO_ADDRESS_BUFSIZE];
         CPubKey createtxidPk = CCtxidaddr(txidaddr, containertxid);
 
-        char tokenaddr[64];
+        char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
         GetTokensCCaddress(cp, tokenaddr, mypk);
 
         for (auto t : tokenids)
@@ -839,7 +839,8 @@ std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContain
     {
         CCerror = "can't unmarshal container tx";
         return NullResults;
-    }
+    } */
+
     // after txns creation
     DeactivateUtxoLock();
     return results;
