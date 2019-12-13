@@ -367,6 +367,9 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                 {
                     if (!remote)
                     {
+                        std::cerr << "mtx.before SignTx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
+                        std::cerr << "mtx.hash SignTx before=" << mtx.GetHash().GetHex() << std::endl;
+
                         if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0)
                             fprintf(stderr, "signing error for vini.%d of %llx\n", i, (long long)vinimask);
                     }
@@ -534,6 +537,9 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
 
                 if (!remote)  // we have privkey in the wallet
                 {
+                    std::cerr << "mtx.before cc_signTreeSecp256k1Msg32=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
+                    std::cerr << "mtx.hash cc_signTreeSecp256k1Msg32 before=" << mtx.GetHash().GetHex() << std::endl;
+
                     if (cc_signTreeSecp256k1Msg32(cond, privkey, sighash.begin()) != 0)
                     {
                         mtx.vin[i].scriptSig = CCSig(cond);
