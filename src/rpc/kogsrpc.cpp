@@ -780,7 +780,7 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKe
         else
             throw runtime_error(std::string("incorrect tokenid=") + params[i].get_str() + std::string("\n"));
     }
-    if (tokenids.size() != params.size())
+    if (tokenids.size() != params.size() - 1)
         throw runtime_error("duplicate tokenids in params\n");
 
     std::vector<UniValue> sigDataArr = KogsAddKogsToContainerV2(remotepk, 0, containerid, tokenids);
