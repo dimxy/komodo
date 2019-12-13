@@ -81,7 +81,7 @@ bool isLockUtxoActive()
 bool isUtxoLocked(uint256 txid, int32_t nvout)
 {
     if (std::find(utxosLocked.begin(), utxosLocked.end(), std::make_pair(txid, nvout)) != utxosLocked.end())   {
-        std::cerr << __func__ << " utxo already locked" << txid.GetHex() << " " << nvout << std::endl;
+        std::cerr << __func__ << " utxo already locked: " << txid.GetHex() << " " << nvout << std::endl;
         return true;
     }
     else
