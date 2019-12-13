@@ -7692,13 +7692,13 @@ UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& remotepk
         }
     }
 
-    bool isRemote = IS_REMOTE(remotepk);
+    /*bool isRemote = IS_REMOTE(remotepk);
     CPubKey usepk;
     if (isRemote)
         usepk = remotepk;
     else
-        usepk = pubkey2pk(Mypubkey());
-    UniValue createResult = CreateTokenExt(usepk, 0, supply, name, description, nonfungibleData, 0, false);
+        usepk = pubkey2pk(Mypubkey()); */
+    UniValue createResult = CreateTokenExt(remotepk, 0, supply, name, description, nonfungibleData, 0, false);
     if( ResultHasTx(createResult) )     {
         result = createResult;                  // copy "hex" and optional "sigData"
         if (result[JSON_RESULT].isNull())       // not set already
