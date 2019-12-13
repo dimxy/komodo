@@ -55,6 +55,7 @@ static thread_local struct CInMemoryTxns : public memtx_map {
 // activate locking, Addnormalinputs begins locking utxos and will not spend the locked utxos
 void ActivateUtxoLock()
 {
+    utxosLocked.clear();
     utxosLocked.isActive = true;
     std::cerr << __func__ << " utxo locking activated" << std::endl;
 }

@@ -801,38 +801,44 @@ std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContain
     ActivateUtxoLock();  
 
     UniValue sigData = CreateGameObjectNFT(remotepk, &newcontainer);
-    if (!ResultHasTx(sigData))
+    if (!ResultHasTx(sigData)) {
+        DeactivateUtxoLock();
         return NullResults;
+    }
 
     results.push_back(sigData);
 
     // unmarshal tx to get it txid;
     vuint8_t vtx = ParseHex(ResultGetTx(sigData));
     CTransaction containertx;
-    if (!E_UNMARSHAL(vtx, ss >> containertx)) {
+    if (E_UNMARSHAL(vtx, ss >> containertx)) {
+
+
+        struct CCcontract_info *cp, C;
+        cp = CCinit(&C, EVAL_KOGS);
+        CPubKey kogsPk = GetUnspendable(cp, NULL);
+
+        uint256 containertxid = containertx.GetHash();
+        char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+        CPubKey createtxidPk = CCtxidaddr(txidaddr, containertxid);
+
+        char tokenaddr[64];
+        GetTokensCCaddress(cp, tokenaddr, mypk);
+
+        for (auto t : tokenids)
+        {
+            UniValue sigData = TokenTransferExt(remotepk, 0, t, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>(), std::vector<CPubKey> {kogsPk, createtxidPk}, 1);
+            if (!ResultHasTx(sigData)) {
+                results = NullResults;
+                break;
+            }
+            results.push_back(sigData);
+        }
+    }
+    else
+    {
         CCerror = "can't unmarshal container tx";
         return NullResults;
-    }
-    
-    struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_KOGS);
-    CPubKey kogsPk = GetUnspendable(cp, NULL);
-
-    uint256 containertxid = containertx.GetHash();
-    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey createtxidPk = CCtxidaddr(txidaddr, containertxid);
-
-    char tokenaddr[64];
-    GetTokensCCaddress(cp, tokenaddr, mypk);
-
-    for (auto t : tokenids)
-    {
-        UniValue sigData = TokenTransferExt(remotepk, 0, t, tokenaddr, std::vector<std::pair<CC*,uint8_t*>>(), std::vector<CPubKey> {kogsPk, createtxidPk}, 1);
-        if (!ResultHasTx(sigData)) {
-            results = NullResults;
-            break;
-        }
-        results.push_back(sigData);
     }
     // after txns creation
     DeactivateUtxoLock();
