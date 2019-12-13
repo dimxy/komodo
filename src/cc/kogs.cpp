@@ -542,7 +542,7 @@ static void ListContainerTokenids(KogsContainer &container)
     cp = CCinit(&C, EVAL_KOGS);
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    char tokenaddr[64];
+    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey kogsPk = GetUnspendable(cp, NULL);
     CPubKey containertxidPk = CCtxidaddr(txidaddr, container.creationtxid);
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, containertxidPk);
