@@ -384,7 +384,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
     uint256 hashBlock;
     CTransaction tx;
 
-    if (myGetTransaction(txid, tx, hashBlock) && !hashBlock.IsNull())  //use non-locking version, check not in mempool
+    if (myGetTransaction(txid, tx, hashBlock)/* && !hashBlock.IsNull()*/)  //use non-locking version, check not in mempool
     {
         vscript_t vopret;
 
