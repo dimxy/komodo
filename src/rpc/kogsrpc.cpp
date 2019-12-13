@@ -895,7 +895,7 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& remotep
     {
         throw runtime_error(
             "kogsslamdata gameid playerid armheight armstrength\n"
-            "sends slam data to the chain, triggers kogs stack reloading\n" "\n");
+            "sends slam data to the chain, triggers reloading kogs in the stack\n" "\n");
     }
 
     KogsSlamParams slamparams;
