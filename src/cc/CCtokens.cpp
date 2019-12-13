@@ -911,12 +911,12 @@ UniValue CreateTokenExt(const CPubKey &remotepk, int64_t txfee, int64_t tokensup
         }
 
         std::cerr << "mtx.before=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
-        std::cerr << "mtx.hash before=" << mtx.GetHash.GetHex() << std::endl;
+        std::cerr << "mtx.hash before=" << mtx.GetHash().GetHex() << std::endl;
 
 		sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRet('c', vscript_t(mypk.begin(), mypk.end()), name, description, nonfungibleData));
 
         std::cerr << "mtx.after=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
-        std::cerr << "mtx.hash after=" << mtx.GetHash.GetHex() << std::endl;
+        std::cerr << "mtx.hash after=" << mtx.GetHash().GetHex() << std::endl;
 
         if (!ResultHasTx(sigData)) {
             CCerror = "couldnt finalize token tx";
