@@ -16,6 +16,11 @@
 #include "CCinclude.h"
 #include "key_io.h"
 
+
+bool inline IsVinInArray(const std::vector<CTxIn> &vins, uint256 txid, int32_t vout) {
+    return (std::find_if(vins.begin(), vins.end(), [&](const CTxIn &vin) {return vin.prevout.hash == txid && vin.prevout.n == vout;}) != vins.end());
+}
+
 std::vector<CPubKey> NULL_pubkeys;
 struct NSPV_CCmtxinfo NSPV_U;
 
@@ -55,6 +60,7 @@ static thread_local struct CInMemoryTxns : public memtx_map {
 // activate locking, Addnormalinputs begins locking utxos and will not spend the locked utxos
 void ActivateUtxoLock()
 {
+    txnsInMem.clear();
     utxosLocked.clear();
     utxosLocked.isActive = true;
     std::cerr << __func__ << " utxo locking activated" << std::endl;
@@ -62,7 +68,7 @@ void ActivateUtxoLock()
 // Stop locking, unlocks all locked utxos: Addnormalinputs functions will not prevent utxos from spending
 void DeactivateUtxoLock()
 {
-    utxosLocked.clear();
+    //utxosLocked.clear();
     utxosLocked.isActive = false;
     std::cerr << __func__ << " utxo locking deactivated" << std::endl;
 }
@@ -893,15 +899,9 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
             if ( myGetTransaction(txid,tx,hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0 )
             {
                 //fprintf(stderr,"check %.8f to vins array.%d of %d %s/v%d\n",(double)out.tx->vout[out.i].nValue/COIN,n,maxutxos,txid.GetHex().c_str(),(int32_t)vout);
-                if ( mtx.vin.size() > 0 )
-                {
-                    // check if output is not already in mtx
-                    for (i=0; i<mtx.vin.size(); i++)
-                        if ( txid == mtx.vin[i].prevout.hash && vout == mtx.vin[i].prevout.n )
-                            break;
-                    if ( i != mtx.vin.size() )
-                        continue;
-                }
+                if (IsVinInArray(mtx.vin, txid, vout))
+                    continue;
+
                 if ( n > 0 )
                 {
                     for (i=0; i<n; i++)
@@ -929,7 +929,8 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
     if (n < maxinputs && sum < total)
     {
         std::vector<CC_utxo> utxosInMem;
-        GetMyUtxosInMemory(pwalletMain, false, utxosInMem);
+        if (isLockUtxoActive())
+            GetMyUtxosInMemory(pwalletMain, false, utxosInMem);
 
         for (int i = 0;  i < utxosInMem.size(); i ++)
         {
@@ -943,7 +944,7 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
             if (GetInMemoryTransaction(txid, tx) && tx.vout.size() > 0 && vout < tx.vout.size() && !tx.vout[vout].scriptPubKey.IsPayToCryptoCondition())
             {
                 // check if utxo is already in mtx.vin
-                if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](CTxIn vin) {return vin.prevout.hash == txid && vin.prevout.n == vout;}) != mtx.vin.end())
+                if (IsVinInArray(mtx.vin, txid, vout))
                     continue;
 
                 utxos[n].txid = txid;
@@ -1044,14 +1045,9 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
         if ( myGetTransaction(txid,tx,hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0 )
         {
             //fprintf(stderr,"check %.8f to vins array.%d of %d %s/v%d\n",(double)out.tx->vout[out.i].nValue/COIN,n,maxutxos,txid.GetHex().c_str(),(int32_t)vout);
-            if ( mtx.vin.size() > 0 )
-            {
-                for (i=0; i<mtx.vin.size(); i++)
-                    if ( txid == mtx.vin[i].prevout.hash && vout == mtx.vin[i].prevout.n )
-                        break;
-                if ( i != mtx.vin.size() )
-                    continue;
-            }
+            if (IsVinInArray(mtx.vin, txid, vout))
+                continue;
+            
             if ( n > 0 )
             {
                 for (i=0; i<n; i++)
@@ -1078,7 +1074,8 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
     if (n < maxinputs && sum < total)
     {
         std::vector<CC_utxo> utxosInMem;
-        GetAddrUtxosInMemory(coinaddr, false, utxosInMem);
+        if (isLockUtxoActive())
+            GetAddrUtxosInMemory(coinaddr, false, utxosInMem);
 
         for (int i = 0; i < utxosInMem.size(); i++)
         {
@@ -1092,7 +1089,7 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
             if (GetInMemoryTransaction(txid, tx) && tx.vout.size() > 0 && vout < tx.vout.size() && !tx.vout[vout].scriptPubKey.IsPayToCryptoCondition())
             {
                 // check if utxo is already in mtx.vin
-                if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](CTxIn vin) {return vin.prevout.hash == txid && vin.prevout.n == vout;}) != mtx.vin.end())
+                if (IsVinInArray(mtx.vin, txid, vout))
                     continue;
 
                 utxos[n].txid = txid;
