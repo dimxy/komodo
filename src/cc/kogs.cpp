@@ -918,7 +918,7 @@ UniValue KogsDepositContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 
 
     // TODO: check if this player has already deposited a container. Seems the doc states only one container is possible
     if (pcontainer->tokenids.size() != pgameconfig->numKogsInContainer)     {
-        CCerror = "kogs number in container does not match game requirement";
+        CCerror = "kogs number in container does not match game config";
         return NullUniValue;
     }
 
