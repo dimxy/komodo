@@ -709,8 +709,6 @@ UniValue kogsclaimdepositedcontainer(const UniValue& params, bool fHelp, const C
             "containerid - id of container creation transaction\n" "\n");
     }
 
-    throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
-
     uint256 gameid = Parseuint256(params[0].get_str().c_str());
     if (gameid.IsNull())
         throw runtime_error("incorrect gameid\n");
@@ -813,7 +811,6 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const C
             "kogsremovekogsfromcontainer '{ \"containerid\":\"id\", \"gameid\":\"id\", \"tokenids\" : [tokenid1, tokenid2, ...] } '\n"
             "removes kog tokenids from container\n" 
             "gameid is optional and is passed when container is deposited to the game\n" "\n");
-
     }
 
     // parse json object:
