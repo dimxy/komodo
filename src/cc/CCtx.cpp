@@ -643,6 +643,42 @@ void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValu
     }
 }
 
+// gets mempool indexes for coinaddr from mempool address index
+// converts and adds them into unspentOutputs array (for use in AddNormalInputsRemote
+void AddMempoolUnspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag)
+{
+    CBitcoinAddress bitcoinAddress(coinaddr);
+    uint160 indexKey;
+    int type;
+
+    if (!bitcoinAddress.GetIndexKey(indexKey, type, ccflag))    
+        return;
+
+    // NOTE: we set type == 1 what means all types except SCRIPT_HASH. 
+    // Seems mempool does not support 3
+    std::vector<std::pair<uint160, int> > address{ std::make_pair(indexKey, type) };  
+    std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> > indexes;
+    mempool.getAddressIndex(address, indexes);
+
+    for (std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> >::iterator it = indexes.begin(); it != indexes.end(); it++) 
+    {
+        CAddressUnspentKey key;
+        CAddressUnspentValue value;
+
+        key.type = it->first.type;
+        key.txhash = it->first.txhash;
+        key.index = it->first.index;
+        key.hashBytes = it->first.addressBytes;
+
+        value.blockHeight = 0;  // h=0 in mempool
+        value.satoshis = it->second.amount;
+        // value.script -- NOTE no script is set, no in mempool. We dont use it in AddNormalInputsRemote for which this func is for
+
+        unspentOutputs.push_back(std::make_pair(key, value));
+        LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "added unspent from mempool, txid=" << key.txhash.GetHex() << " vout=" << key.index << " amount=" << value.satoshis << std::endl);
+    }
+}
+
 void SetCCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,char *coinaddr,bool ccflag)
 {
     int32_t type=0,i,n; char *ptr; std::string addrstr; uint160 hashBytes; std::vector<std::pair<uint160, int> > addresses;
@@ -1030,6 +1066,7 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
     sum = 0;
     Getscriptaddress(coinaddr,CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
     SetCCunspents(unspentOutputs,coinaddr,false);
+    AddMempoolUnspents(unspentOutputs, coinaddr, false);
 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
@@ -1153,6 +1190,7 @@ int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int3
     if (!remote)  return (AddNormalinputsLocal(mtx,mypk,total,maxinputs));
     else return (AddNormalinputsRemote(mtx,mypk,total,maxinputs));
 }
+
 
 void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount)
 {
