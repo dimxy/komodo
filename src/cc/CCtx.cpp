@@ -662,20 +662,23 @@ void AddMempoolUnspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspen
 
     for (std::vector<std::pair<CMempoolAddressDeltaKey, CMempoolAddressDelta> >::iterator it = indexes.begin(); it != indexes.end(); it++) 
     {
-        CAddressUnspentKey key;
-        CAddressUnspentValue value;
+        if (it->second.amount >= 0)  // skip prev out's deltas
+        {
+            CAddressUnspentKey key;
+            CAddressUnspentValue value;
 
-        key.type = it->first.type;
-        key.txhash = it->first.txhash;
-        key.index = it->first.index;
-        key.hashBytes = it->first.addressBytes;
+            key.type = it->first.type;
+            key.txhash = it->first.txhash;
+            key.index = it->first.index;
+            key.hashBytes = it->first.addressBytes;
 
-        value.blockHeight = 0;  // h=0 in mempool
-        value.satoshis = it->second.amount;
-        // value.script -- NOTE no script is set, no in mempool. We dont use it in AddNormalInputsRemote for which this func is for
+            value.blockHeight = 0;  // h=0 in mempool
+            value.satoshis = it->second.amount;
+            // value.script -- NOTE no script is set, no in mempool. We dont use it in AddNormalInputsRemote for which this func is for
 
-        unspentOutputs.push_back(std::make_pair(key, value));
-        LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "added unspent from mempool, txid=" << key.txhash.GetHex() << " vout=" << key.index << " amount=" << value.satoshis << std::endl);
+            unspentOutputs.push_back(std::make_pair(key, value));
+            LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "added unspent from mempool, txid=" << key.txhash.GetHex() << " vout=" << key.index << " amount=" << value.satoshis << std::endl);
+        }
     }
 }
 
