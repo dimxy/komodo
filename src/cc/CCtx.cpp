@@ -16,6 +16,7 @@
 #include "CCinclude.h"
 #include "key_io.h"
 
+const char CCUTILS_CAT[] = "ccutils";
 
 bool inline IsVinInArray(const std::vector<CTxIn> &vins, uint256 txid, int32_t vout) {
     return (std::find_if(vins.begin(), vins.end(), [&](const CTxIn &vin) {return vin.prevout.hash == txid && vin.prevout.n == vout;}) != vins.end());
@@ -40,20 +41,20 @@ static thread_local struct CLockedUtxos : public utxo_set {
     //mutable CCriticalSection cs;
     CLockedUtxos() {
         isActive = false;
-        std::cerr << __func__ << " utxosLocked object created" << std::endl;
+        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxosLocked object created" << std::endl);
     }
     ~CLockedUtxos() {
-        std::cerr << __func__ << " utxosLocked object deleted" << std::endl;
+        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxosLocked object deleted" << std::endl);
     }
 } utxosLocked;  // will be created in each thread at the first usage
 
 // thread memory array of mtx objects
 static thread_local struct CInMemoryTxns : public memtx_map {
     CInMemoryTxns() {
-        std::cerr << __func__ << " txnsInMem object created" << std::endl;
+        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "txnsInMem object created" << std::endl);
     }
     ~CInMemoryTxns() {
-        std::cerr << __func__ << " txnsInMem object deleted" << std::endl;
+        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "txnsInMem object deleted" << std::endl);
     }
 } txnsInMem;
 
@@ -63,14 +64,16 @@ void ActivateUtxoLock()
     txnsInMem.clear();
     utxosLocked.clear();
     utxosLocked.isActive = true;
-    std::cerr << __func__ << " utxo locking activated" << std::endl;
+    LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxo locking activated" << std::endl);
 }
 // Stop locking, unlocks all locked utxos: Addnormalinputs functions will not prevent utxos from spending
 void DeactivateUtxoLock()
 {
     //utxosLocked.clear();
     utxosLocked.isActive = false;
-    std::cerr << __func__ << " utxo locking deactivated" << std::endl;
+    txnsInMem.clear();
+    utxosLocked.clear();
+    LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxo locking deactivated" << std::endl);
 }
 // returns if utxo locking is active
 bool isLockUtxoActive()
@@ -81,7 +84,7 @@ bool isLockUtxoActive()
 bool isUtxoLocked(uint256 txid, int32_t nvout)
 {
     if (std::find(utxosLocked.begin(), utxosLocked.end(), std::make_pair(txid, nvout)) != utxosLocked.end())   {
-        std::cerr << __func__ << " utxo already locked: " << txid.GetHex() << " " << nvout << std::endl;
+        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxo already locked: " << txid.GetHex() << "/" << nvout << std::endl);
         return true;
     }
     else
@@ -93,7 +96,7 @@ void LockUtxo(uint256 txid, int32_t nvout)
 {
     if (!isUtxoLocked(txid, nvout)) {
         utxosLocked.insert(std::make_pair(txid, nvout));
-        std::cerr << __func__ << " utxo locked: " << txid.GetHex() << " " << nvout << std::endl;
+        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxo locked: " << txid.GetHex() << "/" << nvout << std::endl);
     }
 }
 
@@ -102,7 +105,7 @@ bool AddInMemoryTransaction(const CTransaction &tx)
 {
     uint256 txid = tx.GetHash();
     txnsInMem[txid] = tx;
-    std::cerr << __func__ << " transaction added to thread memory" << std::endl;
+    LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "transaction added to thread memory txid=" << txid.GetHex() << std::endl);
     return true;
 }
 
@@ -677,7 +680,7 @@ void AddMempoolUnspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspen
             // value.script -- NOTE no script is set, no in mempool. We dont use it in AddNormalInputsRemote for which this func is for
 
             unspentOutputs.push_back(std::make_pair(key, value));
-            LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "added unspent from mempool, txid=" << key.txhash.GetHex() << " vout=" << key.index << " amount=" << value.satoshis << std::endl);
+            LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "added unspent from mempool, txid=" << key.txhash.GetHex() << " vout=" << key.index << " amount=" << value.satoshis << std::endl);
         }
     }
 }
