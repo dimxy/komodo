@@ -1340,7 +1340,7 @@ UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey
     }
 
     std::string topubkey = params[params.size() - 1].get_str();
-
+    int count = 0;
     for (int i = 0; i < params.size()-1; i++ )
     {
         UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
@@ -1354,8 +1354,8 @@ UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey
         if (transferred["hex"].getValStr().empty()) {
             std::cerr << "tokentransfer did not return hex tx" << std::endl;
             result.pushKV("result", "error");
-            result.pushKV("error", "cant create tokentransfer" + transferred["error"].getValStr());
-            return result;
+            result.pushKV("error", "cant create tokentransfer tx, error=" + transferred["error"].getValStr());
+            //return result;
         }
 
         txparam.setStr(transferred["hex"].getValStr());
@@ -1363,24 +1363,26 @@ UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey
         try {
             UniValue sent = sendrawtransaction(rpcparams, false, CPubKey());  // NOTE: throws error!
             std::cerr << "transferred kog to pk txid=" << sent.getValStr() << std::endl;
+            count++;
         }
         catch (std::runtime_error error)
         {
             std::cerr << "cant send transfer tx to chain, error=" << error.what() << std::endl;
             result.pushKV("result", "error");
-            result.pushKV("error", "cant send tokentransfer");
-            return result;
+            result.pushKV("error", "cant send tokentransfer tx");
+            //return result;
         }
         catch (UniValue error)
         {
             std::cerr << "cant send transfer tx to chain, univalue error=" << error.getValStr() << std::endl;
             result.pushKV("result", "error");
             result.pushKV("error", "cant send tokentransfer tx");
-            return result;
+            //return result;
         }
     }
 
     result.pushKV("result", "success");
+    result.pushKV("transferred", count);
     return result;
 }
 
