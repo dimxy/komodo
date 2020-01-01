@@ -1185,7 +1185,7 @@ UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams
     }
 
     if (!batontxid.IsNull())
-        return CreateSlamParamTx(mypk, batontxid, 0, newslamparams);
+        return CreateSlamParamTx(remotepk, batontxid, 0, newslamparams);
     else
     {
         CCerror = "could not find baton for your pubkey (not your turn)";
@@ -1763,12 +1763,17 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
 
     if (containers.size() != playerids.size())
     {
-        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "can't create baton: not all players deposited containers" << std::endl);
-        for (auto c : containers)
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "deposited container=" << c->creationtxid.GetHex() << std::endl);
-        for (auto p : playerids)
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "player=" << p.GetHex() << std::endl);
+        static thread_local std::map<uint256, int32_t> gameid_container_num;
 
+        if (gameid_container_num[gameid] != containers.size())   // prevent logging this message each create miner transaction cycle
+        {
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "can't create baton: not all players deposited containers" << std::endl);
+            for (const auto &c : containers)
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "deposited container=" << c->creationtxid.GetHex() << std::endl);
+            for (const auto &p : playerids)
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "player=" << p.GetHex() << std::endl);
+            gameid_container_num[gameid] = containers.size();
+        }
         return false;
     }
 
