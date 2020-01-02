@@ -704,9 +704,9 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json,int n)
         {
             rpc_result = JSONRPCReplyObj(result, NullUniValue, jreq.id);
             response=rpc_result.write();
-            if (response.size() > sizeof(ptr->json))
-                throw JSONRPCError(RPC_INTERNAL_ERROR, "response buffer overflow");
-            memcpy(ptr->json,response.c_str(), response.size());
+            if (ptr->json == NULL)   // allocate response buf
+                ptr->json = (char*)malloc(response.size());
+            memcpy(ptr->json, response.c_str(), response.size());
             len+=response.size();
             return (len);
         }
@@ -727,7 +727,10 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json,int n)
         rpc_result = JSONRPCReplyObj(NullUniValue,JSONRPCError(RPC_PARSE_ERROR, e.what()), jreq.id);
         response=rpc_result.write();
     }
-    memcpy(ptr->json,response.c_str(),response.size());
+
+    if (ptr->json == NULL)   // allocate response buf
+        ptr->json = (char*)malloc(response.size());
+    memcpy(ptr->json, response.c_str(), response.size());
     len+=response.size();
     return (len);
 }
@@ -1171,7 +1174,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
         {
             if ( timestamp > pfrom->prevtimes[ind] )
             {
-                struct NSPV_remoterpcresp R; int32_t p;
+                struct NSPV_remoterpcresp R = { 0, NULL }; int32_t p;
                 p = 1;
                 p+=iguana_rwnum(0,&request[p],sizeof(slen),&slen);
                 memset(&R,0,sizeof(R));
@@ -1183,7 +1186,11 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
                     NSPV_remoterpc_purge(&R);
-                }                
+                }  
+
+                //free resp buf:
+                if (R.json)
+                    free(R.json);
             }
         }
         else if (request[0] == NSPV_CCMODULEUTXOS)  // get cc module utxos from coinaddr for the requested amount, evalcode, funcid list and txid
