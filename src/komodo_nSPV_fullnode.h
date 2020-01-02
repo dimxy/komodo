@@ -1174,7 +1174,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
         {
             if ( timestamp > pfrom->prevtimes[ind] )
             {
-                struct NSPV_remoterpcresp R = { 0, NULL }; int32_t p;
+                struct NSPV_remoterpcresp R = { "", NULL }; int32_t p;
                 p = 1;
                 p+=iguana_rwnum(0,&request[p],sizeof(slen),&slen);
                 memset(&R,0,sizeof(R));
