@@ -704,7 +704,9 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json,int n)
         {
             rpc_result = JSONRPCReplyObj(result, NullUniValue, jreq.id);
             response=rpc_result.write();
-            memcpy(ptr->json,response.c_str(),response.size());
+            if (response.size() > sizeof(ptr->json))
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "response buffer overflow");
+            memcpy(ptr->json,response.c_str(), response.size());
             len+=response.size();
             return (len);
         }
