@@ -1684,7 +1684,7 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
     {
         // get kogs that are not yet in the stack or flipped
         std::vector<uint256> freekogs;
-        for (auto t : c->tokenids)
+        for (const auto &t : c->tokenids)
         {
             // check if kog in stack
             if (std::find(baton.kogsInStack.begin(), baton.kogsInStack.end(), t) != baton.kogsInStack.end())
@@ -1753,12 +1753,12 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
     KogsDepositedContainerListImpl(gameid, containers);
 
     //find kog tokenids on container 1of2 address
-    for (auto &c : containers)
+    for (const auto &c : containers)
         ListContainerTokenids(*c);
 
     // store containers' owner playerids
     std::set<uint256> owners;
-    for(auto &c : containers)
+    for(const auto &c : containers)
         owners.insert(c->playerid);
 
     if (containers.size() != playerids.size())
@@ -1953,7 +1953,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
                             // TODO: if 'play for keeps' mode then try to create tokens back tx
 
-                            // try to create send back containers (this can be repeated many times on each create-new-block if not all the created transfer tx will fit into the block)
+                            // try to create send back containers 
+                            // this is not needed now: "this can be repeated many times on each create-new-block if not all the created transfer tx will fit into the block", tx are just sent to mempool
                             int testcount = 0;
                             for (auto &c : containers)
                             {
@@ -2031,11 +2032,11 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             }
                             catch (std::runtime_error error)
                             {
-                                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("cant send transaction: bad parameters: ") + error.what());
+                                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("cant send transaction: bad parameters: ") + error.what() << std::endl);
                             }
                             catch (UniValue error)
                             {
-                                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("error: can't send tx: ") + error.getValStr());
+                                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("error: can't send tx: ") + hextx + " error: " + ResultGetError(error) << std::endl);
                             }
                         }
                     }
