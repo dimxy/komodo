@@ -44,7 +44,7 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     { "kogsslammerlist", true }, { "kogscontainerlist", true }, { "kogsdepositedcontainerlist",  true }, { "kogsplayerlist", true }, { "kogsgameconfiglist", true },
     { "kogsgamelist", true }, { "kogsremoveobject", true }, { "kogsslamdata",  true }, { "kogsobjectinfo", true },
     // tokens:
-    { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", true }
+    { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false }
 };
 
 struct NSPV_ntzargs
