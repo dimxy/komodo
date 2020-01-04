@@ -1581,3 +1581,7 @@ bool VerifyScript(
 
     return set_success(serror);
 }
+void CBLAKE2bWriter::log()
+{
+    std::cerr << " ss.buf=" << HexStr(state.buf, state.buf + state.buflen);
+}
