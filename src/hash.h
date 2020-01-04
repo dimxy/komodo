@@ -178,7 +178,7 @@ public:
     }
 };
 
-template<typename T>     std::string HexStr(const T itbegin, const T itend, bool fSpaces = false);  // TODO: remove
+#include "utilstrencodings.h"// TODO: remove
 /** A writer stream (for serialization) that computes a 256-bit BLAKE2b hash. */
 class CBLAKE2bWriter
 {
