@@ -1583,10 +1583,21 @@ bool VerifyScript(
 }
 int32_t init_hexbytes_noT(char *hexbytes, unsigned char *message, long len);
 
+
+typedef struct CRYPTO_ALIGN(64) ccc {
+    uint64_t h[8];
+    uint64_t t[2];
+    uint64_t f[2];
+    uint8_t  buf[2 * 128];
+    size_t   buflen;
+    uint8_t  last_node;
+} b2b_state;
+
 void state_log(crypto_generichash_blake2b_state *statep)
 {
     //std::cerr << " ss.buf=" << HexStr(statep->buf, statep->buf + statep->buflen);
     char s[10240];
-    init_hexbytes_noT(s, statep->buf, statep->buflen);
+    b2b_state *p = (b2b_state *)statep;
+    init_hexbytes_noT(s, p->buf, p->buflen);
     fprintf(stderr, "state-buf=%s\n", s);
 }
