@@ -178,6 +178,7 @@ public:
     }
 };
 
+void state_log(crypto_generichash_blake2b_state *statep);
 /** A writer stream (for serialization) that computes a 256-bit BLAKE2b hash. */
 class CBLAKE2bWriter
 {
@@ -205,11 +206,10 @@ public:
         return (*this);
     }
 
-    void log();
     // invalidates the object
     uint256 GetHash() {
         uint256 result;
-        log();
+        state_log(&state);
         crypto_generichash_blake2b_final(&state, (unsigned char*)&result, 32);
         return result;
     }
