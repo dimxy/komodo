@@ -1581,7 +1581,12 @@ bool VerifyScript(
 
     return set_success(serror);
 }
+int32_t init_hexbytes_noT(char *hexbytes, unsigned char *message, long len);
+
 void state_log(crypto_generichash_blake2b_state *statep)
 {
-    std::cerr << " ss.buf=" << HexStr(statep->buf, statep->buf + statep->buflen);
+    //std::cerr << " ss.buf=" << HexStr(statep->buf, statep->buf + statep->buflen);
+    char s[10240];
+    init_hexbytes_noT(s, statep->buf, statep->buflen);
+    fprintf(stderr, "state-buf=%s\n", s);
 }
