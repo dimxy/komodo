@@ -32,7 +32,7 @@
 #include "script/script.h"
 #include "uint256.h"
 
-
+#include "utilstrencodings.h"
 
 using namespace std;
 
@@ -1581,7 +1581,7 @@ bool VerifyScript(
 
     return set_success(serror);
 }
-void CBLAKE2bWriter::log()
+void state_log(crypto_generichash_blake2b_state *statep)
 {
-    std::cerr << " ss.buf=" << HexStr(state.buf, state.buf + state.buflen);
+    std::cerr << " ss.buf=" << HexStr(statep->buf, statep->buf + statep->buflen);
 }

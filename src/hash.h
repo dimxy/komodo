@@ -178,7 +178,6 @@ public:
     }
 };
 
-#include "utilstrencodings.h"// TODO: remove
 /** A writer stream (for serialization) that computes a 256-bit BLAKE2b hash. */
 class CBLAKE2bWriter
 {
