@@ -206,10 +206,11 @@ public:
         return (*this);
     }
 
+    void log();
     // invalidates the object
     uint256 GetHash() {
         uint256 result;
-        std::cerr << __func__ << " ss.buf=" << HexStr(state.buf, state.buf + state.buflen);
+        log();
         crypto_generichash_blake2b_final(&state, (unsigned char*)&result, 32);
         return result;
     }
