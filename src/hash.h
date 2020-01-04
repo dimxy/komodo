@@ -178,7 +178,7 @@ public:
     }
 };
 
-void state_log(crypto_generichash_blake2b_state *statep);
+extern "C" void state_log(crypto_generichash_blake2b_state *statep);
 /** A writer stream (for serialization) that computes a 256-bit BLAKE2b hash. */
 class CBLAKE2bWriter
 {
