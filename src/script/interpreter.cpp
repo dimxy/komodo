@@ -1596,8 +1596,6 @@ typedef struct CRYPTO_ALIGN(64) ccc {
 void state_log(crypto_generichash_blake2b_state *statep)
 {
     //std::cerr << " ss.buf=" << HexStr(statep->buf, statep->buf + statep->buflen);
-    char s[10240];
     b2b_state *p = (b2b_state *)statep;
-    init_hexbytes_noT(s, p->buf, p->buflen);
-    fprintf(stderr, "state-buf=%s\n", s);
+    std::cerr << HexStr(p->buf, p->buf + p->buflen) << std::endl;
 }
