@@ -1131,6 +1131,7 @@ uint256 GetPrevoutHash(const CTransaction& txTo) {
     for (unsigned int n = 0; n < txTo.vin.size(); n++) {
         ss << txTo.vin[n].prevout;
     }
+    std::cerr << __func__ << " printing ss.buf ";
     return ss.GetHash();
 }
 
@@ -1139,6 +1140,7 @@ uint256 GetSequenceHash(const CTransaction& txTo) {
     for (unsigned int n = 0; n < txTo.vin.size(); n++) {
         ss << txTo.vin[n].nSequence;
     }
+    std::cerr << __func__ << " printing ss.buf ";
     return ss.GetHash();
 }
 
@@ -1147,6 +1149,7 @@ uint256 GetOutputsHash(const CTransaction& txTo) {
     for (unsigned int n = 0; n < txTo.vout.size(); n++) {
         ss << txTo.vout[n];
     }
+    std::cerr << __func__ << " printing ss.buf ";
     return ss.GetHash();
 }
 
@@ -1156,6 +1159,7 @@ uint256 GetJoinSplitsHash(const CTransaction& txTo) {
         ss << txTo.vjoinsplit[n];
     }
     ss << txTo.joinSplitPubKey;
+    std::cerr << __func__ << " printing ss.buf ";
     return ss.GetHash();
 }
 
@@ -1168,6 +1172,7 @@ uint256 GetShieldedSpendsHash(const CTransaction& txTo) {
         ss << txTo.vShieldedSpend[n].rk;
         ss << txTo.vShieldedSpend[n].zkproof;
     }
+    std::cerr << __func__ << " printing ss.buf ";
     return ss.GetHash();
 }
 
@@ -1176,6 +1181,7 @@ uint256 GetShieldedOutputsHash(const CTransaction& txTo) {
     for (unsigned int n = 0; n < txTo.vShieldedOutput.size(); n++) {
         ss << txTo.vShieldedOutput[n];
     }
+    std::cerr << __func__ << " printing ss.buf ";
     return ss.GetHash();
 }
 
@@ -1301,7 +1307,7 @@ uint256 SignatureHash(
             ss << amount;
             ss << txTo.vin[nIn].nSequence;
         }
-
+        std::cerr << __func__ << " overwinter|sapling printing ss.buf ";
         return ss.GetHash();
     }
 
@@ -1319,6 +1325,8 @@ uint256 SignatureHash(
     // Serialize and hash
     CHashWriter ss(SER_GETHASH, 0);
     ss << txTmp << nHashType;
+
+    std::cerr << __func__ << " old-tx printing ss.buf ";
     return ss.GetHash();
 }
 
