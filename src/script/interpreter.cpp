@@ -1597,5 +1597,5 @@ void state_log(crypto_generichash_blake2b_state *statep)
 {
     //std::cerr << " ss.buf=" << HexStr(statep->buf, statep->buf + statep->buflen);
     b2b_state *p = (b2b_state *)statep;
-    std::cerr << HexStr(p->buf, p->buf + p->buflen) << std::endl;
+    std::cerr << HexStr(p->buf, p->buf + p->buflen) << std::endl;   
 }
