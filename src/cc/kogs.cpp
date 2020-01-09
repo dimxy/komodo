@@ -32,7 +32,7 @@ static CPubKey GetSystemPubKey()
     {
         vuint8_t vpubkey = ParseHex(spubkey.c_str());
         CPubKey pk = pubkey2pk(vpubkey);
-        if (pk.size() == 33)
+        if (pk.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
             return pk;
     }
     return CPubKey();
@@ -1439,21 +1439,21 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     std::map<uint256, int> wonkogs;
 
     // get array of pairs (playerid, won kogid)
-    for (auto &f : prevFlipped)
+    for (const auto &f : prevFlipped)
     {
         UniValue elem(UniValue::VOBJ);
         elem.push_back(std::make_pair(f.first.GetHex(), f.second.GetHex()));
         arrWon.push_back(elem);
     }
     // calc total of won kogs by playerid
-    for (auto &f : prevFlipped)
+    for (const auto &f : prevFlipped)
     {
         if (wonkogs.find(f.first) == wonkogs.end())
             wonkogs[f.first] = 0;  // init map value
         wonkogs[f.first] ++;
     }
     // convert to UniValue
-    for (auto w : wonkogs)
+    for (const auto &w : wonkogs)
     {
         UniValue elem(UniValue::VOBJ);
         elem.push_back(std::make_pair(w.first.GetHex(), std::to_string(w.second)));
@@ -1615,7 +1615,7 @@ static int getRange(const std::vector<KogsSlamRange> &range, int32_t val)
 }
 
 // flip kogs based on slam data and height and strength ranges
-static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &slamparams, KogsBaton &baton)
+static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &slamparams, KogsBaton &newbaton)
 {
     std::vector<KogsSlamRange> heightRanges = heightRangesDefault;
     std::vector<KogsSlamRange> strengthRanges = strengthRangesDefault;
@@ -1639,30 +1639,30 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &sla
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "heightFract=" << heightFract << " strengthFract=" << strengthFract << std::endl);
 
     // how many kogs would flip:
-    int countFlipped = (baton.kogsInStack.size() * totalFract) / 100;
-    if (countFlipped > baton.kogsInStack.size())
-        countFlipped = baton.kogsInStack.size();
+    int countFlipped = (newbaton.kogsInStack.size() * totalFract) / 100;
+    if (countFlipped > newbaton.kogsInStack.size())
+        countFlipped = newbaton.kogsInStack.size();
 
     // set limit for 1st turn: no more than 50% flipped
-    if (baton.prevturncount == 1 && countFlipped > baton.kogsInStack.size() / 2)
-        countFlipped = baton.kogsInStack.size() / 2; //50%
+    if (newbaton.prevturncount == 1 && countFlipped > newbaton.kogsInStack.size() / 2)
+        countFlipped = newbaton.kogsInStack.size() / 2; //no more than 50%
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "countFlipped=" << countFlipped << std::endl);
+
+    // find previous turn index
+    int32_t prevturn = newbaton.nextturn - 1;
+    if (prevturn < 0)
+        prevturn = newbaton.playerids.size() - 1; 
 
     // randomly select flipped kogs:
     while (countFlipped--)
     {
         //int i = rand() % baton.kogsInStack.size();
-        int i = baton.kogsInStack.size() - 1;           // remove kogs from top
+        int i = newbaton.kogsInStack.size() - 1;           // remove kogs from top
         
-        // find previous turn index
-        /*int32_t prevturn = baton.nextturn - 1;
-        if (prevturn < 0)
-            prevturn = baton.playerids.size() - 1; */
-
-        baton.kogsFlipped.push_back(std::make_pair(baton.playerids[baton.nextturn], baton.kogsInStack[i]));
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "flipped kog id=" << baton.kogsInStack[i].GetHex() << std::endl);
-        baton.kogsInStack.erase(baton.kogsInStack.begin() + i);
+        newbaton.kogsFlipped.push_back(std::make_pair(newbaton.playerids[prevturn], newbaton.kogsInStack[i]));
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "flipped kog id=" << newbaton.kogsInStack[i].GetHex() << std::endl);
+        newbaton.kogsInStack.erase(newbaton.kogsInStack.begin() + i);
     }
 
     return true;
@@ -1765,7 +1765,7 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
     {
         static thread_local std::map<uint256, int32_t> gameid_container_num;
 
-        if (gameid_container_num[gameid] != containers.size())   // prevent logging this message each create miner transaction cycle
+        if (gameid_container_num[gameid] != containers.size())   // prevent logging this message on each loop when miner creates transactions
         {
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "can't create baton: not all players deposited containers" << std::endl);
             for (const auto &c : containers)
