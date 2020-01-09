@@ -1425,9 +1425,10 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             isFinished = true;
             prevFlipped = pGameFinished->kogsFlipped;
             kogsInStack = pGameFinished->kogsInStack;
+            nextPlayerid = zeroid;
+            nextTurn = -1;
 
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "pGameFinished->kogsInStack=" << kogsInStack.size() << " pGameFinished->kogsFlipped=" << prevFlipped.size() << std::endl);
-
             break;
         }
 
