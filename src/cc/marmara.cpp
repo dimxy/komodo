@@ -1793,15 +1793,20 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
                 CPubKey pk; 
                 int32_t height;
                 int32_t unlockht;
+                bool is3x;
 
-                if (IsFuncidOneOf(MarmaraDecodeCoinbaseOpret(opret, pk, height, unlockht), MARMARA_ACTIVATED_3X))
+                if (IsFuncidOneOf(MarmaraDecodeCoinbaseOpret(opret, pk, height, unlockht), MARMARA_ACTIVATED_3X_FUNCIDS)) {
                     coinbaseOpret = MarmaraCoinbaseOpret(MARMARA_COINBASE_3X, nHeight, opretpk);  // marmara 3x oprets create new 3x coinbases
-                else
+                    is3x = true;
+                }
+                else {
                     coinbaseOpret = MarmaraCoinbaseOpret(MARMARA_COINBASE, nHeight, opretpk);
+                    is3x = false;
+                }
                 CTxOut vout = MakeMarmaraCC1of2voutOpret(0, opretpk, coinbaseOpret);
 
                 Getscriptaddress(checkaddr, vout.scriptPubKey);
-                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "created activated coinbase scriptPubKey with address=" << checkaddr << std::endl); 
+                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "activated stake tx created activated " << (is3x ? "3x" : "1x") << " coinbase scriptPubKey with address=" << checkaddr << std::endl); 
                 spk = vout.scriptPubKey;
             }
             else if (get_either_opret(&lockinloopChecker, staketx, 0, opret, opretpk))
@@ -1810,7 +1815,7 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
                 CTxOut vout = MakeMarmaraCC1of2voutOpret(0, opretpk, coinbaseOpret);
 
                 Getscriptaddress(checkaddr, vout.scriptPubKey);
-                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "created activated 3x coinbase scriptPubKey address=" << checkaddr << std::endl);  
+                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "lcl stake tx created activated 3x coinbase scriptPubKey address=" << checkaddr << std::endl);  
                 spk = vout.scriptPubKey;
             }
             else
@@ -2176,9 +2181,14 @@ static void EnumActivatedCoins(T func, bool onlyLocal)
 
                     if (get_either_opret(&activatedChecker, tx, nvout, opret, opretpk))
                     {
+                        CPubKey pk;
+                        int32_t height;
+                        int32_t unlockht;
+                        bool is3x = IsFuncidOneOf(MarmaraDecodeCoinbaseOpret(opret, pk, height, unlockht), MARMARA_ACTIVATED_3X_FUNCIDS);
+
                         // call callback function:
                         func(addr.c_str(), tx, nvout, pindex);
-                        LOGSTREAMFN("marmara", CCLOG_DEBUG3, stream << "found my activated 1of2 addr txid=" << txid.GetHex() << " vout=" << nvout << std::endl);
+                        LOGSTREAMFN("marmara", CCLOG_DEBUG3, stream << "found my activated 1of2 addr txid=" << txid.GetHex() << " vout=" << nvout << "  " << (is3x ? "3x" : "1x") << std::endl);
                     }
                     else
                         LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "skipped activated 1of2 addr txid=" << txid.GetHex() << " vout=" << nvout << " cant decode opret" << std::endl);
