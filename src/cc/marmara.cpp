@@ -2317,17 +2317,6 @@ struct komodo_staking *MarmaraGetStakingUtxos(struct komodo_staking *array, int3
     const bool onlyLocalUtxos = true;
     const CPubKey emptypk;
 
-    // add all activated utxos:
-    //std::cerr  << " entered" << std::endl;
-    EnumActivatedCoins(
-        [&](const char *activatedaddr, const CTransaction & tx, int32_t nvout, CBlockIndex *pindex) 
-        {
-            array = komodo_addutxo(array, numkp, maxkp, (uint32_t)pindex->nTime, (uint64_t)tx.vout[nvout].nValue, tx.GetHash(), nvout, (char*)activatedaddr, hashbuf, tx.vout[nvout].scriptPubKey);
-            LOGSTREAM("marmara", CCLOG_DEBUG2, stream << logFName << " " << "added utxo for staking activated 1of2 addr txid=" << tx.GetHash().GetHex() << " vout=" << nvout << std::endl);
-        }, 
-        !onlyLocalUtxos
-    );
-
     // add all lock-in-loops utxos:
     EnumLockedInLoop(
         [&](const char *loopaddr, const CTransaction & tx, int32_t nvout, CBlockIndex *pindex)
@@ -2337,6 +2326,19 @@ struct komodo_staking *MarmaraGetStakingUtxos(struct komodo_staking *array, int3
         },
         emptypk
     );
+
+    // add all activated utxos:
+
+    EnumActivatedCoins(
+        [&](const char *activatedaddr, const CTransaction & tx, int32_t nvout, CBlockIndex *pindex) 
+        {
+            array = komodo_addutxo(array, numkp, maxkp, (uint32_t)pindex->nTime, (uint64_t)tx.vout[nvout].nValue, tx.GetHash(), nvout, (char*)activatedaddr, hashbuf, tx.vout[nvout].scriptPubKey);
+            LOGSTREAM("marmara", CCLOG_DEBUG2, stream << logFName << " " << "added utxo for staking activated 1of2 addr txid=" << tx.GetHash().GetHex() << " vout=" << nvout << std::endl);
+        }, 
+        !onlyLocalUtxos
+    );
+
+
 
     LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "added " << *numkp << " utxos for staking" << std::endl);
     return array;
