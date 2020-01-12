@@ -4200,7 +4200,7 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
                 //if (strcmp(vintxaddr, staketxaddr) == 0)
                 //{
                
-                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "h=" << h << " stake txid=" << stakeTx.GetHash().GetHex() << " vout.size()=" << stakeTx.vout.size() << std::endl);
+                // LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "h=" << h << " stake txid=" << stakeTx.GetHash().GetHex() << " vout.size()=" << stakeTx.vout.size() << std::endl);
 
                 //char coinbaseaddr[KOMODO_ADDRESS_BUFSIZE];
                 //Getscriptaddress(coinbaseaddr, coinbase.vout[0].scriptPubKey);
@@ -4253,6 +4253,8 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
                 CAmount amount = std::get<POSSTAT_COINBASEAMOUNT>(elem) + coinbase.vout[0].nValue;
                 uint32_t segid = komodo_segid32(staketxaddr) & 0x3f;
                 mapStat[sStakeTxAddr + staketxtype] = std::make_tuple(sStakeTxAddr, staketxtype, segid, amount, std::get<POSSTAT_TXCOUNT>(elem) + 1);
+
+                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "h=" << h << " stake-txid=" << stakeTx.GetHash().GetHex() << " segid=" << segid << " address=" << staketxaddr << " type=" << staketxtype << " samount=" << stakeTx.vout[0].nValue << std::endl);
 
                 //}
                 //}
