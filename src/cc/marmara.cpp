@@ -3722,26 +3722,30 @@ UniValue MarmaraInfo(const CPubKey &refpk, int32_t firstheight, int32_t lastheig
     char mynormaladdr[KOMODO_ADDRESS_BUFSIZE];
     char activated1of2addr[KOMODO_ADDRESS_BUFSIZE];
     char myccaddr[KOMODO_ADDRESS_BUFSIZE];
-    vuint8_t vrefpk(refpk.begin(), refpk.end());
-
+    
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_MARMARA);
 
     Marmarapk = GetUnspendable(cp, 0);
     result.push_back(Pair("result", "success"));
-    
-    Getscriptaddress(mynormaladdr, CScript() << ParseHex(HexStr(vrefpk)) << OP_CHECKSIG);
-    result.push_back(Pair("myNormalAddress", mynormaladdr));
-    result.push_back(Pair("myNormalAmount", ValueFromAmount(CCaddress_balance(mynormaladdr, 0))));
 
-    GetCCaddress1of2(cp, activated1of2addr, Marmarapk, vrefpk);
-    result.push_back(Pair("myCCActivatedAddress", activated1of2addr));
-    result.push_back(Pair("myActivatedAmount", ValueFromAmount(AddMarmaraCCInputs(IsMarmaraActivatedVout, mtx, pubkeys, activated1of2addr, 0, MARMARA_VINS)))); 
-    result.push_back(Pair("myTotalAmountOnActivatedAddress", ValueFromAmount(CCaddress_balance(activated1of2addr, 1))));
+    if (refpk.IsValid())
+    {
+        vuint8_t vrefpk(refpk.begin(), refpk.end());
 
-    GetCCaddress(cp, myccaddr, vrefpk);
-    result.push_back(Pair("myCCAddress", myccaddr));
-    result.push_back(Pair("myCCBalance", ValueFromAmount(CCaddress_balance(myccaddr, 1))));
+        Getscriptaddress(mynormaladdr, CScript() << ParseHex(HexStr(vrefpk)) << OP_CHECKSIG);
+        result.push_back(Pair("myNormalAddress", mynormaladdr));
+        result.push_back(Pair("myNormalAmount", ValueFromAmount(CCaddress_balance(mynormaladdr, 0))));
+
+        GetCCaddress1of2(cp, activated1of2addr, Marmarapk, vrefpk);
+        result.push_back(Pair("myCCActivatedAddress", activated1of2addr));
+        result.push_back(Pair("myActivatedAmount", ValueFromAmount(AddMarmaraCCInputs(IsMarmaraActivatedVout, mtx, pubkeys, activated1of2addr, 0, MARMARA_VINS))));
+        result.push_back(Pair("myTotalAmountOnActivatedAddress", ValueFromAmount(CCaddress_balance(activated1of2addr, 1))));
+
+        GetCCaddress(cp, myccaddr, vrefpk);
+        result.push_back(Pair("myCCAddress", myccaddr));
+        result.push_back(Pair("myCCBalance", ValueFromAmount(CCaddress_balance(myccaddr, 1))));
+    }
 
     // calc lock-in-loops amount for refpk:
     CAmount loopAmount = 0;
