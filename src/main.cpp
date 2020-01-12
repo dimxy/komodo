@@ -1408,8 +1408,10 @@ bool CheckTransaction(uint32_t tiptime,const CTransaction& tx, CValidationState 
     {
         if ( numTxs == 0 || txIndex != numTxs-1 ) 
         {
-            return state.DoS(100, error("CheckTransaction(): staking tx is not staking a block"),
-                            REJECT_INVALID, "bad-txns-stakingtx");
+            if (!ASSETCHAINS_MARMARA) {     // turn this of for marmara as this sometimes rejects some non-staking txns when a pos block is being synced
+                return state.DoS(100, error("CheckTransaction(): staking tx is not staking a block"),
+                    REJECT_INVALID, "bad-txns-stakingtx");
+            }
         }
     }
     
