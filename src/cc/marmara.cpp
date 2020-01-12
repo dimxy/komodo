@@ -1789,7 +1789,15 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
 
             if (get_either_opret(&activatedChecker, staketx, 0, opret, opretpk))
             {
-                CScript coinbaseOpret = MarmaraCoinbaseOpret(MARMARA_COINBASE, nHeight, opretpk);
+                CScript coinbaseOpret;
+                CPubKey pk; 
+                int32_t height;
+                int32_t unlockht;
+
+                if (IsFuncidOneOf(MarmaraDecodeCoinbaseOpret(opret, pk, height, unlockht), MARMARA_ACTIVATED_3X))
+                    coinbaseOpret = MarmaraCoinbaseOpret(MARMARA_COINBASE_3X, nHeight, opretpk);  // marmara 3x oprets create new 3x coinbases
+                else
+                    coinbaseOpret = MarmaraCoinbaseOpret(MARMARA_COINBASE, nHeight, opretpk);
                 CTxOut vout = MakeMarmaraCC1of2voutOpret(0, opretpk, coinbaseOpret);
 
                 Getscriptaddress(checkaddr, vout.scriptPubKey);
