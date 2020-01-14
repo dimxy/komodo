@@ -1795,6 +1795,7 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
         hashval = ratio * (UintToArith256(hash) / coinage256);
         if ( hashval <= bnTarget )
         {
+            std::cerr << "found winner txid=" << txid.GetHex() << " value" << value << " nHeight=" << nHeight << std::endl;
             winner = 1;
             if ( validateflag == 0 )
             {
