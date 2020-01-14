@@ -1542,11 +1542,27 @@ void komodo_segids(uint8_t *hashbuf,int32_t height,int32_t n)
 uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 txid,int32_t vout)
 {
     bits256 addrhash;
-    vcalc_sha256(0,(uint8_t *)&addrhash,(uint8_t *)address,(int32_t)strlen(address));
-    memcpy(&hashbuf[100],&addrhash,sizeof(addrhash));
-    memcpy(&hashbuf[100+sizeof(addrhash)],&txid,sizeof(txid));
-    memcpy(&hashbuf[100+sizeof(addrhash)+sizeof(txid)],&vout,sizeof(vout));
-    vcalc_sha256(0,(uint8_t *)hashp,hashbuf,100 + (int32_t)sizeof(uint256)*2 + sizeof(vout));
+    //add address hash
+    vcalc_sha256(0, (uint8_t *)&addrhash, (uint8_t *)address, (int32_t)strlen(address));
+    memcpy(&hashbuf[100], &addrhash, sizeof(addrhash));
+    // add txid
+    memcpy(&hashbuf[100 + sizeof(addrhash)], &txid, sizeof(txid));
+    // add vout
+    memcpy(&hashbuf[100 + sizeof(addrhash) + sizeof(txid)], &vout, sizeof(vout));
+    int32_t hashed_size = 100 + (int32_t)sizeof(uint256) * 2 + sizeof(vout);
+
+    if (ASSETCHAINS_MARMARA)
+    {
+#if !defined(ENABLE_WALLET)   // if no wallet this is the marmara stakebox that provides staking services for users with activated or locked-in-loop coins
+        // add mypubkey to hashed array for marmara stakeboxes
+        // this is to prevent contention when several stakeboxes create same PoS block
+        std::vector<uint8_t> vstakerpk = Mypubkey();
+        memcpy(&hashbuf[hashed_size], vstakerpk.data(), CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+        hashed_size += CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
+
+#endif
+    }
+    vcalc_sha256(0,(uint8_t *)hashp, hashbuf, hashed_size);
     return(addrhash.uints[0]);
 }
 
@@ -1700,7 +1716,7 @@ arith_uint256 komodo_PoWtarget(int32_t *percPoSp,arith_uint256 target,int32_t he
 
 uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeight,uint256 txid,int32_t vout,uint32_t blocktime,uint32_t prevtime,char *destaddr,int32_t PoSperc)
 {
-    bool fNegative,fOverflow; uint8_t hashbuf[256]; char address[64]; bits256 addrhash; arith_uint256 hashval,mindiff,ratio,coinage256; uint256 hash,pasthash; int32_t segid,minage,iter=0; int64_t diff=0; uint32_t txtime,segid32,winner = 0 ; uint64_t value,coinage;
+    bool fNegative,fOverflow; uint8_t hashbuf[256 + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE]; char address[64]; bits256 addrhash; arith_uint256 hashval,mindiff,ratio,coinage256; uint256 hash,pasthash; int32_t segid,minage,iter=0; int64_t diff=0; uint32_t txtime,segid32,winner = 0 ; uint64_t value,coinage;
     txtime = komodo_txtime2(&value,txid,vout,address);
     if ( validateflag == 0 )
     {

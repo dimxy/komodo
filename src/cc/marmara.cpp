@@ -4245,7 +4245,7 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
                 }
                 else
                 {
-                    staketxtype = "normal";
+                    staketxtype = "normal";  // normal stake tx not supported in marmara, only activated or lcl
                 }
 
                 TStatElem elem = mapStat[sStakeTxAddr + staketxtype];
@@ -4254,7 +4254,7 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
                 uint32_t segid = komodo_segid32(staketxaddr) & 0x3f;
                 mapStat[sStakeTxAddr + staketxtype] = std::make_tuple(sStakeTxAddr, staketxtype, segid, amount, std::get<POSSTAT_TXCOUNT>(elem) + 1);
 
-                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "h=" << h << " stake-txid=" << stakeTx.GetHash().GetHex() << " segid=" << segid << " address=" << staketxaddr << " type=" << staketxtype << " samount=" << stakeTx.vout[0].nValue << std::endl);
+                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "h=" << h << " stake-txid=" << stakeTx.GetHash().GetHex() << " segid=" << segid << " address=" << staketxaddr << " type=" << staketxtype << " amount=" << stakeTx.vout[0].nValue << std::endl);
 
                 //}
                 //}
