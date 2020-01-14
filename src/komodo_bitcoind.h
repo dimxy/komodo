@@ -1794,7 +1794,6 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
         hashval = ratio * (UintToArith256(hash) / coinage256);
         if ( hashval <= bnTarget )
         {
-            std::cerr << "found winner txid=" << txid.GetHex() << " value" << value << " nHeight=" << nHeight << std::endl;
             winner = 1;
             if ( validateflag == 0 )
             {
@@ -2952,6 +2951,7 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
             for (i = 0; i < siglen; i++)
                 utxosig[i] = ptr[i];
             *utxovaluep = newStakerActive != 0 ? tocoinbase : txNew.vout[0].nValue+txfee;
+            std::cerr << "found winner reftxid=" << revtxid.GetHex() << " *utxovaluep" << *utxovaluep << " nHeight=" << nHeight << std::endl;
         }
         else
         {
