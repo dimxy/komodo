@@ -1630,7 +1630,7 @@ void static BitcoinMiner_noeq()
 #ifdef ENABLE_WALLET
                         ProcessBlockFound(pblock, *pwallet, reservekey);
 #else
-                        ProcessBlockFound(pblock));
+                        ProcessBlockFound(pblock);
 #endif
                         SetThreadPriority(THREAD_PRIORITY_LOWEST);
                         break;
