@@ -1475,7 +1475,7 @@ int8_t komodo_segid(int32_t nocache,int32_t height)
     if ( height > 0 && (pindex= komodo_chainactive(height)) != 0 )
     {
         if (nocache == 0 && pindex->segid >= -1) {
-            LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "return cached segid, height." << height << " -> " << (int)pindex->segid << std::endl);   // uncommented
+            LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG2, stream << "return cached segid, height." << height << " -> " << (int)pindex->segid << std::endl);   // uncommented
             return(pindex->segid);
         }
         if ( komodo_blockload(block,pindex) == 0 )
@@ -1532,14 +1532,14 @@ void komodo_segids(uint8_t *hashbuf,int32_t height,int32_t n)
         }
         if ( n == 100 )
         {
-            memcpy(prevhashbuf,hashbuf,100);
+            memcpy(prevhashbuf,hashbuf,100);        // could not it be a multithreaded concurrent access to these static vars?
             prevheight = height;
             //fprintf(stderr,"prevsegids.%d\n",height+n);
         }
     }
 }
 
-uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 txid,int32_t vout)
+uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 txid,int32_t vout, const std::vector<uint8_t> &vstakerpk)
 {
     bits256 addrhash;
     //add address hash
@@ -1557,7 +1557,6 @@ uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 
         // should be #if !defined ENABLE_WALLET but could not build
         // add mypubkey to hashed array for marmara stakeboxes
         // this is to prevent contention when several stakeboxes create same PoS block
-        std::vector<uint8_t> vstakerpk = Mypubkey();
         memcpy(&hashbuf[hashed_size], vstakerpk.data(), CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
         hashed_size += CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
         // #endif
@@ -1714,7 +1713,7 @@ arith_uint256 komodo_PoWtarget(int32_t *percPoSp,arith_uint256 target,int32_t he
     return(bnTarget);
 }
 
-uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeight,uint256 txid,int32_t vout,uint32_t blocktime,uint32_t prevtime,char *destaddr,int32_t PoSperc)
+uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeight,uint256 txid,int32_t vout,uint32_t blocktime,uint32_t prevtime,char *destaddr,int32_t PoSperc, const std::vector<uint8_t> & vcoinbasepk)
 {
     bool fNegative,fOverflow; uint8_t hashbuf[256 + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE]; char address[64]; bits256 addrhash; arith_uint256 hashval,mindiff,ratio,coinage256; uint256 hash,pasthash; int32_t segid,minage,iter=0; int64_t diff=0; uint32_t txtime,segid32,winner = 0 ; uint64_t value,coinage;
     txtime = komodo_txtime2(&value,txid,vout,address);
@@ -1741,9 +1740,9 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
     if ( (minage= nHeight*3) > 6000 ) // about 100 blocks
         minage = 6000;
     komodo_segids(hashbuf,nHeight-101,100);
-    segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout);
+    segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vcoinbasepk);
     segid = ((nHeight + segid32) & 0x3f);
-    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "segid=" << segid << " address=" << address << std::endl);
+    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG2, stream << "segid=" << segid << " address=" << address << std::endl);
     for (iter=0; iter<600; iter++)
     {
         if ( blocktime+iter+segid*2 < txtime+minage )
@@ -1861,6 +1860,11 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
         if ( it != mapBlockIndex.end() && (previndex = it->second) != NULL )
             prevtime = (uint32_t)previndex->nTime;
 
+        std::vector<uint8_t> vcoinbasepk; 
+        if (ASSETCHAINS_MARMARA) {
+            vcoinbasepk = MarmaraGetPubkeyFromSpk(pblock->vtx[0], 0);  // extract coinbase pubkey to validate stakehash, see komodo_stakehash()
+        }
+        
         txid = pblock->vtx[txn_count-1].vin[0].prevout.hash;
         vout = pblock->vtx[txn_count-1].vin[0].prevout.n;
         if ( slowflag != 0 && prevtime != 0 )
@@ -1868,7 +1872,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
             if ( komodo_isPoS(pblock,height,0) != 0 ) 
             {
                 // checks utxo is eligible to stake this block
-                eligible = komodo_stake(1,bnTarget,height,txid,vout,pblock->nTime,prevtime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,(char *)"",PoSperc); 
+                eligible = komodo_stake(1,bnTarget,height,txid,vout,pblock->nTime,prevtime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,(char *)"",PoSperc, vcoinbasepk); 
                 LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << " eligible=" << eligible << " pblock->nTime=" << pblock->nTime << std::endl);
             }
             else
@@ -2728,7 +2732,12 @@ struct komodo_staking *komodo_addutxo(struct komodo_staking *array,int32_t *numk
 {
     uint256 hash; uint32_t segid32; struct komodo_staking *kp;
 
-    segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout);
+    std::vector<uint8_t> vminerpk;
+    if (ASSETCHAINS_MARMARA) {
+        vminerpk = Mypubkey(); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
+    }
+
+    segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vminerpk);
     if ( *numkp >= *maxkp )
     {
         *maxkp += 1000;
@@ -2758,7 +2767,12 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
 {
     static struct komodo_staking *array; static int32_t numkp,maxkp; static uint32_t lasttime;
     int32_t PoSperc = 0, newStakerActive; 
-    set<CBitcoinAddress> setAddress; struct komodo_staking *kp; int32_t winners,segid,minage,nHeight,counter=0,i,m,siglen=0,nMinDepth = 1,nMaxDepth = 99999999; vector<COutput> vecOutputs; uint32_t block_from_future_rejecttime,besttime,eligible,earliest = 0; CScript best_scriptPubKey; arith_uint256 mindiff,ratio,bnTarget,tmpTarget; CBlockIndex *tipindex,*pindex; CTxDestination address; bool fNegative,fOverflow; uint8_t hashbuf[256]; CTransaction tx; uint256 hashBlock;
+    set<CBitcoinAddress> setAddress; struct komodo_staking *kp; int32_t winners,segid,minage,nHeight,counter=0,i,m,siglen=0,nMinDepth = 1,nMaxDepth = 99999999; vector<COutput> vecOutputs; uint32_t block_from_future_rejecttime,besttime,eligible,earliest = 0; CScript best_scriptPubKey; arith_uint256 mindiff,ratio,bnTarget,tmpTarget; 
+    CBlockIndex *tipindex,*pindex; CTxDestination address; 
+    bool fNegative,fOverflow; 
+    uint8_t hashbuf[256 + CPubKey::COMPRESSED_PUBLIC_KEY_SIZE];
+    CTransaction tx; uint256 hashBlock;
+
     uint64_t cbPerc = *utxovaluep, tocoinbase = 0;
     if (!EnsureWalletIsAvailable(0))
         return 0;
@@ -2860,12 +2874,17 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
             fprintf(stderr,"[%s:%d] chain tip changed during staking loop t.%u counter.%d\n",ASSETCHAINS_SYMBOL,nHeight,(uint32_t)time(NULL),i);
             return(0);
         }
+        std::vector<uint8_t> vminerpk;
+        if (ASSETCHAINS_MARMARA) {
+            vminerpk = Mypubkey(); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
+        }
+
         kp = &array[i];
-        eligible = komodo_stake(0,bnTarget,nHeight,kp->txid,kp->vout,0,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc);
+        eligible = komodo_stake(0,bnTarget,nHeight,kp->txid,kp->vout,0,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc, vminerpk);
         if ( eligible > 0 )
         {
             besttime = 0;
-            if ( eligible == komodo_stake(1,bnTarget,nHeight,kp->txid,kp->vout,eligible,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc) )
+            if ( eligible == komodo_stake(1,bnTarget,nHeight,kp->txid,kp->vout,eligible,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc, vminerpk) )
             {
                 // have elegible utxo to stake with. 
                 if ( earliest == 0 || eligible < earliest || (eligible == earliest && (*utxovaluep == 0 || kp->nValue < *utxovaluep)) )
