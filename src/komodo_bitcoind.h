@@ -1553,14 +1553,14 @@ uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 
 
     if (ASSETCHAINS_MARMARA)
     {
-#if !defined(ENABLE_WALLET)   // if no wallet this is the marmara stakebox that provides staking services for users with activated or locked-in-loop coins
+        // this is for the marmara stakebox that provides staking services for users with activated or locked-in-loop coins
+        // should be #if !defined ENABLE_WALLET but could ot build
         // add mypubkey to hashed array for marmara stakeboxes
         // this is to prevent contention when several stakeboxes create same PoS block
         std::vector<uint8_t> vstakerpk = Mypubkey();
         memcpy(&hashbuf[hashed_size], vstakerpk.data(), CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
         hashed_size += CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
-
-#endif
+        // #endif
     }
     vcalc_sha256(0,(uint8_t *)hashp, hashbuf, hashed_size);
     return(addrhash.uints[0]);
