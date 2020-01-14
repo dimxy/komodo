@@ -1557,9 +1557,16 @@ uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 
         // should be #if !defined ENABLE_WALLET but could not build
         // add mypubkey to hashed array for marmara stakeboxes
         // this is to prevent contention when several stakeboxes create same PoS block
-        memcpy(&hashbuf[hashed_size], vstakerpk.data(), CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
-        hashed_size += CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
-        std::cerr << __func__ << " pubkey to stake hash=" << HexStr(vstakerpk) << std::endl;
+        if (!vstakerpk.empty())
+        {
+            memcpy(&hashbuf[hashed_size], vstakerpk.data(), CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+            hashed_size += CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
+            std::cerr << __func__ << " pubkey to stake hash=" << HexStr(vstakerpk) << std::endl;
+        }
+        else
+        {
+            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "staker pubkey not provided (not marmara coinbase or -pubkey not set)" << std::endl);
+        }
         // #endif
     }
     vcalc_sha256(0,(uint8_t *)hashp, hashbuf, hashed_size);

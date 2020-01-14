@@ -1854,7 +1854,7 @@ vuint8_t  MarmaraGetPubkeyFromSpk(const CTransaction & tx, int32_t nvout)
 {
     vuint8_t vpk;
 
-    if (nvout < 0 || nvout >= tx.vout.size())
+    if (nvout >= 0 && nvout < tx.vout.size())
     {
         if (tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition())
         {
@@ -1867,17 +1867,17 @@ vuint8_t  MarmaraGetPubkeyFromSpk(const CTransaction & tx, int32_t nvout)
                 vpk = vuint8_t(opretpk.begin(), opretpk.end());
             }
         }
-    }
-    else
-    {
-        if (tx.vout[nvout].scriptPubKey.IsPayToPublicKey()) 
+        else
         {
-            typedef std::vector<unsigned char> valtype;
-            std::vector<valtype> vSolutions;
-            txnouttype whichType;
+            if (tx.vout[nvout].scriptPubKey.IsPayToPublicKey())
+            {
+                typedef std::vector<unsigned char> valtype;
+                std::vector<valtype> vSolutions;
+                txnouttype whichType;
 
-            if (Solver(tx.vout[nvout].scriptPubKey, whichType, vSolutions)) {
-                vpk = vSolutions[0];
+                if (Solver(tx.vout[nvout].scriptPubKey, whichType, vSolutions)) {
+                    vpk = vSolutions[0];
+                }
             }
         }
     }
