@@ -1748,6 +1748,7 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
         minage = 6000;
     komodo_segids(hashbuf,nHeight-101,100);
     segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vcoinbasepk);
+    std::cerr << "hash=" << HexStr(hash) << " hashbuf=" << HexStr(vuint8_t(hashbuf, hashbuf + 100 + 2 * sizeof(uint256) + 33)) << " validateflag=" << validateflag << std::endl;
     segid = ((nHeight + segid32) & 0x3f);
     LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG2, stream << "segid=" << segid << " address=" << address << std::endl);
     for (iter=0; iter<600; iter++)
@@ -2872,6 +2873,10 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
         //fprintf(stderr,"finished kp data of utxo for staking %u ht.%d numkp.%d maxkp.%d\n",(uint32_t)time(NULL),nHeight,numkp,maxkp);
     }
     block_from_future_rejecttime = (uint32_t)GetAdjustedTime() + ASSETCHAINS_STAKED_BLOCK_FUTURE_MAX;    
+    std::vector<uint8_t> vminerpk;
+    if (ASSETCHAINS_MARMARA) {
+        vminerpk = Mypubkey(); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
+    }
     for (i=winners=0; i<numkp; i++)
     {
         if ( fRequestShutdown || !GetBoolArg("-gen",false) )
@@ -2880,10 +2885,6 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
         {
             fprintf(stderr,"[%s:%d] chain tip changed during staking loop t.%u counter.%d\n",ASSETCHAINS_SYMBOL,nHeight,(uint32_t)time(NULL),i);
             return(0);
-        }
-        std::vector<uint8_t> vminerpk;
-        if (ASSETCHAINS_MARMARA) {
-            vminerpk = Mypubkey(); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
         }
 
         kp = &array[i];
