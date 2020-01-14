@@ -2222,7 +2222,7 @@ void static BitcoinMiner()
             delete minerThreads;
             minerThreads = NULL;
         }
-
+#ifdef ENABLE_WALLET
         //fprintf(stderr,"nThreads.%d fGenerate.%d\n",(int32_t)nThreads,fGenerate);
         if ( ASSETCHAINS_STAKED > 0 && nThreads == 0 && fGenerate )
         {
@@ -2234,7 +2234,7 @@ void static BitcoinMiner()
 
         if ((nThreads == 0 || !fGenerate) && (VERUS_MINTBLOCKS == 0 || pwallet == NULL))
             return;
-
+#endif
         minerThreads = new boost::thread_group();
 
 #ifdef ENABLE_WALLET
