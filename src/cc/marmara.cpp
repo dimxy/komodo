@@ -20,43 +20,46 @@
  /*
   Marmara CC is for the MARMARA project
 
-  MARMARA_CREATELOOP initial data for credit loop
+  'B' initial data for credit loop
   vins normal
   vout0 request to senderpk (issuer)
 
-  MARMARA_REQUEST request for credit issuance 
+  'R' request for credit issuance 
   vins normal
   vout0 request to senderpk (endorser)
 
-  MARMARA_ISSUE check issuance
+  'I' check issuance
   vin0 request from MARMARA_REQUEST
   vins1+ normal
   vout0 baton to 1st receiverpk
   vout1 marker to Marmara so all issuances can be tracked (spent when loop is closed)
 
-  MARMARA_TRANSFER check transfer to endorser
+  'T' check transfer to endorser
   vin0 request from MARMARA_REQUEST
   vin1 baton from MARMARA_ISSUE/MARMARA_TRANSFER
   vins2+ normal
   vout0 baton to next receiverpk (following the unspent baton back to original is the credit loop)
 
-  MARMARA_SETTLE check settlement
+  'S' check settlement
   vin0 MARMARA_ISSUE marker
   vin1 baton
   vins CC utxos from credit loop
 
-  MARMARA_SETTLE_PARTIAL default/partial payment in the settlement
+  'D' default/partial payment in the settlement
   //TODO: should we implement several partial settlements in case of too many vins?
 
-  MARMARA_ACTIVATED activated funds
-  MARMARA_ACTIVATED_3X activated funds with 3x stake advantage  -- not used
+  'A' activated funds
+  'F' activated funds with 3x stake advantage  
+  'N' initially activated funds at h=2 to fill all 64 segids on first blocks
 
-  MARMARA_COINBASE marmara coinbase
-  MARMARA_COINBASE_3X marmara coinbase with 3x stake advantage
+  'C' marmara coinbase
+  'E' marmara coinbase with 3x stake advantage
 
-  MARMARA_LOOP lock in loop last vout opret
+  'L' lock in loop last vout opret
 
-  MARMARA_LOCKED locked-in-loop cc vout opret with the pubkey which locked his funds in this vout 
+  'K' locked-in-loop cc vout opret with the pubkey which locked his funds in this vout 
+
+  'O' unlocked (released to normals from activated) coins opret
 
  */
 
@@ -1662,14 +1665,20 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
     {
         return eval->Error("unexpected tx funcid MARMARA_REQUEST");   // tx should have no cc inputs
     }
-    else if (funcIds == std::set<uint8_t>{MARMARA_ISSUE} || funcIds == std::set<uint8_t>{MARMARA_ISSUE, MARMARA_LOCKED} || funcIds == std::set<uint8_t>{MARMARA_ACTIVATED, MARMARA_ISSUE, MARMARA_LOCKED}) // issue -> issue currency to pk with due mature height
+    // issue -> issue currency to pk with due mature height:
+    else if (funcIds == std::set<uint8_t>{MARMARA_ISSUE} || 
+        funcIds == std::set<uint8_t>{MARMARA_ISSUE, MARMARA_LOCKED} || 
+        funcIds == std::set<uint8_t>{MARMARA_ACTIVATED, MARMARA_ISSUE, MARMARA_LOCKED})
     {
         if (!check_issue_tx(tx, validationError))
             return eval->Error(validationError);   // tx have no cc inputs
         else
             return true;
     }
-    else if (funcIds == std::set<uint8_t>{MARMARA_TRANSFER} || funcIds == std::set<uint8_t>{MARMARA_TRANSFER, MARMARA_LOCKED} || funcIds == std::set<uint8_t>{MARMARA_ACTIVATED, MARMARA_TRANSFER, MARMARA_LOCKED}) // transfer -> given MARMARA_REQUEST transfer MARMARA_ISSUE or MARMARA_TRANSFER to the pk of MARMARA_REQUEST
+    // transfer -> given MARMARA_REQUEST transfer MARMARA_ISSUE or MARMARA_TRANSFER to the pk of MARMARA_REQUEST:
+    else if (funcIds == std::set<uint8_t>{MARMARA_TRANSFER} || 
+        funcIds == std::set<uint8_t>{MARMARA_TRANSFER, MARMARA_LOCKED} || 
+        funcIds == std::set<uint8_t>{MARMARA_ACTIVATED, MARMARA_TRANSFER, MARMARA_LOCKED})  // MARMARA_ACTIVATED could be if redistributed back 
     {
         if (!check_issue_tx(tx, validationError))
             return eval->Error(validationError);   // tx have no cc inputs
@@ -1690,7 +1699,7 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
         else
             return true;
     }
-    else if (funcIds == std::set<uint8_t>{MARMARA_COINBASE} /*|| funcIds == std::set<uint8_t>{MARMARA_ACTIVATED_3X }*/) // coinbase 
+    else if (funcIds == std::set<uint8_t>{MARMARA_COINBASE} || funcIds == std::set<uint8_t>{MARMARA_COINBASE_3X } ) // coinbase 
     {
         return true;
     }
@@ -1698,7 +1707,7 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
     {
         return true; // will be checked in PoS validation code
     }
-    else if (funcIds == std::set<uint8_t>{MARMARA_ACTIVATED} || funcIds == std::set<uint8_t>{MARMARA_COINBASE_3X}) // activated
+    else if (funcIds == std::set<uint8_t>{MARMARA_ACTIVATED} || funcIds == std::set<uint8_t>{MARMARA_ACTIVATED_INITIAL} ) // activated
     {
         return true; // will be checked in PoS validation code
     }
@@ -1794,10 +1803,16 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
                 int32_t height;
                 int32_t unlockht;
                 bool is3x;
+                uint8_t funcid = MarmaraDecodeCoinbaseOpret(opret, pk, height, unlockht);
 
-                if (IsFuncidOneOf(MarmaraDecodeCoinbaseOpret(opret, pk, height, unlockht), MARMARA_ACTIVATED_3X_FUNCIDS)) {
+                if (IsFuncidOneOf(funcid, MARMARA_ACTIVATED_3X_FUNCIDS)) {
                     coinbaseOpret = MarmaraCoinbaseOpret(MARMARA_COINBASE_3X, nHeight, opretpk);  // marmara 3x oprets create new 3x coinbases
                     is3x = true;
+                }
+                else if (IsFuncidOneOf(funcid, { MARMARA_ACTIVATED_INITIAL })) {  // for initially activated coins coinbase goes to miner pk
+                    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "for initial activated stake tx created default coinbase scriptPubKey for miner pk" << std::endl);
+                    spk = defaultspk;
+                    return spk;
                 }
                 else {
                     coinbaseOpret = MarmaraCoinbaseOpret(MARMARA_COINBASE, nHeight, opretpk);
@@ -1806,7 +1821,7 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
                 CTxOut vout = MakeMarmaraCC1of2voutOpret(0, opretpk, coinbaseOpret);
 
                 Getscriptaddress(checkaddr, vout.scriptPubKey);
-                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "activated stake tx created activated " << (is3x ? "3x" : "1x") << " coinbase scriptPubKey with address=" << checkaddr << std::endl); 
+                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "for activated stake tx created activated " << (is3x ? "3x" : "1x") << " coinbase scriptPubKey with address=" << checkaddr << std::endl); 
                 spk = vout.scriptPubKey;
             }
             else if (get_either_opret(&lockinloopChecker, staketx, 0, opret, opretpk))
@@ -1815,7 +1830,7 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
                 CTxOut vout = MakeMarmaraCC1of2voutOpret(0, opretpk, coinbaseOpret);
 
                 Getscriptaddress(checkaddr, vout.scriptPubKey);
-                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "lcl stake tx created activated 3x coinbase scriptPubKey address=" << checkaddr << std::endl);  
+                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "for lcl stake tx created activated 3x coinbase scriptPubKey address=" << checkaddr << std::endl);  
                 spk = vout.scriptPubKey;
             }
             else
@@ -2412,7 +2427,7 @@ int32_t MarmaraGetStakeMultiplier(const CTransaction & staketx, int32_t nvout)
                         if (vopret.size() >= 2)
                             funcid = vopret[1];
 
-                        if (IsFuncidOneOf(funcid, { MARMARA_COINBASE_3X /*, MARMARA_ACTIVATED_3X*/ }))  // is 3x stake tx?
+                        if (IsFuncidOneOf(funcid, { MARMARA_COINBASE_3X }))  // is 3x stake tx?
                             mult = 3;
 
                         LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "utxo picked for stake x" << mult << " as activated" << " txid=" << staketx.GetHash().GetHex() << " nvout=" << nvout << std::endl);
@@ -3924,7 +3939,7 @@ std::string MarmaraLock64(CWallet *pwalletMain, CAmount amount, int32_t nutxos)
                 CPubKey segidpk = keyPair.second.second;
 
                 // add ccopret
-                CScript opret = MarmaraCoinbaseOpret(MARMARA_ACTIVATED, height, segidpk);
+                CScript opret = MarmaraCoinbaseOpret(/*MARMARA_ACTIVATED*/MARMARA_ACTIVATED_INITIAL, height, segidpk);
                 // add marmara opret segpk to each cc vout 
                 mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(amount / 64 / nutxos, segidpk, opret));
             }
