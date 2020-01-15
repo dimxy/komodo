@@ -1559,12 +1559,12 @@ uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 
         // this is to prevent contention when several stakeboxes create same PoS block
         if (!vstakerpk.empty())
         {
-            //memcpy(&hashbuf[hashed_size], vstakerpk.data(), CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
-            //hashed_size += CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
+            memcpy(&hashbuf[hashed_size], vstakerpk.data(), CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+            hashed_size += CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
         }
         else
         {
-            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "staker pubkey not provided (not marmara coinbase or -pubkey not set)" << std::endl);
+            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "staker pubkey not provided (not the marmara coinbase or -pubkey not set)" << std::endl);
         }
         // #endif
     }
@@ -1748,7 +1748,7 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
         minage = 6000;
     komodo_segids(hashbuf,nHeight-101,100);
     segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vcoinbasepk);
-    std::cerr << "hash=" << HexStr(hash) << " hashbuf=" << HexStr(vuint8_t(hashbuf, hashbuf + 100 + 2 * sizeof(uint256) + 33)) << " validateflag=" << validateflag << std::endl;
+    //std::cerr << "hash=" << HexStr(hash) << " hashbuf=" << HexStr(vuint8_t(hashbuf, hashbuf + 100 + 2 * sizeof(uint256) + 33)) << " validateflag=" << validateflag << std::endl;
     segid = ((nHeight + segid32) & 0x3f);
     LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG2, stream << "segid=" << segid << " address=" << address << std::endl);
     for (iter=0; iter<600; iter++)
@@ -1756,7 +1756,7 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
         if ( blocktime+iter+segid*2 < txtime+minage )
             continue;
         diff = (iter + blocktime - txtime - minage);
-        std::cerr << "iter=" << iter << " blocktime=" << blocktime << " segid=" << segid << " txtime=" << txtime << " minage=" << minage << " diff=" << diff << std::endl;
+        //std::cerr << "iter=" << iter << " blocktime=" << blocktime << " segid=" << segid << " txtime=" << txtime << " minage=" << minage << " diff=" << diff << std::endl;
         // Disable PoS64 on VerusHash, doesnt work properly.
         if ( 0 ) // ASSETCHAINS_ALGO == ASSETCHAINS_VERUSHASH || ASSETCHAINS_ALGO == ASSETCHAINS_VERUSHASHV1_1 )
         {
@@ -1801,7 +1801,7 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
             coinage *= ((blocktime+iter+segid*2) - (prevtime+400));
         coinage256 = arith_uint256(coinage+1);
         hashval = ratio * (UintToArith256(hash) / coinage256);
-        std::cerr << __func__ << " validateflag=" << validateflag << " ratio=" << ratio.GetHex() << " coinage256=" << coinage256.GetHex() << std::endl;
+        //std::cerr << __func__ << " validateflag=" << validateflag << " ratio=" << ratio.GetHex() << " coinage256=" << coinage256.GetHex() << std::endl;
         if ( hashval <= bnTarget )
         {
             winner = 1;
@@ -1821,8 +1821,9 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
             for (i=31; i>=24; i--)
                 fprintf(stderr,"%02x",((uint8_t *)&bnTarget)[i]);
             fprintf(stderr," segid.%d iter.%d winner.%d coinage.%llu %d ht.%d t.%u v%d diff.%d\n",segid,iter,winner,(long long)coinage,(int32_t)(blocktime - txtime),nHeight,blocktime,(int32_t)value,(int32_t)diff); */
-            LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_INFO, stream << "block not validated as PoS:" << " hashval=" << hash2str(hashval, 8) << " > bnTarget=" << hash2str(bnTarget, 8) << " iter=" << iter << " winner=" << winner << " segid=" << segid << " coinage=" << coinage << " blocktime-txtime=" << blocktime - txtime << " ht=" << nHeight << " blocktime=" << blocktime << " value=" << value << " diff=" << diff << std::endl);
-            std::cerr << __func__ << " block not validated as PoS, h=" << nHeight << " coinbase pk=" << HexStr(vcoinbasepk) << " txid=" << txid.GetHex() << " value=" << value << std::endl;
+            if (validateflag == 2) // validateflag==2 means validation when block is connected. At this time a winner utxo not validated is bad
+                LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_ERROR, stream << "winner utxo not validated:" << " hashval=" << hash2str(hashval, 8) << " > bnTarget=" << hash2str(bnTarget, 8) << " iter=" << iter << " winner=" << winner << " segid=" << segid << " coinage=" << coinage << " blocktime-txtime=" << blocktime - txtime << " ht=" << nHeight << " blocktime=" << blocktime << " value=" << value << " diff=" << diff << " txid=" << txid.GetHex() << " vout=" << vout << std::endl);
+            //std::cerr << __func__ << " block not validated as PoS, h=" << nHeight << " coinbase pk=" << HexStr(vcoinbasepk) << " txid=" << txid.GetHex() << " value=" << value << std::endl;
             break;
         }
     }
@@ -1882,7 +1883,8 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
             if ( komodo_isPoS(pblock,height,0) != 0 ) 
             {
                 // checks utxo is eligible to stake this block
-                eligible = komodo_stake(1,bnTarget,height,txid,vout,pblock->nTime,prevtime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,(char *)"",PoSperc, vcoinbasepk); 
+                // validateflag==2 means that called when block is synced (at that time utxo not validated is logged as error)
+                eligible = komodo_stake(2, bnTarget,height,txid,vout,pblock->nTime,prevtime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,(char *)"",PoSperc, vcoinbasepk); 
                 LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << " eligible=" << eligible << " pblock->nTime=" << pblock->nTime << std::endl);
             }
             else
@@ -2962,7 +2964,7 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
             for (i = 0; i < siglen; i++)
                 utxosig[i] = ptr[i];
             *utxovaluep = newStakerActive != 0 ? tocoinbase : txNew.vout[0].nValue+txfee;
-            std::cerr << "found winner reftxid=" << revtxid.GetHex() << " *utxovaluep" << *utxovaluep << " nHeight=" << nHeight << std::endl;
+            //std::cerr << "found winner reftxid=" << revtxid.GetHex() << " *utxovaluep" << *utxovaluep << " nHeight=" << nHeight << std::endl;
         }
         else
         {

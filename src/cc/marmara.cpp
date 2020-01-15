@@ -2674,7 +2674,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx)
 
             Getscriptaddress(activated1of2addr, mstaketx.vout[0].scriptPubKey);
 
-            LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "found activated opret in staking vintx" << std::endl);
+            LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "found activated opret in staking vintx" << std::endl);
 
             CC *probeCond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, opretpk);
             // use the global pk (instead of privkey for user's pubkey from the wallet):
@@ -2698,7 +2698,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx)
 
             CPubKey createtxidPk = CCtxidaddr_tweak(NULL, loopData.createtxid);
 
-            LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "found locked-in-loop opret in staking vintx" << std::endl);
+            LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "found locked-in-loop opret in staking vintx" << std::endl);
 
             CC *probeCond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, createtxidPk);
             CCAddVintxCond(cp, probeCond, marmarapriv); //add probe condition to sign vintx 1of2 utxo
@@ -2727,7 +2727,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx)
                 utxosig[i] = scriptptr[i];
                 debstream << std::hex << (int)scriptptr[i];
             }
-            LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "scriptSig=" << debstream.str() << " got signed rawtx=" << rawtx << " siglen=" << siglen << std::endl);
+            LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "scriptSig=" << debstream.str() << " signed rawtx=" << rawtx << " siglen=" << siglen << std::endl);
             return(siglen);
         }
         else
