@@ -4270,11 +4270,11 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
 
                     if (get_either_opret(&activatedChecker, stakeTx, 0, opret, opretpk) && GetOpReturnData(opret, vopret) && vopret.size() >= 2)
                     {
-                        if (IsFuncidOneOf(vopret[1], { MARMARA_COINBASE, MARMARA_ACTIVATED }))
+                        if (IsFuncidOneOf(vopret[1], MARMARA_ACTIVATED_1X_FUNCIDS))
                         {
                             staketxtype = "activated-1x";
                         }
-                        else if (vopret[1] == MARMARA_COINBASE_3X)
+                        else if (IsFuncidOneOf(vopret[1], MARMARA_ACTIVATED_3X_FUNCIDS))
                         {
                             staketxtype = "activated-3x";
                         }

@@ -71,6 +71,7 @@ inline bool IsFuncidOneOf(uint8_t funcid, const std::set<uint8_t> & funcidSet)
 }
 
 const std::set<uint8_t> MARMARA_ACTIVATED_FUNCIDS = { MARMARA_COINBASE, MARMARA_POOL, MARMARA_ACTIVATED, MARMARA_COINBASE_3X, MARMARA_ACTIVATED_INITIAL };
+const std::set<uint8_t> MARMARA_ACTIVATED_1X_FUNCIDS = { MARMARA_COINBASE, MARMARA_ACTIVATED, MARMARA_ACTIVATED_INITIAL };
 const std::set<uint8_t> MARMARA_ACTIVATED_3X_FUNCIDS = { MARMARA_COINBASE_3X };
 
 struct SMarmaraCreditLoopOpret;
