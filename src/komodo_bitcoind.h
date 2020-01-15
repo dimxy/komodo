@@ -1559,8 +1559,8 @@ uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 
         // this is to prevent contention when several stakeboxes create same PoS block
         if (!vstakerpk.empty())
         {
-            memcpy(&hashbuf[hashed_size], vstakerpk.data(), CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
-            hashed_size += CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
+            //memcpy(&hashbuf[hashed_size], vstakerpk.data(), CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+            //hashed_size += CPubKey::COMPRESSED_PUBLIC_KEY_SIZE;
         }
         else
         {
