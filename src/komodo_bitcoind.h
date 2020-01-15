@@ -1800,6 +1800,7 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
             coinage *= ((blocktime+iter+segid*2) - (prevtime+400));
         coinage256 = arith_uint256(coinage+1);
         hashval = ratio * (UintToArith256(hash) / coinage256);
+        std::cerr << __func__ << " validateflag=" << validateflag << " ratio=" << ratio.GetHex() << " coinage256=" << coinage256.GetHex() << std::endl;
         if ( hashval <= bnTarget )
         {
             winner = 1;
