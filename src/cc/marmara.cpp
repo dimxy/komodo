@@ -2487,9 +2487,10 @@ UniValue MarmaraLock(const CPubKey &remotepk, int64_t txfee, int64_t amount, con
     struct CCcontract_info *cp, C;
     CPubKey Marmarapk, mypk, destPk;
     //int32_t unlockht, /*refunlockht,*/ nvout, ht, numvouts;
-    int64_t nValue, val, inputsum = 0, remains, change = 0;
+    int64_t inputsum = 0, change = 0;
     std::string rawtx, errorstr;
-    char mynormaladdr[KOMODO_ADDRESS_BUFSIZE], activated1of2addr[KOMODO_ADDRESS_BUFSIZE];
+    // char mynormaladdr[KOMODO_ADDRESS_BUFSIZE];
+    char activated1of2addr[KOMODO_ADDRESS_BUFSIZE];
     uint256 txid, hashBlock;
     CTransaction tx;
     uint8_t funcid;
@@ -2516,16 +2517,16 @@ UniValue MarmaraLock(const CPubKey &remotepk, int64_t txfee, int64_t amount, con
     else
         destPk = mypk;      // lock to self
 
-    Getscriptaddress(mynormaladdr, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
+/*    Getscriptaddress(mynormaladdr, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
     if ((val = CCaddress_balance(mynormaladdr, 0)) < amount) // if not enough funds in the wallet
         val -= 2 * txfee + MARMARA_ACTIVATED_MARKER_AMOUNT;    // dont take all, should al least 1 txfee remained 
     else
-        val = amount;
+        val = amount; */
 
-    CAmount amountToAdd = val + MARMARA_ACTIVATED_MARKER_AMOUNT;
-    if (val > txfee) 
-    {
-        inputsum = AddNormalinputs(mtx, mypk, amountToAdd + txfee, MARMARA_VINS, isRemote);  //added '+txfee' because if 'inputsum' exactly was equal to 'val' we'd exit from insufficient funds 
+    CAmount amountToAdd = amount + MARMARA_ACTIVATED_MARKER_AMOUNT;
+    //if (val > txfee) 
+    //{
+    inputsum = AddNormalinputs(mtx, mypk, amountToAdd + txfee, MARMARA_VINS, isRemote);  //added '+txfee' because if 'inputsum' exactly was equal to 'val' we'd exit from insufficient funds 
         /* do not need this as threshold removed from Addnormalinputs
         if (inputsum < val + txfee) {
             // if added inputs are insufficient
@@ -2534,12 +2535,12 @@ UniValue MarmaraLock(const CPubKey &remotepk, int64_t txfee, int64_t amount, con
             inputsum = AddNormalinputs(mtx, mypk, val, CC_MAXVINS / 2, isRemote);
             inputsum += AddNormalinputs(mtx, mypk, txfee, 5, isRemote);
         }*/
-    }
+    //}
     //fprintf(stderr,"%s added normal inputs=%.8f required val+txfee=%.8f\n", logFuncName, (double)inputsum/COIN,(double)(val+txfee)/COIN);
 
     CScript opret = MarmaraCoinbaseOpret(MARMARA_ACTIVATED, height, destPk);
     // lock the amount on 1of2 address:
-    mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(val, destPk, opret)); //add coinbase opret
+    mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(amount, destPk, opret)); //add coinbase opret
     mtx.vout.push_back(MakeCC1vout(EVAL_MARMARA, MARMARA_ACTIVATED_MARKER_AMOUNT, Marmarapk));
 
     /* not used old code: adding from funds locked for another height
