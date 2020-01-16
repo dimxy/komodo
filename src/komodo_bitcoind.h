@@ -2749,7 +2749,8 @@ struct komodo_staking *komodo_addutxo(struct komodo_staking *array,int32_t *numk
     //if (ASSETCHAINS_MARMARA) 
     //    vminerpk = MarmaraGetPubkeyFromSpk(pk); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
 
-    segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vuint8_t());   // seems this segid32 is not used ever
+    if (ASSETCHAINS_MARMARA == false)
+        segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vuint8_t());   // seems this segid32 is not used ever
     if ( *numkp >= *maxkp )
     {
         *maxkp += 1000;
