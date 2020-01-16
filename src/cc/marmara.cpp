@@ -1810,11 +1810,11 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
                     coinbaseOpret = MarmaraCoinbaseOpret(MARMARA_COINBASE_3X, nHeight, opretpk);  // marmara 3x oprets create new 3x coinbases
                     is3x = true;
                 }
-                else if (IsFuncidOneOf(funcid, { MARMARA_ACTIVATED_INITIAL })) {  // for initially activated coins coinbase goes to miner pk
+                /*else if (IsFuncidOneOf(funcid, { MARMARA_ACTIVATED_INITIAL })) {  // for initially activated coins coinbase goes to miner pk
                     LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "for initial activated stake tx created default coinbase scriptPubKey for miner pk" << std::endl);
                     spk = defaultspk;
                     return spk;
-                }
+                }*/
                 else {
                     coinbaseOpret = MarmaraCoinbaseOpret(MARMARA_COINBASE, nHeight, opretpk);
                     is3x = false;
