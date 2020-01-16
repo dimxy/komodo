@@ -1873,7 +1873,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
 
         std::vector<uint8_t> vcoinbasepk; 
         if (ASSETCHAINS_MARMARA) {
-            vcoinbasepk = MarmaraGetPubkeyFromSpk(pblock->vtx[0], 0);  // extract coinbase pubkey to validate stakehash, see komodo_stakehash()
+            vcoinbasepk = MarmaraGetPubkeyFromSpk(pblock->vtx[0].vout[0].scriptPubKey);  // extract coinbase pubkey to validate stakehash, see komodo_stakehash()
         }
         
         txid = pblock->vtx[txn_count-1].vin[0].prevout.hash;
@@ -2745,11 +2745,10 @@ struct komodo_staking *komodo_addutxo(struct komodo_staking *array,int32_t *numk
     uint256 hash; uint32_t segid32; struct komodo_staking *kp;
 
     std::vector<uint8_t> vminerpk;
-    if (ASSETCHAINS_MARMARA) {
-        vminerpk = Mypubkey(); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
-    }
+    if (ASSETCHAINS_MARMARA) 
+        vminerpk = MarmaraGetPubkeyFromSpk(pk); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
 
-    segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vminerpk);
+    segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vminerpk);   // seems this segid32 is not used ever, becuase 
     if ( *numkp >= *maxkp )
     {
         *maxkp += 1000;
@@ -2878,9 +2877,7 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
     }
     block_from_future_rejecttime = (uint32_t)GetAdjustedTime() + ASSETCHAINS_STAKED_BLOCK_FUTURE_MAX;    
     std::vector<uint8_t> vminerpk;
-    if (ASSETCHAINS_MARMARA) {
-        vminerpk = Mypubkey(); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
-    }
+    
     for (i=winners=0; i<numkp; i++)
     {
         if ( fRequestShutdown || !GetBoolArg("-gen",false) )
@@ -2892,6 +2889,10 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
         }
 
         kp = &array[i];
+        if (ASSETCHAINS_MARMARA) {
+            vminerpk = MarmaraGetPubkeyFromSpk(kp->scriptPubKey); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
+        }
+
         eligible = komodo_stake(0,bnTarget,nHeight,kp->txid,kp->vout,0,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc, vminerpk);
         if ( eligible > 0 )
         {

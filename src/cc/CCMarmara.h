@@ -136,7 +136,7 @@ void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & miners
 CScript MarmaraCreateDefaultCoinbaseScriptPubKey(int32_t nHeight, CPubKey minerpk);
 CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &defaultspk, const CTransaction &staketx);
 CScript MarmaraCoinbaseOpret(uint8_t funcid, int32_t height, CPubKey pk);
-vuint8_t  MarmaraGetPubkeyFromSpk(const CTransaction & tx, int32_t nvout);
+vuint8_t  MarmaraGetPubkeyFromSpk(const CScript & spk);
 
 bool MyGetCCopret(const CScript &scriptPubKey, CScript &opret);
 

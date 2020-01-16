@@ -1851,38 +1851,39 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
 
 // get pubkey from cc vout or PayToPK script
 // this func is actually to get pubkey from coinbase
-vuint8_t  MarmaraGetPubkeyFromSpk(const CTransaction & tx, int32_t nvout)
+vuint8_t  MarmaraGetPubkeyFromSpk(const CScript &spk)
 {
-    vuint8_t vpk;
+    vuint8_t vretpk;
 
-    if (nvout >= 0 && nvout < tx.vout.size())
+    if (spk.IsPayToCryptoCondition())
     {
-        if (tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition())
-        {
-            CPubKey opretpk;
-            CScript opret;
+        CPubKey opretpk;
+        CScript opret;
 
-            // for stake tx check only cc opret, in last-vout opret there is pos data:
-            CMarmaraActivatedOpretChecker activatedChecker;
-            if (get_either_opret(&activatedChecker, tx, nvout, opret, opretpk)) {
-                vpk = vuint8_t(opretpk.begin(), opretpk.end());
-            }
-        }
-        else
-        {
-            if (tx.vout[nvout].scriptPubKey.IsPayToPublicKey())
-            {
-                typedef std::vector<unsigned char> valtype;
-                std::vector<valtype> vSolutions;
-                txnouttype whichType;
+        // for stake tx check only cc opret, in last-vout opret there is pos data:
+        CMarmaraActivatedOpretChecker activatedChecker;
+        CMarmaraLockInLoopOpretChecker lclChecker;
 
-                if (Solver(tx.vout[nvout].scriptPubKey, whichType, vSolutions)) {
-                    vpk = vSolutions[0];
-                }
+        if (activatedChecker.CheckOpret(opret, opretpk))  
+            vretpk = vuint8_t(opretpk.begin(), opretpk.end());
+        else if (lclChecker.CheckOpret(opret, opretpk)) 
+            vretpk = vuint8_t(opretpk.begin(), opretpk.end());
+    }
+    else
+    {
+        if (spk.IsPayToPublicKey())
+        {
+            typedef std::vector<unsigned char> valtype;
+            std::vector<valtype> vSolutions;
+            txnouttype whichType;
+
+            if (Solver(spk, whichType, vSolutions)) {
+                vretpk = vSolutions[0];
             }
         }
     }
-    return vpk;
+    
+    return vretpk;
 }
 
 // half of the blocks (with even heights) should be mined as activated (to some unlock height)
