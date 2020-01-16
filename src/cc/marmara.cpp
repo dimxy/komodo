@@ -1850,7 +1850,7 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
 }
 
 // get pubkey from cc vout or PayToPK script
-// this func is actually to get pubkey from coinbase
+// this func is actually to get pubkey from coinbase or staketx
 vuint8_t  MarmaraGetPubkeyFromSpk(const CScript &spk)
 {
     vuint8_t vretpk;
@@ -1860,14 +1860,16 @@ vuint8_t  MarmaraGetPubkeyFromSpk(const CScript &spk)
         CPubKey opretpk;
         CScript opret;
 
-        // for stake tx check only cc opret, in last-vout opret there is pos data:
-        CMarmaraActivatedOpretChecker activatedChecker;
-        CMarmaraLockInLoopOpretChecker lclChecker;
+        if (GetCCOpReturnData(spk, opret))
+        {
+            CMarmaraActivatedOpretChecker activatedChecker;
+            CMarmaraLockInLoopOpretChecker lclChecker;
 
-        if (activatedChecker.CheckOpret(opret, opretpk))  
-            vretpk = vuint8_t(opretpk.begin(), opretpk.end());
-        else if (lclChecker.CheckOpret(opret, opretpk)) 
-            vretpk = vuint8_t(opretpk.begin(), opretpk.end());
+            if (activatedChecker.CheckOpret(opret, opretpk))
+                vretpk = vuint8_t(opretpk.begin(), opretpk.end());
+            else if (lclChecker.CheckOpret(opret, opretpk))
+                vretpk = vuint8_t(opretpk.begin(), opretpk.end());
+        }
     }
     else
     {
