@@ -1822,7 +1822,7 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
                 fprintf(stderr,"%02x",((uint8_t *)&bnTarget)[i]);
             fprintf(stderr," segid.%d iter.%d winner.%d coinage.%llu %d ht.%d t.%u v%d diff.%d\n",segid,iter,winner,(long long)coinage,(int32_t)(blocktime - txtime),nHeight,blocktime,(int32_t)value,(int32_t)diff); */
             if (validateflag == 2) // validateflag==2 means validation when block is connected. At this time a winner utxo not validated is bad
-                LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_ERROR, stream << "winner utxo not validated:" << " hashval=" << hash2str(hashval, 8) << " > bnTarget=" << hash2str(bnTarget, 8) << " iter=" << iter << " winner=" << winner << " segid=" << segid << " coinage=" << coinage << " blocktime-txtime=" << blocktime - txtime << " ht=" << nHeight << " blocktime=" << blocktime << " value=" << value << " diff=" << diff << " txid=" << txid.GetHex() << " vout=" << vout << " pubkey=" << HexStr(vcoinbasepk) << std::endl);
+                LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_ERROR, stream << "winner utxo not validated:" << " hashval=" << hash2str(hashval, 8) << " > bnTarget=" << hash2str(bnTarget, 8) << " iter=" << iter << " winner=" << winner << " segid=" << segid << " coinage=" << coinage << " blocktime-txtime=" << blocktime - txtime << " ht=" << nHeight << " blocktime=" << blocktime << " value=" << value << " diff=" << diff << " txid=" << txid.GetHex() << " vout=" << vout << " coinbase-pubkey=" << HexStr(vcoinbasepk) << std::endl);
             //std::cerr << __func__ << " block not validated as PoS, h=" << nHeight << " coinbase pk=" << HexStr(vcoinbasepk) << " txid=" << txid.GetHex() << " value=" << value << std::endl;
             break;
         }
@@ -2749,6 +2749,7 @@ struct komodo_staking *komodo_addutxo(struct komodo_staking *array,int32_t *numk
     //if (ASSETCHAINS_MARMARA) 
     //    vminerpk = MarmaraGetPubkeyFromSpk(pk); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
 
+    segid32 = 0;
     if (ASSETCHAINS_MARMARA == false)
         segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vuint8_t());   // seems this segid32 is not used ever
     if ( *numkp >= *maxkp )
@@ -2892,7 +2893,7 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
 
         kp = &array[i];
         if (ASSETCHAINS_MARMARA) {
-            if (nHeight > 1 && nHeight & 0x1 == 0)
+            if (nHeight > 1 && (nHeight & 0x1) == 0)
                 vhashpk = MarmaraGetPubkeyFromSpk(kp->scriptPubKey); // see komodo_stakehash(). In marmara komodo_stakehash adds coinbase to the hashed utxo
             else
                 vhashpk = Mypubkey(); // coinbase pk is -pubkey pk
