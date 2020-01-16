@@ -2744,11 +2744,12 @@ struct komodo_staking *komodo_addutxo(struct komodo_staking *array,int32_t *numk
 {
     uint256 hash; uint32_t segid32; struct komodo_staking *kp;
 
-    std::vector<uint8_t> vminerpk;
-    if (ASSETCHAINS_MARMARA) 
-        vminerpk = MarmaraGetPubkeyFromSpk(pk); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
+    // as seems this segid32 is not used ever, send empty pk to komodo_stakehash()
+    //std::vector<uint8_t> vminerpk;
+    //if (ASSETCHAINS_MARMARA) 
+    //    vminerpk = MarmaraGetPubkeyFromSpk(pk); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
 
-    segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vminerpk);   // seems this segid32 is not used ever, becuase 
+    segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vuint8_t());   // seems this segid32 is not used ever
     if ( *numkp >= *maxkp )
     {
         *maxkp += 1000;
@@ -2876,7 +2877,7 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
         //fprintf(stderr,"finished kp data of utxo for staking %u ht.%d numkp.%d maxkp.%d\n",(uint32_t)time(NULL),nHeight,numkp,maxkp);
     }
     block_from_future_rejecttime = (uint32_t)GetAdjustedTime() + ASSETCHAINS_STAKED_BLOCK_FUTURE_MAX;    
-    std::vector<uint8_t> vminerpk;
+    std::vector<uint8_t> vhashpk;
     
     for (i=winners=0; i<numkp; i++)
     {
@@ -2890,14 +2891,17 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
 
         kp = &array[i];
         if (ASSETCHAINS_MARMARA) {
-            vminerpk = MarmaraGetPubkeyFromSpk(kp->scriptPubKey); // see komodo_stakehash(). In marmara komodo_stakehash adds minerpk to the hashed utxo
+            if (nHeight > 1 && nHeight & 0x1 == 0)
+                vhashpk = MarmaraGetPubkeyFromSpk(kp->scriptPubKey); // see komodo_stakehash(). In marmara komodo_stakehash adds coinbase to the hashed utxo
+            else
+                vhashpk = Mypubkey(); // coinbase pk is -pubkey pk
         }
 
-        eligible = komodo_stake(0,bnTarget,nHeight,kp->txid,kp->vout,0,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc, vminerpk);
+        eligible = komodo_stake(0,bnTarget,nHeight,kp->txid,kp->vout,0,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc, vhashpk);
         if ( eligible > 0 )
         {
             besttime = 0;
-            if ( eligible == komodo_stake(1,bnTarget,nHeight,kp->txid,kp->vout,eligible,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc, vminerpk) )
+            if ( eligible == komodo_stake(1,bnTarget,nHeight,kp->txid,kp->vout,eligible,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc, vhashpk) )
             {
                 // have elegible utxo to stake with. 
                 if ( earliest == 0 || eligible < earliest || (eligible == earliest && (*utxovaluep == 0 || kp->nValue < *utxovaluep)) )
