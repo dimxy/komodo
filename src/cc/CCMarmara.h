@@ -148,5 +148,4 @@ bool MyGetCCopret(const CScript &scriptPubKey, CScript &opret);
 //int64_t AddMarmarainputs(bool(*CheckOpretFunc)(const CScript &, CPubKey &), CMutableTransaction &mtx, std::vector<CPubKey> &pubkeys, const char *unspentaddr, CAmount amount, int32_t maxinputs);
 
 
-
 #endif

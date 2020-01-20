@@ -1580,6 +1580,132 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
     return true;
 }
 
+// tx could be either staketx or activated tx that is always spent to self
+// check that the tx's spent and sent balances match
+// check vout match pk in cc opret 
+static bool check_self_spent_tx(bool isLocked, const CTransaction &tx, std::string &errorStr)
+{
+    std::map<std::string, CAmount> vout_amounts, vin_amounts;
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_MARMARA);
+    CPubKey Marmarapk = GetUnspendable(cp, 0);
+
+    // get all activated amounts in the tx and store for addresses
+    for (int32_t i = 0; i < tx.vout.size(); i ++)
+    {
+        if (tx.vout[i].scriptPubKey.IsPayToCryptoCondition())
+        {
+            CScript opret;
+            CPubKey opretpk;
+            CMarmaraActivatedOpretChecker activatedChecker;
+            CMarmaraLockInLoopOpretChecker lclChecker(true);  // true == check only cc opret
+            bool bResult;
+
+            if (!isLocked)
+                bResult = get_either_opret(&activatedChecker, tx, i, opret, opretpk);
+            else
+                bResult = get_either_opret(&lclChecker, tx, i, opret, opretpk);
+
+            if (bResult)
+            {
+                // check pk in cc opret matches vout:
+                CTxOut checkvout;
+                if (!isLocked)
+                {
+                    checkvout = MakeMarmaraCC1of2voutOpret(tx.vout[i].nValue, opretpk, opret);
+                }
+                else
+                {
+                    SMarmaraCreditLoopOpret loopData;
+                    MarmaraDecodeLoopOpret(tx.vout[i].scriptPubKey, loopData);
+                    CPubKey createtxPk = CCtxidaddr_tweak(NULL, loopData.createtxid);
+                    checkvout = MakeMarmaraCC1of2voutOpret(tx.vout[i].nValue, createtxPk, opret);
+                }
+                    
+                if (checkvout != tx.vout[i]) 
+                {
+                    errorStr = "pubkey in cc opret does not match vout";
+                    LOGSTREAM("marmara", CCLOG_ERROR, stream << errorStr << " tx=" << HexStr(E_MARSHAL(ss << tx)) << " vout=" << i << " pk=" << HexStr(vuint8_t(opretpk.begin(), opretpk.end())) << " isLocked=" << isLocked << std::endl);
+                    return false;
+                }
+            
+                char coinaddr[KOMODO_ADDRESS_BUFSIZE];
+                Getscriptaddress(coinaddr, tx.vout[i].scriptPubKey);
+                vout_amounts[coinaddr] += tx.vout[i].nValue;
+            }
+        }
+    }
+
+    for (int32_t i = 0; i < tx.vin.size(); i++)
+    {
+        if (cp->ismyvin(tx.vin[i].scriptSig))
+        {
+            CTransaction vintx;
+            uint256 hashBlock;
+
+            if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock))
+            {
+                CScript opret;
+                CPubKey opretpk;
+                CMarmaraActivatedOpretChecker activatedChecker;
+                CMarmaraLockInLoopOpretChecker lclChecker;
+                int32_t n = tx.vin[i].prevout.n;
+                bool bResult;
+
+                if (!isLocked)
+                    bResult = get_either_opret(&activatedChecker, vintx, n, opret, opretpk);
+                else
+                    bResult = get_either_opret(&lclChecker, vintx, n, opret, opretpk);
+
+                if (bResult)
+                {
+                    char coinaddr[KOMODO_ADDRESS_BUFSIZE];
+                    Getscriptaddress(coinaddr, vintx.vout[n].scriptPubKey);
+                    vin_amounts[coinaddr] += vintx.vout[n].nValue;
+                }
+            }
+        }
+    }
+    if (vin_amounts.size() > 0 && vin_amounts == vout_amounts)  // compare should be okay as maps are sorted
+        return true;
+    else
+    {
+        errorStr = "spending activated tx is allowed only to self";
+        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "activated tx vin/vout unbalanced:" << std::endl);
+        for (const auto &vinam : vin_amounts)
+            LOGSTREAMFN("marmara", CCLOG_INFO, stream << "activated tx vin address=" << vinam.first << " amount=" << vinam.second << std::endl);
+        for (const auto &voutam : vout_amounts)
+            LOGSTREAMFN("marmara", CCLOG_INFO, stream << "activated tx vout address=" << voutam.first << " amount=" << voutam.second << std::endl);
+        return false;
+    }
+}
+
+
+// check global pk vout is spent (only markers could be here)
+static bool check_global_spent_tx(const CTransaction &tx)
+{
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_MARMARA);
+    CPubKey Marmarapk = GetUnspendable(cp, 0);
+
+    for (int32_t i = 0; i < tx.vin.size(); i++)
+    {
+        if (cp->ismyvin(tx.vin[i].scriptSig))
+        {
+            CTransaction vintx;
+            uint256 hashBlock;
+
+            if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock))
+            {
+                int32_t n = tx.vin[i].prevout.n;
+
+                if (MakeCC1vout(EVAL_MARMARA, vintx.vout[n].nValue, Marmarapk) == vintx.vout[n])
+                    return true;
+            }
+        }
+    }
+    return false;
+}
 
 
 //#define HAS_FUNCID(v, funcid) (std::find((v).begin(), (v).end(), funcid) != (v).end())
@@ -1622,6 +1748,9 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
 
     if (funcIds.empty())
         return eval->Invalid("invalid or no opreturns");
+
+    if (check_global_spent_tx(tx))
+        return eval->Invalid("cannot spend markers");
 
     if (funcIds == std::set<uint8_t>{MARMARA_POOL})
     {
@@ -1701,24 +1830,33 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
     }
     else if (funcIds == std::set<uint8_t>{MARMARA_COINBASE} || funcIds == std::set<uint8_t>{MARMARA_COINBASE_3X } ) // coinbase 
     {
-        return true;
+        if (!check_self_spent_tx(false, tx, validationError))
+            return eval->Error(validationError);
+        else
+            return true;
     }
     else if (funcIds == std::set<uint8_t>{MARMARA_LOCKED}) // pk in lock-in-loop
     {
-        return true; // will be checked in PoS validation code
+        if (!check_self_spent_tx(true, tx, validationError))
+            return eval->Error(validationError);   
+        else
+            return true;
     }
     else if (funcIds == std::set<uint8_t>{MARMARA_ACTIVATED} || funcIds == std::set<uint8_t>{MARMARA_ACTIVATED_INITIAL} ) // activated
     {
-        return true; // will be checked in PoS validation code
+        if (!check_self_spent_tx(false, tx, validationError))
+            return eval->Error(validationError);
+        else
+            return true;
     }
     else if (funcIds == std::set<uint8_t>{MARMARA_RELEASE}) // released to normal
     {
-        return(true);  // TODO: decide if deactivation is allowed
+        return(false);  // TODO: decide if deactivation is allowed
     }
     // staking only for locked utxo
 
     LOGSTREAMFN("marmara", CCLOG_ERROR, stream << " validation error for txid=" << tx.GetHash().GetHex() << " tx has bad funcids=" << FUNCID_SET_TO_STRING(funcIds) << std::endl);
-    return eval->Invalid("fall through error");
+    return eval->Invalid("invalid funcid or funcid combination");
 }
 // end of consensus code
 
@@ -4339,3 +4477,4 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
     result.push_back(Pair("StakingStat", array));
     return result;
 }
+
