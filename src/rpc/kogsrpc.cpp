@@ -1084,15 +1084,24 @@ UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& remotep
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
-    if (fHelp || (params.size() != 0))
+    if (fHelp || (params.size() > 1))
     {
         throw runtime_error(
-            "kogspacklist\n"
+            "kogspacklist [my]\n"
             "returns all pack tokenids\n" "\n");
     }
 
+    bool onlymy = false;
+    if (params.size() == 1)
+    {
+        if (params[0].get_str() == "my")
+            onlymy = true;
+        else
+            throw runtime_error("incorrect param\n");
+    }
+
     std::vector<uint256> tokenids;
-    KogsCreationTxidList(remotepk, KOGSID_PACK, false, tokenids);
+    KogsCreationTxidList(remotepk, KOGSID_PACK, onlymy, tokenids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &t : tokenids)
