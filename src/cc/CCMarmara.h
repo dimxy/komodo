@@ -51,6 +51,8 @@ enum MARMARA_FUNCID : uint8_t {
     MARMARA_POOL = 'P'
 };
 
+const int32_t MARMARA_POS_IMPROVEMENTS_HEIGHT = 0;
+
 const uint8_t MARMARA_OPRET_VERSION = 1;
 const int32_t MARMARA_MARKER_VOUT = 1;
 const int32_t MARMARA_BATON_VOUT = 0;
@@ -125,18 +127,20 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
 
 // functions used in staking code in komodo_bitcoind.h
 int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &txNew);
+uint8_t MarmaraDecodeCoinbaseOpretExt(const CScript &scriptPubKey, uint8_t &version, CPubKey &pk, int32_t &height, int32_t &unlockht, CPubKey &stakerpk);
 uint8_t MarmaraDecodeCoinbaseOpret(const CScript &scriptPubKey, CPubKey &pk, int32_t &height, int32_t &unlockht);
 uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCreditLoopOpret &loopData);
 int32_t MarmaraGetStakeMultiplier(const CTransaction & tx, int32_t nvout);
 int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, const CTransaction &staketx, int32_t height);
-struct komodo_staking *MarmaraGetStakingUtxos(struct komodo_staking *array, int32_t *numkp, int32_t *maxkp, uint8_t *hashbuf);
+struct komodo_staking *MarmaraGetStakingUtxos(struct komodo_staking *array, int32_t *numkp, int32_t *maxkp, uint8_t *hashbuf, int32_t height);
 
 int32_t MarmaraValidateCoinbase(int32_t height, CTransaction tx, std::string &errmsg);
 void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & minersTransactions);
 CScript MarmaraCreateDefaultCoinbaseScriptPubKey(int32_t nHeight, CPubKey minerpk);
 CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &defaultspk, const CTransaction &staketx);
-CScript MarmaraCoinbaseOpret(uint8_t funcid, int32_t height, CPubKey pk);
-vuint8_t  MarmaraGetPubkeyFromSpk(const CScript & spk);
+// CScript MarmaraCoinbaseOpret(uint8_t funcid, const CPubKey &pk, int32_t height);
+vuint8_t MarmaraGetPubkeyFromSpk(const CScript & spk);
+vuint8_t MarmaraGetStakerPubkeyFromCoinbaseOpret(const CScript &spk);
 
 bool MyGetCCopret(const CScript &scriptPubKey, CScript &opret);
 

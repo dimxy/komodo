@@ -1871,9 +1871,22 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
         if ( it != mapBlockIndex.end() && (previndex = it->second) != NULL )
             prevtime = (uint32_t)previndex->nTime;
 
-        std::vector<uint8_t> vcoinbasepk; 
-        if (ASSETCHAINS_MARMARA) {
-            vcoinbasepk = MarmaraGetPubkeyFromSpk(pblock->vtx[0].vout[0].scriptPubKey);  // extract coinbase pubkey to validate stakehash, see komodo_stakehash()
+        std::vector<uint8_t> vcoinbasepk = {}; // init to empty
+        if (ASSETCHAINS_MARMARA) 
+        {
+            if (height < MARMARA_POS_IMPROVEMENTS_HEIGHT)
+            {
+                // before pos improvements coinbase opret has pk to add to stake hash
+                vcoinbasepk = MarmaraGetPubkeyFromSpk(pblock->vtx[0].vout[0].scriptPubKey);  // extract coinbase pubkey to validate stakehash, see komodo_stakehash()
+            }
+            else
+            {
+                // after 'pos improvements' update:
+                // the pk for adding to stakehash is only in even blocks
+                if ((height & 0x01) == 0)
+                    vcoinbasepk = MarmaraGetStakerPubkeyFromCoinbaseOpret(pblock->vtx[0].vout[0].scriptPubKey);
+                // for odd blocks this pk is not used because not block contention is supposed as only the wallet utxos are staked
+            }
         }
         
         txid = pblock->vtx[txn_count-1].vin[0].prevout.hash;
@@ -2872,7 +2885,7 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
             // placeholder for special staking utxo cases:
             // marmara case:
             if (ASSETCHAINS_MARMARA != 0) {
-                array = MarmaraGetStakingUtxos(array, &numkp, &maxkp, hashbuf);
+                array = MarmaraGetStakingUtxos(array, &numkp, &maxkp, hashbuf, nHeight);
             }
         }
         lasttime = (uint32_t)time(NULL);
