@@ -54,14 +54,18 @@ enum MARMARA_FUNCID : uint8_t {
 const int32_t MARMARA_POS_IMPROVEMENTS_HEIGHT = 0;
 
 const uint8_t MARMARA_OPRET_VERSION = 1;
-const int32_t MARMARA_MARKER_VOUT = 1;
+const int32_t MARMARA_LOOP_MARKER_VOUT = 1;
 const int32_t MARMARA_BATON_VOUT = 0;
 const int32_t MARMARA_REQUEST_VOUT = 0;
 const int32_t MARMARA_OPENCLOSE_VOUT = 3;
-const int32_t MARMARA_ACTIVATED_MARKER_AMOUNT = 5000;
-const int32_t MARMARA_REQUESTTX_AMOUNT = 10000;
-const int32_t MARMARA_CREATETX_AMOUNT = 20000;
+
+const int32_t MARMARA_ACTIVATED_MARKER_AMOUNT = 5000;   // marker to list activated addresses
+
+const int32_t MARMARA_BATON_AMOUNT = 10000;             // baton amount
+const int32_t MARMARA_CREATETX_AMOUNT = 2 * MARMARA_BATON_AMOUNT;
 const int32_t MARMARA_LOOP_MARKER_AMOUNT = 10000;
+const int32_t MARMARA_OPEN_MARKER_AMOUNT = 10000;
+
 
 inline bool IS_REMOTE(const CPubKey &remotepk) {
     return remotepk.IsValid();
@@ -131,7 +135,7 @@ uint8_t MarmaraDecodeCoinbaseOpretExt(const CScript &scriptPubKey, uint8_t &vers
 uint8_t MarmaraDecodeCoinbaseOpret(const CScript &scriptPubKey, CPubKey &pk, int32_t &height, int32_t &unlockht);
 uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCreditLoopOpret &loopData);
 int32_t MarmaraGetStakeMultiplier(const CTransaction & tx, int32_t nvout);
-int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, const CTransaction &staketx, int32_t height);
+int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, const CTransaction &staketx, const CTransaction &coinbase, int32_t height);
 struct komodo_staking *MarmaraGetStakingUtxos(struct komodo_staking *array, int32_t *numkp, int32_t *maxkp, uint8_t *hashbuf, int32_t height);
 
 int32_t MarmaraValidateCoinbase(int32_t height, CTransaction tx, std::string &errmsg);

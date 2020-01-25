@@ -814,29 +814,30 @@ int32_t komodo_isPoS(CBlock *pblock, int32_t height,CTxDestination *addressout)
                 if ( addressout != 0 ) *addressout = voutaddress;
                 strcpy(voutaddr,CBitcoinAddress(voutaddress).ToString().c_str());
                 LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG2, stream << "check voutaddr." << voutaddr << " vs prevtx destaddr." << destaddr << std::endl);
+
+                if (ASSETCHAINS_MARMARA)
+                {
+                    // marmara staketx rule:
+                    // MarmaraValidateStakeTx does all required checks for stake tx:
+                    int32_t marmara_validate_staketx = MarmaraValidateStakeTx(destaddr, prevTxOpret, pblock->vtx[n - 1], pblock->vtx[0], height);
+                    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "ht=" << height << " MarmaraValidateStakeTx returned=" << marmara_validate_staketx << std::endl);
+                    return marmara_validate_staketx;
+                    // end marmara code
+                }
+
                 if ( komodo_newStakerActive(height, pblock->nTime) != 0 )
                 {
                     if ( DecodeStakingOpRet(pblock->vtx[n-1].vout[1].scriptPubKey, merkleroot) != 0 && komodo_calcmerkleroot(pblock, pblock->hashPrevBlock, height, false, pblock->vtx[0].vout[0].scriptPubKey) == merkleroot )
                     {
                         return(1);
                     }
-                    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "ht=" << height << " not a PoS block: incorrect stake tx: no merkleroot opreturn or komodo_calcmerkleroot failed" << std::endl);
+                    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_INFO, stream << "ht=" << height << " not a PoS block: incorrect stake tx: no merkleroot opreturn or komodo_calcmerkleroot failed" << std::endl);
                 }
                 else 
                 {
                     if ( pblock->vtx[n-1].vout[0].nValue == value && strcmp(destaddr,voutaddr) == 0 )
                     {
-                        if ( ASSETCHAINS_MARMARA == 0 )
-                            return(1);
-                        else 
-                        {
-                            // marmara code:
-                            // MarmaraValidateStakeTx does all required checks for stake tx:
-                            int32_t marmara_validate_staketx = MarmaraValidateStakeTx(destaddr, prevTxOpret, pblock->vtx[n - 1], height);
-                            LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "ht=" << height << " MarmaraValidateStakeTx returned=" << marmara_validate_staketx << std::endl);
-                            return marmara_validate_staketx;
-                            // end marmara code
-                        }
+                        return(1);
                     }
                     else
                     {
