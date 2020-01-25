@@ -2128,7 +2128,7 @@ vuint8_t MarmaraGetStakerPubkeyFromCoinbaseOpret(const CScript &spk)
 
 // half of the blocks (with even heights) should be mined as activated (to some unlock height)
 // validates opreturn for even blocks
-int32_t MarmaraValidateCoinbase(int32_t height, CTransaction tx, std::string &errmsg)
+int32_t MarmaraValidateCoinbase(int32_t height, const CTransaction &tx, std::string &errmsg)
 { 
 /*    if (0) // not used
     {
@@ -2369,7 +2369,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
         }
     }
     
-    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "incorrect stake tx vout num" << " stake txid=" << staketx.GetHash().GetHex() << " inOpret=" << vintxOpret.ToString() << std::endl);
+    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "incorrect stake tx vout number or opreturn, stake tx=" << HexStr(E_MARSHAL(ss << staketx)) << std::endl);
     return MARMARA_STAKE_TX_BAD;
 }
 
