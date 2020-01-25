@@ -2989,7 +2989,7 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
         }
         else
         {
-            siglen = MarmaraSignature(utxosig,txNew);  // add marmara opret and sign the stake tx 
+            siglen = MarmaraSignature(utxosig, txNew, nHeight);  // add marmara opret and sign the stake tx 
             if (siglen > 0)
                 signSuccess = true;
             else 

@@ -2968,7 +2968,7 @@ UniValue MarmaraLock(const CPubKey &remotepk, int64_t txfee, int64_t amount, con
 
 // add stake tx opret, finalize and sign stake tx on activated or lock-in-loop 1of2 addr
 // (note: utxosig bufsize = 512 is checked)
-int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx)
+int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx, int32_t height)
 {
     uint256 txid, hashBlock; 
     CTransaction vintx; 
@@ -3010,26 +3010,31 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx)
 
             // decode utxo 1of2 address
             char activated1of2addr[KOMODO_ADDRESS_BUFSIZE];
+            uint8_t activatedpriv[32];
             
-            /* will use marmara pk to work with remote nspv users
-            CKeyID keyid = opretpk.GetID();
-            CKey privkey;
 
-            if (!pwalletMain || !pwalletMain->GetKey(keyid, privkey))
+            //CKeyID keyid = opretpk.GetID();
+            //CKey privkey;
+
+            if ((height & 0x01) == 1)
             {
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "can't find user privkey or wallet not available" << std::endl);
-                return 0;
-            } */
+                /*if (!pwalletMain || !pwalletMain->GetKey(keyid, privkey))
+                {
+                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "can't find user privkey or wallet not available" << std::endl);
+                    return 0;
+                }*/
+                // use my privkey for odd blocks:
+                Myprivkey(activatedpriv);
+            }
+            else
+            {
+                memcpy(activatedpriv, marmarapriv, sizeof(activatedpriv));
+            }
 
 
-            //LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "vintx opretpk=" << HexStr(opretpk) << " keyId=" << keyid.GetHex() << " privkey=" << HexStr(privkey) << std::endl);
-            //CPubKey pk0 = pubkey2pk(ParseHex("03f8c7b24729101443500bcb26171a65ab070e1b424bfd8c1830b0ba42d9491703"));
-            //LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "for 03f8 pk keyId=" << pk0.GetID().GetHex() << std::endl);
-
-            // this is for transition period to cc-vout opret in stake txns
             // if vintx has the last-vout opret then move it to cc-vout opret
             // check if cc vout opret exists in mtx
-            CScript opret;
+            /*CScript opret;
             bool hasccopret = false;
             if (GetCCOpReturnData(mstaketx.vout[0].scriptPubKey, opret))
             {
@@ -3038,13 +3043,6 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx)
                 {
                     hasccopret = true;
                 }
-            }
-            // if mtx does not have cc opret then add it
-            /*if (!hasccopret && lastVoutOpretDiscontinued)
-            {
-                // add cc opret to stake tx:
-                LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "compatibility code added ccopret to mtx" << std::endl);
-                mtx.vout[0] = MakeMarmaraCC1of2voutOpret(mtx.vout[0].nValue, opretpk, vintxOpret);
             }*/
 
             Getscriptaddress(activated1of2addr, mstaketx.vout[0].scriptPubKey);
@@ -3053,7 +3051,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx)
 
             CC *probeCond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, opretpk);
             // use the global pk (instead of privkey for user's pubkey from the wallet):
-            CCAddVintxCond(cp, probeCond, marmarapriv/*privkey.begin()*/);    //add probe condition to sign vintx 1of2 utxo
+            CCAddVintxCond(cp, probeCond, activatedpriv/*privkey.begin()*/);    //add probe condition to sign vintx 1of2 utxo
             cc_free(probeCond);
 
             //if (lastVoutOpretDiscontinued)
@@ -3061,7 +3059,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx)
             //else
             //    finalOpret = vintxOpret; // last-vout opret continues to be used until some height
 
-            // memset(&privkey, '\0', sizeof(privkey));
+            memset(activatedpriv, '\0', sizeof(activatedpriv));  //wipe privkey
 
         }
         else if (get_either_opret(&lockinloopChecker, vintx, mstaketx.vin[0].prevout.n, vintxOpret, opretpk))   // note: opret could be in vintx ccvout
