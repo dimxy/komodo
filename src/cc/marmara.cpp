@@ -1029,9 +1029,12 @@ int32_t MarmaraGetbatontxid(std::vector<uint256> &creditloop, uint256 &batontxid
             {
                 creditloop.push_back(txid);
                 n++;
+                batontxid = spenttxid;
             }
             else
             {
+                // TODO: allow for bad transfer tx with nValue==0 in MCL
+
                 // bad baton
                 if (spentTx.IsNull())
                     LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "could not load spent tx for txid=" << spenttxid.GetHex() << " query txid=" << querytxid.GetHex() << " n=" << n << std::endl);
