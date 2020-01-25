@@ -225,7 +225,7 @@ uint8_t MarmaraDecodeCoinbaseOpretExt(const CScript &scriptPubKey, uint8_t &vers
                         LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "opret unmarshal error for funcid=" << (char)vopret[1] << std::endl);
                 }
                 else
-                    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "incorrect marmara activated or coinbase opret version=" << (char)vopret[2] << std::endl);
+                    LOGSTREAMFN("marmara", CCLOG_INFO, stream << "incorrect marmara activated or coinbase opret version=" << (char)vopret[2] << std::endl);
             }
             else
                 LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "not marmara activated or coinbase funcid=" << (char)vopret[1] << std::endl);
@@ -347,46 +347,53 @@ uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCredit
 
         if (evalcode == EVAL_MARMARA)   // check limits
         {
-            if (version == MARMARA_OPRET_VERSION)
-            {
-                if (funcid == MARMARA_CREATELOOP) {  // createtx
-                    if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.pk; ss >> loopData.amount; ss >> loopData.matures; ss >> loopData.currency)) {
-                        loopData.hasCreateOpret = true;
-                        return loopData.lastfuncid;
-                    }
+            bool found = false;
+            if (funcid == MARMARA_CREATELOOP) {  // createtx
+                if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.pk; ss >> loopData.amount; ss >> loopData.matures; ss >> loopData.currency)) {
+                    loopData.hasCreateOpret = true;
+                    found = true;
                 }
-                else if (funcid == MARMARA_ISSUE) {
-                    if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk; ss >> loopData.autoSettlement; ss >> loopData.autoInsurance; ss >> loopData.avalCount >> loopData.disputeExpiresHeight >> loopData.escrowOn >> loopData.blockageAmount)) {
-                        loopData.hasIssuanceOpret = true;
-                        return loopData.lastfuncid;
-                    }
-                }
-                else if (funcid == MARMARA_REQUEST) {
-                    if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk)) {
-                        return funcid;
-                    }
-                }
-                else if (funcid == MARMARA_TRANSFER) {
-                    if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk; ss >> loopData.avalCount)) {
-                        return funcid;
-                    }
-                }
-                else if (funcid == MARMARA_LOCKED) {
-                    if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk)) {
-                        return funcid;
-                    }
-                }
-                else if (funcid == MARMARA_SETTLE || funcid == MARMARA_SETTLE_PARTIAL) {
-                    if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk >> loopData.remaining)) {
-                        loopData.hasSettlementOpret = true;
-                        return funcid;
-                    }
-                }
-                // get here from any E_UNMARSHAL error:
-                LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "cannot parse loop opret: not my funcid=" << (int)funcid << " or bad opret format=" << HexStr(vopret) << std::endl);
             }
-            else
+            else if (funcid == MARMARA_ISSUE) {
+                if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk; ss >> loopData.autoSettlement; ss >> loopData.autoInsurance; ss >> loopData.avalCount >> loopData.disputeExpiresHeight >> loopData.escrowOn >> loopData.blockageAmount)) {
+                    loopData.hasIssuanceOpret = true;
+                    found = true;
+                }
+            }
+            else if (funcid == MARMARA_REQUEST) {
+                if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk)) {
+                    found = true;
+                }
+            }
+            else if (funcid == MARMARA_TRANSFER) {
+                if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk; ss >> loopData.avalCount)) {
+                    found = true;
+                }
+            }
+            else if (funcid == MARMARA_LOCKED) {
+                if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk)) {
+                    found = true;
+                }
+            }
+            else if (funcid == MARMARA_SETTLE || funcid == MARMARA_SETTLE_PARTIAL) {
+                if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> loopData.lastfuncid; ss >> version; ss >> loopData.createtxid; ss >> loopData.pk >> loopData.remaining)) {
+                    loopData.hasSettlementOpret = true;
+                    found = true;
+                }
+            }
+            // getting here from any E_UNMARSHAL error too
+
+            if (!found) {
+                LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "cannot parse loop opret: not my funcid=" << (int)funcid << " or bad opret format=" << HexStr(vopret) << std::endl);
+                return 0;
+            }
+           
+            if (version != MARMARA_OPRET_VERSION)
+            {
                 LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "unsupported opret version=" << (int)version << std::endl);
+                return 0;
+            }
+            return funcid;  
         }
         else
             LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "not marmara opret, evalcode=" << (int)evalcode << std::endl);
@@ -2237,7 +2244,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream  << "staketxid=" << staketx.GetHash().ToString() << " numvins=" << staketx.vin.size() << " numvouts=" << staketx.vout.size() << " vout[0].nValue="  << staketx.vout[0].nValue << " inOpret.size=" << vintxOpret.size() << std::endl);
 
     //check stake tx:
-    if (staketx.vout.size() == 1 && staketx.vout[0].scriptPubKey.IsPayToCryptoCondition())
+    if (staketx.vout.size() == 2 && staketx.vout[0].scriptPubKey.IsPayToCryptoCondition())
     {
         CScript opret;
         struct CCcontract_info *cp, C;
