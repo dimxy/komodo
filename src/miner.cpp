@@ -663,13 +663,14 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
                 {
                     CScript EncodeStakingOpRet(uint256 merkleroot);
 
-                    // update coinbase spk based on marmara staked tx and and recalculate staked tx merkle root:
+                    // Update coinbase spk based on marmara stake tx and and recalculate staked tx merkle root:
+                    // plus update the signature
                     scriptPubKeyIn = MarmaraCreatePoSCoinbaseScriptPubKey(nHeight, scriptPubKeyIn, txStaked);
                     uint256 merkleroot = komodo_calcmerkleroot(pblock, pindexPrev->GetBlockHash(), nHeight, true, scriptPubKeyIn);
                     if (txStaked.vout.size() == 2) { // merkle opret was created
                         txStaked.vout[1].scriptPubKey = EncodeStakingOpRet(merkleroot);
-                        siglen = MarmaraSignature(utxosig, txStaked);  // add marmara opret and sign the stake tx 
-                        LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "updated coinbase scriptPubKeyIn and merkleroot in staked tx for height=" << nHeight << std::endl);
+                        siglen = MarmaraSignature(utxosig, txStaked, nHeight);  // add marmara opret and sign the stake tx 
+                        LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "updated coinbase scriptPubKeyIn and merkleroot in stake tx for height=" << nHeight << std::endl);
                     }
                 }
             }
