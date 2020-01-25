@@ -420,14 +420,19 @@ bool MyGetCCopret(const CScript &scriptPubKey, CScript &opret)
 
     if (scriptPubKey.IsPayToCryptoCondition(&dummy, vParams) != 0)
     {
-        if (vParams.size() == 1)
+        if (vParams.size() >= 1)  // allow more data after cc opret
         {
             //uint8_t version;
             //uint8_t evalCode;
             //uint8_t m, n;
-            vscript_t vheader;
             std::vector< vscript_t > vData;
 
+            // parse vParams[0] as script
+            CScript inScript(vParams[0].begin(), vParams[0].end());
+            CScript::const_iterator pc = inScript.begin();
+            inScript.GetPushedData(pc, vData);
+
+            /*
             E_UNMARSHAL(vParams[0],             \
                 ss >> vheader;                  \
                 while (!ss.eof())               \
@@ -436,11 +441,12 @@ bool MyGetCCopret(const CScript &scriptPubKey, CScript &opret)
                     ss >> velem;                \
                     vData.push_back(velem);     \
                 });
-            
-            if (vData.size() > 0)
+            */
+
+            if (vData.size() > 1 && vData[0].size() == 4) // first vector is 4-byte header
             {
                 //vscript_t vopret(vParams[0].begin() + 6, vParams[0].end());
-                opret << OP_RETURN << vData[0];
+                opret << OP_RETURN << vData[1];  // return vDatap[1] as cc opret
                 return true;
             }
         }
