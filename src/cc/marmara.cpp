@@ -138,7 +138,6 @@ public:
                                                         // CActivatedOpretChecker(bool onlyCC) { checkOnlyCC = onlyCC; }
     bool CheckOpret(const CScript &spk, CPubKey &opretpk) const
     {
-        uint8_t funcid;
         int32_t ht, unlockht;
 
         return MarmaraDecodeCoinbaseOpret(spk, opretpk, ht, unlockht) != 0;
@@ -572,6 +571,9 @@ static bool get_either_opret(CMarmaraOpretCheckerBase *opretChecker, const CTran
     bool isccopret = false, opretok = false;
 
     if (!opretChecker)
+        return false;
+
+    if (nvout < 0 || nvout >= tx.vout.size())
         return false;
 
     // first check cc opret
@@ -2173,7 +2175,7 @@ int32_t MarmaraValidateCoinbase(int32_t height, const CTransaction &tx, std::str
             //std::cerr << __func__ << " vtx cc opret=" << HexStr(d) << " height=" << height << std::endl;
             if (!get_either_opret(&activatedChecker, tx, 0, opret, dummypk))
             {
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "can't find coinbase opret (this might normally happen sometimes on multiproc computers)" << std::endl);  
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "can't find coinbase opret (this might normally happen sometimes on multiproc computers)" << " coinbase=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);  
                 errmsg = "marmara cc bad coinbase opreturn (this might normally happen sometimes on multiproc computers)";
                 return -1;
             }
