@@ -3349,7 +3349,7 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                         if (rawtx.empty()) {
                             result.push_back(Pair("result", "error"));
                             result.push_back(Pair("error", "could not finalize CC Tx"));
-                            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "bad settlement mtx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl);
+                            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "FinalizeCCTx error bad settlement mtx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl);
                         }
                         else {
                             result.push_back(Pair("result", "success"));
@@ -3358,9 +3358,11 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                         }
                         return(result);
                     }
-                    else if (lclAmount < loopData.amount)
+                    else if (lclAmount > 0)
                     {
                         int64_t remaining = loopData.amount - lclAmount;
+
+                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "trying to partial settle loop, initial amount=" << loopData.amount << " actual amount=" << lclAmount << std::endl);
                         mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(CCtxidaddr_tweak(NULL, loopData.createtxid))) << OP_CHECKSIG)); // failure marker
 
                         // TODO: seems this was supposed that txfee should been taken from 1of2 address?
@@ -3372,11 +3374,11 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                         if (rawtx.empty()) {
                             result.push_back(Pair("result", "error"));
                             result.push_back(Pair("error", "couldnt finalize CCtx"));
-                            LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "FinalizeCCTx bad mtx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl);
+                            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "FinalizeCCTx error bad partial settlement mtx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl);
                         }
                         else {
                             result.push_back(Pair("result", "error"));
-                            result.push_back(Pair("error", "insufficient funds"));
+                            result.push_back(Pair("error", "insufficient funds in loop, partial settlement"));
                             result.push_back(Pair("hex", rawtx));
                             result.push_back(Pair("remaining", ValueFromAmount(remaining)));
                         }
@@ -3385,7 +3387,7 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                     {
                         // jl777: maybe fund a txfee to report no funds avail
                         result.push_back(Pair("result", "error"));
-                        result.push_back(Pair("error", "no funds available at all"));
+                        result.push_back(Pair("error", "no lcl funds available at all"));
                     }
                     //}
                     /*else
