@@ -1101,7 +1101,7 @@ static int32_t get_loop_creation_data(uint256 createtxid, struct SMarmaraCreditL
 // consensus code:
 
 // check total loop amount in tx and redistributed back amount:
-static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, int32_t startvin, int32_t &nPrevEndorsers, std::string &errorStr)
+static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, int32_t startvin, CAmount &loopAmount, int32_t &nPrevEndorsers, std::string &errorStr)
 {
     std::vector<uint256> creditloop;
     uint256 batontxid, createtxid;
@@ -1288,6 +1288,7 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
         return false;
     }
 
+    loopAmount = creationLoopData.amount;
     LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << tx.GetHash().GetHex() << std::endl);
     return true;
 }
@@ -1505,15 +1506,17 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
     // check LCL fund redistribution and vouts in transfer tx
     i++;
     int32_t nPrevEndorsers = 0;
-    if (!check_lcl_redistribution(tx, prevtxid, i, nPrevEndorsers, errorStr))
+    CAmount loopAmount = 0;
+    if (!check_lcl_redistribution(tx, prevtxid, i, loopAmount, nPrevEndorsers, errorStr))
         return false;
     //}
 
     CAmount ccBatonsBalance, txbalance, balanceDiff;
+    CAmount txfee = 10000;
     if (loopData.lastfuncid == MARMARA_ISSUE)
         ccBatonsBalance = MARMARA_BATON_AMOUNT + MARMARA_LOOP_MARKER_AMOUNT + MARMARA_OPEN_MARKER_AMOUNT - MARMARA_CREATETX_AMOUNT;
     else // MARMARA_TRANSFER
-        ccBatonsBalance = MARMARA_BATON_AMOUNT /*transfer baton*/ - (MARMARA_BATON_AMOUNT /*request baton*/ + MARMARA_BATON_AMOUNT /*prev baton*/ + loopData.amount / (nPrevEndorsers+1) /*loop/N*/);
+        ccBatonsBalance = MARMARA_BATON_AMOUNT /*transfer baton*/ - (MARMARA_BATON_AMOUNT /*request baton*/ + MARMARA_BATON_AMOUNT /*prev baton*/ + loopAmount / (nPrevEndorsers+1) /*loop/N*/);
 
     txbalance = get_cc_balance(cp, tx);
     balanceDiff = txbalance - ccBatonsBalance;
