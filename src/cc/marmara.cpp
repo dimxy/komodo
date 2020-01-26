@@ -1101,19 +1101,19 @@ static int32_t get_loop_creation_data(uint256 createtxid, struct SMarmaraCreditL
 // consensus code:
 
 // check total loop amount in tx and redistributed back amount:
-static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, int32_t startvin, std::string &errorStr)
+static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, int32_t startvin, int32_t &nPrevEndorsers, std::string &errorStr)
 {
     std::vector<uint256> creditloop;
     uint256 batontxid, createtxid;
     struct SMarmaraCreditLoopOpret creationLoopData;
     struct SMarmaraCreditLoopOpret currentLoopData;
-    int32_t nPrevEndorsers = 0;
-
+    
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_MARMARA);
 
     LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "checking prevtxid=" << prevtxid.GetHex() << std::endl);
 
+    nPrevEndorsers = 0;
     if ((nPrevEndorsers = MarmaraGetbatontxid(creditloop, batontxid, prevtxid)) < 0) {   // number of endorsers + issuer, without the current tx
         errorStr = "could not get credit loop";
         return false;
@@ -1398,18 +1398,6 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
         return false;
     }
 
-    CAmount ccBatonsBalance, txbalance;
-    if (loopData.lastfuncid == MARMARA_ISSUE)
-        ccBatonsBalance = MARMARA_BATON_AMOUNT + MARMARA_LOOP_MARKER_AMOUNT + MARMARA_OPEN_MARKER_AMOUNT - MARMARA_CREATETX_AMOUNT;
-    else // MARMARA_TRANSFER
-        ccBatonsBalance = MARMARA_BATON_AMOUNT /*transfer baton*/ - (MARMARA_BATON_AMOUNT /*request baton*/ + MARMARA_BATON_AMOUNT /*prev baton*/);
-
-    if ((txbalance = get_cc_balance(cp, tx)) != ccBatonsBalance) {
-        errorStr = "invalid cc balance for issue/transfer tx";
-        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid balance=" << txbalance << " needed=" << ccBatonsBalance << " for issue/transfer tx=" << tx.GetHash().GetHex() << std::endl);
-        return false;
-    }
-
     CPubKey marmarapk = GetUnspendable(cp, NULL);
 
     // check activated vins
@@ -1516,9 +1504,24 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
     //{
     // check LCL fund redistribution and vouts in transfer tx
     i++;
-    if (!check_lcl_redistribution(tx, prevtxid, i, errorStr))
+    int32_t nPrevEndorsers = 0;
+    if (!check_lcl_redistribution(tx, prevtxid, i, nPrevEndorsers, errorStr))
         return false;
     //}
+
+    CAmount ccBatonsBalance, txbalance, balanceDiff;
+    if (loopData.lastfuncid == MARMARA_ISSUE)
+        ccBatonsBalance = MARMARA_BATON_AMOUNT + MARMARA_LOOP_MARKER_AMOUNT + MARMARA_OPEN_MARKER_AMOUNT - MARMARA_CREATETX_AMOUNT;
+    else // MARMARA_TRANSFER
+        ccBatonsBalance = MARMARA_BATON_AMOUNT /*transfer baton*/ - (MARMARA_BATON_AMOUNT /*request baton*/ + MARMARA_BATON_AMOUNT /*prev baton*/ + loopData.amount / (nPrevEndorsers+1) /*loop/N*/);
+
+    txbalance = get_cc_balance(cp, tx);
+    balanceDiff = txbalance - ccBatonsBalance;
+    if (balanceDiff < MARMARA_LOOP_TOLERANCE || balanceDiff > MARMARA_LOOP_TOLERANCE) {
+        errorStr = "invalid cc balance for issue/transfer tx";
+        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid balance=" << txbalance << " needed=" << ccBatonsBalance << " for issue/transfer tx=" << tx.GetHash().GetHex() << std::endl);
+        return false;
+    }
 
     // check batons/markers
     if (tx.vout.size() <= MARMARA_BATON_VOUT || tx.vout[MARMARA_BATON_VOUT].nValue != MARMARA_BATON_AMOUNT) {
