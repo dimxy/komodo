@@ -659,7 +659,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
                 if ( komodo_waituntilelegible(blocktime, stakeHeight, delay) == 0 )
                     return(0);
 
-                if (ASSETCHAINS_MARMARA && nHeight > 0 && (nHeight & 1) == 0)
+                if (ASSETCHAINS_MARMARA && nHeight > 0)
                 {
                     CScript EncodeStakingOpRet(uint256 merkleroot);
 
