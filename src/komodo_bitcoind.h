@@ -1565,7 +1565,9 @@ uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 
         }
         else
         {
-            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "staker pubkey not provided (not the marmara coinbase or -pubkey not set)" << std::endl);
+            CBlockIndex *tipindex = tipindex = chainActive.Tip();
+            if (tipindex && ((tipindex->GetHeight() + 1) & 0x01) == 0)
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "staker pubkey not provided for even height (not the marmara's coinbase or -pubkey not set)" << std::endl);
         }
         // #endif
     }
@@ -1751,7 +1753,7 @@ uint32_t komodo_stake(int32_t validateflag,arith_uint256 bnTarget,int32_t nHeigh
     segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout, vcoinbasepk);
     //std::cerr << "hash=" << HexStr(hash) << " hashbuf=" << HexStr(vuint8_t(hashbuf, hashbuf + 100 + 2 * sizeof(uint256) + 33)) << " validateflag=" << validateflag << std::endl;
     segid = ((nHeight + segid32) & 0x3f);
-    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG2, stream << "segid=" << segid << " address=" << address << std::endl);
+    LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG2, stream << "segid=" << segid << " address=" << address << " hash=" << hash.GetHex() << " validateflag=" << validateflag << std::endl);
     for (iter=0; iter<600; iter++)
     {
         if ( blocktime+iter+segid*2 < txtime+minage )
@@ -1886,7 +1888,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
                 // the pk for adding to stakehash is only in even blocks
                 if ((height & 0x01) == 0)
                     vcoinbasepk = MarmaraGetStakerPubkeyFromCoinbaseOpret(pblock->vtx[0].vout[0].scriptPubKey);
-                // for odd blocks this pk is not used because not block contention is supposed as only the wallet utxos are staked
+                // for odd blocks this pk is not used because no block contention is supposed as only the wallet utxos are staked
             }
         }
         
