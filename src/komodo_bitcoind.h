@@ -1555,7 +1555,6 @@ uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 
     if (ASSETCHAINS_MARMARA)
     {
         // this is for the marmara stakebox that provides staking services for users with activated or locked-in-loop coins
-        // should be #if !defined ENABLE_WALLET but could not build
         // add mypubkey to hashed array for marmara stakeboxes
         // this is to prevent contention when several stakeboxes create same PoS block
         if (!vstakerpk.empty())
@@ -1572,7 +1571,6 @@ uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 
             if (height > 0 && (height & 0x01) == 0)
                 LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "staker pubkey not provided for even height (not the marmara's coinbase or -pubkey not set), height=" << height << std::endl);
         }
-        // #endif
     }
     vcalc_sha256(0,(uint8_t *)hashp, hashbuf, hashed_size);
     return(addrhash.uints[0]);
@@ -1889,7 +1887,7 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
             {
                 // after 'pos improvements' update:
                 // the pk for adding to stakehash is only in even blocks
-                if ((height & 0x01) == 0)
+                if (height > 0 && (height & 0x01) == 0)
                     vcoinbasepk = MarmaraGetStakerPubkeyFromCoinbaseOpret(pblock->vtx[0].vout[0].scriptPubKey);
                 // for odd blocks this pk is not used because no block contention is supposed as only the wallet utxos are staked
             }
