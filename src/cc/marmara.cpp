@@ -1520,7 +1520,7 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
 
     txbalance = get_cc_balance(cp, tx);
     balanceDiff = txbalance - ccBatonsBalance;
-    if (balanceDiff < MARMARA_LOOP_TOLERANCE || balanceDiff > MARMARA_LOOP_TOLERANCE) {
+    if (balanceDiff < -MARMARA_LOOP_TOLERANCE || balanceDiff > MARMARA_LOOP_TOLERANCE) {
         errorStr = "invalid cc balance for issue/transfer tx";
         LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid balance=" << txbalance << " needed=" << ccBatonsBalance << " for issue/transfer tx=" << tx.GetHash().GetHex() << std::endl);
         return false;
