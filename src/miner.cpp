@@ -661,16 +661,23 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
 
                 if (ASSETCHAINS_MARMARA && nHeight > 0)
                 {
-                    CScript EncodeStakingOpRet(uint256 merkleroot);
+                    if (txStaked.vout.size() > 0)  // txStaked was created
+                    {
+                        CScript EncodeStakingOpRet(uint256 merkleroot);
 
-                    // Update coinbase spk based on marmara stake tx and and recalculate staked tx merkle root:
-                    // plus update the signature
-                    scriptPubKeyIn = MarmaraCreatePoSCoinbaseScriptPubKey(nHeight, scriptPubKeyIn, txStaked);
-                    uint256 merkleroot = komodo_calcmerkleroot(pblock, pindexPrev->GetBlockHash(), nHeight, true, scriptPubKeyIn);
-                    if (txStaked.vout.size() == 2) { // merkle opret was created
-                        txStaked.vout[1].scriptPubKey = EncodeStakingOpRet(merkleroot);
-                        siglen = MarmaraSignature(utxosig, txStaked, nHeight);  // add marmara opret and sign the stake tx 
-                        LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "updated coinbase scriptPubKeyIn and merkleroot in stake tx for height=" << nHeight << std::endl);
+                        // Update coinbase spk based on marmara stake tx and and recalculate staked tx merkle root:
+                        // plus update the signature
+                        scriptPubKeyIn = MarmaraCreatePoSCoinbaseScriptPubKey(nHeight, scriptPubKeyIn, txStaked);
+                        uint256 merkleroot = komodo_calcmerkleroot(pblock, pindexPrev->GetBlockHash(), nHeight, true, scriptPubKeyIn);
+                        if (txStaked.vout.size() == 2) { // merkle opret was created
+                            txStaked.vout[1].scriptPubKey = EncodeStakingOpRet(merkleroot);
+                            siglen = MarmaraSignature(utxosig, txStaked, nHeight);  // add marmara opret and sign the stake tx 
+                            LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "updated coinbase scriptPubKeyIn and merkleroot in stake tx for height=" << nHeight << std::endl);
+                        }
+                    }
+                    else
+                    {
+                        LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "stake tx was not created (check if you have activated coins), height=" << nHeight << std::endl);
                     }
                 }
             }

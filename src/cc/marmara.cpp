@@ -2010,9 +2010,7 @@ CScript MarmaraCreateDefaultCoinbaseScriptPubKey(int32_t nHeight, CPubKey minerp
     }
 }
 
-// creates coinbase transaction: adds marmara opreturn 
-// -- now actually does nothing as opret is already in the cc vout - see Marmara_scriptPubKey()
-// ++ now creates coinbase vout depending on staketx
+// creates coinbase transaction for PoS blocks, adds marmara opreturn to coinbase
 CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &defaultspk, const CTransaction &staketx)
 {
     CScript spk = defaultspk;
