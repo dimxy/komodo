@@ -991,26 +991,28 @@ int32_t MarmaraGetbatontxid(std::vector<uint256> &creditloop, uint256 &batontxid
         txid = createtxid;
         //fprintf(stderr,"%s txid.%s -> createtxid %s\n", __func__, txid.GetHex().c_str(),createtxid.GetHex().c_str());
 
-                                                                                        // prevent situation when spenttx is in mempool because this works differently on when synced block is validated
+        // myIsutxo_spentinmempool is extremely important here prevent situation when spenttx is in mempool because CCgetspenttxid works differently with tx in mempool when synced block is validated
         while (CCgetspenttxid(spenttxid, vini, height, txid, MARMARA_BATON_VOUT) == 0 && !myIsutxo_spentinmempool(ignoretxid, ignorevin, txid, MARMARA_BATON_VOUT))  // while the current baton is spent
-        // sometimes it happens that CCgettxout(MEMPOOL==0) returns -1 (that means it was spent)
+        // originally it was CCgettxout used here
+        // but sometimes it happened that CCgettxout(USE_MEMPOOL==0) returns -1 (that means it was spent)
         // but the subsequent CCgetspenttxid call for this txid returns -1 (that is, it does not know that the vout is spent)
         // this creates bad validation for blocks with 'T' txns
-        // probably when a remote block is connected it does not add txns to mempool.SpentIndex
-        // but when block is created locally it adds tx to mempool spent index and seems it works differently for remote blocks
-        // seems, better to use myGetTransaction instead of  CCgettxout with mempool check
+        // probably when a remote block is connected its txns are not added to mempool SpentIndex (but added to mempool)
+        // but when block is created locally its txns are added to mempool SpentIndex and seems CCgettxout works differently for remote blocks
+        // decided better to use myGetTransaction instead of CCgettxout 
+        // do not process spent tx in mempool
         {
             CTransaction spentTx;
             uint256 hashBlock;
             // creditloop.push_back(txid);
-            //fprintf(stderr,"%d: %s\n",n,txid.GetHex().c_str());
+            // fprintf(stderr,"%d: %s\n",n,txid.GetHex().c_str());
             // n++;
 
             // do not use CCgettxout because currently sometimes it works with mempool differently with CCgetspenttxid 
             // (on a block connect seems CCgetspenttxid does not look into mempool SpentIndex)
             // TODO: fix this, see if myAddToMempool correctly updates mempool SpentIndex
             /*
-            // do not USE_MEMPOOL because CCgettxout will return -1 if spenttxid is spent by tx in mempool
+            // do not USE_MEMPOOL==1 because CCgettxout will return -1 if spenttxid is spent by a tx in mempool
             if ((value = CCgettxout(spenttxid, MARMARA_BATON_VOUT, USE_MEMPOOL, DO_LOCK)) == MARMARA_BATON_AMOUNT)  //check if the baton value is unspent yet - this is the last baton
             {
                 batontxid = spenttxid;
@@ -1023,7 +1025,8 @@ int32_t MarmaraGetbatontxid(std::vector<uint256> &creditloop, uint256 &batontxid
                 LOGSTREAMFN("marmara", CCLOG_ERROR, stream  << "n=" << n << " found and will use false baton=" << batontxid.GetHex() << " vout=" << MARMARA_BATON_VOUT << " value=" << value << std::endl);
                 return n;
             }  */
-            // TODO: get funcid (and check?)
+
+            // (TODO: get funcid and check for I and T?)
 
             if (myGetTransaction(spenttxid, spentTx, hashBlock) && spentTx.vout.size() > MARMARA_BATON_VOUT && spentTx.vout[MARMARA_BATON_VOUT].nValue == MARMARA_BATON_AMOUNT)
             {
@@ -1047,9 +1050,10 @@ int32_t MarmaraGetbatontxid(std::vector<uint256> &creditloop, uint256 &batontxid
 
             txid = spenttxid;
         }
-
         return n;
-        /*if (n == 0)     
+        
+        /* old code for CCgettxout use
+        if (n == 0)     
             return 0;   // empty loop
         else
         {
@@ -2282,6 +2286,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
             // pos improvements rules for activated:
             if (height >= MARMARA_POS_IMPROVEMENTS_HEIGHT)
             {
+                /* do not need this
                 // odd heights
                 if ((height & 0x01) == 1)
                 {
@@ -2297,28 +2302,27 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
                     }
                 }
                 else
+                {*/
+                // check coinbase address
+                if (coinbase.vout.size() != 1) {
+                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid coinbase vout size" << " height=" << height << std::endl);
+                    return MARMARA_STAKE_TX_BAD;
+                }
+                else if (!coinbase.vout[0].scriptPubKey.IsPayToCryptoCondition())
                 {
-                    // check coibase
-                    if (coinbase.vout.size() != 1) {
-                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid coinbase vout size" << " height=" << height << std::endl);
+                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid coinbase vout size" << " height=" << height << std::endl);
+                    return MARMARA_STAKE_TX_BAD;
+                }
+                else
+                {
+                    // for even block coinbase should go to the same address that stake tx is:
+                    char coinbaseaddr[KOMODO_ADDRESS_BUFSIZE];
+                    Getscriptaddress(coinbaseaddr, coinbase.vout[0].scriptPubKey);
+                    if (strcmp(coinbaseaddr, destaddr) != 0) {
+                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "for even blocks coinbase should go the the address of activated stake tx" << " coinbaseaddr=" << coinbaseaddr << " destaddr=" << destaddr << " height=" << height << std::endl);
                         return MARMARA_STAKE_TX_BAD;
                     }
-                    else if (!coinbase.vout[0].scriptPubKey.IsPayToCryptoCondition())
-                    {
-                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid coinbase vout size" << " height=" << height << std::endl);
-                        return MARMARA_STAKE_TX_BAD;
-                    }
-                    else
-                    {
-                        // for even block coinbase should go to the same address that stake tx is:
-                        char coinbaseaddr[KOMODO_ADDRESS_BUFSIZE];
-                        Getscriptaddress(coinbaseaddr, coinbase.vout[0].scriptPubKey);
-                        if (strcmp(coinbaseaddr, destaddr) != 0) {
-                            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "for even blocks coinbase should go the the address of activated stake tx" << " coinbaseaddr=" << coinbaseaddr << " destaddr=" << destaddr << " height=" << height << std::endl);
-                            return MARMARA_STAKE_TX_BAD;
-                        }
 
-                    }
                 }
             }
             return MARMARA_STAKE_TX_OK;
@@ -2703,8 +2707,7 @@ struct komodo_staking *MarmaraGetStakingUtxos(struct komodo_staking *array, int3
 
     // old behavior is add all activated and lcl utxos
     bool useLocalUtxos = false;
-    CPubKey usePubkey;
-
+    CPubKey usePubkey;  // set as empty
 
     if (height >= MARMARA_POS_IMPROVEMENTS_HEIGHT)
     {
@@ -2713,6 +2716,20 @@ struct komodo_staking *MarmaraGetStakingUtxos(struct komodo_staking *array, int3
             // for odd blocks use only my utxos:
             useLocalUtxos = true;
             usePubkey = pubkey2pk(Mypubkey());
+        }
+        else if (height > 0)
+        {
+            if (GetArg("-marmara-stakebox", 0) != 0)
+            {
+                // started as a stake box - use all utxo
+                useLocalUtxos = false;
+            }
+            else
+            {
+                // not a stake box - usual pos node with local utxos
+                useLocalUtxos = true;
+                usePubkey = pubkey2pk(Mypubkey());
+            }
         }
     }
 
@@ -2787,7 +2804,6 @@ int32_t MarmaraGetStakeMultiplier(const CTransaction & staketx, int32_t nvout)
                         CBlockIndex *tipindex = chainActive.Tip();
                         if (tipindex)
                             height = tipindex->GetHeight() + 1;
-                        
                         
                         if (height >= MARMARA_POS_IMPROVEMENTS_HEIGHT)
                         {
@@ -3010,26 +3026,27 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx, int32_
 
             // decode utxo 1of2 address
             char activated1of2addr[KOMODO_ADDRESS_BUFSIZE];
-            uint8_t activatedpriv[32];
+            //uint8_t activatedpriv[32];
             
 
             //CKeyID keyid = opretpk.GetID();
             //CKey privkey;
 
-            if ((height & 0x01) == 1)
+            /*if ((height & 0x01) == 1)
             {
-                /*if (!pwalletMain || !pwalletMain->GetKey(keyid, privkey))
-                {
-                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "can't find user privkey or wallet not available" << std::endl);
-                    return 0;
-                }*/
+                //if (!pwalletMain || !pwalletMain->GetKey(keyid, privkey))
+                //{
+                //    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "can't find user privkey or wallet not available" << std::endl);
+                //    return 0;
+                //}
+
                 // use my privkey for odd blocks:
                 Myprivkey(activatedpriv);
             }
             else
             {
                 memcpy(activatedpriv, marmarapriv, sizeof(activatedpriv));
-            }
+            }*/
 
 
             // if vintx has the last-vout opret then move it to cc-vout opret
@@ -3047,11 +3064,11 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx, int32_
 
             Getscriptaddress(activated1of2addr, mstaketx.vout[0].scriptPubKey);
 
-            LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "found activated opret in staking vintx" << std::endl);
+            //LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "found activated opret in staking vintx" << std::endl);
 
             CC *probeCond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, opretpk);
             // use the global pk (instead of privkey for user's pubkey from the wallet):
-            CCAddVintxCond(cp, probeCond, activatedpriv/*privkey.begin()*/);    //add probe condition to sign vintx 1of2 utxo
+            CCAddVintxCond(cp, probeCond, marmarapriv/*privkey.begin()*/);    //add probe condition to sign vintx 1of2 utxo
             cc_free(probeCond);
 
             //if (lastVoutOpretDiscontinued)
@@ -3059,7 +3076,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx, int32_
             //else
             //    finalOpret = vintxOpret; // last-vout opret continues to be used until some height
 
-            memset(activatedpriv, '\0', sizeof(activatedpriv));  //wipe privkey
+            //memset(activatedpriv, '\0', sizeof(activatedpriv));  //wipe privkey
 
         }
         else if (get_either_opret(&lockinloopChecker, vintx, mstaketx.vin[0].prevout.n, vintxOpret, opretpk))   // note: opret could be in vintx ccvout
