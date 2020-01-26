@@ -2308,21 +2308,18 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
                     LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid coinbase vout size" << " height=" << height << std::endl);
                     return MARMARA_STAKE_TX_BAD;
                 }
-                else if (!coinbase.vout[0].scriptPubKey.IsPayToCryptoCondition())
+                if ((height & 0x01) == 0 && !coinbase.vout[0].scriptPubKey.IsPayToCryptoCondition())
                 {
-                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid coinbase vout size" << " height=" << height << std::endl);
+                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "even pos block coinbase not a cc" << " height=" << height << std::endl);
                     return MARMARA_STAKE_TX_BAD;
                 }
-                else
-                {
-                    // for even block coinbase should go to the same address that stake tx is:
-                    char coinbaseaddr[KOMODO_ADDRESS_BUFSIZE];
-                    Getscriptaddress(coinbaseaddr, coinbase.vout[0].scriptPubKey);
-                    if (strcmp(coinbaseaddr, destaddr) != 0) {
-                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "for even blocks coinbase should go the the address of activated stake tx" << " coinbaseaddr=" << coinbaseaddr << " destaddr=" << destaddr << " height=" << height << std::endl);
-                        return MARMARA_STAKE_TX_BAD;
-                    }
-
+              
+                // for even block coinbase should go to the same address that stake tx does:
+                char coinbaseaddr[KOMODO_ADDRESS_BUFSIZE];
+                Getscriptaddress(coinbaseaddr, coinbase.vout[0].scriptPubKey);
+                if (strcmp(coinbaseaddr, destaddr) != 0) {
+                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "for even blocks coinbase should go the the address of activated stake tx" << " coinbaseaddr=" << coinbaseaddr << " destaddr=" << destaddr << " height=" << height << std::endl);
+                    return MARMARA_STAKE_TX_BAD;
                 }
             }
             return MARMARA_STAKE_TX_OK;
@@ -2357,34 +2354,33 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
                     LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid coinbase vout size" << " height=" << height << std::endl);
                     return MARMARA_STAKE_TX_BAD;
                 }
-                else if (!coinbase.vout[0].scriptPubKey.IsPayToCryptoCondition())
+                if ((height & 0x01) == 0 && !coinbase.vout[0].scriptPubKey.IsPayToCryptoCondition())
                 {
-                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid coinbase vout size" << " height=" << height << std::endl);
+                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "even block pos coinbase not a cc" << " height=" << height << std::endl);
                     return MARMARA_STAKE_TX_BAD;
+                }
+
+                // for even block coinbase should go to the same address that stake tx is:
+                char coinbaseaddr[KOMODO_ADDRESS_BUFSIZE];
+                char lclpubkeyaddr[KOMODO_ADDRESS_BUFSIZE];
+
+                Getscriptaddress(coinbaseaddr, coinbase.vout[0].scriptPubKey);
+
+                // odd heights
+                if ((height & 0x01) == 1)
+                {
+                    // for odd blocks coinbase should go to normal address from pk from lcl 
+                    Getscriptaddress(lclpubkeyaddr, CScript() << ParseHex(HexStr(opretpk)) << OP_CHECKSIG);
                 }
                 else
                 {
-                    // for even block coinbase should go to the same address that stake tx is:
-                    char coinbaseaddr[KOMODO_ADDRESS_BUFSIZE];
-                    char lclpubkeyaddr[KOMODO_ADDRESS_BUFSIZE];
-
-                    Getscriptaddress(coinbaseaddr, coinbase.vout[0].scriptPubKey);
-
-                    // odd heights
-                    if ((height & 0x01) == 1)
-                    {
-                        // for odd blocks coinbase should go to normal address from pk from lcl 
-                        Getscriptaddress(lclpubkeyaddr, CScript() << ParseHex(HexStr(opretpk)) << OP_CHECKSIG);
-                    }
-                    else
-                    {
-                        GetCCaddress1of2(cp, lclpubkeyaddr, Marmarapk, opretpk);
-                    }
-                    if (strcmp(coinbaseaddr, lclpubkeyaddr) != 0) {
-                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "coinbase should go to the lock pubkey of lcl stake tx" << " coinbaseaddr=" << coinbaseaddr << " lclpubkeyaddr=" << lclpubkeyaddr << " height=" << height << std::endl);
-                        return MARMARA_STAKE_TX_BAD;
-                    }
+                    GetCCaddress1of2(cp, lclpubkeyaddr, Marmarapk, opretpk);
                 }
+                if (strcmp(coinbaseaddr, lclpubkeyaddr) != 0) {
+                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "coinbase should go to the lock pubkey of lcl stake tx" << " coinbaseaddr=" << coinbaseaddr << " lclpubkeyaddr=" << lclpubkeyaddr << " height=" << height << std::endl);
+                    return MARMARA_STAKE_TX_BAD;
+                }
+                
                 
             }
             return MARMARA_STAKE_TX_OK;
