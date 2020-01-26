@@ -2016,6 +2016,9 @@ CScript MarmaraCreateDefaultCoinbaseScriptPubKey(int32_t nHeight, CPubKey minerp
 CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &defaultspk, const CTransaction &staketx)
 {
     CScript spk = defaultspk;
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_MARMARA);
+    CPubKey Marmarapk = GetUnspendable(cp, 0);
 
     if (nHeight > 0 && (nHeight & 1) == 0)
     {
@@ -2023,9 +2026,6 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
         {
             char checkaddr[KOMODO_ADDRESS_BUFSIZE];
             CScript opret;
-            struct CCcontract_info *cp, C;
-            cp = CCinit(&C, EVAL_MARMARA);
-            CPubKey Marmarapk = GetUnspendable(cp, 0);
             CPubKey opretpk;
             vuint8_t vmypk = Mypubkey();
             CPubKey mypk = pubkey2pk(vmypk);  // add current miner pubkey to opret
@@ -2082,7 +2082,45 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
         }
 
     }
-    // else: use default coinbase for odd heights
+    // old else: use default coinbase for odd heights
+    else
+    {
+        if (nHeight >= MARMARA_POS_IMPROVEMENTS_HEIGHT)
+        {
+            if (staketx.vout.size() > 0)
+            {
+                char checkaddr[KOMODO_ADDRESS_BUFSIZE];
+                CScript opret;
+                CPubKey opretpk;
+
+                CMarmaraActivatedOpretChecker activatedChecker;
+                CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET);
+
+                if (get_either_opret(&activatedChecker, staketx, 0, opret, opretpk))
+                {
+                    CScript coinbaseOpret;
+
+                    CTxOut vout = CTxOut(0, CScript() << ParseHex(HexStr(opretpk)) << OP_CHECKSIG);
+                    Getscriptaddress(checkaddr, vout.scriptPubKey);
+                    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "for activated stake tx created normal coinbase scriptPubKey with address=" << checkaddr << " height=" << nHeight << std::endl);
+                    spk = vout.scriptPubKey;
+                }
+                else if (get_either_opret(&lockinloopChecker, staketx, 0, opret, opretpk))
+                {
+                    CTxOut vout = CTxOut(0, CScript() << ParseHex(HexStr(opretpk)) << OP_CHECKSIG);
+
+                    Getscriptaddress(checkaddr, vout.scriptPubKey);
+                    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "for lcl stake tx created normal coinbase scriptPubKey address=" << checkaddr << " height=" << nHeight << std::endl);
+                    spk = vout.scriptPubKey;
+                }
+                else
+                {
+                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "cannot create pos marmara coinbase scriptPubKey, could not decode stake tx cc opret:" << staketx.vout[0].scriptPubKey.ToString() << " height=" << nHeight << std::endl);
+                }
+            }
+        }
+    }
+
     return spk;
 }
 
@@ -2320,7 +2358,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
 
                 if ((height & 0x01) == 1)
                 {
-                    // for odd blocks coinbase should go to normal address from pk from lcl 
+                    // for odd blocks coinbase should go to normal address from pk from opret 
                     Getscriptaddress(checkaddr, CScript() << ParseHex(HexStr(opretpk)) << OP_CHECKSIG);
                 }
                 else
@@ -2331,7 +2369,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
 
                 Getscriptaddress(coinbaseaddr, coinbase.vout[0].scriptPubKey);
                 if (strcmp(coinbaseaddr, checkaddr) != 0) {
-                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "for pos blocks coinbase should go the the address of activated stake tx" << " coinbaseaddr=" << coinbaseaddr << " checkaddr=" << checkaddr << " height=" << height << std::endl);
+                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "for pos blocks coinbase should go to the pubkey of activated stake tx" << " coinbaseaddr=" << coinbaseaddr << " checkaddr=" << checkaddr << " height=" << height << std::endl);
                     return MARMARA_STAKE_TX_BAD;
                 }
             }
