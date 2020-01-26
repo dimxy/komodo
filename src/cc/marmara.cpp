@@ -1287,6 +1287,8 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
         errorStr = "issue/transfer tx has incorrect loop pubkeys";
         return false;
     }
+
+    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << tx.GetHash().GetHex() << std::endl);
     return true;
 }
 
@@ -1304,6 +1306,7 @@ static bool check_request_tx(uint256 requesttxid, CPubKey receiverpk, uint8_t is
     CTransaction requesttx;
     uint256 hashBlock;
     uint8_t funcid = 0;
+    errorStr = "";
 
     LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "checking requesttxid=" << requesttxid.GetHex() << std::endl);
 
@@ -1337,8 +1340,10 @@ static bool check_request_tx(uint256 requesttxid, CPubKey receiverpk, uint8_t is
     
     if (!errorStr.empty()) 
         return false;
-    else
+    else {
+        LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for requesttx=" << requesttxid.GetHex() << std::endl);
         return true;
+    }
 }
 
 // check if tx cc inputs and outputs are balanced
@@ -1535,7 +1540,7 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
 
     // check issue tx vouts...
     // ...checked in check_lcl_redistribution
-
+    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << tx.GetHash().GetHex() << std::endl);
     return true;
 }
 
@@ -1700,6 +1705,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         errorStr = "payment to holder incorrect for partial settlement";
         return false;
     }
+    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << settletx.GetHash().GetHex() << std::endl);
     return true;
 }
 
@@ -1796,8 +1802,10 @@ static bool check_self_spent_tx(bool isLocked, const CTransaction &tx, std::stri
             }
         }
     }
-    if (vin_amounts.size() > 0 && vin_amounts == vout_amounts)  // compare should be okay as maps are sorted
+    if (vin_amounts.size() > 0 && vin_amounts == vout_amounts) {// compare should be okay as maps are sorted
+        LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << tx.GetHash().GetHex() << std::endl);
         return true;
+    }
     else
     {
         errorStr = "spending activated tx is allowed only to self";
@@ -1851,6 +1859,7 @@ static bool check_global_spent_tx(const CTransaction &tx, const std::set<uint8_t
             }
         }
     }
+    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << tx.GetHash().GetHex() << std::endl);
     return true;
 }
 
