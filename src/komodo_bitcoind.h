@@ -1565,9 +1565,12 @@ uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 
         }
         else
         {
-            CBlockIndex *tipindex = tipindex = chainActive.Tip();
-            if (tipindex && ((tipindex->GetHeight() + 1) & 0x01) == 0)
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "staker pubkey not provided for even height (not the marmara's coinbase or -pubkey not set)" << std::endl);
+            int32_t height = 0;
+            CBlockIndex *tipindex = chainActive.Tip();
+            if (tipindex)
+                height = tipindex->GetHeight() + 1;
+            if (height > 0 && (height & 0x01) == 0)
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "staker pubkey not provided for even height (not the marmara's coinbase or -pubkey not set), height=" << height << std::endl);
         }
         // #endif
     }
