@@ -1398,15 +1398,15 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
         return false;
     }
 
-    CAmount ccBatonsFromNormalsAmount, txbalance;
+    CAmount ccBatonsBalance, txbalance;
     if (loopData.lastfuncid == MARMARA_ISSUE)
-        ccBatonsFromNormalsAmount = MARMARA_BATON_AMOUNT + MARMARA_LOOP_MARKER_AMOUNT + MARMARA_OPEN_MARKER_AMOUNT - MARMARA_CREATETX_AMOUNT;
+        ccBatonsBalance = MARMARA_BATON_AMOUNT + MARMARA_LOOP_MARKER_AMOUNT + MARMARA_OPEN_MARKER_AMOUNT - MARMARA_CREATETX_AMOUNT;
     else // MARMARA_TRANSFER
-        ccBatonsFromNormalsAmount = MARMARA_BATON_AMOUNT /*transfer baton*/ - MARMARA_BATON_AMOUNT /*request baton*/;
+        ccBatonsBalance = MARMARA_BATON_AMOUNT /*transfer baton*/ - (MARMARA_BATON_AMOUNT /*request baton*/ + MARMARA_BATON_AMOUNT /*prev baton*/);
 
-    if ((txbalance = get_cc_balance(cp, tx)) != ccBatonsFromNormalsAmount) {
+    if ((txbalance = get_cc_balance(cp, tx)) != ccBatonsBalance) {
         errorStr = "invalid cc balance for issue/transfer tx";
-        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid balance=" << txbalance << " needed=" << ccBatonsFromNormalsAmount << " for issue/transfer tx=" << tx.GetHash().GetHex() << std::endl);
+        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid balance=" << txbalance << " needed=" << ccBatonsBalance << " for issue/transfer tx=" << tx.GetHash().GetHex() << std::endl);
         return false;
     }
 
@@ -3807,9 +3807,9 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
                 LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "calling AddMarmaraCCInputs for activated addr=" << activated1of2addr << " needs activated amount to lock-in-loop=" << amountToLock << std::endl);
                 if ((inputsum = AddMarmaraCCInputs(IsMarmaraActivatedVout, mtx, pubkeys, activated1of2addr, amountToLock, MARMARA_VINS)) >= amountToLock) // add 1/n remainder from the locked fund
                 {
-                    mtx.vin.push_back(CTxIn(requesttxid, MARMARA_REQUEST_VOUT, CScript()));  // spend the request tx baton, will add 20000 for marmaraissue or 1*txfee for marmaratransfer
+                    mtx.vin.push_back(CTxIn(requesttxid, MARMARA_REQUEST_VOUT, CScript()));  // spend the request tx baton, will add 20000 for marmaraissue or 10000 for marmaratransfer
                     if (funcid == MARMARA_TRANSFER)
-                        mtx.vin.push_back(CTxIn(batontxid, MARMARA_BATON_VOUT, CScript()));   // for marmaratransfer spend the previous baton (+ 1*txfee for marmaratransfer)
+                        mtx.vin.push_back(CTxIn(batontxid, MARMARA_BATON_VOUT, CScript()));   // for marmaratransfer spend the previous baton (+ 10000 for marmaratransfer)
 
                     if (funcid == MARMARA_TRANSFER || AddNormalinputs(mtx, mypk, txfee + MARMARA_LOOP_MARKER_AMOUNT, 4, isRemote) > 0)  // add two more txfee for marmaraissue
                     {
