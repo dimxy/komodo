@@ -1341,6 +1341,40 @@ static bool check_request_tx(uint256 requesttxid, CPubKey receiverpk, uint8_t is
         return true;
 }
 
+// check if tx cc inputs and outputs are balanced
+static CAmount get_cc_balance(const struct CCcontract_info *cp, const CTransaction &tx)
+{
+    CAmount ccInputs = 0L;
+    CAmount ccOutputs = 0L;
+
+    // get total for cc vintx
+    for (auto const & vin : tx.vin)
+    {
+        if (IsCCInput(vin.scriptSig))
+        {
+            if (cp->ismyvin(vin.scriptSig))
+            {
+                CTransaction vintx;
+                uint256 hashBlock;
+
+                if (myGetTransaction(vin.prevout.hash, vintx, hashBlock) /*&& !hashBlock.IsNull()*/)
+                {
+                    ccInputs += vintx.vout[vin.prevout.n].nValue;
+                }
+            }
+        }
+    }
+    // get total for cc vouts
+    for (auto const & vout : tx.vout)
+    {
+        if (vout.scriptPubKey.IsPayToCryptoCondition())
+        {
+            ccOutputs += vout.nValue;
+        }
+    }
+    return ccOutputs - ccInputs;
+}
+
 // check issue or transfer tx
 static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
 {
@@ -1359,9 +1393,21 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
         return false;
     }
 
+    CAmount ccBatonsFromNormalsAmount, txbalance;
+    if (loopData.lastfuncid == MARMARA_ISSUE)
+        ccBatonsFromNormalsAmount = MARMARA_BATON_AMOUNT + MARMARA_LOOP_MARKER_AMOUNT + MARMARA_OPEN_MARKER_AMOUNT - MARMARA_CREATETX_AMOUNT;
+    else // MARMARA_TRANSFER
+        ccBatonsFromNormalsAmount = MARMARA_BATON_AMOUNT /*transfer baton*/ - MARMARA_BATON_AMOUNT /*request baton*/;
+
+    if ((txbalance = get_cc_balance(cp, tx)) != ccBatonsFromNormalsAmount) {
+        errorStr = "invalid cc balance for issue/transfer tx";
+        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid balance=" << txbalance << " needed=" << ccBatonsFromNormalsAmount << " for issue/transfer tx=" << tx.GetHash().GetHex() << std::endl);
+        return false;
+    }
+
     CPubKey marmarapk = GetUnspendable(cp, NULL);
 
-    // check activated vouts
+    // check activated vins
     std::list<int32_t> nbatonvins;
     bool activatedHasBegun = false;
     int i = 0;
@@ -1633,7 +1679,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         else
         {
             // do not allow any cc vouts
-            // NOTE: what about if change occures in settlement because someone has sent some coins to the loop?
+            // NOTE: what about if change appears in settlement because someone has sent some coins to the loop address?
             // such coins should be either skipped by IsMarmaraLockedInLoopVout, because they dont have cc inputs
             // or such cc transactions will be rejected as invalid
             errorStr = "settlement tx cannot have unknown cc vouts";

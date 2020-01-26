@@ -677,7 +677,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
                     }
                     else
                     {
-                        LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "stake tx was not created (check if you have activated coins), height=" << nHeight << std::endl);
+                        LOGSTREAMFN("marmara", CCLOG_INFO, stream << "stake tx was not created (check if you have activated coins), height=" << nHeight << std::endl);
                     }
                 }
             }
