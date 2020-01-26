@@ -2176,7 +2176,7 @@ vuint8_t MarmaraGetStakerPubkeyFromCoinbaseOpret(const CScript &spk)
             int32_t height, unlockht;
             uint8_t version;
             CPubKey opretpk, stakerpk;
-            if (MarmaraDecodeCoinbaseOpretExt(opret, version, opretpk, height, unlockht, stakerpk) == 0)
+            if (MarmaraDecodeCoinbaseOpretExt(opret, version, opretpk, height, unlockht, stakerpk) != 0)
             {
                 if (stakerpk.IsValid())
                     vretpk = vuint8_t(stakerpk.begin(), stakerpk.end());

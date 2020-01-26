@@ -2909,11 +2909,32 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
         }
 
         kp = &array[i];
-        if (ASSETCHAINS_MARMARA) {
-            if (nHeight > 1 && (nHeight & 0x1) == 0)
-                vhashpk = MarmaraGetPubkeyFromSpk(kp->scriptPubKey); // see komodo_stakehash(). In marmara komodo_stakehash adds coinbase to the hashed utxo
+        if (ASSETCHAINS_MARMARA) 
+        {
+            if (nHeight < MARMARA_POS_IMPROVEMENTS_HEIGHT)
+            {
+                // old incorrect pubkey getting
+                if (nHeight > 1 && (nHeight & 0x1) == 0)
+                {
+                    // this was incorrect
+                    vhashpk = MarmaraGetPubkeyFromSpk(kp->scriptPubKey); // see komodo_stakehash(). In marmara komodo_stakehash adds coinbase to the hashed utxo
+                }
+                else
+                {
+                    vhashpk = Mypubkey(); // coinbase pk is -pubkey pk
+                }
+            }
             else
-                vhashpk = Mypubkey(); // coinbase pk is -pubkey pk
+            {
+                // new behavoiur:
+                if (nHeight > 1 && (nHeight & 0x1) == 0)
+                {
+                    // add mypubkey only for even blocks:
+                    vhashpk = Mypubkey();
+                    
+                }
+                // else: for odd blocks no need to add pubkey to stakehash
+            }
         }
 
         eligible = komodo_stake(0,bnTarget,nHeight,kp->txid,kp->vout,0,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc, vhashpk);
