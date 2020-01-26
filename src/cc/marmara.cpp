@@ -1843,6 +1843,10 @@ static bool check_global_spent_tx(const CTransaction &tx, const std::set<uint8_t
                             return false; // can't spend loop marker
                         }
                     }
+                    if (n == MARMARA_ACTIVATED_MARKER_AMOUNT) {
+                        error = "can't spend activated address marker";
+                        return false; // can't spend markers of activated addresses
+                    }
                 }
             }
         }
