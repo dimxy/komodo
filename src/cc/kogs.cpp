@@ -544,7 +544,7 @@ static void ListContainerTokenids(KogsContainer &container)
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey kogsPk = GetUnspendable(cp, NULL);
-    CPubKey containertxidPk = CCtxidaddr(txidaddr, container.creationtxid);
+    CPubKey containertxidPk = CCtxidaddr_tweak(txidaddr, container.creationtxid);
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, containertxidPk);
 
     SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
@@ -567,7 +567,7 @@ static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shar
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey kogsPk = GetUnspendable(cp, NULL);
-    CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
+    CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
 
     SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
@@ -820,7 +820,7 @@ std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContain
 
         uint256 containertxid = containertx.GetHash();
         char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-        CPubKey createtxidPk = CCtxidaddr(txidaddr, containertxid);
+        CPubKey createtxidPk = CCtxidaddr_tweak(txidaddr, containertxid);
 
         char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
         GetTokensCCaddress(cp, tokenaddr, mypk);
@@ -928,7 +928,7 @@ UniValue KogsDepositContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 
     //CPubKey mypk = pubkey2pk(Mypubkey());
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
+    CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
 
     char tokenaddr[64];
     GetTokensCCaddress(cp, tokenaddr, mypk);
@@ -969,7 +969,7 @@ UniValue KogsClaimDepositedContainer(const CPubKey &remotepk, int64_t txfee, uin
             CPubKey kogsPk = GetUnspendable(cp, kogsPriv);
 
             char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-            CPubKey gametxidPk = CCtxidaddr(txidaddr, gameid);
+            CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
 
             char tokensrcaddr[64];
             GetTokensCCaddress1of2(cp, tokensrcaddr, kogsPk, gametxidPk);
@@ -1005,7 +1005,7 @@ static bool IsContainerDeposited(KogsGame game, KogsContainer container)
     CPubKey kogsPk = GetUnspendable(cp, NULL);
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey gametxidPk = CCtxidaddr(txidaddr, game.creationtxid);
+    CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, game.creationtxid);
     if (lasttx.vout[0] == MakeCC1of2vout(EVAL_TOKENS, 1, kogsPk, gametxidPk))
         return true;
     return false;
@@ -1075,7 +1075,7 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
     CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey containertxidPk = CCtxidaddr(txidaddr, containerid);
+    CPubKey containertxidPk = CCtxidaddr_tweak(txidaddr, containerid);
     ActivateUtxoLock();
 
     char tokenaddr[64];
@@ -1111,7 +1111,7 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
     uint8_t kogspriv[32];
     CPubKey kogsPk = GetUnspendable(cp, kogspriv);
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey createtxidPk = CCtxidaddr(txidaddr, containerid);
+    CPubKey createtxidPk = CCtxidaddr_tweak(txidaddr, containerid);
     CC *probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, createtxidPk);
     char tokenaddr[64];
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, createtxidPk);
@@ -1940,7 +1940,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             uint8_t kogsPriv[32];
                             CPubKey kogsPk = GetUnspendable(cp, kogsPriv);
                             char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-                            CPubKey gametxidPk = CCtxidaddr(txidaddr, newbaton.gameid);
+                            CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, newbaton.gameid);
                             
                             char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
                             GetTokensCCaddress1of2(cp, tokensrcaddr, kogsPk, gametxidPk);
