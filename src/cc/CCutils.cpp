@@ -296,6 +296,37 @@ CPubKey CCtxidaddr(char *txidaddr,uint256 txid)
     return(pk);
 }
 
+// CCtxidaddr version that makes valid pubkey by tweaking it
+CPubKey CCtxidaddr_tweak(char *txidaddr, uint256 txid)
+{
+    uint8_t buf33[33];
+    CPubKey pk;
+
+    buf33[0] = 0x02;
+    endiancpy(&buf33[1], (uint8_t *)&txid, 32);
+
+    // tweak last byte
+    // NOTE: this algorithm should not be changed, it should remain compatible with existing in chains txid-pubkeys
+    int maxtweaks = 256;
+    while (maxtweaks--) {
+        pk = buf2pk(buf33);
+        if (pk.IsFullyValid())
+            break;
+        buf33[sizeof(buf33) - 1]++;
+    }
+
+    if (pk.IsFullyValid()) {
+        if (txidaddr != NULL)
+            Getscriptaddress(txidaddr, CScript() << ParseHex(HexStr(pk)) << OP_CHECKSIG);
+        return(pk);
+    }
+    else {
+        if (txidaddr != NULL)
+            strcpy(txidaddr, "");
+        return CPubKey();
+    }
+}
+
 CPubKey CCCustomtxidaddr(char *txidaddr,uint256 txid,uint8_t taddr,uint8_t prefix,uint8_t prefix2)
 {
     uint8_t buf33[33]; CPubKey pk;
