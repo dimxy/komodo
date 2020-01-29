@@ -407,9 +407,6 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
             }
             else
             {
-                // init with null:
-                privkey = NULL;
-
                 Getscriptaddress(destaddr,vintx.vout[utxovout].scriptPubKey);
                 //fprintf(stderr,"FinalizeCCTx() vin.%d is CC %.8f -> (%s) vs %s\n",i,(double)utxovalues[i]/COIN,destaddr,mysingletokensaddr);
 				//std::cerr << "FinalizeCCtx() searching destaddr=" << destaddr << " for vin[" << i << "] satoshis=" << utxovalues[i] << std::endl;
@@ -524,7 +521,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                                 if (t.CCpriv[0])
                                     privkey = t.CCpriv;
                                 else
-                                    privkey = (!remote) ? myprivkey : NULL; // use myprivkey if not set in the probecond - forlocal calls
+                                    privkey = myprivkey; // use myprivkey if not set in the probecond - for local calls
                                 flag = 1;
                                 cond = vectcond;
                                 break;
@@ -556,7 +553,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                     std::cerr << "mtx.before cc_signTreeSecp256k1Msg32=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
                     std::cerr << "mtx.hash cc_signTreeSecp256k1Msg32 before=" << mtx.GetHash().GetHex() << std::endl;
 
-                    if (privkey && cc_signTreeSecp256k1Msg32(cond, privkey, sighash.begin()) != 0)
+                    if (cc_signTreeSecp256k1Msg32(cond, privkey, sighash.begin()) != 0)
                     {
                         mtx.vin[i].scriptSig = CCSig(cond);
                     }
@@ -569,25 +566,17 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                 }
                 else   // no privkey locally - remote call
                 {
-                    // if global privkey is set then sign:
-                    if (privkey && cc_signTreeSecp256k1Msg32(cond, privkey, sighash.begin()) != 0)
+                    // serialize cc for the remote client to sign it:
+                    UniValue ccjson;
+                    ccjson.read(cc_conditionToJSONString(cond));
+                    if (ccjson.empty())
                     {
-                        mtx.vin[i].scriptSig = CCSig(cond);
+                        fprintf(stderr, "vini.%d can't serialize CC.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
+                        memset(myprivkey, 0, sizeof(myprivkey));
+                        return sigDataNull;
                     }
-                    else
-                    {
-                        // serialize cc for the remote client to sign it:
-                        UniValue ccjson;
-                        ccjson.read(cc_conditionToJSONString(cond));
-                        if (ccjson.empty())
-                        {
-                            fprintf(stderr, "vini.%d can't serialize CC.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
-                            memset(myprivkey, 0, sizeof(myprivkey));
-                            return sigDataNull;
-                        }
 
-                        AddSigData2UniValue(sigData, i, ccjson, std::string(), vintx.vout[utxovout].nValue);  // store vin i with scriptPubKey
-                    }
+                    AddSigData2UniValue(sigData, i, ccjson, std::string(), vintx.vout[utxovout].nValue);  // store vin i with scriptPubKey
                 }
 
             }
