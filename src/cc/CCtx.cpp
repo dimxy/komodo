@@ -413,18 +413,18 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                 if( strcmp(destaddr, myaddr) == 0 )
                 {
 //fprintf(stderr, "FinalizeCCTx() matched cc myaddr (%s)\n", myaddr);
-                    privkey = myprivkey;
+                    privkey = !remote ? myprivkey : NULL;
                     cond = mycond;
                 }
 				else if (strcmp(destaddr, mytokensaddr) == 0)  // if this is TokensCC1vout
 				{
-					privkey = myprivkey;
+					privkey = !remote ? myprivkey : NULL;
 					cond = mytokenscond;
 //fprintf(stderr,"FinalizeCCTx() matched dual-eval TokensCC1vout my token addr.(%s)\n",mytokensaddr);
 				}
 				else if (strcmp(destaddr, mysingletokensaddr) == 0)  // if this is TokensCC1vout
 				{
-					privkey = myprivkey;
+					privkey = !remote ? myprivkey : NULL;
 					cond = mysingletokenscond;
 //fprintf(stderr, "FinalizeCCTx() matched single-eval token CC1vout my token addr.(%s)\n", mytokensaddr);
 				}
@@ -553,7 +553,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                     std::cerr << "mtx.before cc_signTreeSecp256k1Msg32=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
                     std::cerr << "mtx.hash cc_signTreeSecp256k1Msg32 before=" << mtx.GetHash().GetHex() << std::endl;
 
-                    if (cc_signTreeSecp256k1Msg32(cond, privkey, sighash.begin()) != 0)
+                    if (privkey && cc_signTreeSecp256k1Msg32(cond, privkey, sighash.begin()) != 0)
                     {
                         mtx.vin[i].scriptSig = CCSig(cond);
                     }
