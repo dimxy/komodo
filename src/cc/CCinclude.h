@@ -1091,7 +1091,7 @@ bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
 
 
 /// @private add sig data for signing partially signed tx to UniValue object
-void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount);
+void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount, uint8_t *privkey);
 
 
 /// returns 0 if requirements for cc module with the evalcode is fulfilled.
