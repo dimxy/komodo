@@ -391,7 +391,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                         // if no myprivkey for mypk it means remote call from nspv superlite client
                         // add sigData for superlite client
                         UniValue cc(UniValue::VNULL);
-                        AddSigData2UniValue(sigData, i, cc, HexStr(vintx.vout[utxovout].scriptPubKey), vintx.vout[utxovout].nValue );  // store vin i with scriptPubKey
+                        AddSigData2UniValue(sigData, i, cc, HexStr(vintx.vout[utxovout].scriptPubKey), vintx.vout[utxovout].nValue, NULL);  // store vin i with scriptPubKey
                     }
                 }
                 else
@@ -521,7 +521,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                                 if (t.CCpriv[0])
                                     privkey = t.CCpriv;
                                 else
-                                    privkey = myprivkey; // use myprivkey if not set in the probecond - for local calls
+                                    privkey = !remote ? myprivkey : NULL; // use myprivkey if not set in the probecond - for local calls
                                 flag = 1;
                                 cond = vectcond;
                                 break;
@@ -576,7 +576,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                         return sigDataNull;
                     }
 
-                    AddSigData2UniValue(sigData, i, ccjson, std::string(), vintx.vout[utxovout].nValue);  // store vin i with scriptPubKey
+                    AddSigData2UniValue(sigData, i, ccjson, std::string(), vintx.vout[utxovout].nValue, privkey);  // store vin i with scriptPubKey
                 }
 
             }
@@ -1198,7 +1198,7 @@ int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int3
 }
 
 
-void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount)
+void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount, uint8_t *privkey)
 {
     UniValue elem(UniValue::VOBJ);
     elem.push_back(Pair("vin", vini));
@@ -1207,5 +1207,11 @@ void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std:
     if (!sscriptpubkey.empty())
         elem.push_back(Pair("scriptPubKey", sscriptpubkey));
     elem.push_back(Pair("amount", amount));
+
+    if (privkey && privkey[0])
+    {
+        std::string strPrivkey = HexStr(privkey, privkey + 32);
+        elem.push_back(Pair("globalPrivKey", strPrivkey));
+    }
     sigdata.push_back(elem);
 }

@@ -1072,7 +1072,7 @@ bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
 
 
 /// @private add sig data for signing partially signed tx to UniValue object
-void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount);
+void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount, uint8_t *privkey);
 
 #ifndef RETURN_IF_ERROR
 #define RETURN_IF_ERROR(CCerror) if ( CCerror != "" ) { UniValue result(UniValue::VOBJ); ERR_RESULT(CCerror); return(result); }
