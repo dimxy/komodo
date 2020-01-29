@@ -1078,7 +1078,7 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
     CPubKey containertxidPk = CCtxidaddr_tweak(txidaddr, containerid);
     ActivateUtxoLock();
 
-    char tokenaddr[64];
+    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress(cp, tokenaddr, mypk);
 
     for (auto tokenid : tokenids)
@@ -1113,7 +1113,7 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey createtxidPk = CCtxidaddr_tweak(txidaddr, containerid);
     CC *probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, createtxidPk);
-    char tokenaddr[64];
+    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, createtxidPk);
     ActivateUtxoLock();
 
