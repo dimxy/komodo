@@ -1757,13 +1757,35 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         return false;
     }
 
-    // check no ther cc vins:
+    // check cc vins:
     for (int32_t i = 1; i < settletx.vin.size(); i++)
     {
         if (cp->ismyvin(settletx.vin[i].scriptSig))
         {
-            errorStr = "unknown cc vins found";
-            return false;
+            CTransaction vintx;
+            if (myGetTransaction(settletx.vin[i].prevout.hash, vintx, hashBlock) && !hashBlock.IsNull() /*mo mempool*/)
+            {
+                CPubKey pk_in_opret;
+                uint256 vincreatetxid;
+                if (IsMarmaraLockedInLoopVout(vintx, settletx.vin[i].prevout.n, pk_in_opret, vincreatetxid))
+                {
+                    if (vincreatetxid != createtxid)
+                    {
+                        errorStr = "in settlement tx found not this loop cc vin txid=" + settletx.vin[i].prevout.hash.GetHex() + " n=" + std::to_string(settletx.vin[i].prevout.n);
+                        return false;
+                    }
+                }
+                else
+                {
+                    errorStr = "in settlement tx found not a locked-in-loop vin txid=" + settletx.vin[i].prevout.hash.GetHex() + " n=" + std::to_string(settletx.vin[i].prevout.n);
+                    return false;
+                }
+            }
+            else
+            {
+                errorStr = "could not load vintx for txid=" + settletx.vin[i].prevout.hash.GetHex();
+                return false;
+            }
         }
     }
 
