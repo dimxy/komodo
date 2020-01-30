@@ -124,7 +124,7 @@ UniValue marmara_receive(const UniValue& params, bool fHelp, const CPubKey& remo
         jsonParams.read(params[njson].get_str().c_str());
     if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
         throw runtime_error("last parameter must be object\n");
-    std::cerr << __func__ << " test output optParams=" << jsonParams.write(0, 0) << std::endl; 
+    //std::cerr << __func__ << " test output optParams=" << jsonParams.write(0, 0) << std::endl; 
     // TODO: check allowed params
     int32_t avalcount = 0;
     std::vector<std::string> keys = jsonParams.getKeys();
