@@ -1990,7 +1990,8 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
     }
 
     CAmount txfee;
-    if ((txfee = get_txfee(tx)) != 10000)
+    const CAmount check_txfee = 10000;
+    if ((txfee = get_txfee(tx)) != check_txfee)
     {
         LOGSTREAMFN("marmara", CCLOG_ERROR, stream << " validation error '" << "bad txfee=" << txfee << "' for tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
         return eval->Error("incorrect txfee");
