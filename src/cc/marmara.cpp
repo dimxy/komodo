@@ -1930,6 +1930,26 @@ static bool check_global_spent_tx(const CTransaction &tx, const std::set<uint8_t
     return true;
 }
 
+CAmount get_txfee(const CTransaction &tx)
+{
+    CAmount inputs = 0LL;
+    CAmount outputs = 0LL;
+
+    for (auto const &vin : tx.vin) {
+        CAmount input = CCgettxout(vin.prevout.hash, vin.prevout.n, 0, 0);
+        if (input < 0) {
+            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << " cannot get prev utxo with txid=" << vin.prevout.hash.GetHex() << " n=" << vin.prevout.n << std::endl);
+            return -1;
+        }
+        inputs += input;
+    }
+    for (auto const &vout : tx.vout) 
+        outputs += vout.nValue;
+
+    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << tx.GetHash().GetHex() << std::endl);
+    return inputs - outputs;
+}
+
 
 //#define HAS_FUNCID(v, funcid) (std::find((v).begin(), (v).end(), funcid) != (v).end())
 
@@ -1967,6 +1987,13 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
             MarmaraDecodeLoopOpret(opret, loopData);
             funcIds.insert(loopData.lastfuncid);
         }
+    }
+
+    CAmount txfee;
+    if ((txfee = get_txfee(tx)) != 10000)
+    {
+        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << " validation error '" << "bad txfee=" << txfee << "' for tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
+        return eval->Error("incorrect txfee");
     }
 
     if (check_global_spent_tx(tx, funcIds, validationError))  //need to be accurate with markers
