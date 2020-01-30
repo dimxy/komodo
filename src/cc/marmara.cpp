@@ -1783,7 +1783,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
             }
             else
             {
-                errorStr = "could not load vintx for txid=" + settletx.vin[i].prevout.hash.GetHex();
+                errorStr = "for settlement tx could not load vintx txid=" + settletx.vin[i].prevout.hash.GetHex();
                 return false;
             }
         }
