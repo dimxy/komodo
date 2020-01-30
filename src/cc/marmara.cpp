@@ -1756,6 +1756,17 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         errorStr = "payment to holder incorrect for partial settlement";
         return false;
     }
+
+    // check no ther cc vins:
+    for (int32_t i = 1; i < settletx.vin.size(); i++)
+    {
+        if (cp->ismyvin(settletx.vin[i].scriptSig))
+        {
+            errorStr = "unknown cc vins found";
+            return false;
+        }
+    }
+
     LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << settletx.GetHash().GetHex() << std::endl);
     return true;
 }
