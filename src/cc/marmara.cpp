@@ -1668,7 +1668,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
     uint256 issuetxid = settletx.vin[0].prevout.hash;
     CTransaction issuetx;
     uint256 hashBlock;
-    if (!myGetTransaction(issuetxid, issuetx, hashBlock) /*&& !hashBlock.IsNull()*/)
+    if (!myGetTransaction(issuetxid, issuetx, hashBlock) && !hashBlock.IsNull())
     {
         errorStr = "could not load issue tx";
         return false;
@@ -1705,7 +1705,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
     }
     // get current baton tx
     CTransaction batontx;
-    if (!myGetTransaction(batontxid, batontx, hashBlock) /*&& !hashBlock.IsNull()*/)
+    if (!myGetTransaction(batontxid, batontx, hashBlock) && !hashBlock.IsNull())
     {
         errorStr = "could not load baton tx";
         return false;
@@ -3439,6 +3439,16 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                         issuetxid = creditloop[1];
                     else
                         issuetxid = batontxid;
+
+                    uint256 dummytxid;
+                    int32_t dummyvin;
+                    if (myIsutxo_spentinmempool(dummytxid, dummyvin, issuetxid, MARMARA_OPENCLOSE_VOUT))
+                    {
+                        result.push_back(Pair("result", "error"));
+                        result.push_back(Pair("error", "loop already settled"));
+                        return(result);
+                    }
+
                     mtx.vin.push_back(CTxIn(issuetxid, MARMARA_OPENCLOSE_VOUT, CScript())); // spend vout2 marker - close the loop
 
                     // add tx fee from mypubkey
