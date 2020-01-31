@@ -131,7 +131,7 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
 
 // functions used in staking code in komodo_bitcoind.h
 int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &txNew, int32_t height);
-uint8_t MarmaraDecodeCoinbaseOpretExt(const CScript &scriptPubKey, uint8_t &version, CPubKey &pk, int32_t &height, int32_t &unlockht, CPubKey &stakerpk);
+uint8_t MarmaraDecodeCoinbaseOpretExt(const CScript &scriptPubKey, uint8_t &version, CPubKey &pk, int32_t &height, int32_t &unlockht, CPubKey &stakerpk, uint256 &loopcreatetxid);
 uint8_t MarmaraDecodeCoinbaseOpret(const CScript &scriptPubKey, CPubKey &pk, int32_t &height, int32_t &unlockht);
 uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCreditLoopOpret &loopData);
 int32_t MarmaraGetStakeMultiplier(const CTransaction & tx, int32_t nvout);
