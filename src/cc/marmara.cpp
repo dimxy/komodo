@@ -1634,6 +1634,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
 
     //find settled amount to the holder
     CAmount settledAmount = 0L;
+    CAmount outputs = 0L;
     for (const auto &v : settletx.vout)  // except the last vout opret
     {
         if (!v.scriptPubKey.IsPayToCryptoCondition())  // normals
@@ -1642,6 +1643,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
             {
                 settledAmount += v.nValue;
             }
+            outputs += v.nValue;
         }
         else
         {
@@ -1654,17 +1656,27 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         }
     }
 
-    // check settled amount equal to loop amount
-    CAmount diff = creationLoopData.amount - settledAmount;
-    if (settleLoopData.lastfuncid == MARMARA_SETTLE && !(diff <= 0))
+    // check cc balance:
+    CAmount ccBalance = get_cc_balance(cp, settletx);
+    if (ccBalance != settledAmount) 
     {
-        errorStr = "payment to holder incorrect for full settlement";
+        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "settlement tx incorrect cc balance=" << ccBalance << " settledAmount=" << settledAmount << " tx=" << HexStr(E_MARSHAL(ss << settletx)) << std::endl);
+        errorStr = "settlement tx has incorrect cc balance";
+        return false;
+    }
+
+
+    // check settled amount equal to loop amount
+    CAmount diff = settledAmount - creationLoopData.amount;
+    if (settleLoopData.lastfuncid == MARMARA_SETTLE && diff < 0)  
+    {
+        errorStr = "payment amount to holder incorrect for full settlement";
         return false;
     }
     // check settled amount less than loop amount for partial settlement
-    if (settleLoopData.lastfuncid == MARMARA_SETTLE_PARTIAL && !(diff > 0))
+    if (settleLoopData.lastfuncid == MARMARA_SETTLE_PARTIAL && (diff >= 0 || settledAmount <= 0))
     {
-        errorStr = "payment to holder incorrect for partial settlement";
+        errorStr = "payment amount to holder incorrect for partial settlement";
         return false;
     }
 
@@ -1700,7 +1712,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         }
     }
 
-    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << settletx.GetHash().GetHex() << std::endl);
+    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "validation okay for tx=" << settletx.GetHash().GetHex() << std::endl);
     return true;
 }
 
@@ -3464,13 +3476,14 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                     CAmount lclAmount = AddMarmaraCCInputs(IsMarmaraLockedInLoopVout, mtx, pubkeys, lockInLoop1of2addr, loopData.amount, MARMARA_VINS);
                     if (lclAmount >= loopData.amount)
                     {
-                        change = (lclAmount - loopData.amount);
-                        mtx.vout.push_back(CTxOut(loopData.amount, CScript() << ParseHex(HexStr(loopData.pk)) << OP_CHECKSIG));   // locked-in-loop money is released to mypk doing the settlement
-                        if (change > txfee) {
+                        // not sure where to send the change, let's send all to the holder
+                        // change = (lclAmount - loopData.amount);
+                        mtx.vout.push_back(CTxOut(/*loopData.amount*/ lclAmount, CScript() << ParseHex(HexStr(loopData.pk)) << OP_CHECKSIG));   // locked-in-loop money is released to mypk doing the settlement
+                        /*if (change > txfee) {
                             CScript opret;
                             LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "error: change not null=" << change << ", sent back to lock-in-loop addr=" << lockInLoop1of2addr << std::endl);
                             mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(change, createtxidPk, opret));  // NOTE: change will be rejected by the current validation code
-                        }
+                        }*/
                         rawtx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, MarmaraEncodeLoopSettlementOpret(true, loopData.createtxid, loopData.pk, 0));
                         if (rawtx.empty()) {
                             result.push_back(Pair("result", "error"));
