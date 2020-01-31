@@ -3761,7 +3761,7 @@ UniValue MarmaraReceive(const CPubKey &remotepk, int64_t txfee, const CPubKey &s
             requestFee = MARMARA_BATON_AMOUNT;
         else 
             requestFee = MARMARA_CREATETX_AMOUNT;  // fee value 20000 for easy identification (?)
-        if (AddNormalinputs(mtx, mypk, requestFee + txfee, 1, isRemote) > 0)
+        if (AddNormalinputsRemote(mtx, mypk, requestFee + txfee, 1) > 0)  // always add only from mypk to ensure no false credit request!
         {
             CScript opret;
 
