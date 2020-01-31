@@ -1328,7 +1328,7 @@ static CAmount get_cc_balance(const struct CCcontract_info *cp, const CTransacti
             ccOutputs += vout.nValue;
         }
     }
-    return ccOutputs - ccInputs;
+    return ccInputs - ccOutputs;
 }
 
 // check issue or transfer tx
@@ -1520,11 +1520,11 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
     // ...checked in check_lcl_redistribution
 
     CAmount ccBatonsBalance, txbalance, balanceDiff;
-    CAmount txfee = 10000;
+    //CAmount txfee = 10000;
     if (loopData.lastfuncid == MARMARA_ISSUE)
-        ccBatonsBalance = MARMARA_BATON_AMOUNT + MARMARA_LOOP_MARKER_AMOUNT + MARMARA_OPEN_MARKER_AMOUNT - MARMARA_CREATETX_AMOUNT;
+        ccBatonsBalance = MARMARA_CREATETX_AMOUNT - (MARMARA_BATON_AMOUNT + MARMARA_LOOP_MARKER_AMOUNT + MARMARA_OPEN_MARKER_AMOUNT);
     else // MARMARA_TRANSFER
-        ccBatonsBalance = MARMARA_BATON_AMOUNT /*transfer baton*/ - (MARMARA_BATON_AMOUNT /*request baton*/ + MARMARA_BATON_AMOUNT /*prev baton*/ + loopAmount / (nPrevEndorsers + 1) /*loop/N*/);
+        ccBatonsBalance = (MARMARA_BATON_AMOUNT /*request baton*/ + MARMARA_BATON_AMOUNT /*prev baton*/ + loopAmount / (nPrevEndorsers + 1) /*loop/N*/) - (MARMARA_BATON_AMOUNT /*transfer baton*/);
 
     txbalance = get_cc_balance(cp, tx);
     balanceDiff = txbalance - ccBatonsBalance;
@@ -1658,7 +1658,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
 
     // check cc balance:
     CAmount ccBalance = get_cc_balance(cp, settletx);
-    if (ccBalance != settledAmount) 
+    if (ccBalance != settledAmount + MARMARA_OPEN_MARKER_AMOUNT) 
     {
         LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "settlement tx incorrect cc balance=" << ccBalance << " settledAmount=" << settledAmount << " tx=" << HexStr(E_MARSHAL(ss << settletx)) << std::endl);
         errorStr = "settlement tx has incorrect cc balance";
