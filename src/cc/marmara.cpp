@@ -2481,7 +2481,10 @@ bool check_pos_coinbase_opret(const CTransaction &coinbase, const CPubKey &stake
             CPubKey stakerpk;
             uint256 loopcreatetxid;
             CPubKey cb_opretpk;
-            if (MarmaraDecodeCoinbaseOpretExt(coinbase.vout[0].scriptPubKey, version, cb_opretpk, h, uh, stakerpk, loopcreatetxid) == 0)
+            CScript cb_opret;
+
+            MyGetCCopret((coinbase.vout[0].scriptPubKey, cb_opret);
+            if (MarmaraDecodeCoinbaseOpretExt(cb_opret, version, cb_opretpk, h, uh, stakerpk, loopcreatetxid) == 0)
             {
                 LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "cant decode coinbase opret" << " height=" << height << " coinbase=" << HexStr(E_MARSHAL(ss << coinbase)) << std::endl);
                 return MARMARA_STAKE_TX_BAD;
