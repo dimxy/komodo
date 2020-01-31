@@ -2158,14 +2158,23 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
                     int32_t spentvout;
                     int32_t spentheight;
 
-                    if (version == 3 && !loopcreatetxid.IsNull() && CCgetspenttxid(spenttxid, spentvout, spentheight, loopcreatetxid, MARMARA_OPENCLOSE_VOUT) < 0) //loop not spent yet
+                    if (nHeight >= MARMARA_POS_IMPROVEMENTS_HEIGHT)
                     {
-                        coinbaseOpret = MarmaraEncodeCoinbaseOpretExt(MARMARA_COINBASE_3X, opretpk, nHeight, mypk, loopcreatetxid);  // marmara 3x oprets create new 3x coinbases, add pubkey
-                        is3x = true;
+                        // if loop is not settled set 3x coinbase otherwise set 1x coinbase:
+                        if (version == 3 && !loopcreatetxid.IsNull() && CCgetspenttxid(spenttxid, spentvout, spentheight, loopcreatetxid, MARMARA_OPENCLOSE_VOUT) < 0) //loop not spent yet
+                        {
+                            coinbaseOpret = MarmaraEncodeCoinbaseOpretExt(MARMARA_COINBASE_3X, opretpk, nHeight, mypk, loopcreatetxid);  // marmara 3x oprets create new 3x coinbases, add pubkey
+                            is3x = true;
+                        }
+                        else
+                        {
+                            coinbaseOpret = MarmaraEncodeCoinbaseOpretExt(MARMARA_COINBASE, opretpk, nHeight, mypk, zeroid);
+                        }
                     }
                     else
                     {
-                        coinbaseOpret = MarmaraEncodeCoinbaseOpretExt(MARMARA_COINBASE, opretpk, nHeight, mypk, zeroid);
+                        // old code simply sets 3x coinbase, no staker pubkey:
+                        coinbaseOpret = MarmaraEncodeCoinbaseOpret(MARMARA_COINBASE_3X, opretpk, nHeight);
                     }
                 }
                 /*else if (IsFuncidOneOf(funcid, { MARMARA_ACTIVATED_INITIAL })) {  // for initially activated coins coinbase goes to miner pk
@@ -2173,8 +2182,18 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
                     spk = defaultspk;
                     return spk;
                 }*/
-                else {
-                    coinbaseOpret = MarmaraEncodeCoinbaseOpretExt(MARMARA_COINBASE, opretpk, nHeight, mypk, zeroid);
+                else 
+                {
+                    if (nHeight >= MARMARA_POS_IMPROVEMENTS_HEIGHT)
+                    {
+                        // add staker pubkey:
+                        coinbaseOpret = MarmaraEncodeCoinbaseOpretExt(MARMARA_COINBASE, opretpk, nHeight, mypk, zeroid);
+                    }
+                    else
+                    {
+                        // no stake pk in the old code
+                        coinbaseOpret = MarmaraEncodeCoinbaseOpret(MARMARA_COINBASE, opretpk, nHeight);
+                    }
                 }
                 CTxOut vout = MakeMarmaraCC1of2voutOpret(0, opretpk, coinbaseOpret);
 
@@ -2189,7 +2208,19 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
                 CPubKey stakerpk;
                 MarmaraDecodeCoinbaseOpretExt(opret, version, opretpk, height, unlockht, stakerpk, loopcreatetxid);  //get loop createtxid to monitor when the loop is settled to switch from 3x to 1x
 
-                CScript coinbaseOpret = MarmaraEncodeCoinbaseOpretExt(MARMARA_COINBASE_3X, opretpk, nHeight, mypk, loopcreatetxid);
+                // always set 3x coinbase
+                CScript coinbaseOpret;
+
+                if (nHeight >= MARMARA_POS_IMPROVEMENTS_HEIGHT)
+                {
+                    // add loopcreatetxid to track if loop is settled
+                    coinbaseOpret = MarmaraEncodeCoinbaseOpretExt(MARMARA_COINBASE_3X, opretpk, nHeight, mypk, loopcreatetxid);
+                }
+                else
+                {
+                    // old opret with no loop createtxid
+                    coinbaseOpret = MarmaraEncodeCoinbaseOpret(MARMARA_COINBASE_3X, opretpk, nHeight);
+                }
                 CTxOut vout = MakeMarmaraCC1of2voutOpret(0, opretpk, coinbaseOpret);
 
                 Getscriptaddress(checkaddr, vout.scriptPubKey);
