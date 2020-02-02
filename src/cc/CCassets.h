@@ -56,7 +56,7 @@ UniValue AssetOrders(uint256 tokenid, CPubKey pubkey, uint8_t additionalEvalCode
 
 std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, int64_t pricetotal);
 std::string CancelBuyOffer(int64_t txfee, uint256 assetid, uint256 bidtxid);
-std::string FillBuyOffer(int64_t txfee, uint256 assetid, uint256 bidtxid, int64_t fillamount);
+std::string FillBuyOffer(int64_t txfee, uint256 assetid, uint256 bidtxid, int64_t fill_amount);
 std::string CreateSell(int64_t txfee, int64_t askamount, uint256 assetid, int64_t pricetotal);
 std::string CreateSwap(int64_t txfee, int64_t askamount, uint256 assetid, uint256 assetid2, int64_t pricetotal);
 std::string CancelSell(int64_t txfee, uint256 assetid, uint256 asktxid);

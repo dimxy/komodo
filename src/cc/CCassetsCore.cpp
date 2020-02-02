@@ -101,7 +101,7 @@ bool SetBidFillamounts(int64_t &received_nValue, int64_t &remaining_units, int64
     if (unit_price > 0 && received_nValue > 0 && received_nValue <= orig_nValue)
     {
         remaining_nValue = (orig_nValue - received_nValue);
-        fprintf(stderr, "%s total.%llu - paid.%llu, remaining %llu <- %llu (%llu - %llu)\n", __func__, (long long)vin_remaining_units, (long long)paid_units, (long long)remaining_nValue, (long long)(orig_nValue - received_nValue), (long long)orig_nValue, (long long)received_nValue);
+        fprintf(stderr, "%s vin_remaining_units.%llu - paid_units.%llu, remaining_value %llu <- %llu (orig_value.%llu - received_value.%llu)\n", __func__, (long long)vin_remaining_units, (long long)paid_units, (long long)remaining_nValue, (long long)(orig_nValue - received_nValue), (long long)orig_nValue, (long long)received_nValue);
         return (ValidateBidRemainder(remaining_units, remaining_nValue, orig_nValue, received_nValue, paid_units, vin_remaining_units));
     }
     else 
@@ -127,8 +127,8 @@ bool SetAskFillamounts(int64_t &received_assetoshis,int64_t &remaining_nValue,in
     remaining_nValue = (vin_nValue - paid_nValue);
     dunit_price = ((double)vin_nValue / orig_assetoshis);
     received_assetoshis = (paid_nValue / dunit_price);
-    fprintf(stderr, "%s remaining_nValue %.8f (%.8f - %.8f)\n", __func__, (double)remaining_nValue / COIN, (double)vin_nValue / COIN, (double)paid_nValue / COIN);
-    fprintf(stderr, "%s unit_price %.8f received_assetoshis %llu orig %llu\n", __func__, dunit_price / COIN, (long long)received_assetoshis, (long long)orig_assetoshis);
+    fprintf(stderr, "%s remaining_nValue %.8f (vin_nValue %.8f - paid_nValue %.8f)\n", __func__, (double)remaining_nValue / COIN, (double)vin_nValue / COIN, (double)paid_nValue / COIN);
+    fprintf(stderr, "%s unit_price %.8f received_assetoshis %llu orig_assetoshis %llu\n", __func__, dunit_price / COIN, (long long)received_assetoshis, (long long)orig_assetoshis);
     if (fabs(dunit_price) > SMALLVAL && received_assetoshis > 0 && received_assetoshis <= orig_assetoshis)
     {
         remaining_assetoshis = (orig_assetoshis - received_assetoshis);
@@ -148,12 +148,12 @@ bool ValidateAskRemainder(int64_t remaining_nValue, int64_t remaining_assetoshis
     }
     else if (vin_nValue != (remaining_nValue + paid_nValue))
     {
-        fprintf(stderr, "%s vin_nValue %llu != %llu (remaining_nValue %llu + %llu paid_nValue)\n", __func__, (long long)vin_nValue, (long long)(remaining_nValue + paid_nValue), (long long)remaining_nValue, (long long)paid_nValue);
+        fprintf(stderr, "%s vin_nValue %llu != %llu (remaining_nValue %llu + paid_nValue %llu \n", __func__, (long long)vin_nValue, (long long)(remaining_nValue + paid_nValue), (long long)remaining_nValue, (long long)paid_nValue);
         return(false);
     }
     else if (orig_assetoshis != (remaining_assetoshis + received_assetoshis))
     {
-        fprintf(stderr, "%s orig_assetoshis %llu != %llu (remaining_nValue %llu + %llu received_nValue)\n", __func__, (long long)orig_assetoshis, (long long)(remaining_assetoshis - received_assetoshis), (long long)remaining_assetoshis, (long long)received_assetoshis);
+        fprintf(stderr, "%s orig_assetoshis %llu != %llu (remaining_nValue %llu + received_nValue %llu)\n", __func__, (long long)orig_assetoshis, (long long)(remaining_assetoshis - received_assetoshis), (long long)remaining_assetoshis, (long long)received_assetoshis);
         return(false);
     }
     else
@@ -361,15 +361,15 @@ uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCo
 }
 
 // extract sell/buy owner's pubkey from the opret
-bool SetAssetOrigpubkey(std::vector<uint8_t> &origpubkey_out,int64_t &remaining_units_out,const CTransaction &tx)
+bool SetAssetOrigpubkey(std::vector<uint8_t> &origpubkey_out, int64_t &remaining_units_out, const CTransaction &tx)
 {
-    uint256 assetid,assetid2;
-	uint8_t evalCode;
+    uint256 assetid, assetid2;
+    uint8_t evalCode;
 
-    if ( tx.vout.size() > 0 && DecodeAssetTokenOpRet(tx.vout[tx.vout.size()-1].scriptPubKey, evalCode, assetid, assetid2, remaining_units_out, origpubkey_out) != 0 )
+    if (tx.vout.size() > 0 && DecodeAssetTokenOpRet(tx.vout[tx.vout.size() - 1].scriptPubKey, evalCode, assetid, assetid2, remaining_units_out, origpubkey_out) != 0)
         return(true);
-    else 
-		return(false);
+    else
+        return(false);
 }
 
 // Calculate seller/buyer's dest cc address from ask/bid tx funcid
