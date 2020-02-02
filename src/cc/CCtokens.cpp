@@ -531,12 +531,13 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, int64_t &inpu
 		{
 			//std::cerr << indentStr << "TokensExactAmounts() eval is true=" << (eval != NULL) << " ismyvin=ok for_i=" << i << std::endl;
 			// we are not inside the validation code -- dimxy
-			if ((eval && eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock) == 0) || (!eval && !myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock)))
+			if ((eval && !eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock)) || (!eval && !myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock)))
 			{
-                LOGSTREAM("cctokens", CCLOG_ERROR, stream << indentStr << __func__ << " cannot read vintx for i." << i << " numvins." << numvins << std::endl);
+                LOGSTREAM("cctokens", CCLOG_ERROR, stream << indentStr << __func__ << " cannot read vintx for i." << i << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
 				return (!eval) ? false : eval->Invalid("always should find vin tx, but didnt");
 			}
-			else {
+			else 
+            {
                 LOGSTREAM("cctokens", CCLOG_DEBUG2, stream << indentStr << __func__ << " checking vintx.vout for tx.vin[" << i << "] nValue=" << vinTx.vout[tx.vin[i].prevout.n].nValue << std::endl);
 
                 // validate vouts of vintx  
@@ -550,7 +551,8 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, int64_t &inpu
 				}
                 else
                 {
-                    LOGSTREAM("cctokens", CCLOG_ERROR, stream << indentStr << __func__ << " cannot read vintx for i." << i << " numvins." << numvins << std::endl);
+                    LOGSTREAM("cctokens", CCLOG_ERROR, stream << indentStr << __func__ << " invalid token cc input vini=" << i << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
+                    return (eval) ? eval->Invalid("invalid token cc input=" + std::to_string(i)) : false;
                 }
 			}
 		}
@@ -573,12 +575,9 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, int64_t &inpu
 		}
 	}
 
-	//std::cerr << indentStr << __func__ << " inputs=" << inputs << " outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << std::endl;
-
 	if (inputs != outputs) {
 		if (tx.GetHash() != reftokenid)
             LOGSTREAM("cctokens", CCLOG_DEBUG1, stream << indentStr << __func__ << " found unequal token cc inputs=" << inputs << " vs cc outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << " and this is not the create tx" << std::endl);
-        //fprintf(stderr,"inputs %llu vs outputs %llu\n",(long long)inputs,(long long)outputs);
 		return false;  // do not call eval->Invalid() here!
 	}
 	else
