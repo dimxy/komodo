@@ -465,7 +465,8 @@ std::string CancelBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid)
 
     mypk = pubkey2pk(Mypubkey());
 
-    if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
+    // add normal inputs only from my mypk (not from any pk in the wallet) to validate the owner
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 3) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
         if (myGetTransaction(bidtxid, vintx, hashBlock) != 0)
@@ -515,7 +516,8 @@ std::string CancelSell(int64_t txfee,uint256 assetid,uint256 asktxid)
 
     mypk = pubkey2pk(Mypubkey());
 
-   if (AddNormalinputs(mtx, mypk, txfee, 3) > 0)
+    // add normal inputs only from my mypk (not from any pk in the wallet) to validate the owner
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 3) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
         if (myGetTransaction(asktxid, vintx, hashBlock) != 0)

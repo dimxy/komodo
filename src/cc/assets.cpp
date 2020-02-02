@@ -264,6 +264,9 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
                 return(false);
             else if( ConstrainVout(tx.vout[0],0, origNormalAddr, nValue) == 0 )
                 return eval->Invalid("invalid refund for cancelbuy");
+            else if (TotalPubkeyNormalInputs(tx, pubkey2pk(origpubkey)) == 0)
+                return eval->Invalid("not the owner pubkey");
+
             preventCCvins = 3;
             preventCCvouts = 0;
             //fprintf(stderr,"cancelbuy validated to origaddr.(%s)\n",origNormalAddr);
@@ -362,6 +365,8 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
                 return(false);
             else if( ConstrainVout(tx.vout[0], 1, origTokensCCaddr, assetoshis) == 0 )      // tokens returning to originator cc addr
                 return eval->Invalid("invalid vout for cancel");
+            else if (TotalPubkeyNormalInputs(tx, pubkey2pk(origpubkey)) == 0)
+                return eval->Invalid("not the owner pubkey");
             preventCCvins = 3;
             preventCCvouts = 1;
             break;
