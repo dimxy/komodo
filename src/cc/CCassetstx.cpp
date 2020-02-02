@@ -611,7 +611,7 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
                 }
 
                 SetBidFillamounts(paid_amount, remaining_required, bid_amount, fill_amount, origunits);
-                paid_amount -= COIN; // test
+                paid_amount -= COIN/10; // test
 
                 uint8_t additionalTokensEvalcode2 = 0;
                 if (vopretNonfungible.size() > 0)
