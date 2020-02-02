@@ -33,7 +33,7 @@ vscript_t EncodeAssetOpRet(uint8_t assetFuncId, uint256 assetid2, int64_t remain
 uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &remaining_units, std::vector<uint8_t> &origpubkey);
 bool SetAssetOrigpubkey(std::vector<uint8_t> &origpubkey_out, int64_t &remainig_units_out, const CTransaction &tx);
 int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &remaining_units_out, std::vector<uint8_t> &origpubkey_out, const CTransaction& tx, int32_t v, uint256 refassetid);
-bool ValidateBidRemainder(int64_t remaining_units, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paid_units, int64_t vin_remaining_units);
+bool ValidateBidRemainder(int64_t remaining_units, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paid_units, int64_t orig_remaining_units);
 bool ValidateAskRemainder(int64_t remaining_nValue, int64_t remaining_assetoshis, int64_t orig_assetoshis, int64_t received_assetoshis, int64_t paid_nValue, int64_t vin_nValue);
 bool ValidateSwapRemainder(int64_t remaining_units, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paidprice, int64_t totalprice);
 bool SetBidFillamounts(int64_t &received_nValue, int64_t &remaining_units, int64_t orig_nValue, int64_t &paid_units, int64_t vin_remaining_units);
@@ -56,7 +56,7 @@ UniValue AssetOrders(uint256 tokenid, CPubKey pubkey, uint8_t additionalEvalCode
 
 std::string CreateBuyOffer(int64_t txfee, int64_t bidamount, uint256 assetid, int64_t pricetotal);
 std::string CancelBuyOffer(int64_t txfee, uint256 assetid, uint256 bidtxid);
-std::string FillBuyOffer(int64_t txfee, uint256 assetid, uint256 bidtxid, int64_t fill_amount);
+std::string FillBuyOffer(int64_t txfee, uint256 assetid, uint256 bidtxid, int64_t fill_units);
 std::string CreateSell(int64_t txfee, int64_t askamount, uint256 assetid, int64_t pricetotal);
 std::string CreateSwap(int64_t txfee, int64_t askamount, uint256 assetid, uint256 assetid2, int64_t pricetotal);
 std::string CancelSell(int64_t txfee, uint256 assetid, uint256 asktxid);

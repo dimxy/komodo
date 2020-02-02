@@ -38,17 +38,17 @@
  We assume that the effective unit cost in the orderbook is valid and that that amount was paid and also that any remainder will be close enough in effective unit cost to not matter. At the edge cases, this will probably be not true and maybe some orders wont be practically fillable when reduced to fractional state. However, the original pubkey that created the offer can always reclaim it.
 */
 
-bool ValidateBidRemainder(int64_t remaining_units, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paid_units, int64_t vin_remaining_units)
+bool ValidateBidRemainder(int64_t remaining_units, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paid_units, int64_t orig_remaining_units)
 {
     int64_t unit_price, received_unit_price, new_unit_price = 0;
-    if (orig_nValue == 0 || received_nValue == 0 || paid_units == 0 || vin_remaining_units == 0)
+    if (orig_nValue == 0 || received_nValue == 0 || paid_units == 0 || orig_remaining_units == 0)
     {
-        fprintf(stderr, "%s can't be null one of those: orig_nValue == %llu || received_nValue == %llu || paid_units == %llu || vin_remaining_units == %llu\n", __func__, (long long)orig_nValue, (long long)received_nValue, (long long)paid_units, (long long)vin_remaining_units);
+        fprintf(stderr, "%s can't be null one of those: orig_nValue == %llu || received_nValue == %llu || paid_units == %llu || vin_remaining_units == %llu\n", __func__, (long long)orig_nValue, (long long)received_nValue, (long long)paid_units, (long long)orig_remaining_units);
         return(false);
     }
-    else if (vin_remaining_units != (remaining_units + paid_units))
+    else if (orig_remaining_units != (remaining_units + paid_units))
     {
-        fprintf(stderr, "%s vin_remaining_units %llu != %llu (remaining_units %llu + %llu paid_units)\n", __func__, (long long)vin_remaining_units, (long long)(remaining_units + paid_units), (long long)remaining_units, (long long)paid_units);
+        fprintf(stderr, "%s orig_remaining_units %llu != %llu (remaining_units %llu + %llu paid_units)\n", __func__, (long long)orig_remaining_units, (long long)(remaining_units + paid_units), (long long)remaining_units, (long long)paid_units);
         return(false);
     }
     else if (orig_nValue != (remaining_nValue + received_nValue))
@@ -62,7 +62,7 @@ bool ValidateBidRemainder(int64_t remaining_units, int64_t remaining_nValue, int
         //recvunitprice = (received_nValue * COIN) / paidunits;
         //if ( remaining_units != 0 )
         //    newunitprice = (remaining_nValue * COIN) / remaining_units;
-        unit_price = (orig_nValue / vin_remaining_units);
+        unit_price = (orig_nValue / orig_remaining_units);
         received_unit_price = (received_nValue / paid_units);
         if (remaining_units != 0)
             new_unit_price = (remaining_nValue / remaining_units);   // for debug printing
@@ -71,7 +71,7 @@ bool ValidateBidRemainder(int64_t remaining_units, int64_t remaining_nValue, int
             fprintf(stderr, "%s error can't bid with lower price: received_unit_price %.8f < %.8f unit_price, new_unit_price %.8f\n", __func__, (double)received_unit_price / (COIN), (double)unit_price / (COIN), (double)new_unit_price / (COIN));
             return(false);
         }
-        fprintf(stderr, "%s orig_nValue %llu vin_remaining_units %llu, recv_nValue %llu paid_units %llu, received_unit_price %.8f >= %.8f unit_price, new unit_price %.8f\n", __func__, (long long)orig_nValue, (long long)vin_remaining_units, (long long)received_nValue, (long long)paid_units, (double)received_unit_price / (COIN), (double)unit_price / (COIN), (double)new_unit_price / (COIN));
+        fprintf(stderr, "%s orig_nValue %llu orig_remaining_units %llu, received_nValue %llu paid_units %llu, received_unit_price %.8f >= %.8f unit_price, new_unit_price %.8f\n", __func__, (long long)orig_nValue, (long long)orig_remaining_units, (long long)received_nValue, (long long)paid_units, (double)received_unit_price / (COIN), (double)unit_price / (COIN), (double)new_unit_price / (COIN));
     }
     return(true);
 }
@@ -138,17 +138,17 @@ bool SetAskFillamounts(int64_t &received_assetoshis,int64_t &remaining_nValue,in
         return(false);
 }
 
-bool ValidateAskRemainder(int64_t remaining_nValue, int64_t remaining_assetoshis, int64_t orig_assetoshis, int64_t received_assetoshis, int64_t paid_nValue, int64_t vin_nValue)
+bool ValidateAskRemainder(int64_t remaining_nValue, int64_t remaining_assetoshis, int64_t orig_assetoshis, int64_t received_assetoshis, int64_t paid_nValue, int64_t orig_nValue)
 {
     int64_t unit_price, received_unit_price, new_unit_price = 0;
-    if (orig_assetoshis == 0 || received_assetoshis == 0 || paid_nValue == 0 || vin_nValue == 0)
+    if (orig_assetoshis == 0 || received_assetoshis == 0 || paid_nValue == 0 || orig_nValue == 0)
     {
-        fprintf(stderr, "%s orig_assetoshis == %llu || received_assetoshis == %llu || paid_nValue == %llu || total_nValue == %llu\n", __func__, (long long)orig_assetoshis, (long long)received_assetoshis, (long long)paid_nValue, (long long)vin_nValue);
+        fprintf(stderr, "%s orig_assetoshis == %llu || received_assetoshis == %llu || paid_nValue == %llu || total_nValue == %llu\n", __func__, (long long)orig_assetoshis, (long long)received_assetoshis, (long long)paid_nValue, (long long)orig_nValue);
         return(false);
     }
-    else if (vin_nValue != (remaining_nValue + paid_nValue))
+    else if (orig_nValue != (remaining_nValue + paid_nValue))
     {
-        fprintf(stderr, "%s vin_nValue %llu != %llu (remaining_nValue %llu + paid_nValue %llu \n", __func__, (long long)vin_nValue, (long long)(remaining_nValue + paid_nValue), (long long)remaining_nValue, (long long)paid_nValue);
+        fprintf(stderr, "%s orig_nValue %llu != %llu (remaining_nValue %llu + paid_nValue %llu \n", __func__, (long long)orig_nValue, (long long)(remaining_nValue + paid_nValue), (long long)remaining_nValue, (long long)paid_nValue);
         return(false);
     }
     else if (orig_assetoshis != (remaining_assetoshis + received_assetoshis))
@@ -158,16 +158,16 @@ bool ValidateAskRemainder(int64_t remaining_nValue, int64_t remaining_assetoshis
     }
     else
     {
-        unit_price = (vin_nValue / orig_assetoshis);
+        unit_price = (orig_nValue / orig_assetoshis);
         received_unit_price = (paid_nValue / received_assetoshis);
         if (remaining_nValue != 0)
             new_unit_price = (remaining_nValue / remaining_assetoshis);  // for debug printing
         if (received_unit_price < unit_price)  // can't ask with lower price
         {
-            fprintf(stderr, "%s error can't ask with lower price: received_unit_price %.8f < %.8f unit_price, new unit_price %.8f\n", __func__, (double)received_unit_price / COIN, (double)unit_price / COIN, (double)new_unit_price / COIN);
+            fprintf(stderr, "%s error can't ask with lower price: received_unit_price %.8f < %.8f unit_price, new_unit_price %.8f\n", __func__, (double)received_unit_price / COIN, (double)unit_price / COIN, (double)new_unit_price / COIN);
             return(false);
         }
-        fprintf(stderr, "%s got received_unit_price %.8f >= %.8f unit_price, new unit_price %.8f\n", __func__, (double)received_unit_price / COIN, (double)unit_price / COIN, (double)new_unit_price / COIN);
+        fprintf(stderr, "%s got received_unit_price %.8f >= unit_price %.8f, new_unit_price %.8f\n", __func__, (double)received_unit_price / COIN, (double)unit_price / COIN, (double)new_unit_price / COIN);
     }
     return(true);
 }
