@@ -38,22 +38,22 @@
  We assume that the effective unit cost in the orderbook is valid and that that amount was paid and also that any remainder will be close enough in effective unit cost to not matter. At the edge cases, this will probably be not true and maybe some orders wont be practically fillable when reduced to fractional state. However, the original pubkey that created the offer can always reclaim it.
 */
 
-bool ValidateBidRemainder(int64_t remaining_units,int64_t remaining_nValue,int64_t orig_nValue,int64_t received_nValue,int64_t paidunits,int64_t totalunits)
+bool ValidateBidRemainder(int64_t remaining_units, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paid_units, int64_t vin_remaining_units)
 {
-    int64_t unitprice,recvunitprice,newunitprice=0;
-    if ( orig_nValue == 0 || received_nValue == 0 || paidunits == 0 || totalunits == 0 )
+    int64_t unit_price, received_unit_price, new_unit_price = 0;
+    if (orig_nValue == 0 || received_nValue == 0 || paid_units == 0 || vin_remaining_units == 0)
     {
-        fprintf(stderr,"ValidateAssetRemainder() orig_nValue == %llu || received_nValue == %llu || paidunits == %llu || totalunits == %llu\n",(long long)orig_nValue,(long long)received_nValue,(long long)paidunits,(long long)totalunits);
+        fprintf(stderr, "%s can't be null one of those: orig_nValue == %llu || received_nValue == %llu || paid_units == %llu || vin_remaining_units == %llu\n", __func__, (long long)orig_nValue, (long long)received_nValue, (long long)paid_units, (long long)vin_remaining_units);
         return(false);
     }
-    else if ( totalunits != (remaining_units + paidunits) )
+    else if (vin_remaining_units != (remaining_units + paid_units))
     {
-        fprintf(stderr,"ValidateAssetRemainder() totalunits %llu != %llu (remaining_units %llu + %llu paidunits)\n",(long long)totalunits,(long long)(remaining_units + paidunits),(long long)remaining_units,(long long)paidunits);
+        fprintf(stderr, "%s vin_remaining_units %llu != %llu (remaining_units %llu + %llu paid_units)\n", __func__, (long long)vin_remaining_units, (long long)(remaining_units + paid_units), (long long)remaining_units, (long long)paid_units);
         return(false);
     }
-    else if ( orig_nValue != (remaining_nValue + received_nValue) )
+    else if (orig_nValue != (remaining_nValue + received_nValue))
     {
-        fprintf(stderr,"ValidateAssetRemainder() orig_nValue %llu != %llu (remaining_nValue %llu + %llu received_nValue)\n",(long long)orig_nValue,(long long)(remaining_nValue - received_nValue),(long long)remaining_nValue,(long long)received_nValue);
+        fprintf(stderr, "%s orig_nValue %llu != %llu (remaining_nValue %llu + %llu received_nValue)\n", __func__, (long long)orig_nValue, (long long)(remaining_nValue - received_nValue), (long long)remaining_nValue, (long long)received_nValue);
         return(false);
     }
     else
@@ -62,170 +62,177 @@ bool ValidateBidRemainder(int64_t remaining_units,int64_t remaining_nValue,int64
         //recvunitprice = (received_nValue * COIN) / paidunits;
         //if ( remaining_units != 0 )
         //    newunitprice = (remaining_nValue * COIN) / remaining_units;
-        unitprice = (orig_nValue / totalunits);
-        recvunitprice = (received_nValue / paidunits);
-        if ( remaining_units != 0 )
-            newunitprice = (remaining_nValue / remaining_units);
-        if ( recvunitprice < unitprice )
+        unit_price = (orig_nValue / vin_remaining_units);
+        received_unit_price = (received_nValue / paid_units);
+        if (remaining_units != 0)
+            new_unit_price = (remaining_nValue / remaining_units);   // for debug printing
+        if (received_unit_price < unit_price) // can't bid with lower price
         {
-            fprintf(stderr,"ValidateAssetRemainder() error recvunitprice %.8f < %.8f unitprice, new unitprice %.8f\n",(double)recvunitprice/(COIN),(double)unitprice/(COIN),(double)newunitprice/(COIN));
+            fprintf(stderr, "%s error can't bid with lower price: received_unit_price %.8f < %.8f unit_price, new_unit_price %.8f\n", __func__, (double)received_unit_price / (COIN), (double)unit_price / (COIN), (double)new_unit_price / (COIN));
             return(false);
         }
-        fprintf(stderr,"ValidateAssetRemainder() orig %llu total %llu, recv %llu paid %llu,recvunitprice %.8f >= %.8f unitprice, new unitprice %.8f\n",(long long)orig_nValue,(long long)totalunits,(long long)received_nValue,(long long)paidunits,(double)recvunitprice/(COIN),(double)unitprice/(COIN),(double)newunitprice/(COIN));
+        fprintf(stderr, "%s orig_nValue %llu vin_remaining_units %llu, recv_nValue %llu paid_units %llu, received_unit_price %.8f >= %.8f unit_price, new unit_price %.8f\n", __func__, (long long)orig_nValue, (long long)vin_remaining_units, (long long)received_nValue, (long long)paid_units, (double)received_unit_price / (COIN), (double)unit_price / (COIN), (double)new_unit_price / (COIN));
     }
     return(true);
 }
 
-bool SetBidFillamounts(int64_t &received_nValue,int64_t &remaining_units,int64_t orig_nValue,int64_t &paidunits,int64_t totalunits)
+bool SetBidFillamounts(int64_t &received_nValue, int64_t &remaining_units, int64_t orig_nValue, int64_t &paid_units, int64_t vin_remaining_units)
 {
-    int64_t remaining_nValue,unitprice; double dprice;
-    if ( totalunits == 0 )
+    int64_t remaining_nValue, unit_price; double dprice;
+
+    if (vin_remaining_units == 0)
     {
-        received_nValue = remaining_units = paidunits = 0;
+        received_nValue = remaining_units = paid_units = 0;
         return(false);
     }
-    if ( paidunits >= totalunits )
+    if (paid_units >= vin_remaining_units)
     {
-        paidunits = totalunits;
+        paid_units = vin_remaining_units;
         received_nValue = orig_nValue;
         remaining_units = 0;
-        fprintf(stderr,"SetBidFillamounts() bid order totally filled!\n");
+        fprintf(stderr, "%s bid order totally filled!\n", __func__);
         return(true);
     }
-    remaining_units = (totalunits - paidunits);
+    remaining_units = (vin_remaining_units - paid_units);
     //unitprice = (orig_nValue * COIN) / totalunits;
     //received_nValue = (paidunits * unitprice) / COIN;
-    unitprice = (orig_nValue / totalunits);
-    received_nValue = (paidunits * unitprice);
-    if ( unitprice > 0 && received_nValue > 0 && received_nValue <= orig_nValue )
+    unit_price = (orig_nValue / vin_remaining_units);
+    received_nValue = (paid_units * unit_price);
+    if (unit_price > 0 && received_nValue > 0 && received_nValue <= orig_nValue)
     {
         remaining_nValue = (orig_nValue - received_nValue);
-        printf("SetBidFillamounts() total.%llu - paid.%llu, remaining %llu <- %llu (%llu - %llu)\n",(long long)totalunits,(long long)paidunits,(long long)remaining_nValue,(long long)(orig_nValue - received_nValue),(long long)orig_nValue,(long long)received_nValue);
-        return(ValidateBidRemainder(remaining_units,remaining_nValue,orig_nValue,received_nValue,paidunits,totalunits));
-    } else return(false);
+        fprintf(stderr, "%s total.%llu - paid.%llu, remaining %llu <- %llu (%llu - %llu)\n", __func__, (long long)vin_remaining_units, (long long)paid_units, (long long)remaining_nValue, (long long)(orig_nValue - received_nValue), (long long)orig_nValue, (long long)received_nValue);
+        return (ValidateBidRemainder(remaining_units, remaining_nValue, orig_nValue, received_nValue, paid_units, vin_remaining_units));
+    }
+    else 
+        return(false);
 }
 
-bool SetAskFillamounts(int64_t &received_assetoshis,int64_t &remaining_nValue,int64_t orig_assetoshis,int64_t &paid_nValue,int64_t total_nValue)
+bool SetAskFillamounts(int64_t &received_assetoshis,int64_t &remaining_nValue,int64_t orig_assetoshis,int64_t &paid_nValue,int64_t vin_nValue)
 {
-    int64_t remaining_assetoshis; double dunitprice;
-    if ( total_nValue == 0 )
+    int64_t remaining_assetoshis; double dunit_price;
+    if (vin_nValue == 0)
     {
         received_assetoshis = remaining_nValue = paid_nValue = 0;
         return(false);
     }
-    if ( paid_nValue >= total_nValue )
+    if (paid_nValue >= vin_nValue)
     {
-        paid_nValue = total_nValue;
+        paid_nValue = vin_nValue;
         received_assetoshis = orig_assetoshis;
         remaining_nValue = 0;
-        fprintf(stderr,"SetAskFillamounts() ask order totally filled!\n");
+        fprintf(stderr, "%s ask order totally filled!\n", __func__);
         return(true);
     }
-    remaining_nValue = (total_nValue - paid_nValue);
-    dunitprice = ((double)total_nValue / orig_assetoshis);
-    received_assetoshis = (paid_nValue / dunitprice);
-    fprintf(stderr,"SetAskFillamounts() remaining_nValue %.8f (%.8f - %.8f)\n",(double)remaining_nValue/COIN,(double)total_nValue/COIN,(double)paid_nValue/COIN);
-    fprintf(stderr,"SetAskFillamounts() unitprice %.8f received_assetoshis %llu orig %llu\n",dunitprice/COIN,(long long)received_assetoshis,(long long)orig_assetoshis);
-    if ( fabs(dunitprice) > SMALLVAL && received_assetoshis > 0 && received_assetoshis <= orig_assetoshis )
+    remaining_nValue = (vin_nValue - paid_nValue);
+    dunit_price = ((double)vin_nValue / orig_assetoshis);
+    received_assetoshis = (paid_nValue / dunit_price);
+    fprintf(stderr, "%s remaining_nValue %.8f (%.8f - %.8f)\n", __func__, (double)remaining_nValue / COIN, (double)vin_nValue / COIN, (double)paid_nValue / COIN);
+    fprintf(stderr, "%s unit_price %.8f received_assetoshis %llu orig %llu\n", __func__, dunit_price / COIN, (long long)received_assetoshis, (long long)orig_assetoshis);
+    if (fabs(dunit_price) > SMALLVAL && received_assetoshis > 0 && received_assetoshis <= orig_assetoshis)
     {
         remaining_assetoshis = (orig_assetoshis - received_assetoshis);
-        return(ValidateAskRemainder(remaining_nValue,remaining_assetoshis,orig_assetoshis,received_assetoshis,paid_nValue,total_nValue));
-    } else return(false);
+        return(ValidateAskRemainder(remaining_nValue, remaining_assetoshis, orig_assetoshis, received_assetoshis, paid_nValue, vin_nValue));
+    }
+    else 
+        return(false);
 }
 
-bool ValidateAskRemainder(int64_t remaining_nValue,int64_t remaining_assetoshis,int64_t orig_assetoshis,int64_t received_assetoshis,int64_t paid_nValue,int64_t total_nValue)
+bool ValidateAskRemainder(int64_t remaining_nValue, int64_t remaining_assetoshis, int64_t orig_assetoshis, int64_t received_assetoshis, int64_t paid_nValue, int64_t vin_nValue)
 {
-    int64_t unitprice,recvunitprice,newunitprice=0;
-    if ( orig_assetoshis == 0 || received_assetoshis == 0 || paid_nValue == 0 || total_nValue == 0 )
+    int64_t unit_price, received_unit_price, new_unit_price = 0;
+    if (orig_assetoshis == 0 || received_assetoshis == 0 || paid_nValue == 0 || vin_nValue == 0)
     {
-        fprintf(stderr,"ValidateAssetRemainder() orig_assetoshis == %llu || received_assetoshis == %llu || paid_nValue == %llu || total_nValue == %llu\n",(long long)orig_assetoshis,(long long)received_assetoshis,(long long)paid_nValue,(long long)total_nValue);
+        fprintf(stderr, "%s orig_assetoshis == %llu || received_assetoshis == %llu || paid_nValue == %llu || total_nValue == %llu\n", __func__, (long long)orig_assetoshis, (long long)received_assetoshis, (long long)paid_nValue, (long long)vin_nValue);
         return(false);
     }
-    else if ( total_nValue != (remaining_nValue + paid_nValue) )
+    else if (vin_nValue != (remaining_nValue + paid_nValue))
     {
-        fprintf(stderr,"ValidateAssetRemainder() total_nValue %llu != %llu (remaining_nValue %llu + %llu paid_nValue)\n",(long long)total_nValue,(long long)(remaining_nValue + paid_nValue),(long long)remaining_nValue,(long long)paid_nValue);
+        fprintf(stderr, "%s vin_nValue %llu != %llu (remaining_nValue %llu + %llu paid_nValue)\n", __func__, (long long)vin_nValue, (long long)(remaining_nValue + paid_nValue), (long long)remaining_nValue, (long long)paid_nValue);
         return(false);
     }
-    else if ( orig_assetoshis != (remaining_assetoshis + received_assetoshis) )
+    else if (orig_assetoshis != (remaining_assetoshis + received_assetoshis))
     {
-        fprintf(stderr,"ValidateAssetRemainder() orig_assetoshis %llu != %llu (remaining_nValue %llu + %llu received_nValue)\n",(long long)orig_assetoshis,(long long)(remaining_assetoshis - received_assetoshis),(long long)remaining_assetoshis,(long long)received_assetoshis);
+        fprintf(stderr, "%s orig_assetoshis %llu != %llu (remaining_nValue %llu + %llu received_nValue)\n", __func__, (long long)orig_assetoshis, (long long)(remaining_assetoshis - received_assetoshis), (long long)remaining_assetoshis, (long long)received_assetoshis);
         return(false);
     }
     else
     {
-        unitprice = (total_nValue / orig_assetoshis);
-        recvunitprice = (paid_nValue / received_assetoshis);
-        if ( remaining_nValue != 0 )
-            newunitprice = (remaining_nValue / remaining_assetoshis);
-        if ( recvunitprice < unitprice )
+        unit_price = (vin_nValue / orig_assetoshis);
+        received_unit_price = (paid_nValue / received_assetoshis);
+        if (remaining_nValue != 0)
+            new_unit_price = (remaining_nValue / remaining_assetoshis);  // for debug printing
+        if (received_unit_price < unit_price)  // can't ask with lower price
         {
-            fprintf(stderr,"ValidateAskRemainder() error recvunitprice %.8f < %.8f unitprice, new unitprice %.8f\n",(double)recvunitprice/COIN,(double)unitprice/COIN,(double)newunitprice/COIN);
+            fprintf(stderr, "%s error can't ask with lower price: received_unit_price %.8f < %.8f unit_price, new unit_price %.8f\n", __func__, (double)received_unit_price / COIN, (double)unit_price / COIN, (double)new_unit_price / COIN);
             return(false);
         }
-        fprintf(stderr,"ValidateAskRemainder() got recvunitprice %.8f >= %.8f unitprice, new unitprice %.8f\n",(double)recvunitprice/COIN,(double)unitprice/COIN,(double)newunitprice/COIN);
+        fprintf(stderr, "%s got received_unit_price %.8f >= %.8f unit_price, new unit_price %.8f\n", __func__, (double)received_unit_price / COIN, (double)unit_price / COIN, (double)new_unit_price / COIN);
     }
     return(true);
 }
 
 bool SetSwapFillamounts(int64_t &received_assetoshis,int64_t &remaining_assetoshis2,int64_t orig_assetoshis,int64_t &paid_assetoshis2,int64_t total_assetoshis2)
 {
-    int64_t remaining_assetoshis; double dunitprice;
-    if ( total_assetoshis2 == 0 )
-    {
-        fprintf(stderr,"SetSwapFillamounts() total_assetoshis2.0 origsatoshis.%llu paid_assetoshis2.%llu\n",(long long)orig_assetoshis,(long long)paid_assetoshis2);
-        received_assetoshis = remaining_assetoshis2 = paid_assetoshis2 = 0;
+	int64_t remaining_assetoshis; double dunitprice;
+	if ( total_assetoshis2 == 0 )
+	{
+		fprintf(stderr,"%s total_assetoshis2.0 orig_assetoshis.%llu paid_assetoshis2.%llu\n", __func__, (long long)orig_assetoshis,(long long)paid_assetoshis2);
+		received_assetoshis = remaining_assetoshis2 = paid_assetoshis2 = 0;
+		return(false);
+	}
+	if ( paid_assetoshis2 >= total_assetoshis2 )
+	{
+		paid_assetoshis2 = total_assetoshis2;
+		received_assetoshis = orig_assetoshis;
+		remaining_assetoshis2 = 0;
+		fprintf(stderr,"%s swap order totally filled!\n", __func__);
+		return(true);
+	}
+	remaining_assetoshis2 = (total_assetoshis2 - paid_assetoshis2);
+	dunitprice = ((double)total_assetoshis2 / orig_assetoshis);
+	received_assetoshis = (paid_assetoshis2 / dunitprice);
+	fprintf(stderr,"%s remaining_assetoshis2 %llu (%llu - %llu)\n", __func__,(long long)remaining_assetoshis2/COIN,(long long)total_assetoshis2/COIN,(long long)paid_assetoshis2/COIN);
+	fprintf(stderr,"%s unitprice %.8f received_assetoshis %llu orig %llu\n", __func__,dunitprice/COIN,(long long)received_assetoshis,(long long)orig_assetoshis);
+	if ( fabs(dunitprice) > SMALLVAL && received_assetoshis > 0 && received_assetoshis <= orig_assetoshis )
+	{
+		remaining_assetoshis = (orig_assetoshis - received_assetoshis);
+		return(ValidateAskRemainder(remaining_assetoshis2,remaining_assetoshis,orig_assetoshis,received_assetoshis,paid_assetoshis2,total_assetoshis2));
+	} 
+    else 
         return(false);
-    }
-    if ( paid_assetoshis2 >= total_assetoshis2 )
-    {
-        paid_assetoshis2 = total_assetoshis2;
-        received_assetoshis = orig_assetoshis;
-        remaining_assetoshis2 = 0;
-        fprintf(stderr,"SetSwapFillamounts() swap order totally filled!\n");
-        return(true);
-    }
-    remaining_assetoshis2 = (total_assetoshis2 - paid_assetoshis2);
-    dunitprice = ((double)total_assetoshis2 / orig_assetoshis);
-    received_assetoshis = (paid_assetoshis2 / dunitprice);
-    fprintf(stderr,"SetSwapFillamounts() remaining_assetoshis2 %llu (%llu - %llu)\n",(long long)remaining_assetoshis2/COIN,(long long)total_assetoshis2/COIN,(long long)paid_assetoshis2/COIN);
-    fprintf(stderr,"SetSwapFillamounts() unitprice %.8f received_assetoshis %llu orig %llu\n",dunitprice/COIN,(long long)received_assetoshis,(long long)orig_assetoshis);
-    if ( fabs(dunitprice) > SMALLVAL && received_assetoshis > 0 && received_assetoshis <= orig_assetoshis )
-    {
-        remaining_assetoshis = (orig_assetoshis - received_assetoshis);
-        return(ValidateAskRemainder(remaining_assetoshis2,remaining_assetoshis,orig_assetoshis,received_assetoshis,paid_assetoshis2,total_assetoshis2));
-    } else return(false);
 }
 
-bool ValidateSwapRemainder(int64_t remaining_price,int64_t remaining_nValue,int64_t orig_nValue,int64_t received_nValue,int64_t paidunits,int64_t totalunits)
+bool ValidateSwapRemainder(int64_t remaining_price, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paidunits, int64_t totalunits)
 {
-    int64_t unitprice,recvunitprice,newunitprice=0;
-    if ( orig_nValue == 0 || received_nValue == 0 || paidunits == 0 || totalunits == 0 )
+    int64_t unitprice, recvunitprice, newunitprice = 0;
+    if (orig_nValue == 0 || received_nValue == 0 || paidunits == 0 || totalunits == 0)
     {
-        fprintf(stderr,"ValidateAssetRemainder() orig_nValue == %llu || received_nValue == %llu || paidunits == %llu || totalunits == %llu\n",(long long)orig_nValue,(long long)received_nValue,(long long)paidunits,(long long)totalunits);
+        fprintf(stderr, "%s orig_nValue == %llu || received_nValue == %llu || paidunits == %llu || totalunits == %llu\n", __func__, (long long)orig_nValue, (long long)received_nValue, (long long)paidunits, (long long)totalunits);
         return(false);
     }
-    else if ( totalunits != (remaining_price + paidunits) )
+    else if (totalunits != (remaining_price + paidunits))
     {
-        fprintf(stderr,"ValidateAssetRemainder() totalunits %llu != %llu (remaining_price %llu + %llu paidunits)\n",(long long)totalunits,(long long)(remaining_price + paidunits),(long long)remaining_price,(long long)paidunits);
+        fprintf(stderr, "%s totalunits %llu != %llu (remaining_price %llu + %llu paidunits)\n", __func__, (long long)totalunits, (long long)(remaining_price + paidunits), (long long)remaining_price, (long long)paidunits);
         return(false);
     }
-    else if ( orig_nValue != (remaining_nValue + received_nValue) )
+    else if (orig_nValue != (remaining_nValue + received_nValue))
     {
-        fprintf(stderr,"ValidateAssetRemainder() orig_nValue %llu != %llu (remaining_nValue %llu + %llu received_nValue)\n",(long long)orig_nValue,(long long)(remaining_nValue - received_nValue),(long long)remaining_nValue,(long long)received_nValue);
+        fprintf(stderr, "%s orig_nValue %llu != %llu (remaining_nValue %llu + %llu received_nValue)\n", __func__, (long long)orig_nValue, (long long)(remaining_nValue - received_nValue), (long long)remaining_nValue, (long long)received_nValue);
         return(false);
     }
     else
     {
         unitprice = (orig_nValue * COIN) / totalunits;
         recvunitprice = (received_nValue * COIN) / paidunits;
-        if ( remaining_price != 0 )
+        if (remaining_price != 0)
             newunitprice = (remaining_nValue * COIN) / remaining_price;
-        if ( recvunitprice < unitprice )
+        if (recvunitprice < unitprice)
         {
-            fprintf(stderr,"ValidateAssetRemainder() error recvunitprice %.8f < %.8f unitprice, new unitprice %.8f\n",(double)recvunitprice/(COIN*COIN),(double)unitprice/(COIN*COIN),(double)newunitprice/(COIN*COIN));
+            fprintf(stderr, "%s error recvunitprice %.8f < %.8f unitprice, new unitprice %.8f\n", __func__, (double)recvunitprice / (COIN*COIN), (double)unitprice / (COIN*COIN), (double)newunitprice / (COIN*COIN));
             return(false);
         }
-        fprintf(stderr,"ValidateAssetRemainder() recvunitprice %.8f >= %.8f unitprice, new unitprice %.8f\n",(double)recvunitprice/(COIN*COIN),(double)unitprice/(COIN*COIN),(double)newunitprice/(COIN*COIN));
+        fprintf(stderr, "%s recvunitprice %.8f >= %.8f unitprice, new unitprice %.8f\n", __func__, (double)recvunitprice / (COIN*COIN), (double)unitprice / (COIN*COIN), (double)newunitprice / (COIN*COIN));
     }
     return(true);
 }
@@ -239,7 +246,7 @@ CScript EncodeAssetCreateOpRet(uint8_t funcid,std::vector<uint8_t> origpubkey,st
 }
 */
 
-vscript_t EncodeAssetOpRet(uint8_t assetFuncId, uint256 assetid2, int64_t price, std::vector<uint8_t> origpubkey)
+vscript_t EncodeAssetOpRet(uint8_t assetFuncId, uint256 assetid2, int64_t remaining_value, std::vector<uint8_t> origpubkey)
 {
     vscript_t vopret; 
 	uint8_t evalcode = EVAL_ASSETS;
@@ -251,14 +258,14 @@ vscript_t EncodeAssetOpRet(uint8_t assetFuncId, uint256 assetid2, int64_t price,
 			vopret = /*<< OP_RETURN <<*/ E_MARSHAL(ss << evalcode << assetFuncId);
             break;
         case 's': case 'b': case 'S': case 'B':
-            vopret = /*<< OP_RETURN <<*/ E_MARSHAL(ss << evalcode << assetFuncId << price << origpubkey);
+            vopret = /*<< OP_RETURN <<*/ E_MARSHAL(ss << evalcode << assetFuncId << remaining_value << origpubkey);
             break;
         case 'E': case 'e':
             assetid2 = revuint256(assetid2);
-            vopret = /*<< OP_RETURN <<*/ E_MARSHAL(ss << evalcode << assetFuncId << assetid2 << price << origpubkey);
+            vopret = /*<< OP_RETURN <<*/ E_MARSHAL(ss << evalcode << assetFuncId << assetid2 << remaining_value << origpubkey);
             break;
         default:
-            fprintf(stderr,"EncodeAssetOpRet: illegal funcid.%02x\n", assetFuncId);
+            fprintf(stderr,"%s illegal funcid.%02x\n", __func__, assetFuncId);
             //opret << OP_RETURN;
             break;
     }
@@ -279,7 +286,7 @@ bool DecodeAssetCreateOpRet(const CScript &scriptPubKey, std::vector<uint8_t> &o
     return(0);
 } */
 
-uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &price, std::vector<uint8_t> &origpubkey)
+uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &remaining_units, std::vector<uint8_t> &origpubkey)
 {
     vscript_t vopretAssets; //, vopretAssetsStripped;
 	uint8_t *script, funcId = 0, assetsFuncId = 0, dummyEvalCode, dummyAssetFuncId;
@@ -289,7 +296,7 @@ uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCo
 
 	tokenid = zeroid;
 	assetid2 = zeroid;
-	price = 0;
+	remaining_units = 0;
     assetsEvalCode = 0;
     assetsFuncId = 0;
 
@@ -297,10 +304,10 @@ uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCo
 	funcId = DecodeTokenOpRet(scriptPubKey, dummyEvalCode, tokenid, voutPubkeysDummy, oprets);
     GetOpretBlob(oprets, OPRETID_ASSETSDATA, vopretAssets);
 
-    LOGSTREAM((char *)"ccassets", CCLOG_DEBUG2, stream << "DecodeAssetTokenOpRet() from DecodeTokenOpRet returned funcId=" << (int)funcId << std::endl);
+    LOGSTREAMFN("ccassets", CCLOG_DEBUG2, stream << "from DecodeTokenOpRet returned funcId=" << (int)funcId << std::endl);
 
 	if (funcId == 0 || vopretAssets.size() < 2) {
-        LOGSTREAM((char *)"ccassets", CCLOG_INFO, stream << "DecodeAssetTokenOpRet() incorrect opret or no asset's payload" << " funcId=" << (int)funcId << " vopretAssets.size()=" << vopretAssets.size() << std::endl);
+        LOGSTREAMFN("ccassets", CCLOG_DEBUG1, stream << "incorrect opret or no asset's payload" << " funcId=" << (int)funcId << " vopretAssets.size()=" << vopretAssets.size() << std::endl);
 		return (uint8_t)0;
 	}
 
@@ -315,7 +322,7 @@ uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCo
         assetsEvalCode = vopretAssets.begin()[0];
         assetsFuncId = vopretAssets.begin()[1];
 
-        LOGSTREAM((char *)"ccassets", CCLOG_DEBUG2, stream << "DecodeAssetTokenOpRet() assetsEvalCode=" << (int)assetsEvalCode <<  " funcId=" << (char)(funcId ? funcId : ' ') << " assetsFuncId=" << (char)(assetsFuncId ? assetsFuncId : ' ') << std::endl);
+        LOGSTREAMFN("ccassets", CCLOG_DEBUG2, stream << "assetsEvalCode=" << (int)assetsEvalCode <<  " funcId=" << (char)(funcId ? funcId : ' ') << " assetsFuncId=" << (char)(assetsFuncId ? assetsFuncId : ' ') << std::endl);
 
         if (assetsEvalCode == EVAL_ASSETS)
         {
@@ -329,14 +336,14 @@ uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCo
                 }
                 break;
             case 's': case 'b': case 'S': case 'B':
-                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> price; ss >> origpubkey) != 0)
+                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> remaining_units; ss >> origpubkey) != 0)
                 {
                     //fprintf(stderr,"DecodeAssetTokenOpRet() got price %llu\n",(long long)price);
                     return(assetsFuncId);
                 }
                 break;
             case 'E': case 'e':
-                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> assetid2; ss >> price; ss >> origpubkey) != 0)
+                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> assetid2; ss >> remaining_units; ss >> origpubkey) != 0)
                 {
                     //fprintf(stderr,"DecodeAssetTokenOpRet() got price %llu\n",(long long)price);
                     assetid2 = revuint256(assetid2);
@@ -349,17 +356,17 @@ uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCo
         }
     }
 
-    LOGSTREAM((char *)"ccassets", CCLOG_INFO, stream << "DecodeAssetTokenOpRet() no asset's payload or incorrect assets funcId or evalcode" << " funcId=" << (int)funcId << " vopretAssets.size()=" << vopretAssets.size() << " assetsEvalCode=" << assetsEvalCode << " assetsFuncId=" << assetsFuncId << std::endl);
+    LOGSTREAMFN("ccassets", CCLOG_DEBUG1, stream << "no asset's payload or incorrect assets funcId or evalcode" << " funcId=" << (int)funcId << " vopretAssets.size()=" << vopretAssets.size() << " assetsEvalCode=" << assetsEvalCode << " assetsFuncId=" << assetsFuncId << std::endl);
     return (uint8_t)0;
 }
 
 // extract sell/buy owner's pubkey from the opret
-bool SetAssetOrigpubkey(std::vector<uint8_t> &origpubkey,int64_t &price,const CTransaction &tx)
+bool SetAssetOrigpubkey(std::vector<uint8_t> &origpubkey_out,int64_t &remaining_units_out,const CTransaction &tx)
 {
     uint256 assetid,assetid2;
 	uint8_t evalCode;
 
-    if ( tx.vout.size() > 0 && DecodeAssetTokenOpRet(tx.vout[tx.vout.size()-1].scriptPubKey, evalCode, assetid, assetid2, price, origpubkey) != 0 )
+    if ( tx.vout.size() > 0 && DecodeAssetTokenOpRet(tx.vout[tx.vout.size()-1].scriptPubKey, evalCode, assetid, assetid2, remaining_units_out, origpubkey_out) != 0 )
         return(true);
     else 
 		return(false);
@@ -394,7 +401,7 @@ bool GetAssetorigaddrs(struct CCcontract_info *cp, char *origCCaddr, char *origN
         bGetCCaddr = GetTokensCCaddress(cpTokens, origCCaddr, pubkey2pk(origpubkey));  // tokens to single-eval token or token+nonfungible
 	}
 	else  {
-		std::cerr << "GetAssetorigaddrs incorrect vintx funcid=" << (char)(vintxFuncId?vintxFuncId:' ') << std::endl;
+		LOGSTREAMFN("ccassets", CCLOG_INFO, stream << "incorrect vintx funcid=" << (char)(vintxFuncId?vintxFuncId:' ') << std::endl);
 		return false;
 	}
     if( bGetCCaddr && Getscriptaddress(origNormalAddr, CScript() << origpubkey << OP_CHECKSIG))
@@ -404,27 +411,27 @@ bool GetAssetorigaddrs(struct CCcontract_info *cp, char *origCCaddr, char *origN
 }
 
 
-int64_t AssetValidateCCvin(struct CCcontract_info *cp,Eval* eval,char *origCCaddr,char *origaddr,const CTransaction &tx,int32_t vini,CTransaction &vinTx)
+int64_t AssetValidateCCvin(struct CCcontract_info *cp,Eval* eval,char *origCCaddr_out,char *origaddr_out,const CTransaction &tx,int32_t vini,CTransaction &vinTx)
 {
 	uint256 hashBlock;
-	uint256 assetid, assetid2;
-	int64_t tmpprice;
-	std::vector<uint8_t> tmporigpubkey;
-	uint8_t evalCode;
+    uint256 assetid, assetid2;
+    uint256 vinAssetId, vinAssetId2;
+	int64_t tmpprice, vinPrice;
+    std::vector<uint8_t> tmporigpubkey;
+    std::vector<uint8_t> vinOrigpubkey;
+    uint8_t evalCode;
+    uint8_t vinEvalCode;
 
-	char destaddr[64], unspendableAddr[64];
+	char destaddr[KOMODO_ADDRESS_BUFSIZE], unspendableAddr[KOMODO_ADDRESS_BUFSIZE];
 
-    origaddr[0] = destaddr[0] = origCCaddr[0] = 0;
+    origaddr_out[0] = destaddr[0] = origCCaddr_out[0] = 0;
 
-	uint8_t funcid = 0;
-	if (tx.vout.size() > 0) {
-		uint256 assetid, assetid2;
-		int64_t tmpprice;
-		std::vector<uint8_t> tmporigpubkey;
-		uint8_t evalCode;
-
-		funcid = DecodeAssetTokenOpRet(tx.vout[tx.vout.size() - 1].scriptPubKey, evalCode, assetid, assetid2, tmpprice, tmporigpubkey);
-	}
+    uint8_t funcid = 0;
+    uint8_t vinFuncId = 0;
+	if (tx.vout.size() > 0) 
+		funcid = DecodeAssetTokenOpRet(tx.vout.back().scriptPubKey, evalCode, assetid, assetid2, tmpprice, tmporigpubkey);
+    else
+        return eval->Invalid("no vouts in tx");
 
     if( tx.vin.size() < 2 )
         return eval->Invalid("not enough for CC vins");
@@ -432,17 +439,20 @@ int64_t AssetValidateCCvin(struct CCcontract_info *cp,Eval* eval,char *origCCadd
         return eval->Invalid("vin1 needs to be buyvin.vout[0]");
     else if( eval->GetTxUnconfirmed(tx.vin[vini].prevout.hash, vinTx,hashBlock) == 0 )
     {
-		std::cerr << "AssetValidateCCvin() cannot load vintx for vin=" << vini << " vintx id=" << tx.vin[vini].prevout.hash.GetHex() << std::endl;
+		LOGSTREAMFN("ccassets", CCLOG_ERROR, stream << "cannot load vintx for vin=" << vini << " vintx id=" << tx.vin[vini].prevout.hash.GetHex() << std::endl);
         return eval->Invalid("always should find CCvin, but didnt");
     }
+//    else if (vinTx.vout.size() < 1 || (vinFuncId = DecodeAssetTokenOpRet(vinTx.vout.back().scriptPubKey, vinEvalCode, vinAssetId, vinAssetId2, vinPrice, vinOrigpubkey)) == 0)
+//        return eval->Invalid("could not find assets opreturn in vin tx");
+//    else if 
     // check source cc unspendable cc address:
 	// if fillSell or cancelSell --> should spend tokens from dual-eval token-assets unspendable addr
-    else if( (funcid == 'S' || funcid == 'x') && 
+    else if((funcid == 'S' || funcid == 'x') && 
 		(Getscriptaddress(destaddr, vinTx.vout[tx.vin[vini].prevout.n].scriptPubKey) == 0 || 
 		!GetTokensCCaddress(cp, unspendableAddr, GetUnspendable(cp, NULL)) || 
 		strcmp(destaddr, unspendableAddr) != 0))
     {
-        fprintf(stderr,"AssetValidateCCvin() cc addr %s is not dual token-evalcode=0x%02x asset unspendable addr %s\n", destaddr, (int)cp->evalcode, unspendableAddr);
+        CCLogPrintF("ccassets", CCLOG_ERROR, "%s cc addr %s is not dual token-evalcode=0x%02x asset unspendable addr %s\n", __func__, destaddr, (int)cp->evalcode, unspendableAddr);
         return eval->Invalid("invalid vin assets CCaddr");
     }
 	// if fillBuy or cancelBuy --> should spend coins from asset unspendable addr
@@ -451,14 +461,14 @@ int64_t AssetValidateCCvin(struct CCcontract_info *cp,Eval* eval,char *origCCadd
 		!GetCCaddress(cp, unspendableAddr, GetUnspendable(cp, NULL)) ||
 		strcmp(destaddr, unspendableAddr) != 0))
 	{
-		fprintf(stderr, "AssetValidateCCvin() cc addr %s is not evalcode=0x%02x asset unspendable addr %s\n", destaddr, (int)cp->evalcode, unspendableAddr);
+        CCLogPrintF("ccassets", CCLOG_ERROR, "%s cc addr %s is not evalcode=0x%02x asset unspendable addr %s\n", __func__, destaddr, (int)cp->evalcode, unspendableAddr);
 		return eval->Invalid("invalid vin assets CCaddr");
 	}
     // end of check source unspendable cc address
     //else if ( vinTx.vout[0].nValue < 10000 )
     //    return eval->Invalid("invalid dust for buyvin");
     // get user dest cc and normal addresses:
-    else if( GetAssetorigaddrs(cp, origCCaddr, origaddr, vinTx) == 0 )  
+    else if(GetAssetorigaddrs(cp, origCCaddr_out, origaddr_out, vinTx) == 0)  
         return eval->Invalid("couldnt get origaddr for buyvin");
 
     //fprintf(stderr,"AssetValidateCCvin() got %.8f to origaddr.(%s)\n", (double)vinTx.vout[tx.vin[vini].prevout.n].nValue/COIN,origaddr);
@@ -469,26 +479,26 @@ int64_t AssetValidateCCvin(struct CCcontract_info *cp,Eval* eval,char *origCCadd
     return(vinTx.vout[0].nValue);
 }
 
-int64_t AssetValidateBuyvin(struct CCcontract_info *cp,Eval* eval,int64_t &tmpprice,std::vector<uint8_t> &tmporigpubkey,char *CCaddr,char *origaddr,const CTransaction &tx,uint256 refassetid)
+int64_t AssetValidateBuyvin(struct CCcontract_info *cp, Eval* eval, int64_t &remaining_units_out, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, uint256 refassetid)
 {
-    CTransaction vinTx; int64_t nValue; uint256 assetid,assetid2; uint8_t funcid, evalCode;
+    CTransaction vinTx; int64_t nValue; uint256 assetid, assetid2; uint8_t funcid, evalCode;
 
-    CCaddr[0] = origaddr[0] = 0;
+    origCCaddr_out[0] = origaddr_out[0] = 0;
 
-	// validate locked coins on Assets vin[1]
-    if ( (nValue= AssetValidateCCvin(cp, eval, CCaddr, origaddr, tx, 1, vinTx)) == 0 )
-        return(0);  
-    else if ( vinTx.vout[0].scriptPubKey.IsPayToCryptoCondition() == 0 )
+    // validate locked coins on Assets vin[1]
+    if ((nValue = AssetValidateCCvin(cp, eval, origCCaddr_out, origaddr_out, tx, 1, vinTx)) == 0)
+        return(0);
+    else if (vinTx.vout[0].scriptPubKey.IsPayToCryptoCondition() == 0)
         return eval->Invalid("invalid normal vout0 for buyvin");
-    else if ((funcid = DecodeAssetTokenOpRet(vinTx.vout[vinTx.vout.size() - 1].scriptPubKey, evalCode, assetid, assetid2, tmpprice, tmporigpubkey)) == 'b' &&
-		vinTx.vout[1].scriptPubKey.IsPayToCryptoCondition() == 0 )  // marker is only in 'b'?
+    else if ((funcid = DecodeAssetTokenOpRet(vinTx.vout[vinTx.vout.size() - 1].scriptPubKey, evalCode, assetid, assetid2, remaining_units_out, origpubkey_out)) == 'b' &&
+        vinTx.vout[1].scriptPubKey.IsPayToCryptoCondition() == 0)  // marker is only in 'b'?
         return eval->Invalid("invalid normal vout1 for buyvin");
     else
     {
         //fprintf(stderr,"have %.8f checking assetid origaddr.(%s)\n",(double)nValue/COIN,origaddr);
-        if ( vinTx.vout.size() > 0 && funcid != 'b' && funcid != 'B' )
+        if (vinTx.vout.size() > 0 && funcid != 'b' && funcid != 'B')
             return eval->Invalid("invalid opreturn for buyvin");
-        else if ( refassetid != assetid )
+        else if (refassetid != assetid)
             return eval->Invalid("invalid assetid for buyvin");
         //int32_t i; for (i=31; i>=0; i--)
         //    fprintf(stderr,"%02x",((uint8_t *)&assetid)[i]);
@@ -497,21 +507,21 @@ int64_t AssetValidateBuyvin(struct CCcontract_info *cp,Eval* eval,int64_t &tmppr
     return(nValue);
 }
 
-int64_t AssetValidateSellvin(struct CCcontract_info *cp,Eval* eval,int64_t &tmpprice,std::vector<uint8_t> &tmporigpubkey,char *CCaddr,char *origaddr,const CTransaction &tx,uint256 assetid)
+int64_t AssetValidateSellvin(struct CCcontract_info *cp, Eval* eval, int64_t &remaining_units_out, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, uint256 assetid)
 {
-    CTransaction vinTx; int64_t nValue,assetoshis;
+    CTransaction vinTx; int64_t nValue, assetoshis;
     //fprintf(stderr,"AssetValidateSellvin()\n");
-    if ( (nValue = AssetValidateCCvin(cp, eval, CCaddr, origaddr, tx, 1, vinTx)) == 0 )
+    if ((nValue = AssetValidateCCvin(cp, eval, origCCaddr_out, origaddr_out, tx, 1, vinTx)) == 0)
         return(0);
-    if ( (assetoshis= IsAssetvout(cp, tmpprice, tmporigpubkey, vinTx, 0, assetid)) == 0 )
+    if ((assetoshis = IsAssetvout(cp, remaining_units_out, origpubkey_out, vinTx, 0, assetid)) == 0)
         return eval->Invalid("invalid missing CC vout0 for sellvin");
-    else 
-		return(assetoshis);
+    else
+        return(assetoshis);
 }
 
 
 // validates opret for asset tx:
-bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &price, std::vector<uint8_t> &origpubkey) {
+bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &remaining_units_out, std::vector<uint8_t> &origpubkey_out) {
 
 	uint256 assetidOpret, assetidOpret2;
 	uint8_t funcid, evalCode;
@@ -519,9 +529,9 @@ bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &pr
 	// this is just for log messages indentation fur debugging recursive calls:
 	int32_t n = tx.vout.size();
 
-	if ((funcid = DecodeAssetTokenOpRet(tx.vout[n - 1].scriptPubKey, evalCode, assetidOpret, assetidOpret2, price, origpubkey)) == 0)
+	if ((funcid = DecodeAssetTokenOpRet(tx.vout.back().scriptPubKey, evalCode, assetidOpret, assetidOpret2, remaining_units_out, origpubkey_out)) == 0)
 	{
-		std::cerr << "ValidateAssetOpret() DecodeAssetTokenOpRet returned funcId=0 for opret from txid=" << tx.GetHash().GetHex() << std::endl;
+        LOGSTREAMFN("ccassets", CCLOG_DEBUG1, stream << "called DecodeAssetTokenOpRet returned funcId=0 for opret from txid=" << tx.GetHash().GetHex() << std::endl);
 		return(false);
 	}
 /*	it is now on token level:
@@ -563,7 +573,7 @@ bool ValidateAssetOpret(CTransaction tx, int32_t v, uint256 assetid, int64_t &pr
 }  
 
 // Checks if the vout is a really Asset CC vout
-int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &price, std::vector<uint8_t> &origpubkey, const CTransaction& tx, int32_t v, uint256 refassetid)
+int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &remaining_units_out, std::vector<uint8_t> &origpubkey_out, const CTransaction& tx, int32_t v, uint256 refassetid)
 {
 
 	//std::cerr  << "IsAssetvout() entered for txid=" << tx.GetHash().GetHex() << " v=" << v << " for assetid=" << refassetid.GetHex() <<  std::endl;
@@ -571,14 +581,14 @@ int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &price, std::vector<uint
     int32_t n = tx.vout.size();
     // just check boundaries:
     if (v >= n - 1) {  // just moved this up (dimxy)
-        std::cerr << "isAssetVout() internal err: (v >= n - 1), returning 0" << std::endl;
+        LOGSTREAMFN("ccassets", CCLOG_ERROR, stream << "internal err: (v >= n - 1), returning 0" << std::endl);
         return(0);
     }
 
 	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0) // maybe check address too? dimxy: possibly no, because there are too many cases with different addresses here
 	{
 		// moved opret checking to this new reusable func (dimxy):
-		const bool valOpret = ValidateAssetOpret(tx, v, refassetid, price, origpubkey);
+		const bool valOpret = ValidateAssetOpret(tx, v, refassetid, remaining_units_out, origpubkey_out);
 		//std::cerr << "IsAssetvout() ValidateAssetOpret returned=" << std::boolalpha << valOpret << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
 		if (valOpret) {
 			//std::cerr  << "IsAssetvout() ValidateAssetOpret returned true, returning nValue=" << tx.vout[v].nValue << " for txid=" << tx.GetHash().GetHex() << " for assetid=" << refassetid.GetHex() << std::endl;
@@ -594,7 +604,7 @@ int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &price, std::vector<uint
 // sets cc inputs vs cc outputs and ensures they are equal:
 bool AssetCalcAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 assetid)
 {
-	CTransaction vinTx; uint256 hashBlock, id, id2; int32_t flag; int64_t assetoshis; std::vector<uint8_t> tmporigpubkey; int64_t tmpprice;
+	CTransaction vinTx; uint256 hashBlock, id, id2; int32_t flag; int64_t assetoshis; std::vector<uint8_t> tmporigpubkey; int64_t tmpremainingunits;
 	int32_t numvins = tx.vin.size();
 	int32_t numvouts = tx.vout.size();
 	inputs = outputs = 0;
@@ -611,7 +621,7 @@ bool AssetCalcAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_t
 			// we are not inside the validation code -- dimxy
 			if ((eval && eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock) == 0) || (!eval && !myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock)))
 			{
-				std::cerr << "AssetCalcAmounts() cannot read vintx for i." << i << " numvins." << numvins << std::endl;
+                LOGSTREAMFN("ccassets", CCLOG_ERROR, stream << "cannot read vintx for i." << i << " vin txid=" << tx.vin[i].prevout.hash.GetHex() << std::endl);
 				return (!eval) ? false : eval->Invalid("always should find vin tx, but didnt");
 			}
 			else {
@@ -634,7 +644,7 @@ bool AssetCalcAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_t
 
 	for (int32_t i = 0; i < numvouts-1; i++) 
 	{
-		assetoshis = IsAssetvout(cpAssets, tmpprice, tmporigpubkey, tx, i, assetid);
+		assetoshis = IsAssetvout(cpAssets, tmpremainingunits, tmporigpubkey, tx, i, assetid);
 		if (assetoshis != 0)
 		{
 			//std::cerr << "AssetCalcAmounts() vout i=" << i << " assetoshis=" << assetoshis << std::endl;

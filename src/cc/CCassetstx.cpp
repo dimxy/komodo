@@ -30,7 +30,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t additionalEvalCode)
 	auto addOrders = [&](struct CCcontract_info *cp, std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it)
 	{
 		uint256 txid, hashBlock, assetid, assetid2;
-		int64_t price;
+		int64_t remaining_units;
 		std::vector<uint8_t> origpubkey;
 		CTransaction ordertx;
 		uint8_t funcid, evalCode;
@@ -41,7 +41,7 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t additionalEvalCode)
         if ( myGetTransaction(txid, ordertx, hashBlock) != 0 )
         {
 			// for logging: funcid = DecodeAssetOpRet(vintx.vout[vintx.vout.size() - 1].scriptPubKey, evalCode, assetid, assetid2, price, origpubkey);
-            if (ordertx.vout.size() > 0 && (funcid = DecodeAssetTokenOpRet(ordertx.vout[ordertx.vout.size()-1].scriptPubKey, evalCode, assetid, assetid2, price, origpubkey)) != 0)
+            if (ordertx.vout.size() > 0 && (funcid = DecodeAssetTokenOpRet(ordertx.vout[ordertx.vout.size()-1].scriptPubKey, evalCode, assetid, assetid2, remaining_units, origpubkey)) != 0)
             {
                 LOGSTREAM("ccassets", CCLOG_DEBUG2, stream << "addOrders() checking ordertx.vout.size()=" << ordertx.vout.size() << " funcid=" << (char)(funcid ? funcid : ' ') << " assetid=" << assetid.GetHex() << std::endl);
 
@@ -87,19 +87,19 @@ UniValue AssetOrders(uint256 refassetid, CPubKey pk, uint8_t additionalEvalCode)
                         item.push_back(Pair("tokenid", assetid.GetHex()));
                     if (assetid2 != zeroid)
                         item.push_back(Pair("otherid", assetid2.GetHex()));
-                    if (price > 0)
+                    if (remaining_units > 0)
                     {
                         if (funcid == 's' || funcid == 'S' || funcid == 'e' || funcid == 'e')
                         {
-                            sprintf(numstr, "%.8f", (double)price / COIN);
+                            sprintf(numstr, "%.8f", (double)remaining_units / COIN);
                             item.push_back(Pair("totalrequired", numstr));
-                            sprintf(numstr, "%.8f", (double)price / (COIN * ordertx.vout[0].nValue));
+                            sprintf(numstr, "%.8f", (double)remaining_units / (COIN * ordertx.vout[0].nValue));
                             item.push_back(Pair("price", numstr));
                         }
                         else
                         {
-                            item.push_back(Pair("totalrequired", (int64_t)price));
-                            sprintf(numstr, "%.8f", (double)ordertx.vout[0].nValue / (price * COIN));
+                            item.push_back(Pair("totalrequired", (int64_t)remaining_units));
+                            sprintf(numstr, "%.8f", (double)ordertx.vout[0].nValue / (remaining_units * COIN));
                             item.push_back(Pair("price", numstr));
                         }
                     }
@@ -605,7 +605,7 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
             if ((inputs = AddTokenCCInputs(cpTokens, mtx, mypk, assetid, fillamount, 60, vopretNonfungible)) > 0)
             {
 				if (inputs < fillamount) {
-					std::cerr << "FillBuyOffer(): insufficient tokens to fill buy offer" << std::endl;
+					std::cerr << "FillBuyOffer(): insufficient tokens to fill buy offer" << " inputs=" << inputs << " fillamount=" << fillamount << std::endl;
 					CCerror = strprintf("insufficient tokens to fill buy offer");
 					return ("");
 				}
@@ -631,7 +631,7 @@ std::string FillBuyOffer(int64_t txfee,uint256 assetid,uint256 bidtxid,int64_t f
 				if (CCchange != 0)
                     mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, CCchange, mypk));								// vout4 change in single-eval tokens
 
-                fprintf(stderr,"FillBuyOffer() remaining %llu -> origpubkey\n", (long long)remaining_required);
+                fprintf(stderr,"%s remaining %llu -> origpubkey\n", __func__, (long long)remaining_required);
 
 				char unspendableAssetsAddr[64];
 				cpAssets = CCinit(&assetsC, EVAL_ASSETS);
