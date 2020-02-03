@@ -34,10 +34,10 @@ uint8_t DecodeAssetTokenOpRet(const CScript &scriptPubKey, uint8_t &assetsEvalCo
 bool SetAssetOrigpubkey(std::vector<uint8_t> &origpubkey_out, int64_t &remainig_units_out, const CTransaction &tx);
 int64_t IsAssetvout(struct CCcontract_info *cp, int64_t &remaining_units_out, std::vector<uint8_t> &origpubkey_out, const CTransaction& tx, int32_t v, uint256 refassetid);
 bool ValidateBidRemainder(int64_t remaining_units, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paid_units, int64_t orig_remaining_units);
-bool ValidateAskRemainder(int64_t remaining_nValue, int64_t remaining_assetoshis, int64_t orig_assetoshis, int64_t received_assetoshis, int64_t paid_nValue, int64_t vin_nValue);
+bool ValidateAskRemainder(int64_t remaining_nValue, int64_t remaining_assetoshis, int64_t orig_assetoshis, int64_t received_assetoshis, int64_t paid_nValue, int64_t orig_nValue);
 bool ValidateSwapRemainder(int64_t remaining_units, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paidprice, int64_t totalprice);
-bool SetBidFillamounts(int64_t &received_nValue, int64_t &remaining_units, int64_t orig_nValue, int64_t &paid_units, int64_t vin_remaining_units);
-bool SetAskFillamounts(int64_t &received_assetoshis, int64_t &remaining_nValue, int64_t orig_assetoshis, int64_t &paid_nValue, int64_t vin_nValue);
+bool SetBidFillamounts(int64_t &received_nValue, int64_t &remaining_units, int64_t orig_nValue, int64_t &paid_units, int64_t orig_remaining_units);
+bool SetAskFillamounts(int64_t &received_assetoshis, int64_t &remaining_nValue, int64_t orig_assetoshis, int64_t &paid_nValue, int64_t orig_nValue);
 bool SetSwapFillamounts(int64_t &paid, int64_t &remaining_units, int64_t orig_nValue, int64_t &received, int64_t totalprice); // not used
 int64_t AssetValidateBuyvin(struct CCcontract_info *cp, Eval* eval, int64_t &remaining_units_out, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, uint256 refassetid);
 int64_t AssetValidateSellvin(struct CCcontract_info *cp, Eval* eval, int64_t &remaining_units_out, std::vector<uint8_t> &origpubkey_out, char *origCCaddr_out, char *origaddr_out, const CTransaction &tx, uint256 assetid);

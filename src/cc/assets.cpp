@@ -135,7 +135,7 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
     uint256 hashBlock, assetid, assetid2; 
 	int32_t i,starti, numvins, numvouts, preventCCvins, preventCCvouts; 
 	int64_t remaining_units, nValue, assetoshis, outputsDummy, inputs, orig_remaining_units; 
-    std::vector<uint8_t> origpubkey, tmporigpubkey, ignorepubkey, vopretNonfungible, vopretNonfungibleDummy;
+    std::vector<uint8_t> origpubkey, vinorigpubkey, ignorepubkey, vopretNonfungible, vopretNonfungibleDummy;
 	uint8_t funcid, evalCodeInOpret; 
 	char destaddr[64], origNormalAddr[64], origTokensCCaddr[64], origCCaddrDummy[64]; 
     char tokensDualEvalUnspendableCCaddr[64], origAssetsCCaddr[64];
@@ -262,11 +262,11 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //vout.1: vin.2 back to users pubkey
             //vout.2: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['o']
-            if( (nValue= AssetValidateBuyvin(cpAssets, eval, orig_remaining_units, tmporigpubkey, origCCaddrDummy, origNormalAddr, tx, assetid)) == 0 )
+            if( (nValue= AssetValidateBuyvin(cpAssets, eval, orig_remaining_units, vinorigpubkey, origCCaddrDummy, origNormalAddr, tx, assetid)) == 0 )
                 return(false);
             else if( ConstrainVout(tx.vout[0],0, origNormalAddr, nValue) == 0 )
                 return eval->Invalid("invalid refund for cancelbuy");
-            else if (TotalPubkeyNormalInputs(tx, pubkey2pk(origpubkey)) == 0)
+            else if (TotalPubkeyNormalInputs(tx, pubkey2pk(vinorigpubkey)) == 0)
                 return eval->Invalid("not the owner pubkey");
 
             preventCCvins = 3;
@@ -286,11 +286,11 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //vout.n-1: opreturn [EVAL_ASSETS] ['B'] [assetid] [remaining asset required] [origpubkey]
             preventCCvouts = 4;
 			
-            if( (nValue = AssetValidateBuyvin(cpAssets, eval, orig_remaining_units, tmporigpubkey, origTokensCCaddr, origNormalAddr, tx, assetid)) == 0 )
+            if( (nValue = AssetValidateBuyvin(cpAssets, eval, orig_remaining_units, vinorigpubkey, origTokensCCaddr, origNormalAddr, tx, assetid)) == 0 )
                 return(false);
             else if( numvouts < 4 )
                 return eval->Invalid("not enough vouts for fillbuy");
-            else if( tmporigpubkey != origpubkey )
+            else if( vinorigpubkey != origpubkey )
                 return eval->Invalid("mismatched origpubkeys for fillbuy");
             else
             {
@@ -366,11 +366,11 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //vout.2: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['x'] [assetid]
 
-            if( (assetoshis = AssetValidateSellvin(cpAssets, eval, orig_remaining_units, tmporigpubkey, origTokensCCaddr, origNormalAddr, tx, assetid)) == 0 )  // NOTE: 
+            if( (assetoshis = AssetValidateSellvin(cpAssets, eval, orig_remaining_units, vinorigpubkey, origTokensCCaddr, origNormalAddr, tx, assetid)) == 0 )  // NOTE: 
                 return(false);
             else if( ConstrainVout(tx.vout[0], 1, origTokensCCaddr, assetoshis) == 0 )      // tokens returning to originator cc addr
                 return eval->Invalid("invalid vout for cancel");
-            else if (TotalPubkeyNormalInputs(tx, pubkey2pk(origpubkey)) == 0)
+            else if (TotalPubkeyNormalInputs(tx, pubkey2pk(vinorigpubkey)) == 0)
                 return eval->Invalid("not the owner pubkey");
             preventCCvins = 3;
             preventCCvouts = 1;
@@ -386,11 +386,11 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //vout.3: normal output for change (if any)
             //'S'.vout.n-1: opreturn [EVAL_ASSETS] ['S'] [assetid] [amount of coin still required] [origpubkey]
 			
-            if( (assetoshis = AssetValidateSellvin(cpAssets, eval, orig_remaining_units, tmporigpubkey, origTokensCCaddr, origNormalAddr, tx, assetid)) == 0 )
+            if( (assetoshis = AssetValidateSellvin(cpAssets, eval, orig_remaining_units, vinorigpubkey, origTokensCCaddr, origNormalAddr, tx, assetid)) == 0 )
                 return(false);
             else if( numvouts < 4 )
                 return eval->Invalid("not enough vouts for fillask");
-            else if( tmporigpubkey != origpubkey )
+            else if( vinorigpubkey != origpubkey )
                 return eval->Invalid("mismatched origpubkeys for fillask");
             else
             {
@@ -406,7 +406,7 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
                     return eval->Invalid("invalid marker for original pubkey");
                 else if( remaining_units != 0 )
                 {
-                    if ( ConstrainVout(tx.vout[0], 1, tokensDualEvalUnspendableCCaddr, 0) == 0 )
+                    if( ConstrainVout(tx.vout[0], 1, tokensDualEvalUnspendableCCaddr, 0) == 0 )
                         return eval->Invalid("mismatched vout0 assets dual unspendable CCaddr for fill sell");
                 }
             }
@@ -430,11 +430,11 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //    eval->Invalid("asset2 inputs != outputs");
 
 			////////// not implemented yet ////////////
-            if( (assetoshis= AssetValidateSellvin(cpTokens, eval, orig_remaining_units, tmporigpubkey, origTokensCCaddr, origNormalAddr, tx, assetid)) == 0 )
+            if( (assetoshis= AssetValidateSellvin(cpTokens, eval, orig_remaining_units, vinorigpubkey, origTokensCCaddr, origNormalAddr, tx, assetid)) == 0 )
                 return(false);
             else if( numvouts < 3 )
                 return eval->Invalid("not enough vouts for fillex");
-            else if( tmporigpubkey != origpubkey )
+            else if( vinorigpubkey != origpubkey )
                 return eval->Invalid("mismatched origpubkeys for fillex");
             else
             {

@@ -669,7 +669,7 @@ std::string FillSell(int64_t txfee, uint256 assetid, uint256 assetid2, uint256 a
 	double dprice; 
 	uint64_t mask = 0; 
 	int32_t askvout = 0; 
-	int64_t received_assetoshis, total_nValue, orig_assetoshis, paid_nValue, remaining_nValue, inputs, CCchange=0; 
+	int64_t received_assetoshis, orig_nValue, orig_assetoshis, paid_nValue, remaining_nValue, inputs, CCchange=0; 
 	//struct CCcontract_info *cpTokens, tokensC;
 	struct CCcontract_info *cpAssets, assetsC;
 
@@ -704,8 +704,8 @@ std::string FillSell(int64_t txfee, uint256 assetid, uint256 assetid2, uint256 a
     if (myGetTransaction(asktxid, vintx, hashBlock) != 0)
     {
         orig_assetoshis = vintx.vout[askvout].nValue;
-        SetAssetOrigpubkey(origpubkey, total_nValue, vintx);
-        dprice = (double)total_nValue / orig_assetoshis;
+        SetAssetOrigpubkey(origpubkey, orig_nValue, vintx);
+        dprice = (double)orig_nValue / orig_assetoshis;
         paid_nValue = dprice * fillunits;
 
         if (assetid2 != zeroid) {
@@ -728,9 +728,9 @@ std::string FillSell(int64_t txfee, uint256 assetid, uint256 assetid2, uint256 a
             mtx.vin.push_back(CTxIn(asktxid, askvout, CScript()));
 
 			if (assetid2 != zeroid)
-                SetSwapFillamounts(received_assetoshis, remaining_nValue, orig_assetoshis, paid_nValue, total_nValue);  //not implemented correctly yet
+                SetSwapFillamounts(received_assetoshis, remaining_nValue, orig_assetoshis, paid_nValue, orig_nValue);  //not implemented correctly yet
             else 
-				SetAskFillamounts(received_assetoshis, remaining_nValue, orig_assetoshis, paid_nValue, total_nValue);
+				SetAskFillamounts(received_assetoshis, remaining_nValue, orig_assetoshis, paid_nValue, orig_nValue);
 
             if (assetid2 != zeroid && inputs > paid_nValue)
                 CCchange = (inputs - paid_nValue);

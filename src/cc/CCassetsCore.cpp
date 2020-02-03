@@ -77,63 +77,63 @@ bool ValidateBidRemainder(int64_t remaining_units, int64_t remaining_nValue, int
     return(true);
 }
 
-bool SetBidFillamounts(int64_t &received_nValue, int64_t &remaining_units, int64_t orig_nValue, int64_t &paid_units, int64_t vin_remaining_units)
+bool SetBidFillamounts(int64_t &received_nValue, int64_t &remaining_units, int64_t orig_nValue, int64_t &paid_units, int64_t orig_remaining_units)
 {
     int64_t remaining_nValue, unit_price; double dprice;
 
-    if (vin_remaining_units == 0)
+    if (orig_remaining_units == 0)
     {
         received_nValue = remaining_units = paid_units = 0;
         return(false);
     }
-    if (paid_units >= vin_remaining_units)
+    if (paid_units >= orig_remaining_units)
     {
-        paid_units = vin_remaining_units;
+        paid_units = orig_remaining_units;
         received_nValue = orig_nValue;
         remaining_units = 0;
         fprintf(stderr, "%s bid order totally filled!\n", __func__);
         return(true);
     }
-    remaining_units = (vin_remaining_units - paid_units);
+    remaining_units = (orig_remaining_units - paid_units);
     //unitprice = (orig_nValue * COIN) / totalunits;
     //received_nValue = (paidunits * unitprice) / COIN;
-    unit_price = (orig_nValue / vin_remaining_units);
+    unit_price = (orig_nValue / orig_remaining_units);
     received_nValue = (paid_units * unit_price);
     if (unit_price > 0 && received_nValue > 0 && received_nValue <= orig_nValue)
     {
         remaining_nValue = (orig_nValue - received_nValue);
-        fprintf(stderr, "%s vin_remaining_units.%llu - paid_units.%llu, remaining_value %llu <- %llu (orig_value.%llu - received_value.%llu)\n", __func__, (long long)vin_remaining_units, (long long)paid_units, (long long)remaining_nValue, (long long)(orig_nValue - received_nValue), (long long)orig_nValue, (long long)received_nValue);
-        return (ValidateBidRemainder(remaining_units, remaining_nValue, orig_nValue, received_nValue, paid_units, vin_remaining_units));
+        fprintf(stderr, "%s orig_remaining_units.%llu - paid_units.%llu, remaining_value %llu <- %llu (orig_value.%llu - received_value.%llu)\n", __func__, (long long)orig_remaining_units, (long long)paid_units, (long long)remaining_nValue, (long long)(orig_nValue - received_nValue), (long long)orig_nValue, (long long)received_nValue);
+        return (ValidateBidRemainder(remaining_units, remaining_nValue, orig_nValue, received_nValue, paid_units, orig_remaining_units));
     }
     else 
         return(false);
 }
 
-bool SetAskFillamounts(int64_t &received_assetoshis,int64_t &remaining_nValue,int64_t orig_assetoshis,int64_t &paid_nValue,int64_t vin_nValue)
+bool SetAskFillamounts(int64_t &received_assetoshis, int64_t &remaining_nValue, int64_t orig_assetoshis, int64_t &paid_nValue, int64_t orig_nValue)
 {
     int64_t remaining_assetoshis; double dunit_price;
-    if (vin_nValue == 0)
+    if (orig_nValue == 0)
     {
         received_assetoshis = remaining_nValue = paid_nValue = 0;
         return(false);
     }
-    if (paid_nValue >= vin_nValue)
+    if (paid_nValue >= orig_nValue)
     {
-        paid_nValue = vin_nValue;
+        paid_nValue = orig_nValue;
         received_assetoshis = orig_assetoshis;
         remaining_nValue = 0;
         fprintf(stderr, "%s ask order totally filled!\n", __func__);
         return(true);
     }
-    remaining_nValue = (vin_nValue - paid_nValue);
-    dunit_price = ((double)vin_nValue / orig_assetoshis);
+    remaining_nValue = (orig_nValue - paid_nValue);
+    dunit_price = ((double)orig_nValue / orig_assetoshis);
     received_assetoshis = (paid_nValue / dunit_price);
-    fprintf(stderr, "%s remaining_nValue %.8f (vin_nValue %.8f - paid_nValue %.8f)\n", __func__, (double)remaining_nValue / COIN, (double)vin_nValue / COIN, (double)paid_nValue / COIN);
-    fprintf(stderr, "%s unit_price %.8f received_assetoshis %llu orig_assetoshis %llu\n", __func__, dunit_price / COIN, (long long)received_assetoshis, (long long)orig_assetoshis);
+    fprintf(stderr, "%s remaining_nValue %.8f (orig_nValue %.8f - paid_nValue %.8f)\n", __func__, (double)remaining_nValue / COIN, (double)orig_nValue / COIN, (double)paid_nValue / COIN);
+    fprintf(stderr, "%s orig unit_price %.8f received_assetoshis %llu orig_assetoshis %llu\n", __func__, dunit_price / COIN, (long long)received_assetoshis, (long long)orig_assetoshis);
     if (fabs(dunit_price) > SMALLVAL && received_assetoshis > 0 && received_assetoshis <= orig_assetoshis)
     {
         remaining_assetoshis = (orig_assetoshis - received_assetoshis);
-        return(ValidateAskRemainder(remaining_nValue, remaining_assetoshis, orig_assetoshis, received_assetoshis, paid_nValue, vin_nValue));
+        return(ValidateAskRemainder(remaining_nValue, remaining_assetoshis, orig_assetoshis, received_assetoshis, paid_nValue, orig_nValue));
     }
     else 
         return(false);
@@ -175,7 +175,7 @@ bool ValidateAskRemainder(int64_t remaining_nValue, int64_t remaining_assetoshis
     return(true);
 }
 
-bool SetSwapFillamounts(int64_t &received_assetoshis,int64_t &remaining_assetoshis2,int64_t orig_assetoshis,int64_t &paid_assetoshis2,int64_t total_assetoshis2)
+bool SetSwapFillamounts(int64_t &received_assetoshis, int64_t &remaining_assetoshis2, int64_t orig_assetoshis, int64_t &paid_assetoshis2, int64_t total_assetoshis2)
 {
 	int64_t remaining_assetoshis; double dunitprice;
 	if ( total_assetoshis2 == 0 )
