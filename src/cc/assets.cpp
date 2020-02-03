@@ -134,7 +134,7 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
     CTransaction vinTx, createTx; 
     uint256 hashBlock, assetid, assetid2; 
 	int32_t i,starti, numvins, numvouts, preventCCvins, preventCCvouts; 
-	int64_t remaining_units, nValue, assetoshis, outputsDummy,inputs,tmpprice,orig_remaining_units,ignore; 
+	int64_t remaining_units, nValue, assetoshis, outputsDummy, inputs, orig_remaining_units; 
     std::vector<uint8_t> origpubkey, tmporigpubkey, ignorepubkey, vopretNonfungible, vopretNonfungibleDummy;
 	uint8_t funcid, evalCodeInOpret; 
 	char destaddr[64], origNormalAddr[64], origTokensCCaddr[64], origCCaddrDummy[64]; 
@@ -262,7 +262,7 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //vout.1: vin.2 back to users pubkey
             //vout.2: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['o']
-            if( (nValue= AssetValidateBuyvin(cpAssets, eval, tmpprice, tmporigpubkey, origCCaddrDummy, origNormalAddr, tx, assetid)) == 0 )
+            if( (nValue= AssetValidateBuyvin(cpAssets, eval, orig_remaining_units, tmporigpubkey, origCCaddrDummy, origNormalAddr, tx, assetid)) == 0 )
                 return(false);
             else if( ConstrainVout(tx.vout[0],0, origNormalAddr, nValue) == 0 )
                 return eval->Invalid("invalid refund for cancelbuy");
@@ -366,7 +366,7 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
             //vout.2: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['x'] [assetid]
 
-            if( (assetoshis = AssetValidateSellvin(cpAssets, eval, tmpprice, tmporigpubkey, origTokensCCaddr, origNormalAddr, tx, assetid)) == 0 )  // NOTE: 
+            if( (assetoshis = AssetValidateSellvin(cpAssets, eval, orig_remaining_units, tmporigpubkey, origTokensCCaddr, origNormalAddr, tx, assetid)) == 0 )  // NOTE: 
                 return(false);
             else if( ConstrainVout(tx.vout[0], 1, origTokensCCaddr, assetoshis) == 0 )      // tokens returning to originator cc addr
                 return eval->Invalid("invalid vout for cancel");
@@ -392,8 +392,6 @@ bool AssetsValidate(struct CCcontract_info *cpAssets,Eval* eval,const CTransacti
                 return eval->Invalid("not enough vouts for fillask");
             else if( tmporigpubkey != origpubkey )
                 return eval->Invalid("mismatched origpubkeys for fillask");
-            else if( tmpprice != 000)
-                return eval->Invalid("can't change price");
             else
             {
                 if( assetoshis != tx.vout[0].nValue + tx.vout[1].nValue )
