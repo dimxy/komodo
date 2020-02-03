@@ -43,17 +43,17 @@ bool ValidateBidRemainder(int64_t remaining_units, int64_t remaining_nValue, int
     int64_t unit_price, received_unit_price, new_unit_price = 0;
     if (orig_nValue == 0 || received_nValue == 0 || paid_units == 0 || orig_remaining_units == 0)
     {
-        fprintf(stderr, "%s can't be null one of those: orig_nValue == %llu || received_nValue == %llu || paid_units == %llu || vin_remaining_units == %llu\n", __func__, (long long)orig_nValue, (long long)received_nValue, (long long)paid_units, (long long)orig_remaining_units);
+        fprintf(stderr, "%s error any of these values can't be null: orig_nValue == %llu || received_nValue == %llu || paid_units == %llu || vin_remaining_units == %llu\n", __func__, (long long)orig_nValue, (long long)received_nValue, (long long)paid_units, (long long)orig_remaining_units);
         return(false);
     }
     else if (orig_remaining_units != (remaining_units + paid_units))
     {
-        fprintf(stderr, "%s orig_remaining_units %llu != %llu (remaining_units %llu + %llu paid_units)\n", __func__, (long long)orig_remaining_units, (long long)(remaining_units + paid_units), (long long)remaining_units, (long long)paid_units);
+        fprintf(stderr, "%s error orig_remaining_units %llu != %llu (remaining_units %llu + %llu paid_units)\n", __func__, (long long)orig_remaining_units, (long long)(remaining_units + paid_units), (long long)remaining_units, (long long)paid_units);
         return(false);
     }
     else if (orig_nValue != (remaining_nValue + received_nValue))
     {
-        fprintf(stderr, "%s orig_nValue %llu != %llu (remaining_nValue %llu + %llu received_nValue)\n", __func__, (long long)orig_nValue, (long long)(remaining_nValue - received_nValue), (long long)remaining_nValue, (long long)received_nValue);
+        fprintf(stderr, "%s error orig_nValue %llu != %llu (remaining_nValue %llu + %llu received_nValue)\n", __func__, (long long)orig_nValue, (long long)(remaining_nValue - received_nValue), (long long)remaining_nValue, (long long)received_nValue);
         return(false);
     }
     else
@@ -144,17 +144,17 @@ bool ValidateAskRemainder(int64_t remaining_nValue, int64_t remaining_assetoshis
     int64_t unit_price, paid_unit_price, new_unit_price = 0;
     if (orig_assetoshis == 0 || received_assetoshis == 0 || paid_nValue == 0 || orig_nValue == 0)
     {
-        fprintf(stderr, "%s orig_assetoshis == %llu || received_assetoshis == %llu || paid_nValue == %llu || total_nValue == %llu\n", __func__, (long long)orig_assetoshis, (long long)received_assetoshis, (long long)paid_nValue, (long long)orig_nValue);
+        fprintf(stderr, "%s error any of these values can't be null: orig_assetoshis == %llu || received_assetoshis == %llu || paid_nValue == %llu || total_nValue == %llu\n", __func__, (long long)orig_assetoshis, (long long)received_assetoshis, (long long)paid_nValue, (long long)orig_nValue);
         return(false);
     }
     else if (orig_nValue != (remaining_nValue + paid_nValue))
     {
-        fprintf(stderr, "%s orig_nValue %llu != %llu (remaining_nValue %llu + paid_nValue %llu \n", __func__, (long long)orig_nValue, (long long)(remaining_nValue + paid_nValue), (long long)remaining_nValue, (long long)paid_nValue);
+        fprintf(stderr, "%s error orig_nValue %llu != %llu (remaining_nValue %llu + paid_nValue %llu \n", __func__, (long long)orig_nValue, (long long)(remaining_nValue + paid_nValue), (long long)remaining_nValue, (long long)paid_nValue);
         return(false);
     }
     else if (orig_assetoshis != (remaining_assetoshis + received_assetoshis))
     {
-        fprintf(stderr, "%s orig_assetoshis %llu != %llu (remaining_nValue %llu + received_nValue %llu)\n", __func__, (long long)orig_assetoshis, (long long)(remaining_assetoshis - received_assetoshis), (long long)remaining_assetoshis, (long long)received_assetoshis);
+        fprintf(stderr, "%s error orig_assetoshis %llu != %llu (remaining_nValue %llu + received_nValue %llu)\n", __func__, (long long)orig_assetoshis, (long long)(remaining_assetoshis - received_assetoshis), (long long)remaining_assetoshis, (long long)received_assetoshis);
         return(false);
     }
     else
