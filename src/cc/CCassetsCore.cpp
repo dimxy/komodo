@@ -69,6 +69,7 @@ bool ValidateBidRemainder(int64_t remaining_units, int64_t remaining_nValue, int
         if (received_unit_price > unit_price) // can't satisfy bid by sending tokens of higher unit price than requested
         {
             fprintf(stderr, "%s error can't satisfy bid with higher unit price: received_unit_price %.8f > unit_price %.8f, new_unit_price %.8f\n", __func__, (double)received_unit_price / (COIN), (double)unit_price / (COIN), (double)new_unit_price / (COIN));
+            CCLogPrintF("ccassets", CCLOG_INFO, "%s error can't satisfy bid with higher unit price: received_unit_price %.8f > unit_price %.8f, new_unit_price %.8f\n", __func__, (double)received_unit_price / (COIN), (double)unit_price / (COIN), (double)new_unit_price / (COIN));
             return(false);
         }
         fprintf(stderr, "%s orig_nValue %llu orig_remaining_units %llu, received_nValue %llu paid_units %llu, received_unit_price %.8f >= %.8f unit_price, new_unit_price %.8f\n", __func__, (long long)orig_nValue, (long long)orig_remaining_units, (long long)received_nValue, (long long)paid_units, (double)received_unit_price / (COIN), (double)unit_price / (COIN), (double)new_unit_price / (COIN));
@@ -162,9 +163,11 @@ bool ValidateAskRemainder(int64_t remaining_nValue, int64_t remaining_assetoshis
         paid_unit_price = (paid_nValue / received_assetoshis);
         if (remaining_nValue != 0)
             new_unit_price = (remaining_nValue / remaining_assetoshis);  // for debug printing
-        if (paid_unit_price < unit_price)  // can't pay for ask with less price than requested
+        if (paid_unit_price < unit_price)  // can't pay for ask with lower unit price than requested
         {
-            fprintf(stderr, "%s error can't pay for ask with less price: paid_unit_price %.8f < %.8f unit_price, new_unit_price %.8f\n", __func__, (double)paid_unit_price / COIN, (double)unit_price / COIN, (double)new_unit_price / COIN);
+            fprintf(stderr, "%s error can't pay for ask with lower price: paid_unit_price %.8f < %.8f unit_price, new_unit_price %.8f\n", __func__, (double)paid_unit_price / COIN, (double)unit_price / COIN, (double)new_unit_price / COIN);
+            CCLogPrintF("ccassets", CCLOG_INFO, "%s error can't pay for ask with lower price: paid_unit_price %.8f < %.8f unit_price, new_unit_price %.8f\n", __func__, (double)paid_unit_price / COIN, (double)unit_price / COIN, (double)new_unit_price / COIN);
+
             return(false);
         }
         fprintf(stderr, "%s got paid_unit_price %.8f >= unit_price %.8f, new_unit_price %.8f\n", __func__, (double)paid_unit_price / COIN, (double)unit_price / COIN, (double)new_unit_price / COIN);
