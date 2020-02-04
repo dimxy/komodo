@@ -440,12 +440,12 @@ int32_t oracle_format(uint256 *hashp,int64_t *valp,char *str,uint8_t fmt,uint8_t
 /// @param tokenid id of token which inputs to add
 /// @param total amount to add (if total==0 no inputs are added and all available amount is returned)
 /// @param maxinputs maximum number of inputs to add. If 0 then CC_MAXVINS define is used
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs);
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs, bool usemempool = false);
 
 /// An overload that also returns NFT data in vopretNonfungible parameter
 /// the rest parameters are the same as in the first AddTokenCCInputs overload
 /// @see AddTokenCCInputs
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs);
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, bool usemempool = false);
 
 /// Checks if a transaction vout is true token vout, for this check pubkeys and eval code in token opreturn are used to recreate vout and compare it with the checked vout.
 /// Verifies that the transaction total token inputs value equals to total token outputs (that is, token balance is not changed in this transaction)
@@ -933,7 +933,13 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t skipmask, struct CCcontract_info 
 /// @param[out] unspentOutputs vector of pairs of address key and amount
 /// @param coinaddr address where unspent outputs are searched
 /// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
-void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool CCflag = true);
+void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool CCflag = true);
+
+/// returns a vector of unspent outputs in mempool for an address
+/// @param[out] unspentOutputs vector of pairs of address key and amount
+/// @param coinaddr address where unspent outputs are searched
+/// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
+void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC);
 
 /// SetCCtxids returns a vector of all outputs on an address
 /// @param[out] addressIndex vector of pairs of address index key and amount
