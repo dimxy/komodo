@@ -25,6 +25,9 @@
 
 #include "CCinclude.h"
 
+#define TOKEN_MARKER_VALUE 10000
+#define TOKEN_MARKER_VOUT 0
+
 // CCcustom
 bool TokensValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn);
 bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cpTokens, int64_t &inputs, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 tokenid);

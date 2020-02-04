@@ -7655,7 +7655,7 @@ UniValue tokencancelbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
 UniValue tokenfillbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); int64_t fillamount; std::string hex; uint256 tokenid,bidtxid;
-    CCerror.clear;
+    CCerror.clear();
     if ( fHelp || params.size() != 3 )
         throw runtime_error("tokenfillbid tokenid bidtxid fillamount\n");
     if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)

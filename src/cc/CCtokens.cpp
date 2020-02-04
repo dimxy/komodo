@@ -829,7 +829,7 @@ std::string CreateToken(int64_t txfee, int64_t tokensupply, std::string name, st
 		txfee = 10000;
 	mypk = pubkey2pk(Mypubkey());
 
-	if (AddNormalinputs2(mtx, tokensupply + 2 * txfee, 64) > 0)  // add normal inputs only from mypk
+	if (AddNormalinputs2(mtx, tokensupply + txfee + TOKEN_MARKER_VALUE, 64) > 0)  // add normal inputs only from mypk
 	{
         int64_t mypkInputs = TotalPubkeyNormalInputs(mtx, mypk);  
         if (mypkInputs < tokensupply) {     // check that tokens amount are really issued with mypk (because in the wallet there maybe other privkeys)
@@ -842,7 +842,7 @@ std::string CreateToken(int64_t txfee, int64_t tokensupply, std::string name, st
             destEvalCode = nonfungibleData.begin()[0];
 
         // NOTE: we should prevent spending fake-tokens from this marker in IsTokenvout():
-        mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, txfee, GetUnspendable(cp, NULL)));            // new marker to token cc addr, burnable and validated, vout pos now changed to 0 (from 1)
+        mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, TOKEN_MARKER_VALUE, GetUnspendable(cp, NULL)));            // new marker to token cc addr, burnable and validated, vout pos now changed to 0 (from 1)
 		mtx.vout.push_back(MakeTokensCC1vout(destEvalCode, tokensupply, mypk));
 		//mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(cp->CChexstr) << OP_CHECKSIG));  // old marker (non-burnable because spending could not be validated)
         //mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, txfee, GetUnspendable(cp, NULL)));          // ...moved to vout=0 for matching with rogue-game token
@@ -1034,27 +1034,28 @@ UniValue TokenList()
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressIndexCCMarker;
 
 	struct CCcontract_info *cp, C; uint256 txid, hashBlock;
-	CTransaction vintx; std::vector<uint8_t> origpubkey;
+	CTransaction tokentx; std::vector<uint8_t> origpubkey;
 	std::string name, description;
 
 	cp = CCinit(&C, EVAL_TOKENS);
 
     auto addTokenId = [&](uint256 txid) {
-        if (myGetTransaction(txid, vintx, hashBlock) != 0) {
-            if (vintx.vout.size() > 0 && DecodeTokenCreateOpRet(vintx.vout[vintx.vout.size() - 1].scriptPubKey, origpubkey, name, description) != 0) {
+        if (myGetTransaction(txid, tokentx, hashBlock) != 0) {
+            if (tokentx.vout.size() > 0 && DecodeTokenCreateOpRet(tokentx.vout.back().scriptPubKey, origpubkey, name, description) != 0) {
                 result.push_back(txid.GetHex());
             }
         }
     };
 
-	SetCCtxids(txids, cp->normaladdr,false,cp->evalcode,zeroid,'c');                      // find by old normal addr marker
+	SetCCtxids(txids, cp->normaladdr, false, cp->evalcode, zeroid, 'c');                      // find by old normal addr marker
    	for (std::vector<uint256>::const_iterator it = txids.begin(); it != txids.end(); it++) 	{
         addTokenId(*it);
 	}
 
-    SetCCunspents(addressIndexCCMarker, cp->unspendableCCaddr,true);    // find by burnable validated cc addr marker
+    SetCCunspents(addressIndexCCMarker, cp->unspendableCCaddr, true);    // find by burnable validated cc addr marker
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressIndexCCMarker.begin(); it != addressIndexCCMarker.end(); it++) {
-        addTokenId(it->first.txhash);
+        if (it->first.index == TOKEN_MARKER_VOUT && it->second.satoshis == TOKEN_MARKER_VALUE)
+            addTokenId(it->first.txhash);
     }
 
 	return(result);
