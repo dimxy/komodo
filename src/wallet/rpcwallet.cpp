@@ -7396,7 +7396,7 @@ UniValue tokenbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
     UniValue result(UniValue::VOBJ); uint256 tokenid; uint64_t balance; std::vector<unsigned char> pubkey; struct CCcontract_info *cp,C;
 	CCerror.clear();
 
-    if ( fHelp || params.size() > 2 )
+    if ( fHelp || params.size() < 1 || params.size() > 2 )
         throw runtime_error("tokenbalance tokenid [pubkey]\n");
     if ( ensure_CCrequirements(EVAL_TOKENS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
@@ -7480,12 +7480,14 @@ UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
 
     hextx = CreateToken(0, supply, name, description, nonfungibleData);
+    RETURN_IF_ERROR(CCerror);
+
     if( hextx.size() > 0 )     {
         result.push_back(Pair("result", "success"));
         result.push_back(Pair("hex", hextx));
     } 
-    else 
-        ERR_RESULT(CCerror);
+    else
+        ERR_RESULT("could not create token");
     return(result);
 }
 
@@ -7520,20 +7522,21 @@ UniValue tokentransfer(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
 
     hex = TokenTransfer(0, tokenid, pubkey, amount);
-
-    if( !CCerror.empty() )   {
-        ERR_RESULT(CCerror);
-    }
-    else {
+    RETURN_IF_ERROR(CCerror);
+    if (hex.size() > 0)
+    {
         result.push_back(Pair("result", "success"));
         result.push_back(Pair("hex", hex));
     }
+    else
+        ERR_RESULT("could not transfer token");
     return(result);
 }
 
 UniValue tokenconvert(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); std::string hex; int32_t evalcode; int64_t amount; uint256 tokenid;
+    CCerror.clear();
     if ( fHelp || params.size() != 4 )
         throw runtime_error("tokenconvert evalcode tokenid pubkey amount\n");
     if ( ensure_CCrequirements(EVAL_ASSETS) < 0 )
@@ -7575,6 +7578,8 @@ UniValue tokenconvert(const UniValue& params, bool fHelp, const CPubKey& mypk)
 UniValue tokenbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); int64_t bidamount,numtokens; std::string hex; double price; uint256 tokenid;
+
+    CCerror.clear();
     if ( fHelp || params.size() != 3 )
         throw runtime_error("tokenbid numtokens tokenid price\n");
     if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
@@ -7602,12 +7607,16 @@ UniValue tokenbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
         return(result);
     }
     hex = CreateBuyOffer(0,bidamount,tokenid,numtokens);
-    if (price > 0 && numtokens > 0) {
-        if ( hex.size() > 0 )
+    RETURN_IF_ERROR(CCerror);
+    if (price > 0 && numtokens > 0) 
+    {
+        if (hex.size() > 0)
         {
             result.push_back(Pair("result", "success"));
             result.push_back(Pair("hex", hex));
-        } else ERR_RESULT("couldnt create bid");
+        } 
+        else 
+            ERR_RESULT("couldnt create bid");
     } else {
         ERR_RESULT("price and numtokens must be positive");
     }
@@ -7617,6 +7626,7 @@ UniValue tokenbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
 UniValue tokencancelbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); std::string hex; int32_t i; uint256 tokenid,bidtxid;
+    CCerror.clear();
     if ( fHelp || params.size() != 2 )
         throw runtime_error("tokencancelbid tokenid bidtxid\n");
     if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
@@ -7631,17 +7641,21 @@ UniValue tokencancelbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
         return(result);
     }
     hex = CancelBuyOffer(0,tokenid,bidtxid);
-    if ( hex.size() > 0 )
+    RETURN_IF_ERROR(CCerror);
+    if (hex.size() > 0)
     {
         result.push_back(Pair("result", "success"));
         result.push_back(Pair("hex", hex));
-    } else ERR_RESULT("couldnt cancel bid");
+    } 
+    else 
+        ERR_RESULT("couldnt cancel bid");
     return(result);
 }
 
 UniValue tokenfillbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); int64_t fillamount; std::string hex; uint256 tokenid,bidtxid;
+    CCerror.clear;
     if ( fHelp || params.size() != 3 )
         throw runtime_error("tokenfillbid tokenid bidtxid fillamount\n");
     if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
@@ -7663,17 +7677,22 @@ UniValue tokenfillbid(const UniValue& params, bool fHelp, const CPubKey& mypk)
         return(result);
     }
     hex = FillBuyOffer(0,tokenid,bidtxid,fillamount);
-    if ( hex.size() > 0 )
+    RETURN_IF_ERROR(CCerror);
+    if (hex.size() > 0)
     {
         result.push_back(Pair("result", "success"));
         result.push_back(Pair("hex", hex));
-    } else ERR_RESULT("couldnt fill bid");
+    } 
+    else 
+        ERR_RESULT("couldnt fill bid");
     return(result);
 }
 
 UniValue tokenask(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); int64_t askamount,numtokens; std::string hex; double price; uint256 tokenid;
+
+    CCerror.clear();
     if ( fHelp || params.size() != 3 )
         throw runtime_error("tokenask numtokens tokenid price\n");
     if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
@@ -7692,15 +7711,15 @@ UniValue tokenask(const UniValue& params, bool fHelp, const CPubKey& mypk)
         return(result);
     }
     hex = CreateSell(0,numtokens,tokenid,askamount);
-    if (price > 0 && numtokens > 0) {
-        if ( hex.size() > 0 )
-        {
-            result.push_back(Pair("result", "success"));
-            result.push_back(Pair("hex", hex));
-        } else ERR_RESULT("couldnt create ask");
-    } else {
-        ERR_RESULT("price and numtokens must be positive");
-    }
+    RETURN_IF_ERROR(CCerror);
+    if (hex.size() > 0)
+    {
+        result.push_back(Pair("result", "success"));
+        result.push_back(Pair("hex", hex));
+    } 
+    else 
+        ERR_RESULT("couldnt create ask");
+    
     return(result);
 }
 
@@ -7708,6 +7727,8 @@ UniValue tokenswapask(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     static uint256 zeroid;
     UniValue result(UniValue::VOBJ); int64_t askamount,numtokens; std::string hex; double price; uint256 tokenid,otherid;
+
+    CCerror.clear();
     if ( fHelp || params.size() != 4 )
         throw runtime_error("tokenswapask numtokens tokenid otherid price\n");
     if ( ensure_CCrequirements(EVAL_ASSETS) < 0 )
@@ -7721,6 +7742,7 @@ UniValue tokenswapask(const UniValue& params, bool fHelp, const CPubKey& mypk)
     price = atof(params[3].get_str().c_str());
     askamount = (price * numtokens);
     hex = CreateSwap(0,numtokens,tokenid,otherid,askamount);
+    RETURN_IF_ERROR(CCerror);
     if (price > 0 && numtokens > 0) {
         if ( hex.size() > 0 )
         {
@@ -7736,6 +7758,8 @@ UniValue tokenswapask(const UniValue& params, bool fHelp, const CPubKey& mypk)
 UniValue tokencancelask(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); std::string hex; int32_t i; uint256 tokenid,asktxid;
+
+    CCerror.clear();
     if ( fHelp || params.size() != 2 )
         throw runtime_error("tokencancelask tokenid asktxid\n");
     if (ensure_CCrequirements(EVAL_ASSETS) < 0 || ensure_CCrequirements(EVAL_TOKENS) < 0)
@@ -7744,17 +7768,20 @@ UniValue tokencancelask(const UniValue& params, bool fHelp, const CPubKey& mypk)
     LOCK2(cs_main, pwalletMain->cs_wallet);
     tokenid = Parseuint256((char *)params[0].get_str().c_str());
     asktxid = Parseuint256((char *)params[1].get_str().c_str());
-    if ( tokenid == zeroid || asktxid == zeroid )
+    if (tokenid == zeroid || asktxid == zeroid)
     {
         result.push_back(Pair("error", "invalid parameter"));
         return(result);
     }
     hex = CancelSell(0,tokenid,asktxid);
-    if ( hex.size() > 0 )
+    RETURN_IF_ERROR(CCerror);
+    if (hex.size() > 0)
     {
         result.push_back(Pair("result", "success"));
         result.push_back(Pair("hex", hex));
-    } else ERR_RESULT("couldnt cancel ask");
+    } 
+    else 
+        ERR_RESULT("couldnt cancel ask");
     return(result);
 }
 
@@ -7782,10 +7809,10 @@ UniValue tokenfillask(const UniValue& params, bool fHelp, const CPubKey& mypk)
         return(result);
     }
     hex = FillSell(0,tokenid,zeroid,asktxid,fillunits);
-    if (fillunits > 0) {
-        if (CCerror != "") {
-            ERR_RESULT(CCerror);
-        } else if ( hex.size() > 0) {
+    RETURN_IF_ERROR(CCerror);
+    if (fillunits > 0) 
+    {
+        if (hex.size() > 0) {
             result.push_back(Pair("result", "success"));
             result.push_back(Pair("hex", hex));
         } else {
@@ -7801,6 +7828,7 @@ UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     static uint256 zeroid;
     UniValue result(UniValue::VOBJ); int64_t fillunits; std::string hex; uint256 tokenid,otherid,asktxid;
+    CCerror.clear();
     if ( fHelp || params.size() != 4 )
         throw runtime_error("tokenfillswap tokenid otherid asktxid fillunits\n");
     if ( ensure_CCrequirements(EVAL_ASSETS) < 0 )
@@ -7813,6 +7841,7 @@ UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& mypk)
     //fillunits = atol(params[3].get_str().c_str());
 	fillunits = atoll(params[3].get_str().c_str());  // dimxy changed to prevent loss of significance
     hex = FillSell(0,tokenid,otherid,asktxid,fillunits);
+    RETURN_IF_ERROR(CCerror);
     if (fillunits > 0) {
         if ( hex.size() > 0 ) {
             result.push_back(Pair("result", "success"));
