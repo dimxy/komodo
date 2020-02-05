@@ -109,31 +109,33 @@ bool SetBidFillamounts(int64_t &received_nValue, int64_t &remaining_units, int64
         return(false);
 }
 
-bool SetAskFillamounts(int64_t &received_assetoshis, int64_t &remaining_nValue, int64_t orig_assetoshis, int64_t &paid_nValue, int64_t orig_nValue)
+bool SetAskFillamounts(int64_t &fill_assetoshis, int64_t &remaining_nValue, int64_t orig_assetoshis, int64_t &paid_nValue, int64_t orig_nValue)
 {
-    int64_t remaining_assetoshis; double dunit_price;
+    int64_t remaining_assetoshis; 
+    double dunit_price;
+
     if (orig_nValue == 0)
     {
-        received_assetoshis = remaining_nValue = paid_nValue = 0;
+        remaining_nValue = paid_nValue = 0;
         return(false);
     }
     if (paid_nValue >= orig_nValue)
     {
         paid_nValue = orig_nValue;
-        received_assetoshis = orig_assetoshis;
+        fill_assetoshis = orig_assetoshis;
         remaining_nValue = 0;
         fprintf(stderr, "%s ask order totally filled!\n", __func__);
         return(true);
     }
     remaining_nValue = (orig_nValue - paid_nValue);
     dunit_price = ((double)orig_nValue / orig_assetoshis);
-    received_assetoshis = (paid_nValue / dunit_price);
+    //fill_assetoshis = (paid_nValue / dunit_price);  // back conversion -> could be loss of value
     fprintf(stderr, "%s remaining_nValue %.8f (orig_nValue %.8f - paid_nValue %.8f)\n", __func__, (double)remaining_nValue / COIN, (double)orig_nValue / COIN, (double)paid_nValue / COIN);
-    fprintf(stderr, "%s orig unit_price %.8f received_assetoshis %llu orig_assetoshis %llu\n", __func__, dunit_price / COIN, (long long)received_assetoshis, (long long)orig_assetoshis);
-    if (fabs(dunit_price) > SMALLVAL && received_assetoshis > 0 && received_assetoshis <= orig_assetoshis)
+    fprintf(stderr, "%s orig unit_price %.8f received_assetoshis %llu orig_assetoshis %llu\n", __func__, dunit_price / COIN, (long long)fill_assetoshis, (long long)orig_assetoshis);
+    if (fabs(dunit_price) > SMALLVAL && fill_assetoshis > 0 && fill_assetoshis <= orig_assetoshis)
     {
-        remaining_assetoshis = (orig_assetoshis - received_assetoshis);
-        return(ValidateAskRemainder(remaining_nValue, remaining_assetoshis, orig_assetoshis, received_assetoshis, paid_nValue, orig_nValue));
+        remaining_assetoshis = (orig_assetoshis - fill_assetoshis);
+        return(ValidateAskRemainder(remaining_nValue, remaining_assetoshis, orig_assetoshis, fill_assetoshis, paid_nValue, orig_nValue));
     }
     else 
         return(false);
