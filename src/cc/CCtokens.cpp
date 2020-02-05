@@ -277,11 +277,9 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true
 			if (!isValid) 
             {
 				// if ccInputs != ccOutputs and it is not the tokenbase tx 
-				// this means it is possibly a fake tx (dimxy):
-				//if (reftokenid != tx.GetHash()) {	// checking that this is the true tokenbase tx, by verifying that funcid=c, is done further in this function (dimxy)
-                LOGSTREAMFN("cctokens", CCLOG_INFO, stream << indentStr << "warning: detected a bad vintx=" << tx.GetHash().GetHex() << ": cc inputs != cc outputs and not the 'tokenbase' tx or not my token, skipping the verified tx" << std::endl);
+				// this means it is possibly a fake tx or not my tokenid, should be skipped (dimxy):
+                LOGSTREAMFN("cctokens", CCLOG_INFO, stream << indentStr << "warning: for tokenid=" << reftokenid.GetHex() << " detected a bad token tx=" << tx.GetHash().GetHex() << ": cc inputs != cc outputs and not the 'tokenbase' or not my tokenid" << std::endl);
 				return -1; // error
-				//}
 			}
 		}
 
@@ -519,12 +517,12 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, CAmount &inpu
                 tokenValIndentSize++;
 				tokenoshis = IsTokensvout(goDeeper, true, cpTokens, eval, vinTx, tx.vin[ivin].prevout.n, reftokenid);
 				tokenValIndentSize--;
-				if (tokenoshis >= 0)
+				if (tokenoshis > 0)
 				{
-                    LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "adding vintx.vout for tx.vin[" << ivin << "] tokenoshis=" << tokenoshis << std::endl);
+                    LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "adding to total inputs tx.vin[" << ivin << "] tokenoshis=" << tokenoshis << std::endl);
 					inputs += tokenoshis;
 				}
-                else // -1 is error
+                else if (tokenoshis < 0) // -1 is error
                 {
                     if (eval)  // if called from validation code it is an error
                         LOGSTREAMFN("cctokens", CCLOG_ERROR, stream << indentStr << "invalid token cc input vini=" << ivin << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
@@ -546,9 +544,9 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, CAmount &inpu
 		tokenoshis = IsTokensvout(false /*<--do not recursion here*/, true /*<--exclude non-tokens vouts*/, cpTokens, eval, tx, ivout, reftokenid);
 		tokenValIndentSize--;
 
-		if (tokenoshis >= 0)
+		if (tokenoshis > 0)
 		{
-            LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "adding tx.vout[" << ivout << "] tokenoshis=" << tokenoshis << std::endl);
+            LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "adding to total outputs tx.vout[" << ivout << "] tokenoshis=" << tokenoshis << std::endl);
 			outputs += tokenoshis;
 		}
 	}
