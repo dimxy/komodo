@@ -116,7 +116,7 @@ bool SetAskFillamounts(int64_t &fill_assetoshis, int64_t &remaining_nValue, int6
 
     if (orig_nValue == 0)
     {
-        remaining_nValue = paid_nValue = 0;
+        fill_assetoshis = remaining_nValue = paid_nValue = 0;
         return(false);
     }
     if (paid_nValue >= orig_nValue)
