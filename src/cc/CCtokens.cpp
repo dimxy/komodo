@@ -626,7 +626,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 } */
 
 // overload for non-fungible tokens, adds token inputs from pubkey
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs, bool usemempool)
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs)
 {
     char tokenaddr[64];
 
@@ -639,13 +639,13 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
             cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT
     }
     GetTokensCCaddress(cp, tokenaddr, pk);  // GetTokensCCaddress will use 'additionalTokensEvalcode2'
-    return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs, usemempool);
+    return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs);
 }
 
 
 // overload, adds inputs from token cc addr and returns non-fungible opret payload if present
 // also sets evalcode in cp, if needed
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, bool usemempool)
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs)
 {
 	int64_t threshold, nValue, price, totalinputs = 0;  
 	int32_t n = 0;
@@ -661,8 +661,6 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     }
 
 	SetCCunspents(unspentOutputs, (char*)tokenaddr, true);
-    if (usemempool)
-        SetCCunspentsInMempool(unspentOutputs, (char*)tokenaddr, true);
     if (unspentOutputs.empty()) {
         LOGSTREAM("cctokens", CCLOG_INFO, stream << "AddTokenCCInputs() no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->additionalTokensEvalcode2 << std::endl);
     }
