@@ -16,59 +16,34 @@
 #include "CCtokens.h"
 #include "importcoin.h"
 
-/* TODO: correct this:
------------------------------
- The SetTokenFillamounts() and ValidateTokenRemainder() work in tandem to calculate the vouts for a fill and to validate the vouts, respectively.
- 
- This pair of functions are critical to make sure the trading is correct and is the trickiest part of the tokens contract.
- 
- //vin.0: normal input
- //vin.1: unspendable.(vout.0 from buyoffer) buyTx.vout[0]
- //vin.2+: valid CC output satisfies buyoffer (*tx.vin[2])->nValue
- //vout.0: remaining amount of bid to unspendable
- //vout.1: vin.1 value to signer of vin.2
- //vout.2: vin.2 tokenoshis to original pubkey
- //vout.3: CC output for tokenoshis change (if any)
- //vout.4: normal output for change (if any)
- //vout.n-1: opreturn [EVAL_ASSETS] ['B'] [tokenid] [remaining token required] [origpubkey]
-    ValidateTokenRemainder(remaining_price,tx.vout[0].nValue,nValue,tx.vout[1].nValue,tx.vout[2].nValue,totalunits);
- 
- Yes, this is quite confusing...
- 
- In ValidateTokenRemainder the naming convention is nValue is the coin/token with the offer on the books and "units" is what it is being paid in. The high level check is to make sure we didnt lose any coins or tokens, the harder to validate is the actual price paid as the "orderbook" is in terms of the combined nValue for the combined totalunits.
- 
- We assume that the effective unit cost in the orderbook is valid and that that amount was paid and also that any remainder will be close enough in effective unit cost to not matter. At the edge cases, this will probably be not true and maybe some orders wont be practically fillable when reduced to fractional state. However, the original pubkey that created the offer can always reclaim it.
- ------------------------------
+/* 
+ this is a basic token cc module to provide token creation and transfer to other pubkeys and ensure token integrity (no token leaking or injection)
+ the token integrity is ensured by TokensValidate and IsTokensVout functions
+ tokens are usually used by other cc modules like cc assets
+ for this tokens inputs and outputs basically have two eval codes
+ other cc modules' data is stored in additional opreturn payload:
+ vout.n-1: opreturn EVAL_TOKENS 't' tokenid <other contract payload>
 */
-
-
 
 // tx validation
 bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn)
 {
-	static uint256 zero;
-	CTxDestination address; CTransaction vinTx, createTx; uint256 hashBlock, tokenid, tokenid2;
-	int32_t i, starti, numvins, numvouts, preventCCvins, preventCCvouts;
-	int64_t remaining_price, nValue, tokenoshis, outputs, inputs, tmpprice, totalunits, ignore; 
+    CTransaction createTx; 
+    uint256 hashBlock, tokenid;
     std::vector<std::pair<uint8_t, vscript_t>>  oprets;
-	vscript_t /*vopretExtra,*/ tmporigpubkey, ignorepubkey;
 	uint8_t funcid, evalCodeInOpret;
-	char destaddr[64], origaddr[64], CCaddr[64];
 	std::vector<CPubKey> voutTokenPubkeys, vinTokenPubkeys;
 
+    CAmount inputs = 0ll, outputs = 0LL;
+    // exception for one chain
     if (strcmp(ASSETCHAINS_SYMBOL, "ROGUE") == 0 && chainActive.Height() <= 12500)
         return true;
 
-	numvins = tx.vin.size();
-	numvouts = tx.vout.size();
-	outputs = inputs = 0;
-	preventCCvins = preventCCvouts = -1;
-
     // check boundaries:
-    if (numvouts < 1)
+    if (tx.vout.size() < 1)
         return eval->Invalid("no vouts");
 
-	if ((funcid = DecodeTokenOpRet(tx.vout[numvouts - 1].scriptPubKey, evalCodeInOpret, tokenid, voutTokenPubkeys, oprets)) == 0)
+	if ((funcid = DecodeTokenOpRet(tx.vout.back().scriptPubKey, evalCodeInOpret, tokenid, voutTokenPubkeys, oprets)) == 0)
 		return eval->Invalid("TokenValidate: invalid opreturn payload");
 
     LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << "funcId=" << (char)(funcid?funcid:' ') << " evalcode=" << std::hex << (int)cp->evalcode << std::endl);
@@ -89,8 +64,9 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 		}
 	}
 
-    // validate spending from token cc addr: allowed only for burned non-fungible tokens:
-    if (ExtractTokensCCVinPubkeys(tx, vinTokenPubkeys) && std::find(vinTokenPubkeys.begin(), vinTokenPubkeys.end(), GetUnspendable(cp, NULL)) != vinTokenPubkeys.end()) {
+    // validate spending from token global cc addr: allowed only for burned non-fungible tokens:
+    if (ExtractTokensCCVinPubkeys(tx, vinTokenPubkeys) && std::find(vinTokenPubkeys.begin(), vinTokenPubkeys.end(), GetUnspendable(cp, NULL)) != vinTokenPubkeys.end()) 
+    {
         // validate spending from token unspendable cc addr:
         int64_t burnedAmount = HasBurnedTokensvouts(cp, eval, tx, tokenid);
         if (burnedAmount > 0) {
@@ -106,8 +82,9 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 	case 'c': // token create should not be validated as it has no CC inputs, so return 'invalid'
               // token tx structure for 'c':
 			  //vin.0: normal input
-			  //vout.0: issuance tokenoshis to CC
-			  //vout.1: normal output for change (if any)
+              //vout.0: marker to token global address
+			  //vout.1: issuance tokenoshis to CC
+			  //vout.2: normal output for change (if any)
 			  //vout.n-1: opreturn EVAL_TOKENS 'c' <tokenname> <description>
 		return eval->Invalid("incorrect token funcid");
 		
@@ -121,8 +98,8 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 		if (inputs == 0)
 			return eval->Invalid("no token inputs for transfer");
 
-        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "token transfer preliminarily validated inputs=" << inputs << "->outputs=" << outputs << " preventCCvins=" << preventCCvins<< " preventCCvouts=" << preventCCvouts << std::endl);
-		break;  // breaking to other contract validation...
+        LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "token transfer preliminarily validated inputs=" << inputs << "->outputs=" << outputs << std::endl);
+		break;  
 
 	default:
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "illegal tokens funcid=" << (char)(funcid?funcid:' ') << std::endl);
@@ -289,16 +266,17 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true
 
 	if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition()) 
 	{
-		if (goDeeper) {
-			//validate all tx
-			int64_t myCCVinsAmount = 0, myCCVoutsAmount = 0;
-
+		if (goDeeper) 
+        {
+            CAmount inputs = 0LL, outputs = 0LL;
+			//validate the tx balance:
 			tokenValIndentSize++;
 			// false --> because we already at the 1-st level ancestor tx and do not need to dereference ancestors of next levels
-			bool isEqual = TokensExactAmounts(false, cp, myCCVinsAmount, myCCVoutsAmount, eval, tx, reftokenid);
+			bool isEqual = TokensExactAmounts(false, cp, inputs, outputs, eval, tx, reftokenid);
 			tokenValIndentSize--;
 
-			if (!isEqual) {
+			if (!isEqual) 
+            {
 				// if ccInputs != ccOutputs and it is not the tokenbase tx 
 				// this means it is possibly a fake tx (dimxy):
 				if (reftokenid != tx.GetHash()) {	// checking that this is the true tokenbase tx, by verifying that funcid=c, is done further in this function (dimxy)
@@ -436,8 +414,8 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true
                 }
 
 			}
-			else	{  // funcid == 'c'
-               
+			else	
+            {  // funcid == 'c'   
                 if (!tx.IsCoinImport())   {
 
                     vscript_t vorigPubkey;
@@ -450,7 +428,6 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true
                     }
 
                     CPubKey origPubkey = pubkey2pk(vorigPubkey);
-
 
                     // TODO: add voutPubkeys for 'c' tx
 
@@ -468,7 +445,7 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true
                     int64_t ccOutputs = 0;
                     for (auto vout : tx.vout)
                         if (vout.scriptPubKey.IsPayToCryptoCondition()  //TODO: add voutPubkey validation
-                            && !IsTokenMarkerVout(vout))  // should not be marker here
+                            /*&& !IsTokenMarkerVout(vout)*/)  // should not be marker here
                             ccOutputs += vout.nValue;
 
                     int64_t normalInputs = TotalPubkeyNormalInputs(tx, origPubkey);  // check if normal inputs are really signed by originator pubkey (someone not cheating with originator pubkey)
@@ -476,10 +453,11 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true
 
                     if (normalInputs >= ccOutputs) {
                         LOGSTREAMFN("cctokens", CCLOG_DEBUG2, stream << indentStr << "assured normalInputs >= ccOutputs" << " for tokenbase=" << reftokenid.GetHex() << std::endl);
-                        if (!IsTokenMarkerVout(tx.vout[v]))  // exclude marker
+                        return tx.vout[v].nValue;
+                        /*if (!IsTokenMarkerVout(tx.vout[v]))  // exclude marker
                             return tx.vout[v].nValue;
                         else
-                            return 0; // vout is good, but do not take marker into account
+                            return 0; // vout is good, but do not take marker into account*/
                     } 
                     else {
                         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << indentStr << "skipping vout not fulfilled normalInputs >= ccOutput" << " for tokenbase=" << reftokenid.GetHex() << " normalInputs=" << normalInputs << " ccOutputs=" << ccOutputs << std::endl);
@@ -487,10 +465,11 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true
                 }
                 else   {
                     // imported tokens are checked in the eval::ImportCoin() validation code
-                    if (!IsTokenMarkerVout(tx.vout[v]))  // exclude marker
+                    return tx.vout[v].nValue;
+                    /*if (!IsTokenMarkerVout(tx.vout[v]))  // exclude marker
                         return tx.vout[v].nValue;
                     else
-                        return 0; // vout is good, but do not take marker into account
+                        return 0; // vout is good, but do not take marker into account*/
                 }
 			}
             LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "no valid vouts evalCode=" << (int)evalCode1 << " evalCode2=" << (int)evalCode2 << " for txid=" << tx.GetHash().GetHex() << " for tokenid=" << reftokenid.GetHex() << std::endl);
@@ -501,6 +480,8 @@ int64_t IsTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true
 	return(0);
 }
 
+// check if a vout to tokens global cc address 
+// (only token marker is allowed on the token global cc addr) 
 bool IsTokenMarkerVout(CTxOut vout) {
     struct CCcontract_info *cpTokens, CCtokens_info;
     cpTokens = CCinit(&CCtokens_info, EVAL_TOKENS);
@@ -508,7 +489,7 @@ bool IsTokenMarkerVout(CTxOut vout) {
 }
 
 // compares cc inputs vs cc outputs (to prevent feeding vouts from normal inputs)
-bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, int64_t &inputs, int64_t &outputs, Eval* eval, const CTransaction &tx, uint256 reftokenid)
+bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, CAmount &inputs, CAmount &outputs, Eval* eval, const CTransaction &tx, uint256 reftokenid)
 {
 	CTransaction vinTx; 
 	uint256 hashBlock; 
@@ -519,69 +500,72 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, int64_t &inpu
 
 	int32_t numvins = tx.vin.size();
 	int32_t numvouts = tx.vout.size();
-	inputs = outputs = 0;
+    CAmount markerInputs = 0, markerOutputs = 0;
 
 	// this is just for log messages indentation for debugging recursive calls:
 	std::string indentStr = std::string().append(tokenValIndentSize, '.');
     LOGSTREAMFN("cctokens", CCLOG_DEBUG2, stream << indentStr << " entered for txid=" << tx.GetHash().GetHex() << " for tokenid=" << reftokenid.GetHex() << std::endl);
 
-	for (int32_t i = 0; i<numvins; i++)
-	{												  // check for additional contracts which may send tokens to the Tokens contract
-		if ((*cpTokens->ismyvin)(tx.vin[i].scriptSig) /*|| IsVinAllowed(tx.vin[i].scriptSig) != 0*/)
+	for (int32_t ivin = 0; ivin<numvins; ivin++)
+	{												  
+		if ((*cpTokens->ismyvin)(tx.vin[ivin].scriptSig))
 		{
-			//std::cerr << indentStr << "TokensExactAmounts() eval is true=" << (eval != NULL) << " ismyvin=ok for_i=" << i << std::endl;
-			// we are not inside the validation code -- dimxy
-			if ((eval && !eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock)) || (!eval && !myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock)))
+			if ((eval && !eval->GetTxUnconfirmed(tx.vin[ivin].prevout.hash, vinTx, hashBlock)) || (!eval && !myGetTransaction(tx.vin[ivin].prevout.hash, vinTx, hashBlock)))
 			{
-                LOGSTREAMFN("cctokens", CCLOG_ERROR, stream << indentStr << "cannot read vintx for i." << i << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
+                LOGSTREAMFN("cctokens", CCLOG_ERROR, stream << indentStr << "cannot read vintx for i." << ivin << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
 				return (!eval) ? false : eval->Invalid("always should find vin tx, but didnt");
 			}
 			else 
             {
-                LOGSTREAMFN("cctokens", CCLOG_DEBUG2, stream << indentStr << "checking vintx.vout for tx.vin[" << i << "] nValue=" << vinTx.vout[tx.vin[i].prevout.n].nValue << std::endl);
+                LOGSTREAMFN("cctokens", CCLOG_DEBUG2, stream << indentStr << "checking vintx.vout for tx.vin[" << ivin << "] nValue=" << vinTx.vout[tx.vin[ivin].prevout.n].nValue << std::endl);
 
                 // validate vouts of vintx  
                 tokenValIndentSize++;
-				tokenoshis = IsTokensvout(goDeeper, true, cpTokens, eval, vinTx, tx.vin[i].prevout.n, reftokenid);
+				tokenoshis = IsTokensvout(goDeeper, true, cpTokens, eval, vinTx, tx.vin[ivin].prevout.n, reftokenid);
 				tokenValIndentSize--;
 				if (tokenoshis != 0)
 				{
-                    LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "adding vintx.vout for tx.vin[" << i << "] tokenoshis=" << tokenoshis << std::endl);
+                    LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "adding vintx.vout for tx.vin[" << ivin << "] tokenoshis=" << tokenoshis << std::endl);
 					inputs += tokenoshis;
+                    if (IsTokenMarkerVout(vinTx.vout[tx.vin[ivin].prevout.n]))
+                        markerInputs += tokenoshis;
 				}
-                else
+                else 
                 {
                     if (eval)  // if called from validation code it is an error
-                        LOGSTREAMFN("cctokens", CCLOG_ERROR, stream << indentStr << "invalid token cc input vini=" << i << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
+                        LOGSTREAMFN("cctokens", CCLOG_ERROR, stream << indentStr << "invalid token cc input vini=" << ivin << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
                     else       // if called for vintx level (2) this is just filtering out not my tokens
-                        LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "not this token cc input vini=" << i << " vin txid=" << tx.vin[i].prevout.hash.GetHex() << " n=" << tx.vin[i].prevout.n << std::endl);
-                    return (eval) ? eval->Invalid("invalid token cc input=" + std::to_string(i)) : false;
+                        LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "not this token cc input vini=" << ivin << " vin txid=" << tx.vin[ivin].prevout.hash.GetHex() << " n=" << tx.vin[ivin].prevout.n << std::endl);
+                    return (eval) ? eval->Invalid("invalid token cc input=" + std::to_string(ivin)) : false;
                 }
 			}
 		}
 	}
 
-	for (int32_t i = 0; i < numvouts-1; i ++)  // 'numvouts-1' <-- do not check opret
+	for (int32_t ivout = 0; ivout < numvouts-1; ivout ++)  // 'numvouts-1' <-- do not check opret
 	{
-        LOGSTREAMFN("cctokens", CCLOG_DEBUG2, stream << indentStr << "recursively checking tx.vout[" << i << "] nValue=" << tx.vout[i].nValue << std::endl);
+        LOGSTREAMFN("cctokens", CCLOG_DEBUG2, stream << indentStr << "recursively checking tx.vout[" << ivout << "] nValue=" << tx.vout[ivout].nValue << std::endl);
 
         // Note: we pass in here IsTokenvout(false,...) because we don't need to call TokenExactAmounts() recursively from IsTokensvout here
         // indeed, if we pass 'true' we'll be checking this tx vout again
         tokenValIndentSize++;
-		tokenoshis = IsTokensvout(false /*<--do not recursion here*/, true /*<--exclude non-tokens vouts*/, cpTokens, eval, tx, i, reftokenid);
+		tokenoshis = IsTokensvout(false /*<--do not recursion here*/, true /*<--exclude non-tokens vouts*/, cpTokens, eval, tx, ivout, reftokenid);
 		tokenValIndentSize--;
 
 		if (tokenoshis != 0)
 		{
-            LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "adding tx.vout[" << i << "] tokenoshis=" << tokenoshis << std::endl);
+            LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "adding tx.vout[" << ivout << "] tokenoshis=" << tokenoshis << std::endl);
 			outputs += tokenoshis;
+            if (IsTokenMarkerVout(tx.vout[ivout]))
+                markerOutputs += tokenoshis;  // calc markers in a separate var
 		}
 	}
 
-	if (inputs != outputs) {
+	if (inputs - markerInputs != outputs - markerOutputs) 
+    {
 		if (tx.GetHash() != reftokenid)
             LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << indentStr << "found unequal token cc inputs=" << inputs << " vs cc outputs=" << outputs << " for txid=" << tx.GetHash().GetHex() << " and this is not the create tx" << std::endl);
-		return false;  // do not call eval->Invalid() here!
+        return (eval) ? eval->Invalid("tokens cc inputs != cc outputs") : false;
 	}
 	else
 		return true;
@@ -635,7 +619,6 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 	GetTokensCCaddress(cp, tokenaddr, pk);
 	SetCCunspents(unspentOutputs, tokenaddr,true);
 
-
     if (unspentOutputs.empty()) {
         LOGSTREAMFN("cctokens", CCLOG_INFO, stream << "no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->additionalTokensEvalcode2 << std::endl);
     }
@@ -649,22 +632,20 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
         uint256 vintxid = it->first.txhash;
 		int32_t vout = (int32_t)it->first.index;
 
-		if (it->second.satoshis < threshold)            // this should work also for non-fungible tokens (there should be only 1 satoshi for non-fungible token issue)
-			continue;
+        // do not use threshold as it is possible to do not add the required amount although it might still exist
+		//if (it->second.satoshis < threshold)            // this should work also for non-fungible tokens (there should be only 1 satoshi for non-fungible token issue)
+		//	continue;
 
-        int32_t ivin;
-		for (ivin = 0; ivin < mtx.vin.size(); ivin ++)
-			if (vintxid == mtx.vin[ivin].prevout.hash && vout == mtx.vin[ivin].prevout.n)
-				break;
-		if (ivin != mtx.vin.size()) // that is, the tx.vout is already added to mtx.vin (in some previous calls)
-			continue;
+        if (std::find(mtx.vin.begin(), mtx.vin.end(), [=](const CTxIn &vin) { return (vin.prevout.hash == vintxid && vin.prevout.n == vout);  }) != mtx.vin.end())
+			continue;  // the input is already added to mtx.vin (in some previous calls)
 
 		if (myGetTransaction(vintxid, vintx, hashBlock) != 0)
 		{
 			Getscriptaddress(destaddr, vintx.vout[vout].scriptPubKey);
-			if (strcmp(destaddr, tokenaddr) != 0 && 
-                strcmp(destaddr, cp->unspendableCCaddr) != 0 &&   // TODO: check why this. Should not we add token inputs from unspendable cc addr if mypubkey is used?
-                strcmp(destaddr, cp->unspendableaddr2) != 0)      // or the logic is to allow to spend all available tokens (what about unspendableaddr3)?
+			if (strcmp(destaddr, tokenaddr) != 0 
+                // && strcmp(destaddr, cp->unspendableCCaddr) != 0     // TODO: check why this. Should not we add token inputs from unspendable cc addr if mypubkey is used?
+                // && strcmp(destaddr, cp->unspendableaddr2) != 0      // or the logic is to allow to spend all available tokens (what about unspendableaddr3)?
+                )
 				continue;
 			
             LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << "check vintx vout destaddress=" << destaddr << " amount=" << vintx.vout[vout].nValue << std::endl);
