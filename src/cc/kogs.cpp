@@ -234,16 +234,16 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, KogsBaseObject *baseo
     enc.name = baseobj->nameId;
     enc.description = baseobj->descriptionId;
 
-    int32_t nfees = 2;
+    CAmount normals = txfee + KOGS_NFT_MARKER_AMOUNT;
     if (needBaton)
-        nfees += 2;
+        normals += KOGS_BATON_AMOUNT;
 
-    if (AddNormalinputs(mtx, mypk, nfees * txfee, 8, isRemote) > 0)
+    if (AddNormalinputs(mtx, mypk, normals, 8, isRemote) > 0)
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
-        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, txfee, GetUnspendable(cp, NULL)));  // kogs cc marker
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_NFT_MARKER_AMOUNT, GetUnspendable(cp, NULL)));  // kogs cc marker
         if (needBaton)
-            mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2*txfee, GetUnspendable(cp, NULL))); // initial marker for miners who will create a baton indicating whose turn is first
+            mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, GetUnspendable(cp, NULL))); // initial marker for miners who will create a baton indicating whose turn is first
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
@@ -277,7 +277,7 @@ static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBas
     if (AddNormalinputs(mtx, minerpk, txfee, 8, false) > 0)
     {
         mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
-        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2 * txfee, destpk)); // baton to indicate whose turn is now
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
@@ -320,7 +320,7 @@ static UniValue CreateSlamParamTx(const CPubKey &remotepk, uint256 prevtxid, int
         // TODO: maybe send this baton to 1of2 (kogs global, gametxid) addr? 
         // But now a miner searches games or slamparams utxos on kogs global addr, 
         // so he would have to search on both addresses...  
-        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 2 * txfee, GetUnspendable(cp, NULL))); // baton for miner to indicate the slam data added
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, GetUnspendable(cp, NULL))); // baton for miner to indicate the slam data added
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
@@ -520,10 +520,12 @@ static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, GOCheck
     cp = CCinit(&C, EVAL_KOGS);
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectType=" << (char)objectType << std::endl);
-    SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr marker
+    SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
+    SetCCunspentsInMempool(addressUnspents, cp->unspendableCCaddr, true);
+
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
-        if (it->second.satoshis == 10000) // to differenciate it from baton
+        if (it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // 10000 to differenciate it from batons with 20000
         {
             struct KogsBaseObject *obj = LoadGameObject(it->first.txhash); // parse objectType and unmarshal corresponding gameobject
             if (obj != nullptr && obj->objectType == objectType && (pObjChecker == NULL || (*pObjChecker)(obj)))
@@ -1158,7 +1160,7 @@ UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams
     SetCCunspents(addressUnspents, myccaddr, true);    // look for baton on my cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
-        if (it->second.satoshis == 20000) // picking batons with marker=20000
+        if (it->second.satoshis == KOGS_BATON_AMOUNT) // picking batons with marker=20000
         {
             std::shared_ptr<KogsBaseObject> spbaton(LoadGameObject(it->first.txhash));
             if (spbaton != nullptr && spbaton->objectType == KOGSID_BATON)
@@ -1198,7 +1200,7 @@ static bool IsGameObjectDeleted(uint256 tokenid)
     uint256 spenttxid;
     int32_t vini, height;
 
-    return CCgetspenttxid(spenttxid, vini, height, tokenid, TOKEN_KOGS_MARKER_VOUT) == 0;
+    return CCgetspenttxid(spenttxid, vini, height, tokenid, KOGS_NFT_MARKER_VOUT) == 0;
 }
 
 // create txns to unseal pack and send NFTs to pack owner address
@@ -1258,7 +1260,7 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
             if (results.size() > 0)
             {
                 // create tx removing pack by spending the kogs marker
-                UniValue sigData = KogsRemoveObject(remotepk, packid, TOKEN_KOGS_MARKER_VOUT);
+                UniValue sigData = KogsRemoveObject(remotepk, packid, KOGS_NFT_MARKER_VOUT);
                 if (!ResultHasTx(sigData)) {
                     results.push_back(MakeResultError("can't create pack removal tx: " + CCerror));
                     CCerror.clear(); // clear used CCerror
@@ -1825,7 +1827,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
-        if (it->second.satoshis == 20000) // picking game or slamparam utxos with markers=20000
+        if (it->second.satoshis == KOGS_BATON_AMOUNT) // picking game or slamparam utxos with markers=20000
         {
             LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "found utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << std::endl);
 

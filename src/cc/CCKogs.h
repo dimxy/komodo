@@ -38,7 +38,10 @@ const uint8_t KOGS_VERSION = 1;
 #define KOGS_IS_MATCH_OBJECT(objectType) (objectType == KOGSID_SLAMMER || objectType == KOGSID_KOG)
 
 #define TOKEN_MARKER_VOUT           0   // token global address basic cc marker vout num
-#define TOKEN_KOGS_MARKER_VOUT      2   // additional kogs global address marker vout num for tokens
+#define KOGS_NFT_MARKER_VOUT        2   // additional kogs global address marker vout num for tokens
+
+#define KOGS_NFT_MARKER_AMOUNT      10000   // additional kogs global address marker vout num for tokens
+#define KOGS_BATON_AMOUNT           20000
 
 #define KOGS_ENCLOSURE_MARKER_VOUT  1   // marker vout num for kogs enclosure tx in kogs global address
 
