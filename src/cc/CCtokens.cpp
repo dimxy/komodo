@@ -540,7 +540,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, CAmount &inpu
 	{
         LOGSTREAMFN("cctokens", CCLOG_DEBUG2, stream << indentStr << "recursively checking tx.vout[" << ivout << "] nValue=" << tx.vout[ivout].nValue << std::endl);
 
-        // Note: we pass in here IsTokenvout(false,...) because we don't need to call TokenExactAmounts() recursively from IsTokensvout here
+        // Note: we pass in here IsTokensvout(false,...) because we don't need to call TokenExactAmounts() recursively from IsTokensvout here
         // indeed, if we pass 'true' we'll be checking this tx vout again
         tokenValIndentSize++;
 		tokenoshis = IsTokensvout(false /*<--do not recursion here*/, true /*<--exclude non-tokens vouts*/, cpTokens, eval, tx, ivout, reftokenid);
