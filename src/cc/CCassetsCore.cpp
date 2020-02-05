@@ -131,7 +131,7 @@ bool SetAskFillamounts(int64_t &fill_assetoshis, int64_t &remaining_nValue, int6
     dunit_price = ((double)orig_nValue / orig_assetoshis);
     //fill_assetoshis = (paid_nValue / dunit_price);  // back conversion -> could be loss of value
     fprintf(stderr, "%s remaining_nValue %.8f (orig_nValue %.8f - paid_nValue %.8f)\n", __func__, (double)remaining_nValue / COIN, (double)orig_nValue / COIN, (double)paid_nValue / COIN);
-    fprintf(stderr, "%s orig unit_price %.8f received_assetoshis %llu orig_assetoshis %llu\n", __func__, dunit_price / COIN, (long long)fill_assetoshis, (long long)orig_assetoshis);
+    fprintf(stderr, "%s orig unit_price %.8f fill_assetoshis %llu orig_assetoshis %llu\n", __func__, dunit_price / COIN, (long long)fill_assetoshis, (long long)orig_assetoshis);
     if (fabs(dunit_price) > SMALLVAL && fill_assetoshis > 0 && fill_assetoshis <= orig_assetoshis)
     {
         remaining_assetoshis = (orig_assetoshis - fill_assetoshis);
