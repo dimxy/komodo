@@ -636,7 +636,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 		//if (it->second.satoshis < threshold)            // this should work also for non-fungible tokens (there should be only 1 satoshi for non-fungible token issue)
 		//	continue;
 
-        if (std::find(mtx.vin.begin(), mtx.vin.end(), [=](const CTxIn &vin) { return (vin.prevout.hash == vintxid && vin.prevout.n == vout);  }) != mtx.vin.end())
+        if (std::find(mtx.vin.begin(), mtx.vin.end(), [&](CTxIn vin) { return (vin.prevout.hash == vintxid && vin.prevout.n == vout);  }) != mtx.vin.end())
 			continue;  // the input is already added to mtx.vin (in some previous calls)
 
 		if (myGetTransaction(vintxid, vintx, hashBlock) != 0)
