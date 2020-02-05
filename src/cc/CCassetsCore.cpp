@@ -636,7 +636,7 @@ bool AssetCalcAmounts(struct CCcontract_info *cpAssets, int64_t &inputs, int64_t
 
 				// TODO: maybe we do not need call to IsTokensVout here, cause we've already selected token vins
 				assetoshis = IsTokensvout(false, false, cpTokens, NULL, vinTx, tx.vin[i].prevout.n, assetid);
-				if (assetoshis != 0)
+				if (assetoshis > 0)
 				{
 					//std::cerr << "AssetCalcAmounts() vin i=" << i << " assetoshis=" << assetoshis << std::endl;
 					inputs += assetoshis;
