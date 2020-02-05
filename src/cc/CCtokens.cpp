@@ -626,7 +626,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 } */
 
 // overload for non-fungible tokens, adds token inputs from pubkey
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs)
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs, bool useMempool)
 {
     char tokenaddr[64];
 
@@ -639,13 +639,13 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
             cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT
     }
     GetTokensCCaddress(cp, tokenaddr, pk);  // GetTokensCCaddress will use 'additionalTokensEvalcode2'
-    return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs);
+    return AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, maxinputs, useMempool);
 }
 
 
 // overload, adds inputs from token cc addr and returns non-fungible opret payload if present
 // also sets evalcode in cp, if needed
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs)
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, bool useMempool)
 {
 	int64_t threshold, nValue, price, totalinputs = 0;  
 	int32_t n = 0;
@@ -661,6 +661,8 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     }
 
 	SetCCunspents(unspentOutputs, (char*)tokenaddr, true);
+    if (useMempool)
+        SetCCunspents(unspentOutputs, (char*)tokenaddr, true);
     if (unspentOutputs.empty()) {
         LOGSTREAM("cctokens", CCLOG_INFO, stream << "AddTokenCCInputs() no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->additionalTokensEvalcode2 << std::endl);
     }
@@ -963,7 +965,7 @@ std::string TokenTransfer(int64_t txfee, uint256 tokenid, CPubKey destpubkey, in
 // destpubkeys - if size=1 then it is the dest pubkey, if size=2 then the dest address is 1of2 addr
 // total - token amount to transfer
 // returns: signed transfer tx in hex
-UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total)
+UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total, bool useMempool)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	uint64_t mask; int64_t CCchange = 0, inputs = 0;  struct CCcontract_info *cp, C;
@@ -991,7 +993,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
 	{
 		mask = ~((1LL << mtx.vin.size()) - 1);  // seems, mask is not used anymore
         
-		if ((inputs = AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, 60)) > 0)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
+		if ((inputs = AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, 60, useMempool)) > 0)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
 		{
 			if (inputs < total) {   //added dimxy
                 CCerror = strprintf("insufficient token inputs");
@@ -1054,7 +1056,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
 }
 
 // transfer token to scriptPubKey
-UniValue TokenTransferSpk(const CPubKey &remotepk, int64_t txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys)
+UniValue TokenTransferSpk(const CPubKey &remotepk, int64_t txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys, bool useMempool)
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     int64_t CCchange = 0, inputs = 0;
@@ -1079,7 +1081,7 @@ UniValue TokenTransferSpk(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
 
     if (AddNormalinputs(mtx, mypk, txfee, 3, isRemote) > 0)
     {
-        if ((inputs = AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, 60)) > 0)
+        if ((inputs = AddTokenCCInputs(cp, mtx, tokenaddr, tokenid, total, 60, useMempool)) > 0)
         {
             if (inputs < total) {
                 CCerror = strprintf("insufficient token inputs");
