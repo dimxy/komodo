@@ -456,12 +456,12 @@ int32_t oracle_format(uint256 *hashp,int64_t *valp,char *str,uint8_t fmt,uint8_t
 /// @param tokenid id of token which inputs to add
 /// @param total amount to add (if total==0 no inputs are added and all available amount is returned)
 /// @param maxinputs maximum number of inputs to add. If 0 then CC_MAXVINS define is used
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs);
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, int64_t total, int32_t maxinputs, bool useMempool = false);
 
 /// An overload that also returns NFT data in vopretNonfungible parameter
 /// the rest parameters are the same as in the first AddTokenCCInputs overload
 /// @see AddTokenCCInputs
-int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs);
+int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, bool useMempool = false);
 
 /// @private overload used in kogs
 int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, int64_t total, int32_t maxinputs, vscript_t &vopretNonfungible);

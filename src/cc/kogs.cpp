@@ -932,11 +932,11 @@ UniValue KogsDepositContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
 
-    char tokenaddr[64];
+    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress(cp, tokenaddr, mypk);
 
     // passing remotepk for TokenTransferExt to correctly call FinalizeCCTx
-    UniValue sigData = TokenTransferExt(remotepk, 0, containerid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, gametxidPk }, 1); // amount = 1 always for NFTs
+    UniValue sigData = TokenTransferExt(remotepk, 0, containerid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, gametxidPk }, 1, true); // amount = 1 always for NFTs
     return sigData;
 }
 
@@ -973,12 +973,12 @@ UniValue KogsClaimDepositedContainer(const CPubKey &remotepk, int64_t txfee, uin
             char txidaddr[KOMODO_ADDRESS_BUFSIZE];
             CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
 
-            char tokensrcaddr[64];
+            char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
             GetTokensCCaddress1of2(cp, tokensrcaddr, kogsPk, gametxidPk);
 
             CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);  // make probe cc for signing 1of2 game txid addr
 
-            UniValue sigData = TokenTransferExt(remotepk, 0, containerid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) }, std::vector<CPubKey>{ mypk }, 1); // amount = 1 always for NFTs
+            UniValue sigData = TokenTransferExt(remotepk, 0, containerid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) }, std::vector<CPubKey>{ mypk }, 1, true); // amount = 1 always for NFTs
 
             cc_free(probeCond); // free probe cc
             return sigData;
@@ -1085,7 +1085,7 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
 
     for (auto tokenid : tokenids)
     {
-        UniValue sigData = TokenTransferExt(remotepk, 0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, containertxidPk }, 1); // amount = 1 always for NFTs
+        UniValue sigData = TokenTransferExt(remotepk, 0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, containertxidPk }, 1, true); // amount = 1 always for NFTs
         if (!ResultHasTx(sigData)) {
             result = NullResults;
             break;
@@ -1121,7 +1121,7 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
 
     for (auto tokenid : tokenids)
     {
-        UniValue sigData = TokenTransferExt(remotepk, 0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogspriv) }, std::vector<CPubKey>{ mypk }, 1); // amount = 1 always for NFTs
+        UniValue sigData = TokenTransferExt(remotepk, 0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogspriv) }, std::vector<CPubKey>{ mypk }, 1, true); // amount = 1 always for NFTs
         if (!ResultHasTx(sigData)) {
             results = NullResults;
             break;
@@ -1148,7 +1148,7 @@ UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    char myccaddr[64];
+    char myccaddr[KOMODO_ADDRESS_BUFSIZE];
     bool isRemote = IS_REMOTE(remotepk);
     CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
     GetCCaddress(cp, myccaddr, mypk);
@@ -1248,7 +1248,7 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
                 cp = CCinit(&C, EVAL_TOKENS);
                 GetTokensCCaddress(cp, tokensrcaddr, mypk);
 
-                UniValue sigData = TokenTransferSpk(remotepk, 0, tokenid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{}, prevtx.vout[nvout].scriptPubKey, 1, pks);
+                UniValue sigData = TokenTransferSpk(remotepk, 0, tokenid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{}, prevtx.vout[nvout].scriptPubKey, 1, pks, true);
                 if (!ResultHasTx(sigData)) {
                     results.push_back(MakeResultError("can't create transfer tx (nft could be already sent!): " + CCerror));
                     CCerror.clear(); // clear read CCerror
@@ -1303,11 +1303,11 @@ UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid)
 
     if (AddNormalinputs(mtx, mypk, txfee, 4, isRemote) > 0)
     {
-        if (AddTokenCCInputs(cp, mtx, mypk, tokenid, 1, 1) > 0)
+        if (AddTokenCCInputs(cp, mtx, mypk, tokenid, 1, 1, true) > 0)
         {
             std::vector<std::pair<uint8_t, vscript_t>>  emptyoprets;
             std::vector<CPubKey> voutPks;
-            char unspendableTokenAddr[64]; uint8_t tokenpriv[32];
+            char unspendableTokenAddr[KOMODO_ADDRESS_BUFSIZE]; uint8_t tokenpriv[32];
             struct CCcontract_info *cpTokens, tokensC;
 
             cpTokens = CCinit(&tokensC, EVAL_TOKENS);
@@ -1967,10 +1967,10 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 CMutableTransaction mtx;
                                 struct CCcontract_info *cp, C;
                                 cp = CCinit(&C, EVAL_TOKENS);
-                                if (AddTokenCCInputs(cp, mtx, tokensrcaddr, c->creationtxid, 1, 5) > 0)  // check if container not transferred yet
+                                if (AddTokenCCInputs(cp, mtx, tokensrcaddr, c->creationtxid, 1, 5, true) > 0)  // check if container not transferred yet
                                 {
                                     UniValue sigData = TokenTransferExt(mypk, 0, c->creationtxid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) },
-                                        std::vector<CPubKey>{ c->encOrigPk }, 1); // amount = 1 always for NFTs
+                                        std::vector<CPubKey>{ c->encOrigPk }, 1, true); // amount = 1 always for NFTs
                                     vuint8_t vtx = ParseHex(ResultGetTx(sigData)); // unmarshal tx to get it txid;
                                     CTransaction transfertx;
                                     if (ResultHasTx(sigData) && E_UNMARSHAL(vtx, ss >> transfertx)) {
