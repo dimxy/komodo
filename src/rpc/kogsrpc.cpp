@@ -1395,8 +1395,6 @@ UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey
     return result;
 }
 
-
-
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
@@ -1430,7 +1428,7 @@ static const CRPCCommand commands[] =
 };
 
 
-void RegisterCCRPCCommands(CRPCTable &tableRPC)
+void RegisterKogsCCRPCCommands(CRPCTable &tableRPC)
 {
     for (unsigned int vcidx = 0; vcidx < ARRAYLEN(commands); vcidx++)
         tableRPC.appendCommand(commands[vcidx].name, &commands[vcidx]);
