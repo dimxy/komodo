@@ -17,6 +17,7 @@
 // paxdeposit equivalent in reverse makes opreturn and KMD does the same in reverse
 #include "komodo_defs.h"
 #include "cc/CCMarmara.h"
+#include "cc/CCKogs.h"
 
 #include "cc/CCPrices.h"
 #include "cc/pricesfeed.h"
@@ -2971,11 +2972,16 @@ void komodo_createminerstransactions()
     CBlockIndex *pIndexTip = chainActive.LastTip();
     int32_t nHeight = pIndexTip ? pIndexTip->GetHeight() : 0;
 
-    if(ASSETCHAINS_MARMARA != 0)   
+    if (ASSETCHAINS_MARMARA != 0)   
     {
         MarmaraRunAutoSettlement(nHeight, minersTransactions);        // run Marmara autosettlement, returns settlement transactions
     }
-    // TODO create 'kogs' transactions...
+    // create 'kogs' transactions...
+    if (ASSETCHAINS_KOGSGAME != 0)
+    {
+        KogsCreateMinerTransactions(nHeight, minersTransactions);
+    }
+
 
     // send miner created transaction
     CPubKey minerpk = pubkey2pk(Mypubkey());

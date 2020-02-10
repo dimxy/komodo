@@ -910,4 +910,6 @@ UniValue KogsObjectInfo(uint256 gameobjectid);
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 
+void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &minersTransactions);
+
 #endif

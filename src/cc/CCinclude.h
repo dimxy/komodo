@@ -1082,7 +1082,7 @@ inline UniValue MakeResultError(const std::string &err) {
 /*! \endcond */
 
 /// @private
-#define IS_REMOTE(remotepk) (remotepk.IsValid())
+bool inline IS_REMOTE(const CPubKey &remotepk) { return remotepk.IsValid(); }
 
 /*! \cond INTERNAL */
 // locking and reservation of utxo to prevent adding utxo to several mtx objects and allow use of normal change utxos:
