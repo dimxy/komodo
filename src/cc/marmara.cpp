@@ -3410,9 +3410,15 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
     uint8_t marmarapriv[32];
     CPubKey Marmarapk = GetUnspendable(cp, marmarapriv);
 
+    if (fixBadLoop(refbatontxid)) {
+        result.push_back(Pair("result", "warning"));
+        result.push_back(Pair("warning", "bad creditloop skipped"));
+        return(result);
+    }
+
     int64_t change = 0;
     //int32_t height = chainActive.LastTip()->GetHeight();
-    if ((numDebtors = MarmaraGetbatontxid(creditloop, batontxid, refbatontxid)) > 0 || fixBadLoop(refbatontxid))
+    if ((numDebtors = MarmaraGetbatontxid(creditloop, batontxid, refbatontxid)) > 0)
     {
         CTransaction batontx;
         uint256 hashBlock;
@@ -3714,6 +3720,9 @@ void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & settle
             if (result["result"].getValStr() == "success") {
                 LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "miner created settlement tx=" << settlementtx.GetHash().GetHex() <<  ", for batontxid=" << batontxid.GetHex() << std::endl);
                 settlementTransactions.push_back(settlementtx);
+            }
+            if (result["result"].getValStr() == "warning") {
+                LOGSTREAM("marmara", CCLOG_DEBUG1, stream << funcname << " " << "warning=" << result["warning"].getValStr() << " in settlement for batontxid=" << batontxid.GetHex() << std::endl);
             }
             else {
                 LOGSTREAM("marmara", CCLOG_ERROR, stream << funcname << " " << "error=" << result["error"].getValStr() << " in settlement for batontxid=" << batontxid.GetHex() << std::endl);
