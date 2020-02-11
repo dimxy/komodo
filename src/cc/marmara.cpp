@@ -5008,5 +5008,5 @@ static bool fixBadLoop(const uint256 &refbatontxid)
 
 static bool fixBadSettle(const uint256 &settletxid)
 {
-    return Parseuint256("a8774a147f5153d8da4c554a4953de06b3b864f681a460cb9e3968a01d144370") == settletxid && chainActive.LastTip() && chainActive.LastTip()->GetHeight() < 33250;
+    return Parseuint256("57ae9f4a36ece775041ede5f0792831861428552f16eaf44cff9001020542d05") == settletxid && chainActive.LastTip() && chainActive.LastTip()->GetHeight() < 33250;
 }
