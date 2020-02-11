@@ -901,7 +901,7 @@ static int32_t get_create_txid(uint256 &createtxid, uint256 txid)
 // adds createtxid MARMARA_CREATELOOP in creditloop vector (only if there are other txns in the loop)
 // finds all the baton txids starting from the createtx (1+ in creditloop vector), apart from the latest baton txid
 // returns the number of txns marked with the baton
-// DO NOT USE this function from the validation code because it is not guaranteed that the validated tx is properly updated in the spent index and coin cache!
+// DO NOT USE this function from the validation code when the validated tx is the last baton because it is not guaranteed that it is properly updated in the spent index and coin cache!
 int32_t MarmaraGetbatontxid(std::vector<uint256> &creditloop, uint256 &batontxid, uint256 querytxid)
 {
     uint256 createtxid; 
