@@ -167,6 +167,8 @@ public:
     }
 };
 
+static bool fixBadLoop(const uint256 &refbatontxid);
+static bool fixBadSettle(const uint256 &settletxid);
 
 // helper functions for rpc calls
 
@@ -1584,6 +1586,10 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         return false;
     }
 
+    // fix bad settle tx:
+    if (fixBadSettle(settletx.GetHash()))
+        return true;
+
     // check settlement tx funcid
     MarmaraDecodeLoopOpret(settletx.vout.back().scriptPubKey, settleLoopData);
     if (settleLoopData.lastfuncid != MARMARA_SETTLE && settleLoopData.lastfuncid != MARMARA_SETTLE_PARTIAL) {
@@ -1609,6 +1615,11 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
     if (check_issue_tx(issuetx, errorStr)) {
         return false;
     }
+
+
+    // fix bad issue tx spent:
+    //if (fixBadLoop(issuetxid))
+    //    return true;
 
     // get baton txid and creditloop
     // NOTE: we can use MarmaraGetbatontxid here because the issuetx is not the last baton tx, 
@@ -3398,10 +3409,10 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
     CPubKey minerpk = pubkey2pk(Mypubkey());
     uint8_t marmarapriv[32];
     CPubKey Marmarapk = GetUnspendable(cp, marmarapriv);
-    
+
     int64_t change = 0;
     //int32_t height = chainActive.LastTip()->GetHeight();
-    if ((numDebtors = MarmaraGetbatontxid(creditloop, batontxid, refbatontxid)) > 0)
+    if ((numDebtors = MarmaraGetbatontxid(creditloop, batontxid, refbatontxid)) > 0 || fixBadLoop(refbatontxid))
     {
         CTransaction batontx;
         uint256 hashBlock;
@@ -4989,3 +5000,13 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
     return result;
 }
 
+// fixes:
+static bool fixBadLoop(const uint256 &refbatontxid)
+{
+    return Parseuint256("a8774a147f5153d8da4c554a4953de06b3b864f681a460cb9e3968a01d144370") == refbatontxid && chainActive.LastTip() && chainActive.LastTip()->GetHeight() < 33250;
+}
+
+static bool fixBadSettle(const uint256 &settletxid)
+{
+    return Parseuint256("a8774a147f5153d8da4c554a4953de06b3b864f681a460cb9e3968a01d144370") == settletxid && chainActive.LastTip() && chainActive.LastTip()->GetHeight() < 33250;
+}
