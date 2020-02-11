@@ -521,7 +521,7 @@ static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, GOCheck
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectType=" << (char)objectType << std::endl);
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
-    SetCCunspentsInMempool(addressUnspents, cp->unspendableCCaddr, true);
+    SetCCunspentsInMempool(addressUnspents, cp->unspendableCCaddr, true); // look in mempool too
 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
@@ -550,6 +550,7 @@ static void ListContainerTokenids(KogsContainer &container)
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, containertxidPk);
 
     SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    SetCCunspentsInMempool(addressUnspents, tokenaddr, true);
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
         std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(it->first.txhash) ); // load and unmarshal gameobject for this txid
@@ -573,6 +574,7 @@ static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shar
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
 
     SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    SetCCunspentsInMempool(addressUnspents, tokenaddr, true);
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         KogsBaseObject* pobj = LoadGameObject(it->first.txhash); // load and unmarshal gameobject for this txid
@@ -1158,6 +1160,7 @@ UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams
     // find all games with unspent batons:
     uint256 batontxid = zeroid;
     SetCCunspents(addressUnspents, myccaddr, true);    // look for baton on my cc addr 
+    SetCCunspentsInMempool(addressUnspents, myccaddr, true);    // look for baton on my cc addr in mempool
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         if (it->second.satoshis == KOGS_BATON_AMOUNT) // picking batons with marker=20000
@@ -1825,6 +1828,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
     // find all games with unspent batons:
     SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr 
+    SetCCunspentsInMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         if (it->second.satoshis == KOGS_BATON_AMOUNT) // picking game or slamparam utxos with markers=20000
