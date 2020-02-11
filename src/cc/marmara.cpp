@@ -5027,7 +5027,9 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
 // fixes:
 static bool skipBadLoop(const uint256 &refbatontxid)
 {
-    return Parseuint256("a8774a147f5153d8da4c554a4953de06b3b864f681a460cb9e3968a01d144370") == refbatontxid;
+    return Parseuint256("a8774a147f5153d8da4c554a4953de06b3b864f681a460cb9e3968a01d144370") == refbatontxid ||
+        Parseuint256("8a7fb07112fa8e99f3480485921df2119097e4ea34cb5c59449f34fdac74e266") == refbatontxid;
+        
 }
 
 static bool fixBadSettle(const uint256 &settletxid)
