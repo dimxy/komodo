@@ -972,7 +972,7 @@ static int32_t get_loop_endorsers_number(uint256 &createtxid, uint256 prevtxid)
 
         uint8_t funcid = MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData);
 
-        if (funcid == MARMARA_REQUEST) {
+        if (funcid == MARMARA_CREATELOOP) {
             createtxid = tx.GetHash();
             return 0;
         }
