@@ -1369,6 +1369,9 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
         return false;
     }
 
+    if (skipBadLoop(tx.GetHash()))
+        return true;
+
     MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData);
     if (loopData.lastfuncid != MARMARA_ISSUE && loopData.lastfuncid != MARMARA_TRANSFER) {
         errorStr = "not an issue or transfer tx";
@@ -5029,5 +5032,5 @@ static bool skipBadLoop(const uint256 &refbatontxid)
 
 static bool fixBadSettle(const uint256 &settletxid)
 {
-    return Parseuint256("57ae9f4a36ece775041ede5f0792831861428552f16eaf44cff9001020542d05") == settletxid && chainActive.LastTip() && chainActive.LastTip()->GetHeight() < 33250;
+    return Parseuint256("57ae9f4a36ece775041ede5f0792831861428552f16eaf44cff9001020542d05") == settletxid && chainActive.LastTip() && chainActive.LastTip()->GetHeight() < MARMARA_POS_IMPROVEMENTS_HEIGHT;
 }
