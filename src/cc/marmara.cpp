@@ -1618,8 +1618,8 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
 
 
     // fix bad issue tx spent:
-    //if (fixBadLoop(issuetxid))
-    //    return true;
+    if (fixBadLoop(issuetxid))
+        return true;
 
     // get baton txid and creditloop
     // NOTE: we can use MarmaraGetbatontxid here because the issuetx is not the last baton tx, 
@@ -3721,7 +3721,7 @@ void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & settle
                 LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "miner created settlement tx=" << settlementtx.GetHash().GetHex() <<  ", for batontxid=" << batontxid.GetHex() << std::endl);
                 settlementTransactions.push_back(settlementtx);
             }
-            if (result["result"].getValStr() == "warning") {
+            else if (result["result"].getValStr() == "warning") {
                 LOGSTREAM("marmara", CCLOG_DEBUG1, stream << funcname << " " << "warning=" << result["warning"].getValStr() << " in settlement for batontxid=" << batontxid.GetHex() << std::endl);
             }
             else {
