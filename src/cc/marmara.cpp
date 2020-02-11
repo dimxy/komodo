@@ -1438,8 +1438,11 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
     int32_t requesttx_i = ivin;
     //nbatonvins.pop_front();
     
-    if (!check_request_tx(tx.vin[requesttx_i].prevout.hash, loopData.pk, loopData.lastfuncid, errorStr))
+    if (!check_request_tx(tx.vin[requesttx_i].prevout.hash, loopData.pk, loopData.lastfuncid, errorStr)) {
+        if (errorStr.empty())
+            errorStr = "check_request_tx failed";
         return false;
+    }
 
     // prev tx is either creation tx or baton tx (and not a request tx for MARMARA_TRANSFER)
     uint256 prevtxid;
@@ -1485,8 +1488,11 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
     ivin++;
     int32_t nPrevEndorsers = 0;
     CAmount loopAmount = 0;
-    if (!check_lcl_redistribution(tx, prevtxid, ivin, usedccvouts, loopAmount, nPrevEndorsers, errorStr))
+    if (!check_lcl_redistribution(tx, prevtxid, ivin, usedccvouts, loopAmount, nPrevEndorsers, errorStr)) {
+        if (errorStr.empty())
+            errorStr = "check_lcl_redistribution failed";
         return false;
+    }
     //}
 
     // check batons/markers
@@ -1552,7 +1558,7 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
 
     txbalance = get_cc_balance(cp, tx);
     balanceDiff = txbalance - ccBatonsBalance;
-    if (balanceDiff < -MARMARA_LOOP_TOLERANCE || balanceDiff > MARMARA_LOOP_TOLERANCE) {
+    if ((balanceDiff < -MARMARA_LOOP_TOLERANCE || balanceDiff > MARMARA_LOOP_TOLERANCE) && chainActive.LastTip() && chainActive.LastTip()->GetHeight() >= MARMARA_POS_IMPROVEMENTS_HEIGHT) {
         errorStr = "invalid cc balance for issue/transfer tx";
         LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid balance=" << txbalance << " needed=" << ccBatonsBalance << " for issue/transfer tx=" << tx.GetHash().GetHex() << std::endl);
         return false;
@@ -1613,6 +1619,8 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         return false;
     }
     if (check_issue_tx(issuetx, errorStr)) {
+        if (errorStr.empty())
+            errorStr = "check_issue_tx failed";
         return false;
     }
 
@@ -3704,6 +3712,11 @@ void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & settle
 
     int32_t firstheight = 0, lastheight = (1 << 30);
     int64_t minamount = 0, maxamount = (1LL << 60);
+
+    if (!IsNotInSync()) {
+        LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "node in sync..." << std::endl);
+        return;
+    }
 
     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "starting enum open batons" << std::endl);
     enum_credit_loops(MARMARA_OPENCLOSE_VOUT, totalopen, issuances, totalclosed, closed, cp, firstheight, lastheight, minamount, maxamount, CPubKey(), MARMARA_CURRENCY, [&](uint256 batontxid, int32_t matures) 
