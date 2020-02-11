@@ -167,7 +167,7 @@ public:
     }
 };
 
-static bool fixBadLoop(const uint256 &refbatontxid);
+static bool skipBadLoop(const uint256 &refbatontxid);
 static bool fixBadSettle(const uint256 &settletxid);
 
 // helper functions for rpc calls
@@ -1618,7 +1618,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
 
 
     // fix bad issue tx spent:
-    if (fixBadLoop(issuetxid))
+    if (skipBadLoop(issuetxid))
         return true;
 
     // get baton txid and creditloop
@@ -3410,12 +3410,6 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
     uint8_t marmarapriv[32];
     CPubKey Marmarapk = GetUnspendable(cp, marmarapriv);
 
-    if (fixBadLoop(refbatontxid)) {
-        result.push_back(Pair("result", "warning"));
-        result.push_back(Pair("warning", "bad creditloop skipped"));
-        return(result);
-    }
-
     int64_t change = 0;
     //int32_t height = chainActive.LastTip()->GetHeight();
     if ((numDebtors = MarmaraGetbatontxid(creditloop, batontxid, refbatontxid)) > 0)
@@ -3654,6 +3648,10 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
                                     }
                                     else 
                                         LOGSTREAMFN("marmara", CCLOG_INFO, stream << "could not get or decode settletx=" << settletxid.GetHex() << " (tx could be in mempool)" << std::endl);
+                                }
+                                else if (skipBadLoop(issuancetxid)) {
+                                    LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "skipped bad issuetx, txid=" << issuancetxid.GetHex() << std::endl);
+                                    continue;
                                 }
                                 else if (MarmaraGetbatontxid(creditloop, batontxid, issuancetxid) > 0)
                                 {
@@ -5010,9 +5008,9 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
 }
 
 // fixes:
-static bool fixBadLoop(const uint256 &refbatontxid)
+static bool skipBadLoop(const uint256 &refbatontxid)
 {
-    return Parseuint256("a8774a147f5153d8da4c554a4953de06b3b864f681a460cb9e3968a01d144370") == refbatontxid && chainActive.LastTip() && chainActive.LastTip()->GetHeight() < 33250;
+    return Parseuint256("a8774a147f5153d8da4c554a4953de06b3b864f681a460cb9e3968a01d144370") == refbatontxid;
 }
 
 static bool fixBadSettle(const uint256 &settletxid)
