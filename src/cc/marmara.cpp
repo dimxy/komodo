@@ -3632,6 +3632,11 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
                                 uint256 settletxid, batontxid;
                                 LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "issuance tx is filtered, txid=" << issuancetxid.GetHex() << std::endl);
 
+                                if (skipBadLoop(issuancetxid)) {
+                                    LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "skipped bad issuetx, txid=" << issuancetxid.GetHex() << std::endl);
+                                    continue;
+                                }
+
                                 if (get_settlement_txid(settletxid, issuancetxid) == 0)
                                 {
                                     CTransaction settletx;
@@ -3648,10 +3653,6 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
                                     }
                                     else 
                                         LOGSTREAMFN("marmara", CCLOG_INFO, stream << "could not get or decode settletx=" << settletxid.GetHex() << " (tx could be in mempool)" << std::endl);
-                                }
-                                else if (skipBadLoop(issuancetxid)) {
-                                    LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "skipped bad issuetx, txid=" << issuancetxid.GetHex() << std::endl);
-                                    continue;
                                 }
                                 else if (MarmaraGetbatontxid(creditloop, batontxid, issuancetxid) > 0)
                                 {
