@@ -2586,7 +2586,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
         {
             if (vintxOpret != opret)
             {
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "found activated opret not equal to vintx opret, opret=" << opret.ToString() << std::endl);
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "found activated opret not equal to vintx opret, opret=" << opret.ToString() << " vintx opret=" << vintxOpret.ToString() << " h=" << height << std::endl);
                 return MARMARA_STAKE_TX_BAD;
             }
 
@@ -2595,7 +2595,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
             // check stake tx spent to the prev stake tx address:
             if (strcmp(destaddr, pkInOpretAddr) != 0)  // check stake tx is spent to self
             {
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "found bad activated opret" << " destaddr=" << destaddr << " not equal to 1of2 addr for pk in opret=" << pkInOpretAddr << std::endl);
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "found bad activated opret" << " destaddr=" << destaddr << " not equal to 1of2 addr for pk in opret=" << pkInOpretAddr << " h=" << height << std::endl);
                 return MARMARA_STAKE_TX_BAD;
             }
             else
@@ -2611,7 +2611,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
         {
             if (vintxOpret != opret)
             {
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "found bad lock-in-loop opret not equal to vintx opret, opret=" << opret.ToString() << std::endl);
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "found bad lock-in-loop opret not equal to vintx opret, opret=" << opret.ToString() << " vintx opret=" << vintxOpret.ToString() << " h=" << height << std::endl);
                 return MARMARA_STAKE_TX_BAD;
             }
             
@@ -2623,7 +2623,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
             // check stake tx spent to the prev stake tx address:
             if (strcmp(destaddr, pkInOpretAddr) != 0)
             {
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "found bad locked-in-loop stake tx opret" << " destaddr=" << destaddr << " not equal to 1of2 addr for pk in opret=" << pkInOpretAddr << std::endl);
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "found bad locked-in-loop stake tx opret" << " destaddr=" << destaddr << " not equal to 1of2 addr for pk in opret=" << pkInOpretAddr << " h=" << height << std::endl);
                 return MARMARA_STAKE_TX_BAD;
             }
             else
