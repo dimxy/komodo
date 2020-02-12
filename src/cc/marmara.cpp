@@ -1304,8 +1304,9 @@ static bool check_request_tx(uint256 requesttxid, CPubKey receiverpk, uint8_t is
         errorStr = "receiver pubkey does not match signer of request tx";
     else if (TotalPubkeyNormalInputs(requesttx, loopData.pk) > 0)     // extract and check the receiver pubkey
         errorStr = "sender pk signed request tx, cannot request credit from self";
-    else if (loopData.matures <= chainActive.LastTip()->GetHeight())
-        errorStr = "credit loop must mature in the future";
+// do not check this in validation: fails on syncing
+//    else if (loopData.matures <= chainActive.LastTip()->GetHeight())
+//        errorStr = "credit loop must mature in the future";
 
     else {
         if (issueFuncId == MARMARA_ISSUE && funcid != MARMARA_CREATELOOP)
@@ -1621,7 +1622,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         errorStr = "could not load issue tx";
         return false;
     }
-    if (check_issue_tx(issuetx, errorStr)) {
+    if (!check_issue_tx(issuetx, errorStr)) {
         if (errorStr.empty())
             errorStr = "check_issue_tx failed";
         return false;
@@ -3716,7 +3717,7 @@ void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & settle
     int32_t firstheight = 0, lastheight = (1 << 30);
     int64_t minamount = 0, maxamount = (1LL << 60);
 
-    if (!IsNotInSync()) {
+    if (IsNotInSync() || IsInitialBlockDownload()) {
         LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "node in sync..." << std::endl);
         return;
     }
@@ -5028,8 +5029,9 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
 static bool skipBadLoop(const uint256 &refbatontxid)
 {
     return Parseuint256("a8774a147f5153d8da4c554a4953de06b3b864f681a460cb9e3968a01d144370") == refbatontxid ||
-        Parseuint256("8a7fb07112fa8e99f3480485921df2119097e4ea34cb5c59449f34fdac74e266") == refbatontxid;
-        
+        Parseuint256("8a7fb07112fa8e99f3480485921df2119097e4ea34cb5c59449f34fdac74e266") == refbatontxid ||
+        Parseuint256("7d20cc53b11488600e61d349c16e5e2f9cdd905ad86aca8c4bfdf7dd0f6b6242") == refbatontxid ||
+        Parseuint256("01208c5b322d444cdcc07f09bfaef8e6cca7f65c6c580d1cf6cde6b063dee98d") == refbatontxid;
 }
 
 static bool fixBadSettle(const uint256 &settletxid)
