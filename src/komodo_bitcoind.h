@@ -643,6 +643,7 @@ uint32_t komodo_txtime(CScript &opret,uint64_t *valuep,uint256 hash, int32_t n, 
                         hashBlock, true))
     {
         //fprintf(stderr,"ERROR: %s/v%d locktime.%u\n",hash.ToString().c_str(),n,(uint32_t)tx.nLockTime);
+        LogPrint(LOG_KOMODOBITCOIND, "%s ERROR: cannot read previous stake tx=%s\n", __func__, hash.GetHex());
         return(0);
     }
     numvouts = tx.vout.size();
@@ -669,7 +670,7 @@ uint32_t komodo_txtime(CScript &opret,uint64_t *valuep,uint256 hash, int32_t n, 
         if (ExtractDestination(tx.vout[n].scriptPubKey, address))
         {
             strcpy(destaddr, CBitcoinAddress(address).ToString().c_str());
-            LogPrint(LOG_KOMODOBITCOIND, "%s in stake tx found opret and destaddr=%s\n", __func__, destaddr);
+            LogPrint(LOG_KOMODOBITCOIND, "%s in stake tx found opret %s isCCOpret=%d destaddr=%s\n", __func__, opret.ToString(), (int)isCCOpret, destaddr);
         }
     }
     return(tx.nLockTime);
