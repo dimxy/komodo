@@ -1950,7 +1950,7 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
     }
 
     CAmount txfee;
-    const CAmount max_txfee = 10000;
+    const CAmount max_txfee = 2 * 10000;  //FinalizeCCtx adds change if inputs-outputs > 2*txfee, txfee by default = 10000
     txfee = get_txfee(tx);
     if ((txfee < 0 || txfee > max_txfee) && chainActive.LastTip() && chainActive.LastTip()->GetHeight() >= MARMARA_POS_IMPROVEMENTS_HEIGHT)
     {
