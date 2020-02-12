@@ -1250,7 +1250,7 @@ void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUn
                     key.index = i;
 
                     value.satoshis = memtx.vout[i].nValue;
-                    value.blockHeight = NULL;
+                    value.blockHeight = 0;
                     value.script = memtx.vout[i].scriptPubKey;
 
                     unspentOutputs.push_back(std::make_pair(key, value));
