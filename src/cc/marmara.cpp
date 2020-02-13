@@ -5178,27 +5178,41 @@ UniValue MarmaraDecodeTxdata(const vuint8_t &txdata, bool printvins)
         {
             UniValue univins(UniValue::VARR);
 
-            for (int i = 0; i < tx.vin.size(); i++)
+            if (tx.IsCoinBase())
             {
                 UniValue univin(UniValue::VOBJ);
-                CTransaction vintx;
-                uint256 hashBlock;
-
-                univin.push_back(Pair("n", std::to_string(i)));
-                univin.push_back(Pair("prev-txid", tx.vin[i].prevout.hash.GetHex()));
-                univin.push_back(Pair("prev-n", (int64_t)tx.vin[i].prevout.n));
-
-                if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock))
-                {
-                    UniValue univintx(UniValue::VOBJ);
-                    decode_marmara_vout(vintx.vout[tx.vin[i].prevout.n], univintx);
-                    univin.push_back(Pair("vout", univintx));
-                }
-                else
-                {
-                    univin.push_back(Pair("error", "could not load vin tx"));
-                }
+                univin.push_back(Pair("coinbase", ""));
                 univins.push_back(univin);
+            }
+            else if (tx.IsCoinImport())
+            {
+                UniValue univin(UniValue::VOBJ);
+                univin.push_back(Pair("coinimport", ""));
+                univins.push_back(univin);
+            }
+            else
+            {
+                for (int i = 0; i < tx.vin.size(); i++)
+                {
+                    CTransaction vintx;
+                    uint256 hashBlock;
+                    UniValue univin(UniValue::VOBJ);
+
+                    univin.push_back(Pair("n", std::to_string(i)));
+                    univin.push_back(Pair("prev-txid", tx.vin[i].prevout.hash.GetHex()));
+                    univin.push_back(Pair("prev-n", (int64_t)tx.vin[i].prevout.n));
+                    if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock))
+                    {
+                        UniValue univintx(UniValue::VOBJ);
+                        decode_marmara_vout(vintx.vout[tx.vin[i].prevout.n], univintx);
+                        univin.push_back(Pair("vout", univintx));
+                    }
+                    else
+                    {
+                        univin.push_back(Pair("error", "could not load vin tx"));
+                    }
+                    univins.push_back(univin);
+                }
             }
             result.push_back(Pair("vins", univins));
         }
