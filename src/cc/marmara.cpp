@@ -5217,7 +5217,8 @@ UniValue MarmaraDecodeTxdata(const vuint8_t &txdata, bool printvins)
     }
     else 
     {
-        CScript opret(txdata), ccopret;
+        CScript opret(txdata.begin(), txdata.end());
+        CScript ccopret;
         UniValue univout(UniValue::VOBJ);
 
         if (GetOpReturnData(opret, vopret))
