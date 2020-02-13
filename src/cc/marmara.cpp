@@ -14,6 +14,7 @@
  *                                                                            *
  ******************************************************************************/
 
+#include <stdlib.h>
 #include <list>
 #include "komodo_defs.h"
 #include "CCMarmara.h"
