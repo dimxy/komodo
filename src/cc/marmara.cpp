@@ -1123,7 +1123,7 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
                     CAmount  diff = tx.vout[ivout].nValue != creationLoopData.amount / (nPrevEndorsers + 1);
                     if (diff < -MARMARA_LOOP_TOLERANCE || diff > MARMARA_LOOP_TOLERANCE)
                     {
-                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "normal output amount incorrect: i=" << ivout << " nValue=" << tx.vout[ivout].nValue << " creationLoopData.amount=" << creationLoopData.amount << " nPrevEndorsers=" << nPrevEndorsers << " creationLoopData.amount / (nPrevEndorsers + 1)=" << (creationLoopData.amount / (nPrevEndorsers + 1)) << std::endl);
+                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "locked output amount incorrect: i=" << ivout << " nValue=" << tx.vout[ivout].nValue << " creationLoopData.amount=" << creationLoopData.amount << " nPrevEndorsers=" << nPrevEndorsers << " creationLoopData.amount / (nPrevEndorsers + 1)=" << (creationLoopData.amount / (nPrevEndorsers + 1)) << std::endl);
                         errorStr = "MARMARA_LOCKED cc output amount incorrect";
                         return false;
                     }
@@ -1174,10 +1174,10 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
                 {
                     if (v == CTxOut(v.nValue, CScript() << ParseHex(HexStr(pk)) << OP_CHECKSIG))
                     {
-                        CAmount diff = v.nValue - creationLoopData.amount / (nPrevEndorsers + 1);
+                        CAmount diff = v.nValue - creationLoopData.amount / nPrevEndorsers / (nPrevEndorsers+1);
                         if (diff < -MARMARA_LOOP_TOLERANCE || diff > MARMARA_LOOP_TOLERANCE)
                         {
-                            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "normal output amount incorrect: v.nValue=" << v.nValue << " creationLoopData.amount=" << creationLoopData.amount << " nPrevEndorsers=" << nPrevEndorsers << " creationLoopData.amount / (nPrevEndorsers + 1)=" << (creationLoopData.amount / (nPrevEndorsers + 1)) << std::endl);
+                            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "normal output amount incorrect: v.nValue=" << v.nValue << " creationLoopData.amount=" << creationLoopData.amount << " nPrevEndorsers=" << nPrevEndorsers << " creationLoopData.amount / nPrevEndorsers / (nPrevEndorsers + 1)=" << (creationLoopData.amount / nPrevEndorsers / (nPrevEndorsers + 1)) << std::endl);
                             errorStr = "normal output amount incorrect";
                             return false;
                         }
