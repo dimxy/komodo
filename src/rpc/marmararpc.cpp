@@ -601,8 +601,8 @@ UniValue marmara_decodetxdata(const UniValue& params, bool fHelp, const CPubKey&
     if (fHelp || params.size() < 1 || params.size() > 2)
     {
         throw runtime_error("marmaradecodetxdata txdata [true]\n"
-            "returns decodes marmara transaction or cc vout or opreturn\n"
-            "if true passed also decodes vin txns\n" "\n");
+            "returns decodes marmara transaction or cc scriptpubkey or opreturn scriptpubkey\n"
+            "if 'true' is passed also decodes vin txns for the passed tx\n" "\n");
     }
 
     vuint8_t vdata = ParseHex(params[0].get_str());
