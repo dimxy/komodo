@@ -5042,7 +5042,8 @@ static void decode_marmara_opret_to_univalue(const CScript &opret, UniValue &uni
     if (vopret.size() > 0) {
         uint8_t evalcode = vopret.begin()[0];
         char seval[8];
-        univout.push_back(Pair("eval", itoa((int)evalcode, seval, 16)));
+        sprintf(seval, "0x02X", (int)evalcode);
+        univout.push_back(Pair("eval", seval));
     }
     if (MarmaraDecodeLoopOpret(opret, loopData) != 0)
     {
