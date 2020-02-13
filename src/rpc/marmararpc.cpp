@@ -594,6 +594,25 @@ UniValue marmara_unlock(const UniValue& params, bool fHelp, const CPubKey& remot
     return result;
 }
 
+// marmaraposstat rpc impl, return PoS statistics
+UniValue marmara_decodetxdata(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    CCerror.clear();
+    if (fHelp || params.size() < 1 || params.size() > 2)
+    {
+        throw runtime_error("marmaradecodetxdata txdata [true]\n"
+            "returns decodes marmara transaction or cc vout or opreturn\n"
+            "if true passed also decodes vin txns\n" "\n");
+    }
+
+    vuint8_t vdata = ParseHex(params[0].get_str());
+    bool decodevintx = false;
+    if (params.size() > 1)
+        decodevintx = (params[1].get_str() == "true") ? true : false;
+    UniValue result = MarmaraDecodeTxdata(vdata, decodevintx);
+    RETURN_IF_ERROR(CCerror);
+    return result;
+}
 
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
@@ -614,6 +633,7 @@ static const CRPCCommand commands[] =
     { "marmara",       "marmarareleaseactivatedcoins",   &marmara_releaseactivatedcoins,      true },
     { "marmara",       "marmaraposstat",   &marmara_posstat,      true },
     { "marmara",       "marmaraunlock",   &marmara_unlock,      true },
+    { "marmara",       "marmaradecodetxdata",   &marmara_decodetxdata,      true }
 };
 
 void RegisterMarmaraRPCCommands(CRPCTable &tableRPC)

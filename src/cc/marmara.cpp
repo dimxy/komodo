@@ -5027,6 +5027,197 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
     return result;
 }
 
+// utils
+static void decode_marmara_opret_to_univalue(const CScript &opret, UniValue &univout)
+{
+    SMarmaraCreditLoopOpret loopData;
+    uint8_t ver, funcid;
+    int32_t h, uh;
+    CPubKey pk, stakerpk;
+    uint256 loopcreatetxid;
+    vuint8_t vopret;
+
+    GetOpReturnData(opret, vopret);
+    if (vopret.size() > 0) {
+        uint8_t evalcode = vopret.begin()[0];
+        char seval[8];
+        univout.push_back(Pair("eval", itoa((int)evalcode, seval, 16)));
+    }
+    if (MarmaraDecodeLoopOpret(opret, loopData) != 0)
+    {
+        univout.push_back(Pair("funcid", std::string(1, loopData.lastfuncid)));
+        if (loopData.lastfuncid == MARMARA_CREATELOOP)
+            univout.push_back(Pair("type", "create-loop"));
+        else if (loopData.lastfuncid == MARMARA_REQUEST)
+            univout.push_back(Pair("type", "request"));
+        else if (loopData.lastfuncid == MARMARA_ISSUE)
+            univout.push_back(Pair("type", "issue"));
+        else if (loopData.lastfuncid == MARMARA_TRANSFER)
+            univout.push_back(Pair("type", "transfer"));
+        else if (loopData.lastfuncid == MARMARA_LOCKED)
+            univout.push_back(Pair("type", "locked-vout"));
+        else if (loopData.lastfuncid == MARMARA_SETTLE)
+            univout.push_back(Pair("type", "settlement"));
+        else if (loopData.lastfuncid == MARMARA_SETTLE_PARTIAL)
+            univout.push_back(Pair("type", "settlement-partial"));
+
+        if (loopData.lastfuncid == MARMARA_CREATELOOP) {
+            univout.push_back(Pair("sender-pubkey", HexStr(loopData.pk.begin(), loopData.pk.end())));
+            univout.push_back(Pair("loop-amount", loopData.amount));
+            univout.push_back(Pair("mature-height", (int64_t)loopData.matures));
+            univout.push_back(Pair("currency", loopData.currency));
+        } if (loopData.lastfuncid == MARMARA_REQUEST) {
+            univout.push_back(Pair("sender-pubkey", HexStr(loopData.pk.begin(), loopData.pk.end())));
+            univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
+        } if (loopData.lastfuncid == MARMARA_ISSUE || loopData.lastfuncid == MARMARA_TRANSFER) {
+            univout.push_back(Pair("receiver-pubkey", HexStr(loopData.pk.begin(), loopData.pk.end())));
+            univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
+        }
+        else if (loopData.lastfuncid == MARMARA_LOCKED) {
+            univout.push_back(Pair("endorser-pubkey", HexStr(loopData.pk.begin(), loopData.pk.end())));
+            univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
+        }
+        else if (loopData.lastfuncid == MARMARA_SETTLE || loopData.lastfuncid == MARMARA_SETTLE_PARTIAL) {
+            univout.push_back(Pair("holder-pubkey", HexStr(loopData.pk.begin(), loopData.pk.end())));
+            univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
+        }
+    }
+    else if ((funcid = MarmaraDecodeCoinbaseOpretExt(opret, ver, pk, h, uh, stakerpk, loopcreatetxid)) != 0)
+    {
+        univout.push_back(Pair("version", (int)ver));
+        univout.push_back(Pair("funcid", std::string(1, funcid)));
+        if (funcid == MARMARA_ACTIVATED)
+            univout.push_back(Pair("type", "activated-1x"));
+        else if (funcid == MARMARA_COINBASE)
+            univout.push_back(Pair("type", "coinbase-1x"));
+        else if (funcid == MARMARA_COINBASE_3X)
+            univout.push_back(Pair("type", "coinbase-3x"));
+        else if (funcid == MARMARA_ACTIVATED_INITIAL)
+            univout.push_back(Pair("type", "activated_lock64"));
+        else if (funcid == MARMARA_POOL)
+            univout.push_back(Pair("type", "pool"));
+        else if (funcid == MARMARA_RELEASE)
+            univout.push_back(Pair("type", "release"));
+        if (pk.IsValid())
+            univout.push_back(Pair("pubkey", HexStr(pk.begin(), pk.end())));
+        if (stakerpk.IsValid())
+            univout.push_back(Pair("staker-pubkey", HexStr(stakerpk.begin(), stakerpk.end())));
+        if (!loopcreatetxid.IsNull())
+            univout.push_back(Pair("loop-create-txid", loopcreatetxid.GetHex()));
+    }
+}
+
+void decode_marmara_vout(const CTxOut &vout, UniValue &univout)
+{
+    vuint8_t vopret;
+
+    if (GetOpReturnData(vout.scriptPubKey, vopret))
+    {
+        char addr[KOMODO_ADDRESS_BUFSIZE];
+
+        univout.push_back(Pair("nValue", vout.nValue));
+        Getscriptaddress(addr, vout.scriptPubKey);
+        univout.push_back(Pair("address", addr));
+
+        if (vout.scriptPubKey.IsPayToCryptoCondition())
+        {
+            CScript ccopret;
+
+            univout.push_back(Pair("vout", "cryptocondition"));
+            if (MyGetCCopret(vout.scriptPubKey, ccopret))
+            {
+                decode_marmara_opret_to_univalue(ccopret, univout);
+            }
+        }
+        else
+        {
+            univout.push_back(Pair("vout", "normal"));
+        }
+    }
+    else
+    {
+        univout.push_back(Pair("vout", "opreturn"));
+        decode_marmara_opret_to_univalue(vout.scriptPubKey, univout);
+    }
+}
+
+UniValue MarmaraDecodeTxdata(const vuint8_t &txdata, bool printvins)
+{
+    UniValue result(UniValue::VOBJ);
+    CTransaction tx;
+    vuint8_t vopret;
+
+    if (E_UNMARSHAL(txdata, ss >> tx))
+    {
+        result.push_back(Pair("object", "transaction"));
+
+        if (printvins)
+        {
+            UniValue univins(UniValue::VARR);
+
+            for (int i = 0; i < tx.vin.size(); i++)
+            {
+                UniValue univin(UniValue::VOBJ);
+                CTransaction vintx;
+                uint256 hashBlock;
+
+                univin.push_back(Pair("n", std::to_string(i)));
+                univin.push_back(Pair("prev-txid", tx.vin[i].prevout.hash.GetHex()));
+                univin.push_back(Pair("prev-n", (int64_t)tx.vin[i].prevout.n));
+
+                if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock))
+                {
+                    UniValue univintx(UniValue::VOBJ);
+                    decode_marmara_vout(vintx.vout[tx.vin[i].prevout.n], univintx);
+                    univin.push_back(Pair("error", "could not load vin tx"));
+                }
+                else
+                {
+                    univin.push_back(Pair("error", "could not load vin tx"));
+                }
+                univins.push_back(univin);
+            }
+            result.push_back(Pair("vins", univins));
+        }
+
+        UniValue univouts(UniValue::VARR);
+
+        for (int i = 0; i < tx.vout.size(); i ++)
+        {
+            UniValue univout(UniValue::VOBJ);
+
+            univout.push_back(Pair("n", std::to_string(i)));
+            decode_marmara_vout(tx.vout[i], univout);            
+            univouts.push_back(univout);
+        }
+        result.push_back(Pair("vouts", univouts));
+    }
+    else 
+    {
+        CScript opret(txdata), ccopret;
+        UniValue univout(UniValue::VOBJ);
+
+        if (GetOpReturnData(opret, vopret))
+        {
+            univout.push_back(Pair("object", "opreturn"));
+            decode_marmara_opret_to_univalue(opret, univout);
+            result.push_back(Pair("decoded", univout));
+        }
+        else if (MyGetCCopret(opret, ccopret))
+        {
+            univout.push_back(Pair("object", "vout-ccdata"));
+            decode_marmara_opret_to_univalue(ccopret, univout);
+            result.push_back(Pair("decoded", univout));
+        }
+        else {
+            result.push_back(Pair("object", "cannot decode"));
+        }
+    }
+
+    return result;
+}
+
+
 // fixes:
 static bool skipBadLoop(const uint256 &refbatontxid)
 {

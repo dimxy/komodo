@@ -154,6 +154,6 @@ bool MyGetCCopret(const CScript &scriptPubKey, CScript &opret);
 //static bool IsActivatedOpret(const CScript &spk, CPubKey &pk);
 
 //int64_t AddMarmarainputs(bool(*CheckOpretFunc)(const CScript &, CPubKey &), CMutableTransaction &mtx, std::vector<CPubKey> &pubkeys, const char *unspentaddr, CAmount amount, int32_t maxinputs);
-
+UniValue MarmaraDecodeTxdata(const vuint8_t &txdata, bool printvins);
 
 #endif
