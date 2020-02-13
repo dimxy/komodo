@@ -5113,7 +5113,7 @@ void decode_marmara_vout(const CTxOut &vout, UniValue &univout)
 {
     vuint8_t vopret;
 
-    if (GetOpReturnData(vout.scriptPubKey, vopret))
+    if (!GetOpReturnData(vout.scriptPubKey, vopret))
     {
         char addr[KOMODO_ADDRESS_BUFSIZE];
 
@@ -5171,7 +5171,7 @@ UniValue MarmaraDecodeTxdata(const vuint8_t &txdata, bool printvins)
                 {
                     UniValue univintx(UniValue::VOBJ);
                     decode_marmara_vout(vintx.vout[tx.vin[i].prevout.n], univintx);
-                    univin.push_back(Pair("error", "could not load vin tx"));
+                    univin.push_back(Pair("vintx", univintx));
                 }
                 else
                 {
