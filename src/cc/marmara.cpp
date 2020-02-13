@@ -5076,23 +5076,19 @@ static void decode_marmara_opret_to_univalue(const CScript &opret, UniValue &uni
             univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
         }
         else if (loopData.lastfuncid == MARMARA_LOCKED) {
-            struct CCcontract_info *cp, C;
-            cp = CCinit(&C, EVAL_MARMARA);
-            CPubKey Marmarapk = GetUnspendable(cp, 0);
-
             univout.push_back(Pair("endorser-pubkey", HexStr(loopData.pk.begin(), loopData.pk.end())));
             univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
-
-            CPubKey createtxidPk = CCtxidaddr_tweak(NULL, loopData.createtxid);
-            char ccaddr[KOMODO_ADDRESS_BUFSIZE];
-            CTxOut tvout = MakeMarmaraCC1of2voutOpret(loopData.amount, createtxidPk, CScript());
-            Getscriptaddress(ccaddr, tvout.scriptPubKey);
-            univout.push_back(Pair("loop-create-txid-1of2-addr", ccaddr));
         }
         else if (loopData.lastfuncid == MARMARA_SETTLE || loopData.lastfuncid == MARMARA_SETTLE_PARTIAL) {
             univout.push_back(Pair("holder-pubkey", HexStr(loopData.pk.begin(), loopData.pk.end())));
             univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
+        }
+        else {
+            univout.push_back(Pair("error", "unknown funcid"));
+        }
 
+        if (!loopData.createtxid.IsNull())
+        {
             CPubKey createtxidPk = CCtxidaddr_tweak(NULL, loopData.createtxid);
             char ccaddr[KOMODO_ADDRESS_BUFSIZE];
             CTxOut tvout = MakeMarmaraCC1of2voutOpret(loopData.amount, createtxidPk, CScript());
