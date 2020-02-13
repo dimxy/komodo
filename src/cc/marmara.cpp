@@ -5151,6 +5151,10 @@ void decode_marmara_vout(const CTxOut &vout, UniValue &univout)
             {
                 decode_marmara_opret_to_univalue(ccopret, univout);
             }
+            else
+            {
+                univout.push_back(Pair("ccdata", "no"));
+            }
         }
         else
         {
