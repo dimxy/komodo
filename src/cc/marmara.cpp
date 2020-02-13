@@ -5076,12 +5076,28 @@ static void decode_marmara_opret_to_univalue(const CScript &opret, UniValue &uni
             univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
         }
         else if (loopData.lastfuncid == MARMARA_LOCKED) {
+            struct CCcontract_info *cp, C;
+            cp = CCinit(&C, EVAL_MARMARA);
+            CPubKey Marmarapk = GetUnspendable(cp, 0);
+
             univout.push_back(Pair("endorser-pubkey", HexStr(loopData.pk.begin(), loopData.pk.end())));
             univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
+
+            CPubKey createtxidPk = CCtxidaddr_tweak(NULL, loopData.createtxid);
+            char ccaddr[KOMODO_ADDRESS_BUFSIZE];
+            CTxOut tvout = MakeMarmaraCC1of2voutOpret(loopData.amount, createtxidPk, CScript());
+            Getscriptaddress(ccaddr, tvout.scriptPubKey);
+            univout.push_back(Pair("loop-create-txid-1of2-addr", ccaddr));
         }
         else if (loopData.lastfuncid == MARMARA_SETTLE || loopData.lastfuncid == MARMARA_SETTLE_PARTIAL) {
             univout.push_back(Pair("holder-pubkey", HexStr(loopData.pk.begin(), loopData.pk.end())));
             univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
+
+            CPubKey createtxidPk = CCtxidaddr_tweak(NULL, loopData.createtxid);
+            char ccaddr[KOMODO_ADDRESS_BUFSIZE];
+            CTxOut tvout = MakeMarmaraCC1of2voutOpret(loopData.amount, createtxidPk, CScript());
+            Getscriptaddress(ccaddr, tvout.scriptPubKey);
+            univout.push_back(Pair("loop-create-txid-1of2-addr", ccaddr));
         }
     }
     else if ((funcid = MarmaraDecodeCoinbaseOpretExt(opret, ver, pk, h, uh, stakerpk, loopcreatetxid)) != 0)
@@ -5100,8 +5116,13 @@ static void decode_marmara_opret_to_univalue(const CScript &opret, UniValue &uni
             univout.push_back(Pair("description", "pool"));
         else if (funcid == MARMARA_RELEASE)
             univout.push_back(Pair("description", "release"));
-        if (pk.IsValid())
+        if (pk.IsValid()) {
             univout.push_back(Pair("pubkey", HexStr(pk.begin(), pk.end())));
+            char ccaddr[KOMODO_ADDRESS_BUFSIZE];
+            CTxOut tvout = MakeMarmaraCC1of2voutOpret(loopData.amount, pk, CScript());
+            Getscriptaddress(ccaddr, tvout.scriptPubKey);
+            univout.push_back(Pair("pubkey-1of2-addr", ccaddr));
+        }
         if (stakerpk.IsValid())
             univout.push_back(Pair("staker-pubkey", HexStr(stakerpk.begin(), stakerpk.end())));
         if (!loopcreatetxid.IsNull())
