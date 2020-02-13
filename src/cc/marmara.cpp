@@ -18,7 +18,7 @@
 #include "komodo_defs.h"
 #include "CCMarmara.h"
 #include "key_io.h"
-
+#include <signal.h>
  /*
   Marmara CC is for the MARMARA project
 
@@ -239,8 +239,10 @@ uint8_t MarmaraDecodeCoinbaseOpretExt(const CScript &scriptPubKey, uint8_t &vers
         else
             LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "not marmara opret, evalcode=" << (int)vopret[0] << std::endl);
     }
-    else
+    else {
         LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "bad marmara opret, vopret.size()=" << vopret.size() << std::endl);
+        //raise(SIGINT);
+    }
     return(0);
 }
 
@@ -3116,7 +3118,7 @@ int32_t MarmaraGetStakeMultiplier(const CTransaction & staketx, int32_t nvout)
                                 int32_t spentheight;
                                 uint256 loopcreatetxid;
 
-                                MarmaraDecodeCoinbaseOpretExt(staketx.vout[nvout].scriptPubKey, version, opretpk, h, uh, stakerpk, loopcreatetxid);
+                                MarmaraDecodeCoinbaseOpretExt(opret, version, opretpk, h, uh, stakerpk, loopcreatetxid);
                                 // check if loop not settled yet
                                 if (version == 3 && !loopcreatetxid.IsNull() && CCgetspenttxid(spenttxid, spentvout, spentheight, loopcreatetxid, MARMARA_OPENCLOSE_VOUT) < 0)
                                 {
