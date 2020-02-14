@@ -18,7 +18,6 @@
 #include "komodo_defs.h"
 #include "key_io.h"
 #include "cc/CCinclude.h"
-#include "cc/CCMarmara.h"
 #include <string.h>
 
 #ifdef _WIN32
@@ -2491,18 +2490,6 @@ fprintf(stderr,"extralen.%d before disable bits\n",extralen);
     if ( ASSETCHAINS_SYMBOL[0] == 0 || strcmp(ASSETCHAINS_SYMBOL,"SUPERNET") == 0 || strcmp(ASSETCHAINS_SYMBOL,"DEX") == 0 || strcmp(ASSETCHAINS_SYMBOL,"COQUI") == 0 || strcmp(ASSETCHAINS_SYMBOL,"PIRATE") == 0 || strcmp(ASSETCHAINS_SYMBOL,"KMDICE") == 0 )
         KOMODO_EXTRASATOSHI = 1;
 
-    if (ASSETCHAINS_MARMARA) 
-    {
-        // report hard fork height
-        LOGSTREAMFN("marmara", CCLOG_INFO, stream << "MARMARA_POS_IMPROVEMENTS_HEIGHT=" << MARMARA_POS_IMPROVEMENTS_HEIGHT << std::endl);
-
-        // we need mypubkey set for stake_hash to work
-        vuint8_t vmypk = Mypubkey();
-        if (vmypk.size() == 0 || vmypk[0] == '\0')
-        {
-            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "no '-pubkey' set, please restart" << std::endl);
-        }
-    }
 }
 
 void komodo_nameset(char *symbol,char *dest,char *source)

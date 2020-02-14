@@ -2574,7 +2574,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
     vuint8_t vmypk = Mypubkey();
     if (vmypk.size() == 0 || vmypk[0] == '\0')
     {
-        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "no '-pubkey' set, please restart" << std::endl);
+        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "no '-pubkey' set, please restart with -pubkey set for staking" << std::endl);
         return MARMARA_STAKE_TX_BAD;
     }
 
