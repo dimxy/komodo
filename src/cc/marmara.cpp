@@ -2570,13 +2570,6 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
 {
     uint8_t funcid; 
 
-    // report hard fork height
-    static bool isForkHeightPrinted = false;
-    if (!isForkHeightPrinted)
-    {
-        LOGSTREAMFN("marmara", CCLOG_INFO, stream << "MARMARA_POS_IMPROVEMENTS_HEIGHT=" << MARMARA_POS_IMPROVEMENTS_HEIGHT << std::endl);
-        isForkHeightPrinted = true;
-    }
     // we need mypubkey set for stake_hash to work
     vuint8_t vmypk = Mypubkey();
     if (vmypk.size() == 0 || vmypk[0] == '\0')
