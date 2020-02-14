@@ -2569,6 +2569,22 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
 // And that opret was added to stake tx by MarmaraSignature()
 {
     uint8_t funcid; 
+
+    // report hard fork height
+    static bool isForkHeightPrinted = false;
+    if (!isForkHeightPrinted)
+    {
+        LOGSTREAMFN("marmara", CCLOG_INFO, stream << "MARMARA_POS_IMPROVEMENTS_HEIGHT=" << MARMARA_POS_IMPROVEMENTS_HEIGHT << std::endl);
+        isForkHeightPrinted = true;
+    }
+    // we need mypubkey set for stake_hash to work
+    vuint8_t vmypk = Mypubkey();
+    if (vmypk.size() == 0 || vmypk[0] == '\0')
+    {
+        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "no '-pubkey' set, please restart" << std::endl);
+        return MARMARA_STAKE_TX_BAD;
+    }
+
     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream  << "staketxid=" << staketx.GetHash().ToString() << " numvins=" << staketx.vin.size() << " numvouts=" << staketx.vout.size() << " vout[0].nValue="  << staketx.vout[0].nValue << " inOpret.size=" << vintxOpret.size() << std::endl);
 
     //check stake tx:
