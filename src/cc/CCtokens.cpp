@@ -750,18 +750,18 @@ int64_t HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTran
 
     int64_t burnedAmount = 0;
 
-    for (int i = 0; i < tx.vout.size(); i++)    {
-
+    for (int i = 0; i < tx.vout.size(); i++)    
+    {
         if (tx.vout[i].scriptPubKey.IsPayToCryptoCondition())
         {
             // make all possible token vouts for dead pk:
             for (std::vector<CPubKey>::iterator it = voutPubkeys.begin(); it != voutPubkeys.end(); it++) {
                 testVouts.push_back(std::make_pair(MakeCC1vout(EVAL_TOKENS, tx.vout[i].nValue, *it), std::string("single-eval cc1 burn pk")));
-                testVouts.push_back(std::make_pair(MakeTokensCC1vout(evalCode, evalCode2, tx.vout[i].nValue, *it), std::string("three-eval cc1 burn pk")));
-
-                if (evalCode2 != 0)
+                if (evalCode2 != 0) {
+                    testVouts.push_back(std::make_pair(MakeTokensCC1vout(evalCode, evalCode2, tx.vout[i].nValue, *it), std::string("three-eval cc1 burn pk")));
                     // also check in backward evalcode order:
                     testVouts.push_back(std::make_pair(MakeTokensCC1vout(evalCode2, evalCode, tx.vout[i].nValue, *it), std::string("three-eval cc1 burn pk backward-eval")));
+                }
             }
 
             // try all test vouts:
@@ -769,6 +769,7 @@ int64_t HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTran
                 if (t.first == tx.vout[i]) {
                     LOGSTREAMFN("cctokens", CCLOG_DEBUG1, stream << "burned amount=" << tx.vout[i].nValue << " msg=" << t.second << " evalCode=" << (int)evalCode << " evalCode2=" << (int)evalCode2 << " txid=" << tx.GetHash().GetHex() << " tokenid=" << reftokenid.GetHex() << std::endl);
                     burnedAmount += tx.vout[i].nValue;
+                    break; // do not calc vout twice!
                 }
             }
             LOGSTREAMFN("cctokens", CCLOG_DEBUG2, stream << "total burned=" << burnedAmount << " evalCode=" << (int)evalCode << " evalCode2=" << (int)evalCode2 << " for txid=" << tx.GetHash().GetHex() << " for tokenid=" << reftokenid.GetHex() << std::endl);
