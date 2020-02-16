@@ -65,34 +65,44 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 	}
 
     // validate spending markers from token global cc addr: this is allowed only for burned non-fungible tokens:
-    if (ExtractTokensCCVinPubkeys(tx, vinTokenPubkeys) && std::find(vinTokenPubkeys.begin(), vinTokenPubkeys.end(), GetUnspendable(cp, NULL)) != vinTokenPubkeys.end()) 
+    //while (ExtractTokensCCVinPubkeys(tx, vinTokenPubkeys) && std::find(vinTokenPubkeys.begin(), vinTokenPubkeys.end(), GetUnspendable(cp, NULL)) != vinTokenPubkeys.end()) 
+    for (const auto vin : tx.vin)
     {
         // validate spending from token unspendable cc addr:
-        int64_t burnedAmount = HasBurnedTokensvouts(cp, eval, tx, tokenid);
-        bool allowed = false;
-        if (burnedAmount > 0) 
+        const CPubKey tokenGlobalPk = GetUnspendable(cp, NULL);
+        if (check_signing_pubkey(vin.scriptSig) == tokenGlobalPk)
         {
-            vscript_t vopretNonfungible;
-            GetNonfungibleData(tokenid, vopretNonfungible);
-            if (!vopretNonfungible.empty()) 
-            {
-                CTransaction tokenbaseTx;
-                uint256 hashBlock;
-                if (myGetTransaction(tokenid, tokenbaseTx, hashBlock))
-                {
-                    CAmount supply = 0L, output;
-                    for (int v = 0; v < tokenbaseTx.vout.size() - 1; v++)
-                        if ((output = IsTokensvout(false, true, cp, NULL, tokenbaseTx, v, tokenid)) > 0)
-                            supply += output;
+            bool allowed = false;
 
-                    if (supply == 1 && supply == burnedAmount)
-                        allowed = true;
+            if (vin.prevout.hash == tokenid)  // check if this is my marker
+            {
+                // calc burned amount
+                CAmount burnedAmount = HasBurnedTokensvouts(cp, eval, tx, tokenid);
+                if (burnedAmount > 0)
+                {
+                    vscript_t vopretNonfungible;
+                    GetNonfungibleData(tokenid, vopretNonfungible);
+                    if (!vopretNonfungible.empty())
+                    {
+                        CTransaction tokenbaseTx;
+                        uint256 hashBlock;
+                        if (myGetTransaction(tokenid, tokenbaseTx, hashBlock))
+                        {
+                            // get total supply
+                            CAmount supply = 0L, output;
+                            for (int v = 0; v < tokenbaseTx.vout.size() - 1; v++)
+                                if ((output = IsTokensvout(false, true, cp, NULL, tokenbaseTx, v, tokenid)) > 0)
+                                    supply += output;
+
+                            if (supply == 1 && supply == burnedAmount)  // burning marker is allowed only for burned NFTs (that is with supply == 1)
+                                allowed = true;
+                        }
+                    }
                 }
             }
+            if (!allowed)
+                return eval->Invalid("spending token cc marker not supported");
         }
-        if (!allowed)
-            return eval->Invalid("spending token cc marker not supported");
-
     }
 
    	switch (funcid)
