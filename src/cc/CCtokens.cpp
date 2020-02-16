@@ -706,7 +706,7 @@ int64_t HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTran
 {
     uint8_t dummyEvalCode;
     uint256 tokenIdOpret;
-    std::vector<CPubKey> voutPubkeys, voutPubkeysDummy;
+    std::vector<CPubKey> vDeadPubkeys, voutPubkeysDummy;
     std::vector<std::pair<uint8_t, vscript_t>>  oprets;
     vscript_t vopretExtra, vopretNonfungible;
 
@@ -746,7 +746,7 @@ int64_t HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTran
         evalCode2 = 0;
     }
 
-    voutPubkeys.push_back(pubkey2pk(ParseHex(CC_BURNPUBKEY)));
+    vDeadPubkeys.push_back(pubkey2pk(ParseHex(CC_BURNPUBKEY)));
 
     int64_t burnedAmount = 0;
 
@@ -755,8 +755,11 @@ int64_t HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTran
         if (tx.vout[i].scriptPubKey.IsPayToCryptoCondition())
         {
             // make all possible token vouts for dead pk:
-            for (std::vector<CPubKey>::iterator it = voutPubkeys.begin(); it != voutPubkeys.end(); it++) {
+            for (std::vector<CPubKey>::iterator it = vDeadPubkeys.begin(); it != vDeadPubkeys.end(); it++) 
+            {
                 testVouts.push_back(std::make_pair(MakeCC1vout(EVAL_TOKENS, tx.vout[i].nValue, *it), std::string("single-eval cc1 burn pk")));
+                if (evalCode != EVAL_TOKENS)
+                    testVouts.push_back(std::make_pair(MakeTokensCC1vout(evalCode, 0, tx.vout[i].nValue, *it), std::string("two-eval cc1 burn pk")));
                 if (evalCode2 != 0) {
                     testVouts.push_back(std::make_pair(MakeTokensCC1vout(evalCode, evalCode2, tx.vout[i].nValue, *it), std::string("three-eval cc1 burn pk")));
                     // also check in backward evalcode order:
