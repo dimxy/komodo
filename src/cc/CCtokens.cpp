@@ -64,17 +64,35 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 		}
 	}
 
-    // validate spending from token global cc addr: allowed only for burned non-fungible tokens:
+    // validate spending markers from token global cc addr: this is allowed only for burned non-fungible tokens:
     if (ExtractTokensCCVinPubkeys(tx, vinTokenPubkeys) && std::find(vinTokenPubkeys.begin(), vinTokenPubkeys.end(), GetUnspendable(cp, NULL)) != vinTokenPubkeys.end()) 
     {
         // validate spending from token unspendable cc addr:
         int64_t burnedAmount = HasBurnedTokensvouts(cp, eval, tx, tokenid);
-        if (burnedAmount > 0) {
+        bool allowed = false;
+        if (burnedAmount > 0) 
+        {
             vscript_t vopretNonfungible;
             GetNonfungibleData(tokenid, vopretNonfungible);
-            if( vopretNonfungible.empty() )
-                return eval->Invalid("spending cc marker not supported for fungible tokens");
+            if (!vopretNonfungible.empty()) 
+            {
+                CTransaction tokenbaseTx;
+                uint256 hashBlock;
+                if (myGetTransaction(tokenid, tokenbaseTx, hashBlock))
+                {
+                    CAmount supply = 0L, output;
+                    for (int v = 0; v < tokenbaseTx.vout.size() - 1; v++)
+                        if ((output = IsTokensvout(false, true, cp, NULL, tokenbaseTx, v, tokenid)) > 0)
+                            supply += output;
+
+                    if (supply == 1 && supply == burnedAmount)
+                        allowed = true;
+                }
+            }
         }
+        if (!allowed)
+            return eval->Invalid("spending token cc marker not supported");
+
     }
 
    	switch (funcid)
