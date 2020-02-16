@@ -56,7 +56,7 @@ static void FilterOutNonCCOprets(const std::vector<std::pair<uint8_t, vscript_t>
 }
 
 // checks if any token vouts are sent to 'dead' pubkey
-CAmount HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, uint256 reftokenid)
+static CAmount HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, uint256 reftokenid)
 {
     uint8_t dummyEvalCode;
     uint256 tokenIdOpret;
