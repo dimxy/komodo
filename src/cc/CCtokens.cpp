@@ -25,7 +25,100 @@
  vout.n-1: opreturn EVAL_TOKENS 't' tokenid <other contract payload>
 */
 
-// tx validation
+// helper funcs:
+
+// extract cc token vins' pubkeys:
+static bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::vector<CPubKey> &vinPubkeys) {
+
+    bool found = false;
+    CPubKey pubkey;
+    struct CCcontract_info *cpTokens, tokensC;
+
+    cpTokens = CCinit(&tokensC, EVAL_TOKENS);
+    vinPubkeys.clear();
+
+    for (int32_t i = 0; i < tx.vin.size(); i++)
+    {
+        // check for cc token vins:
+        if ((*cpTokens->ismyvin)(tx.vin[i].scriptSig))
+        {
+
+            auto findEval = [](CC *cond, struct CCVisitor _) {
+                bool r = false;
+
+                if (cc_typeId(cond) == CC_Secp256k1) {
+                    *(CPubKey*)_.context = buf2pk(cond->publicKey);
+                    //std::cerr << "findEval found pubkey=" << HexStr(*(CPubKey*)_.context) << std::endl;
+                    r = true;
+                }
+                // false for a match, true for continue
+                return r ? 0 : 1;
+            };
+
+            CC *cond = GetCryptoCondition(tx.vin[i].scriptSig);
+
+            if (cond) {
+                CCVisitor visitor = { findEval, (uint8_t*)"", 0, &pubkey };
+                bool out = !cc_visit(cond, visitor);
+                cc_free(cond);
+
+                if (pubkey.IsValid()) {
+                    vinPubkeys.push_back(pubkey);
+                    found = true;
+                }
+            }
+        }
+    }
+    return found;
+}
+
+// validate spending markers from token global cc addr: this is allowed only for burned non-fungible tokens
+// returns false if there is marker spending and it is prohibited
+// returns true if no marker spending or it is allowed
+static bool CheckMarkerSpending(struct CCcontract_info *cp, Eval *eval, const CTransaction &tx, uint256 tokenid)
+{
+    for (const auto vin : tx.vin)
+    {
+        // validate spending from token unspendable cc addr:
+        const CPubKey tokenGlobalPk = GetUnspendable(cp, NULL);
+        if (check_signing_pubkey(vin.scriptSig) == tokenGlobalPk)
+        {
+            bool allowed = false;
+
+            if (vin.prevout.hash == tokenid)  // check if this is my marker
+            {
+                // calc burned amount
+                CAmount burnedAmount = HasBurnedTokensvouts(cp, eval, tx, tokenid);
+                if (burnedAmount > 0)
+                {
+                    vscript_t vopretNonfungible;
+                    GetNonfungibleData(tokenid, vopretNonfungible);
+                    if (!vopretNonfungible.empty())
+                    {
+                        CTransaction tokenbaseTx;
+                        uint256 hashBlock;
+                        if (myGetTransaction(tokenid, tokenbaseTx, hashBlock))
+                        {
+                            // get total supply
+                            CAmount supply = 0L, output;
+                            for (int v = 0; v < tokenbaseTx.vout.size() - 1; v++)
+                                if ((output = IsTokensvout(false, true, cp, NULL, tokenbaseTx, v, tokenid)) > 0)
+                                    supply += output;
+
+                            if (supply == 1 && supply == burnedAmount)  // burning marker is allowed only for burned NFTs (that is with supply == 1)
+                                allowed = true;
+                        }
+                    }
+                }
+            }
+            if (!allowed)
+                return false;
+        }
+    }
+    return true;
+}
+
+// token tx validation
 bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn)
 {
     CTransaction createTx; 
@@ -64,46 +157,8 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 		}
 	}
 
-    // validate spending markers from token global cc addr: this is allowed only for burned non-fungible tokens:
-    //while (ExtractTokensCCVinPubkeys(tx, vinTokenPubkeys) && std::find(vinTokenPubkeys.begin(), vinTokenPubkeys.end(), GetUnspendable(cp, NULL)) != vinTokenPubkeys.end()) 
-    for (const auto vin : tx.vin)
-    {
-        // validate spending from token unspendable cc addr:
-        const CPubKey tokenGlobalPk = GetUnspendable(cp, NULL);
-        if (check_signing_pubkey(vin.scriptSig) == tokenGlobalPk)
-        {
-            bool allowed = false;
-
-            if (vin.prevout.hash == tokenid)  // check if this is my marker
-            {
-                // calc burned amount
-                CAmount burnedAmount = HasBurnedTokensvouts(cp, eval, tx, tokenid);
-                if (burnedAmount > 0)
-                {
-                    vscript_t vopretNonfungible;
-                    GetNonfungibleData(tokenid, vopretNonfungible);
-                    if (!vopretNonfungible.empty())
-                    {
-                        CTransaction tokenbaseTx;
-                        uint256 hashBlock;
-                        if (myGetTransaction(tokenid, tokenbaseTx, hashBlock))
-                        {
-                            // get total supply
-                            CAmount supply = 0L, output;
-                            for (int v = 0; v < tokenbaseTx.vout.size() - 1; v++)
-                                if ((output = IsTokensvout(false, true, cp, NULL, tokenbaseTx, v, tokenid)) > 0)
-                                    supply += output;
-
-                            if (supply == 1 && supply == burnedAmount)  // burning marker is allowed only for burned NFTs (that is with supply == 1)
-                                allowed = true;
-                        }
-                    }
-                }
-            }
-            if (!allowed)
-                return eval->Invalid("spending token cc marker not supported");
-        }
-    }
+    if (!CheckMarkerSpending(cp, eval, tx, tokenid))
+        return eval->Invalid("spending token cc marker not supported");
 
    	switch (funcid)
 	{
@@ -137,52 +192,8 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 	return true;
 }
 
-// helper funcs:
 
-// extract cc token vins' pubkeys:
-bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::vector<CPubKey> &vinPubkeys) {
 
-	bool found = false;
-	CPubKey pubkey;
-	struct CCcontract_info *cpTokens, tokensC;
-
-	cpTokens = CCinit(&tokensC, EVAL_TOKENS);
-    vinPubkeys.clear();
-
-	for (int32_t i = 0; i < tx.vin.size(); i++)
-	{	
-        // check for cc token vins:
-		if( (*cpTokens->ismyvin)(tx.vin[i].scriptSig) )
-		{
-
-			auto findEval = [](CC *cond, struct CCVisitor _) {
-				bool r = false; 
-
-				if (cc_typeId(cond) == CC_Secp256k1) {
-					*(CPubKey*)_.context = buf2pk(cond->publicKey);
-					//std::cerr << "findEval found pubkey=" << HexStr(*(CPubKey*)_.context) << std::endl;
-					r = true;
-				}
-				// false for a match, true for continue
-				return r ? 0 : 1;
-			};
-
-			CC *cond = GetCryptoCondition(tx.vin[i].scriptSig);
-
-			if (cond) {
-				CCVisitor visitor = { findEval, (uint8_t*)"", 0, &pubkey };
-				bool out = !cc_visit(cond, visitor);
-				cc_free(cond);
-
-				if (pubkey.IsValid()) {
-					vinPubkeys.push_back(pubkey);
-					found = true;
-				}
-			}
-		}
-	}
-	return found;
-}
 
 // this is just for log messages indentation fur debugging recursive calls:
 thread_local uint32_t tokenValIndentSize = 0;
@@ -702,7 +713,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, C
 }
 
 // checks if any token vouts are sent to 'dead' pubkey
-int64_t HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, uint256 reftokenid)
+CAmount HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, uint256 reftokenid)
 {
     uint8_t dummyEvalCode;
     uint256 tokenIdOpret;
@@ -748,7 +759,7 @@ int64_t HasBurnedTokensvouts(struct CCcontract_info *cp, Eval* eval, const CTran
 
     vDeadPubkeys.push_back(pubkey2pk(ParseHex(CC_BURNPUBKEY)));
 
-    int64_t burnedAmount = 0;
+    CAmount burnedAmount = 0;
 
     for (int i = 0; i < tx.vout.size(); i++)    
     {
