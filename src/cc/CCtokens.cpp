@@ -186,11 +186,11 @@ static bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::vector<CPubKe
 // returns true if no marker spending or it is allowed
 static bool CheckMarkerSpending(struct CCcontract_info *cp, Eval *eval, const CTransaction &tx, uint256 tokenid)
 {
-    for (const auto vin : tx.vin)
+    for (const auto &vin : tx.vin)
     {
         // validate spending from token unspendable cc addr:
         const CPubKey tokenGlobalPk = GetUnspendable(cp, NULL);
-        if (check_signing_pubkey(vin.scriptSig) == tokenGlobalPk)
+        if (cp->ismyvin(vin.scriptSig) && check_signing_pubkey(vin.scriptSig) == tokenGlobalPk)
         {
             bool allowed = false;
 
