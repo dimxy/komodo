@@ -545,9 +545,6 @@ int64_t AddCClibtxfee(struct CCcontract_info *cp, CMutableTransaction &mtx, CPub
 /// @param vopretNonfungible non-fungible token data. The first byte is the evalcode of the contract that validates the NFT-data
 void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible);
 
-/// @private
-bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::vector<CPubKey> &vinPubkeys);
-
 // CCcustom
 
 /// Returns global pubkey for the evalcode and sets private key for the global pubkey
