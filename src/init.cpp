@@ -2035,13 +2035,13 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (ASSETCHAINS_MARMARA)
     {
         // report hard fork height
-        LOGSTREAMFN("marmara", CCLOG_INFO, stream << "MARMARA_POS_IMPROVEMENTS_HEIGHT=" << MARMARA_POS_IMPROVEMENTS_HEIGHT << std::endl);
+        LogPrintf( "marmara: MARMARA_POS_IMPROVEMENTS_HEIGHT=%d\n", MARMARA_POS_IMPROVEMENTS_HEIGHT);
 
         // we need mypubkey set for stake_hash to work
         vuint8_t vmypk = Mypubkey();
         if (vmypk.size() == 0 || vmypk[0] == '\0')
         {
-            LOGSTREAMFN("marmara", CCLOG_INFO, stream << "no '-pubkey' set, use -pubkey for mining" << std::endl);
+            LogPrintf("marmara: no '-pubkey' set, use -pubkey for mining\n");
         }
     }
 
