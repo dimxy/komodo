@@ -2106,24 +2106,14 @@ CScript MarmaraCreateDefaultCoinbaseScriptPubKey(int32_t nHeight, CPubKey minerp
             return CScript();
         }
 
-        // use special rewards pubkey for testing 
-        //std::string marmara_test_pubkey_param = GetArg("-marmara-test-pubkey", "");
-        //if (!marmara_test_pubkey_param.empty()) {
-        //    minerpk = pubkey2pk(ParseHex(marmara_test_pubkey_param));
-        //}
-
         // set initial amount to zero, it will be overriden by miner's code
         ccvout = MakeMarmaraCC1of2voutOpret(0, minerpk, opret);  // add cc opret to coinbase
-        //Getscriptaddress(coinaddr, ccvout.scriptPubKey);
         //LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "for activated rewards using pk=" << HexStr(minerpk) << " height=" << nHeight << " 1of2addr=" << coinaddr << std::endl);
-        //std::cerr << __func__ << " created activated opret for h=" << nHeight << std::endl;
         return(ccvout.scriptPubKey);
-        //return CScript() << ParseHex(HexStr(minerpk)) << OP_CHECKSIG;
     }
     else
     {
         //LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "not even ht, returning normal scriptPubKey" << std::endl);
-        //std::cerr << __func__ << " created normal opret for h=" << nHeight << std::endl;
         return CScript() << ParseHex(HexStr(minerpk)) << OP_CHECKSIG;
     }
 }
@@ -2355,27 +2345,6 @@ vuint8_t MarmaraGetStakerPubkeyFromCoinbaseOpret(const CScript &spk)
 // validates opreturn for even blocks
 int32_t MarmaraValidateCoinbase(int32_t height, const CTransaction &tx, std::string &errmsg)
 { 
-/*    if (0) // not used
-    {
-        int32_t d, histo[365 * 2 + 30];
-        memset(histo, 0, sizeof(histo));
-        for (ht = 2; ht < 100; ht++)
-            fprintf(stderr, "%d ", MarmaraUnlockht(ht));
-        fprintf(stderr, " <- first 100 unlock heights\n");
-        for (ht = 2; ht < 1000000; ht += MARMARA_GROUPSIZE)
-        {
-            d = (MarmaraUnlockht(ht) - ht) / 1440;
-            if (d < 0 || d > sizeof(histo) / sizeof(*histo))
-                fprintf(stderr, "d error.%d at ht.%d\n", d, ht);
-            else histo[d]++;
-        }
-
-        std::cerr  << " ";
-        for (ht = 0; ht < sizeof(histo) / sizeof(*histo); ht++)
-            fprintf(stderr, "%d ", histo[ht]);
-        fprintf(stderr, "<- unlock histogram[%d] by days locked\n", (int32_t)(sizeof(histo) / sizeof(*histo)));
-    } */
-
     if ((height & 1) != 0) // odd block - no marmara opret
     {
         return(0);  // TODO: do we need to check here that really no marmara coinbase opret for odd blocks?
@@ -2435,60 +2404,6 @@ int32_t MarmaraValidateCoinbase(int32_t height, const CTransaction &tx, std::str
     }
 }
 
-/*
-            // pos improvements rules for activated:
-            if (height >= MARMARA_POS_IMPROVEMENTS_HEIGHT)
-            {
-                /* do not need this
-                // odd heights
-                if ((height & 0x01) == 1)
-                {
-                    // for odd blocks check that only my pubkey stake tx are allowed, cannot be spent by marmara global pk
-                    for (const auto &vin : staketx.vin)
-                    {
-                        if (cp->ismyvin(vin.scriptSig)) {
-                            if (check_signing_pubkey(vin.scriptSig) == Marmarapk) {
-                                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "cannot spend odd block stake tx with global marmara pubkey" << " stake tx destaddr=" << destaddr << " height=" << height << std::endl);
-                                return MARMARA_STAKE_TX_BAD;
-                            }
-                        }
-                    }
-                }
-                else
-                {*//*
-                // check coinbase address
-                if (coinbase.vout.size() != 1) {
-                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "invalid coinbase vout size" << " height=" << height << std::endl);
-                    return MARMARA_STAKE_TX_BAD;
-                }
-                if ((height & 0x01) == 0 && !coinbase.vout[0].scriptPubKey.IsPayToCryptoCondition())
-                {
-                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "even pos block coinbase scriptpubkey not a cc" << " height=" << height << std::endl);
-                    return MARMARA_STAKE_TX_BAD;
-                }
-              
-                // for even block coinbase should go to the same address that stake tx does:
-                char coinbaseaddr[KOMODO_ADDRESS_BUFSIZE];
-                char checkaddr[KOMODO_ADDRESS_BUFSIZE];
-
-                if ((height & 0x01) == 1)
-                {
-                    // for odd blocks coinbase should go to normal address from pk from opret 
-                    Getscriptaddress(checkaddr, CScript() << ParseHex(HexStr(opretpk)) << OP_CHECKSIG);
-                }
-                else
-                {
-                    // for even blocks coinbase should go to stake tx cc address
-                    GetCCaddress1of2(cp, checkaddr, Marmarapk, opretpk);
-                }
-
-                Getscriptaddress(coinbaseaddr, coinbase.vout[0].scriptPubKey);
-                if (strcmp(coinbaseaddr, checkaddr) != 0) {
-                    LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "for pos blocks coinbase should go to the pubkey of activated stake tx" << " coinbaseaddr=" << coinbaseaddr << " checkaddr=" << checkaddr << " height=" << height << std::endl);
-                    return MARMARA_STAKE_TX_BAD;
-                }
-
-*/
 
 const int32_t MARMARA_STAKE_TX_OK = 1;
 const int32_t MARMARA_STAKE_TX_BAD = 0;
