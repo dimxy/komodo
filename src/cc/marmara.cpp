@@ -19,7 +19,7 @@
 #include "komodo_defs.h"
 #include "CCMarmara.h"
 #include "key_io.h"
-#include <signal.h>
+//#include <signal.h>
  /*
   Marmara CC is for the MARMARA project
 
@@ -1684,18 +1684,20 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
 
     //find settled amount to the holder
     CAmount settledAmount = 0L;
-    CAmount outputs = 0L;
+    if (settletx.vout.size() > 0)
+    {
+        if (!settletx.vout[0].scriptPubKey.IsPayToCryptoCondition())  // normals
+        {
+            if (settletx.vout[0] == CTxOut(settletx.vout[0].nValue, CScript() << ParseHex(HexStr(batonLoopData.pk)) << OP_CHECKSIG))
+            {
+                settledAmount = settletx.vout[0].nValue;
+            }
+        }
+    }
+
     for (const auto &v : settletx.vout)  // except the last vout opret
     {
-        if (!v.scriptPubKey.IsPayToCryptoCondition())  // normals
-        {
-            if (v == CTxOut(v.nValue, CScript() << ParseHex(HexStr(batonLoopData.pk)) << OP_CHECKSIG))
-            {
-                settledAmount += v.nValue;
-            }
-            outputs += v.nValue;
-        }
-        else
+        if (v.scriptPubKey.IsPayToCryptoCondition())  
         {
             // do not allow any cc vouts
             // NOTE: what about if change appears in settlement because someone has sent some coins to the loop address?
