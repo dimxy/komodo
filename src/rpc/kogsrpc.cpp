@@ -1395,6 +1395,28 @@ UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey
     return result;
 }
 
+
+// kogsdecodetxdata rpc impl decodes kogs transactions in hex
+UniValue kogs_decodetxdata(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    CCerror.clear();
+    if (fHelp || params.size() < 1 || params.size() > 2)
+    {
+        throw runtime_error("kogsdecodetxdata txdata [true]\n"
+            "returns decoded kogs transaction or cc scriptpubkey or opreturn scriptpubkey\n"
+            "if 'true' is passed also decodes vin txns for the passed tx\n" "\n");
+    }
+
+    vuint8_t vdata = ParseHex(params[0].get_str());
+    bool decodevintx = false;
+    if (params.size() > 1)
+        decodevintx = (params[1].get_str() == "true") ? true : false;
+    UniValue result = KogsDecodeTxdata(vdata, decodevintx);
+    RETURN_IF_ERROR(CCerror);
+    return result;
+}
+
+
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
@@ -1424,7 +1446,9 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsslamdata",           &kogsslamdata,            true },
     { "kogs",         "kogsobjectinfo",         &kogsobjectinfo,          true },
     { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
-    { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true }
+    { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true },
+    { "kogs",         "kogsdecodetxdata",         &kogs_decodetxdata,          true }
+
 };
 
 

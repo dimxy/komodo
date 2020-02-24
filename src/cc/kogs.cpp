@@ -378,6 +378,99 @@ static bool LoadTokenData(const CTransaction &tx, uint256 &creationtxid, vuint8_
 }
 
 
+static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
+{
+    vscript_t vopret;
+
+    if (tx.vout.size() < 1) {
+        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cant find vouts in tx" << std::endl);
+        return nullptr;
+    }
+    if (!GetOpReturnData(tx.vout.back().scriptPubKey, vopret) || vopret.size() < 2)
+    {
+        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cant find opret in tx" << std::endl);
+        return nullptr;
+    }
+
+    if (vopret.begin()[0] == EVAL_TOKENS)
+    {
+        vuint8_t vorigpubkey;
+        std::string name, description;
+        std::vector<std::pair<uint8_t, vscript_t>> oprets;
+        uint256 tokenid;
+
+        // parse tokens:
+        // find CREATION TX and get NFT data
+        if (LoadTokenData(tx, tokenid, vorigpubkey, name, description, oprets))
+        {
+            vscript_t vnftopret;
+            if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
+            {
+                uint8_t objectType;
+                CTransaction dummytx;
+                if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectType))
+                    return nullptr;
+
+                // TODO: why to check here whether nft is burned?
+                // we need to load burned nfts too!
+                // if (IsNFTBurned(creationtxid, dummytx))
+                //    return nullptr;
+
+                KogsBaseObject *obj = KogsFactory::CreateInstance(objectType);
+                if (obj == nullptr)
+                    return nullptr;
+
+                if (obj->Unmarshal(vnftopret))
+                {
+                    obj->creationtxid = tokenid;
+                    obj->nameId = name;
+                    obj->descriptionId = description;
+                    obj->encOrigPk = pubkey2pk(vorigpubkey);
+                    return obj;
+                }
+                else
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal nft to GameObject" << std::endl);
+            }
+            else
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant find nft opret in token opret" << std::endl);
+        }
+    }
+    else if (vopret.begin()[0] == EVAL_KOGS)
+    {
+        KogsEnclosure enc;
+
+        // parse kogs enclosure:
+        if (KogsEnclosure::DecodeLastOpret(tx, enc))   // finds THE FIRST and LATEST TX and gets data from the oprets
+        {
+            uint8_t objectType;
+
+            if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectType))
+                return nullptr;
+
+            KogsBaseObject *obj = KogsFactory::CreateInstance(objectType);
+            if (obj == nullptr)
+                return nullptr;
+            if (obj->Unmarshal(enc.vdata))
+            {
+                obj->creationtxid = enc.creationtxid;
+                obj->nameId = enc.name;
+                obj->descriptionId = enc.description;
+                obj->encOrigPk = enc.origpk;
+                //obj->latesttx = enc.latesttx;
+                return obj;
+            }
+            else
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal non-nft kogs object to GameObject" << std::endl);
+        }
+    }
+    else
+    {
+        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "not kogs or token opret" << std::endl);
+    }
+    return nullptr;
+}
+
+
 // load any kogs game object for any ot its txids
 static struct KogsBaseObject *LoadGameObject(uint256 txid)
 {
@@ -386,94 +479,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
 
     if (myGetTransaction(txid, tx, hashBlock)/* && !hashBlock.IsNull()*/)  //use non-locking version, check not in mempool
     {
-        vscript_t vopret;
-
-        if (tx.vout.size() < 1) {
-            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cant find vouts in tx" << std::endl);
-            return nullptr;
-        }
-        if (!GetOpReturnData(tx.vout.back().scriptPubKey, vopret) || vopret.size() < 2)
-        {
-            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cant find opret in tx" << std::endl);
-            return nullptr;
-        }
-
-        if (vopret.begin()[0] == EVAL_TOKENS)
-        {
-            vuint8_t vorigpubkey;
-            std::string name, description;
-            std::vector<std::pair<uint8_t, vscript_t>> oprets;
-            uint256 tokenid;
-
-            // parse tokens:
-            // find CREATION TX and get NFT data
-            if (LoadTokenData(tx, tokenid, vorigpubkey, name, description, oprets))
-            {
-                vscript_t vnftopret;
-                if (GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vnftopret))
-                {
-                    uint8_t objectType;
-                    CTransaction dummytx;
-                    if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectType))
-                        return nullptr;
-
-                    // TODO: why to check here whether nft is burned?
-                    // we need to load burned nfts too!
-                    // if (IsNFTBurned(creationtxid, dummytx))
-                    //    return nullptr;
-
-                    KogsBaseObject *obj = KogsFactory::CreateInstance(objectType);
-                    if (obj == nullptr)
-                        return nullptr;
-
-                    if (obj->Unmarshal(vnftopret)) 
-                    {
-                        obj->creationtxid = tokenid;
-                        obj->nameId = name;
-                        obj->descriptionId = description;
-                        obj->encOrigPk = pubkey2pk(vorigpubkey);
-                        return obj;
-                    }
-                    else
-                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal nft to GameObject" << std::endl);
-                }
-                else
-                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant find nft opret in token opret" << std::endl);
-            }
-        }
-        else if (vopret.begin()[0] == EVAL_KOGS)
-        {
-            KogsEnclosure enc;
-
-            // parse kogs enclosure:
-            if (KogsEnclosure::DecodeLastOpret(tx, enc))   // finds THE FIRST and LATEST TX and gets data from the oprets
-            {
-                uint8_t objectType;
-
-                if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectType))
-                    return nullptr;
-
-                KogsBaseObject *obj = KogsFactory::CreateInstance(objectType);
-                if (obj == nullptr)
-                    return nullptr;
-                if (obj->Unmarshal(enc.vdata)) 
-                {
-                    obj->creationtxid = enc.creationtxid;
-                    obj->nameId = enc.name;
-                    obj->descriptionId = enc.description;
-                    obj->encOrigPk = enc.origpk;
-                    //obj->latesttx = enc.latesttx;
-                    return obj;
-                }
-                else
-                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal non-nft kogs object to GameObject" << std::endl);
-            }
-        }
-        else
-        {
-            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "not kogs or token opret" << std::endl);
-        }
-        
+        return DecodeGameObjectOpreturn(tx);   
     }
     return nullptr;
 }
@@ -1487,35 +1493,33 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     return info;
 }
 
-// output info about any game object
-UniValue KogsObjectInfo(uint256 gameobjectid)
+static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
 {
     UniValue info(UniValue::VOBJ), err(UniValue::VOBJ), infotokenids(UniValue::VARR);
     UniValue gameinfo(UniValue::VOBJ);
     UniValue heightranges(UniValue::VARR);
     UniValue strengthranges(UniValue::VARR);
 
-    std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(gameobjectid) );
-    if (spobj == nullptr) {
+    if (pobj == nullptr) {
         err.push_back(std::make_pair("result", "error"));
         err.push_back(std::make_pair("error", "can't load object"));
         return err;
     }
 
-    if (spobj->evalcode != EVAL_KOGS || spobj->version != KOGS_VERSION) {
+    if (pobj->evalcode != EVAL_KOGS || pobj->version != KOGS_VERSION) {
         err.push_back(std::make_pair("result", "error"));
         err.push_back(std::make_pair("error", "not a kogs object or unsupported version"));
         return err;
     }
 
     info.push_back(std::make_pair("result", "success"));
-    info.push_back(std::make_pair("objectType", std::string(1, (char)spobj->objectType)));
-    info.push_back(std::make_pair("version", std::to_string(spobj->version)));
-    info.push_back(std::make_pair("nameId", spobj->nameId));
-    info.push_back(std::make_pair("descriptionId", spobj->descriptionId));
-    info.push_back(std::make_pair("originatorPubKey", HexStr(spobj->encOrigPk)));
+    info.push_back(std::make_pair("objectType", std::string(1, (char)pobj->objectType)));
+    info.push_back(std::make_pair("version", std::to_string(pobj->version)));
+    info.push_back(std::make_pair("nameId", pobj->nameId));
+    info.push_back(std::make_pair("descriptionId", pobj->descriptionId));
+    info.push_back(std::make_pair("originatorPubKey", HexStr(pobj->encOrigPk)));
 
-    switch (spobj->objectType)
+    switch (pobj->objectType)
     {
         KogsMatchObject *matchobj;
         KogsPack *packobj;
@@ -1526,22 +1530,22 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
 
     case KOGSID_KOG:
     case KOGSID_SLAMMER:
-        matchobj = (KogsMatchObject*)spobj.get();
+        matchobj = (KogsMatchObject*)pobj;
         info.push_back(std::make_pair("imageId", matchobj->imageId));
         info.push_back(std::make_pair("setId", matchobj->setId));
         info.push_back(std::make_pair("subsetId", matchobj->subsetId));
         info.push_back(std::make_pair("printId", std::to_string(matchobj->printId)));
         info.push_back(std::make_pair("appearanceId", std::to_string(matchobj->appearanceId)));
-        if (spobj->objectType == KOGSID_SLAMMER)
+        if (pobj->objectType == KOGSID_SLAMMER)
             info.push_back(std::make_pair("borderId", std::to_string(matchobj->borderId)));
         break;
 
     case KOGSID_PACK:
-        packobj = (KogsPack*)spobj.get();
+        packobj = (KogsPack*)pobj;
         break;
 
     case KOGSID_CONTAINER:
-        containerobj = (KogsContainer*)spobj.get();
+        containerobj = (KogsContainer*)pobj;
         info.push_back(std::make_pair("playerId", containerobj->playerid.GetHex()));
         ListContainerTokenids(*containerobj);
         for (auto t : containerobj->tokenids)
@@ -1552,13 +1556,13 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
         break;
 
     case KOGSID_GAME:
-        gameobj = (KogsGame*)spobj.get();
+        gameobj = (KogsGame*)pobj;
         gameinfo = KogsGameStatus(*gameobj);
         info.push_back(std::make_pair("gameinfo", gameinfo));
         break;
 
     case KOGSID_GAMECONFIG:
-        gameconfigobj = (KogsGameConfig*)spobj.get();
+        gameconfigobj = (KogsGameConfig*)pobj;
         info.push_back(std::make_pair("KogsInStack", gameconfigobj->numKogsInStack));
         info.push_back(std::make_pair("KogsInContainer", gameconfigobj->numKogsInContainer));
         info.push_back(std::make_pair("KogsToAdd", gameconfigobj->numKogsToAdd));
@@ -1586,7 +1590,7 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
         break;
 
     case KOGSID_PLAYER:
-        playerobj = (KogsPlayer*)spobj.get();
+        playerobj = (KogsPlayer*)pobj;
         break;
 
     default:
@@ -1594,8 +1598,14 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
         err.push_back(std::make_pair("error", "unsupported objectType"));
         return err;
     }
+}
 
-    return info;
+// output info about any game object
+UniValue KogsObjectInfo(uint256 gameobjectid)
+{
+    std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(gameobjectid) );
+    
+    return DecodeObjectInfo(spobj.get());
 }
 
 
@@ -2059,4 +2069,142 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     DeactivateUtxoLock();
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "created batons=" << txbatons << " created container transfers=" << txtransfers << std::endl);
+}
+
+// utils
+static void decode_kogs_opret_to_univalue(const CTransaction &tx, UniValue &univout)
+{
+
+    std::shared_ptr<KogsBaseObject> spobj( DecodeGameObjectOpreturn(tx) );
+
+    univout = DecodeObjectInfo(spobj.get());    
+}
+
+void decode_kogs_vout(const CTransaction &tx, int32_t nvout, UniValue &univout)
+{
+    vuint8_t vopret;
+
+    if (!GetOpReturnData(tx.vout[nvout].scriptPubKey, vopret))
+    {
+        char addr[KOMODO_ADDRESS_BUFSIZE];
+
+        univout.push_back(Pair("nValue", tx.vout[nvout].nValue));
+        Getscriptaddress(addr, tx.vout[nvout].scriptPubKey);
+        univout.push_back(Pair("address", addr));
+
+        if (tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition())
+        {
+            CScript ccopret;
+
+            univout.push_back(Pair("vout-type", "cryptocondition"));
+            if (false) // reserved for cc opret
+            {
+                // decode_kogs_opret_to_univalue(ccopret, univout);
+            }
+            else
+            {
+                univout.push_back(Pair("ccdata", "no"));
+            }
+        }
+        else
+        {
+            univout.push_back(Pair("vout-type", "normal"));
+        }
+    }
+    else
+    {
+        univout.push_back(Pair("vout-type", "opreturn"));
+        decode_kogs_opret_to_univalue(tx, univout);
+    }
+}
+
+UniValue KogsDecodeTxdata(const vuint8_t &txdata, bool printvins)
+{
+    UniValue result(UniValue::VOBJ);
+    CTransaction tx;
+    vuint8_t vopret;
+
+    if (E_UNMARSHAL(txdata, ss >> tx))
+    {
+        result.push_back(Pair("object", "transaction"));
+
+        if (printvins)
+        {
+            UniValue univins(UniValue::VARR);
+
+            if (tx.IsCoinBase())
+            {
+                UniValue univin(UniValue::VOBJ);
+                univin.push_back(Pair("coinbase", ""));
+                univins.push_back(univin);
+            }
+            else if (tx.IsCoinImport())
+            {
+                UniValue univin(UniValue::VOBJ);
+                univin.push_back(Pair("coinimport", ""));
+                univins.push_back(univin);
+            }
+            else
+            {
+                for (int i = 0; i < tx.vin.size(); i++)
+                {
+                    CTransaction vintx;
+                    uint256 hashBlock;
+                    UniValue univin(UniValue::VOBJ);
+
+                    univin.push_back(Pair("n", std::to_string(i)));
+                    univin.push_back(Pair("prev-txid", tx.vin[i].prevout.hash.GetHex()));
+                    univin.push_back(Pair("prev-n", (int64_t)tx.vin[i].prevout.n));
+                    if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock))
+                    {
+                        UniValue univintx(UniValue::VOBJ);
+                        decode_kogs_vout(vintx, tx.vin[i].prevout.n, univintx);
+                        univin.push_back(Pair("vout", univintx));
+                    }
+                    else
+                    {
+                        univin.push_back(Pair("error", "could not load vin tx"));
+                    }
+                    univins.push_back(univin);
+                }
+            }
+            result.push_back(Pair("vins", univins));
+        }
+
+        UniValue univouts(UniValue::VARR);
+
+        for (int i = 0; i < tx.vout.size(); i++)
+        {
+            UniValue univout(UniValue::VOBJ);
+
+            univout.push_back(Pair("n", std::to_string(i)));
+            decode_kogs_vout(tx, i, univout);
+            univouts.push_back(univout);
+        }
+        result.push_back(Pair("vouts", univouts));
+    }
+    else
+    {
+        CScript opret(txdata.begin(), txdata.end());
+        CScript ccopret;
+        UniValue univout(UniValue::VOBJ);
+
+        if (GetOpReturnData(opret, vopret))
+        {
+            univout.push_back(Pair("object", "opreturn"));
+            decode_kogs_opret_to_univalue(tx, univout);
+            result.push_back(Pair("decoded", univout));
+        }
+        /*else if (MyGetCCopret(opret, ccopret))  // reserved until cc opret use
+        {
+            univout.push_back(Pair("object", "vout-ccdata"));
+            decode_kogs_opret_to_univalue(ccopret, univout);
+            result.push_back(Pair("decoded", univout));
+        }*/
+        else {
+            result.push_back(Pair("object", "cannot decode"));
+        }
+    }
+
+    return result;
 }

@@ -911,5 +911,6 @@ UniValue KogsObjectInfo(uint256 gameobjectid);
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 
 void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &minersTransactions);
+UniValue KogsDecodeTxdata(const vuint8_t &txdata, bool printvins);
 
 #endif
