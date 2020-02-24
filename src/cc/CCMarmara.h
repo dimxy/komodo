@@ -145,6 +145,7 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
 // CScript MarmaraCoinbaseOpret(uint8_t funcid, const CPubKey &pk, int32_t height);
 vuint8_t MarmaraGetPubkeyFromSpk(const CScript & spk);
 vuint8_t MarmaraGetStakerPubkeyFromCoinbaseOpret(const CScript &spk);
+CPubKey MarmaraGetMyPubkey();
 
 bool MyGetCCopret(const CScript &scriptPubKey, CScript &opret);
 

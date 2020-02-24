@@ -2343,6 +2343,25 @@ vuint8_t MarmaraGetStakerPubkeyFromCoinbaseOpret(const CScript &spk)
     return vretpk;
 }
 
+CPubKey MarmaraGetMyPubkey()
+{
+    vuint8_t vmypk = Mypubkey();
+    CPubKey mypk = pubkey2pk(vmypk);
+
+    if (mypk.size() == CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+        return mypk;
+ 
+    const bool avoidException = true;
+    if (EnsureWalletIsAvailable(avoidException))
+    {
+        EnsureWalletIsUnlocked();
+        CReserveKey reservekey(pwalletMain);
+        reservekey.GetReservedKey(mypk);
+    }
+    return mypk;
+}
+
+
 // half of the blocks (with even heights) should be mined as activated (to some unlock height)
 // validates opreturn for even blocks
 int32_t MarmaraValidateCoinbase(int32_t height, const CTransaction &tx, std::string &errmsg)
@@ -2487,13 +2506,14 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
 {
     uint8_t funcid; 
 
+    /* this check is moved to komodo_staked to allow non-mining nodes to validate blocks
     // we need mypubkey set for stake_hash to work
     vuint8_t vmypk = Mypubkey();
     if (vmypk.size() == 0 || vmypk[0] == '\0')
     {
         LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "no '-pubkey' set, please restart with -pubkey set for staking" << std::endl);
         return MARMARA_STAKE_TX_BAD;
-    }
+    } */
 
     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream  << "staketxid=" << staketx.GetHash().ToString() << " numvins=" << staketx.vin.size() << " numvouts=" << staketx.vout.size() << " vout[0].nValue="  << staketx.vout[0].nValue << " inOpret.size=" << vintxOpret.size() << std::endl);
 

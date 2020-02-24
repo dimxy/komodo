@@ -2923,6 +2923,11 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
                 else
                 {
                     vhashpk = Mypubkey(); // coinbase pk is -pubkey pk
+                    if (vhashpk.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+                    {
+                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "could not get my pubkey for staking\n");
+                        return 0;
+                    }
                 }
             }
             else
@@ -2932,7 +2937,11 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
                 {
                     // add mypubkey only for even blocks:
                     vhashpk = Mypubkey();
-                    
+                    if (vhashpk.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+                    {
+                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "could not get my pubkey for staking\n");
+                        return 0;
+                    }
                 }
                 // else: for odd blocks no need to add pubkey to stakehash
             }
