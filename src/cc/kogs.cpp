@@ -1909,6 +1909,15 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     int txbatons = 0;
     int txtransfers = 0;
 
+    if (mypk.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
+        static bool warnedMypk = false;
+        if (!warnedMypk) {
+            warnedMypk = true;
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "no -pubkey on this node, can't not create baton transactions" << std::endl);
+        }
+        return;
+    }
+
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
