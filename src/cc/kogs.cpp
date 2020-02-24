@@ -408,8 +408,10 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
             {
                 uint8_t objectType;
                 CTransaction dummytx;
-                if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectType))
+                if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectType)) {
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "DecodeObjectHeader tokens returned null" << std::endl);
                     return nullptr;
+                }
 
                 // TODO: why to check here whether nft is burned?
                 // we need to load burned nfts too!
@@ -417,8 +419,10 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
                 //    return nullptr;
 
                 KogsBaseObject *obj = KogsFactory::CreateInstance(objectType);
-                if (obj == nullptr)
+                if (obj == nullptr) {
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "CreateInstance tokens returned null" << std::endl);
                     return nullptr;
+                }
 
                 if (obj->Unmarshal(vnftopret))
                 {
@@ -444,12 +448,16 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
         {
             uint8_t objectType;
 
-            if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectType))
+            if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectType)) {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "DecodeObjectHeader kogs returned null" << std::endl);
                 return nullptr;
+            }
 
             KogsBaseObject *obj = KogsFactory::CreateInstance(objectType);
-            if (obj == nullptr)
+            if (obj == nullptr) {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "CreateInstance kogs returned null" << std::endl);
                 return nullptr;
+            }
             if (obj->Unmarshal(enc.vdata))
             {
                 obj->creationtxid = enc.creationtxid;
@@ -1609,7 +1617,7 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
     {
         UniValue err(UniValue::VOBJ);
         err.push_back(std::make_pair("result", "error"));
-        err.push_back(std::make_pair("error", "could not load object"));
+        err.push_back(std::make_pair("error", "could not load object or bad opreturn"));
         return err;
     }
 
