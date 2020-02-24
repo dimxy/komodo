@@ -1507,6 +1507,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
     UniValue gameinfo(UniValue::VOBJ);
     UniValue heightranges(UniValue::VARR);
     UniValue strengthranges(UniValue::VARR);
+    UniValue flipped(UniValue::VARR);
 
     if (pobj == nullptr) {
         err.push_back(std::make_pair("result", "error"));
@@ -1522,6 +1523,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
 
     info.push_back(std::make_pair("result", "success"));
     info.push_back(std::make_pair("objectType", std::string(1, (char)pobj->objectType)));
+    info.push_back(std::make_pair("objectDesc", objectids[pobj->objectType]));
     info.push_back(std::make_pair("version", std::to_string(pobj->version)));
     info.push_back(std::make_pair("nameId", pobj->nameId));
     info.push_back(std::make_pair("descriptionId", pobj->descriptionId));
@@ -1537,6 +1539,8 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         KogsGameConfig *gameconfigobj;
         KogsPlayer *playerobj;
         KogsGameFinished *gamefinishedobj;
+        KogsBaton *batonobj;
+        KogsSlamParams *slamparamsobj;
 
 
     case KOGSID_KOG:
@@ -1609,6 +1613,45 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         info.push_back(std::make_pair("gameid", gamefinishedobj->gameid.GetHex()));
         info.push_back(std::make_pair("winner", gamefinishedobj->winnerid.GetHex()));
         info.push_back(std::make_pair("isError", (bool)gamefinishedobj->isError));
+        for (const auto &t : gamefinishedobj->kogsInStack)
+        {
+            infotokenids.push_back(t.GetHex());
+        }
+        info.push_back(std::make_pair("kogsInStack", infotokenids));
+        for (const auto &f : gamefinishedobj->kogsFlipped)
+        {
+            UniValue elem(UniValue::VOBJ);
+            elem.push_back(std::make_pair(f.first.GetHex(), f.second.GetHex()));
+            flipped.push_back(elem);
+        }
+        info.push_back(std::make_pair("kogsFlipped", flipped));
+        break;
+
+    case KOGSID_BATON:
+        batonobj = (KogsBaton*)pobj;
+        info.push_back(std::make_pair("gameid", batonobj->gameid.GetHex()));
+        info.push_back(std::make_pair("gameconfigid", batonobj->gameconfigid.GetHex()));
+        info.push_back(std::make_pair("nextplayerid", batonobj->nextplayerid.GetHex()));
+        info.push_back(std::make_pair("nextturn", batonobj->nextturn));
+        for (const auto &t : batonobj->kogsInStack)
+        {
+            infotokenids.push_back(t.GetHex());
+        }
+        info.push_back(std::make_pair("kogsInStack", infotokenids));
+        for (const auto &f : batonobj->kogsFlipped)
+        {
+            UniValue elem(UniValue::VOBJ);
+            elem.push_back(std::make_pair(f.first.GetHex(), f.second.GetHex()));
+            flipped.push_back(elem);
+        }
+        info.push_back(std::make_pair("kogsFlipped", flipped));
+        break;
+
+    case KOGSID_SLAMPARAMS:
+        slamparamsobj = (KogsSlamParams*)pobj;
+        info.push_back(std::make_pair("gameid", slamparamsobj->gameid.GetHex()));
+        info.push_back(std::make_pair("height", slamparamsobj->armHeight));
+        info.push_back(std::make_pair("strength", slamparamsobj->armStrength));
         break;
 
     default:
