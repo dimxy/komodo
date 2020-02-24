@@ -1526,6 +1526,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
     info.push_back(std::make_pair("nameId", pobj->nameId));
     info.push_back(std::make_pair("descriptionId", pobj->descriptionId));
     info.push_back(std::make_pair("originatorPubKey", HexStr(pobj->encOrigPk)));
+    info.push_back(std::make_pair("creationtxid", pobj->creationtxid.GetHex()));
 
     switch (pobj->objectType)
     {
@@ -1535,6 +1536,8 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         KogsGame *gameobj;
         KogsGameConfig *gameconfigobj;
         KogsPlayer *playerobj;
+        KogsGameFinished *gamefinishedobj;
+
 
     case KOGSID_KOG:
     case KOGSID_SLAMMER:
@@ -1599,6 +1602,13 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
 
     case KOGSID_PLAYER:
         playerobj = (KogsPlayer*)pobj;
+        break;
+
+    case KOGSID_GAMEFINISHED:
+        gamefinishedobj = (KogsGameFinished*)pobj;
+        info.push_back(std::make_pair("gameid", gamefinishedobj->gameid.GetHex()));
+        info.push_back(std::make_pair("winner", gamefinishedobj->winnerid.GetHex()));
+        info.push_back(std::make_pair("isError", (bool)gamefinishedobj->isError));
         break;
 
     default:
