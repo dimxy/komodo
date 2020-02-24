@@ -1605,6 +1605,14 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
 {
     std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(gameobjectid) );
     
+    if (spobj == nullptr)
+    {
+        UniValue err(UniValue::VOBJ);
+        err.push_back(std::make_pair("result", "error"));
+        err.push_back(std::make_pair("error", "could not load object"));
+        return err;
+    }
+
     return DecodeObjectInfo(spobj.get());
 }
 
