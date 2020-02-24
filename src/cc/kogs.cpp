@@ -1606,6 +1606,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         err.push_back(std::make_pair("error", "unsupported objectType"));
         return err;
     }
+    return info;
 }
 
 // output info about any game object
