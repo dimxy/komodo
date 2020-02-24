@@ -1409,6 +1409,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     uint256 nextPlayerid = zeroid;
     std::vector<uint256> kogsInStack;
     std::vector<std::pair<uint256, uint256>> prevFlipped;
+    std::vector<uint256> batons;
     uint256 batontxid;
     uint256 hashBlock;
     int32_t vini, height;
@@ -1432,6 +1433,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             KogsBaton *pbaton = (KogsBaton *)spobj.get();
             prevTurn = nextTurn;
             nextTurn = pbaton->nextturn;
+            batons.push_back(batontxid);
 
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "pbaton->kogsInStack=" << pbaton->kogsInStack.size() << " pbaton->kogFlipped=" << pbaton->kogsFlipped.size() << std::endl);
 
@@ -1459,6 +1461,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             kogsInStack = pGameFinished->kogsInStack;
             nextPlayerid = zeroid;
             nextTurn = -1;
+            batons.push_back(batontxid);
 
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "pGameFinished->kogsInStack=" << kogsInStack.size() << " pGameFinished->kogsFlipped=" << prevFlipped.size() << std::endl);
             break;
@@ -1502,9 +1505,14 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     info.push_back(std::make_pair("NextPlayerId", (nextTurn < 0 ? std::string("none") : nextPlayerid.GetHex())));
 
     UniValue arrStack(UniValue::VARR);
-    for (auto s : kogsInStack)
+    for (const auto &s : kogsInStack)
         arrStack.push_back(s.GetHex());
     info.push_back(std::make_pair("KogsInStack", arrStack));
+
+    UniValue arrBatons(UniValue::VARR);
+    for (const auto &b : batons)
+        arrBatons.push_back(b.GetHex());
+    info.push_back(std::make_pair("batons", arrBatons));
 
     //UniValue arrFlipped(UniValue::VARR);
     //for (auto f : prevFlipped)
