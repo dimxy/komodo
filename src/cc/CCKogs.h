@@ -34,19 +34,6 @@ const uint8_t KOGSID_BATON = 'B';
 const uint8_t KOGSID_SLAMPARAMS = 'R';
 const uint8_t KOGSID_GAMEFINISHED = 'F';
 
-std::map<uint8_t, std::string> objectids = {
-    { KOGSID_GAMECONFIG, "KOGSID_GAMECONFIG" },
-    { KOGSID_GAME, "KOGSID_GAME" },
-    { KOGSID_PLAYER, "KOGSID_PLAYER" },
-    { KOGSID_KOG, "KOGSID_KOG" },
-    { KOGSID_SLAMMER, "KOGSID_SLAMMER" },
-    { KOGSID_PACK, "KOGSID_PACK" },
-    { KOGSID_CONTAINER, "KOGSID_CONTAINER" },
-    { KOGSID_BATON , "KOGSID_BATON" },
-    { KOGSID_SLAMPARAMS, "KOGSID_SLAMPARAMS" },
-    { KOGSID_GAMEFINISHED, "KOGSID_GAMEFINISHED" }
-};
-
 const uint8_t KOGS_VERSION = 1;
 
 #define KOGS_IS_MATCH_OBJECT(objectType) (objectType == KOGSID_SLAMMER || objectType == KOGSID_KOG)
