@@ -2354,7 +2354,6 @@ CPubKey MarmaraGetMyPubkey()
     const bool avoidException = true;
     if (EnsureWalletIsAvailable(avoidException))
     {
-        EnsureWalletIsUnlocked();
         CReserveKey reservekey(pwalletMain);
         reservekey.GetReservedKey(mypk);
     }
