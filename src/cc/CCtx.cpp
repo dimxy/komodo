@@ -1220,6 +1220,10 @@ void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std:
 // set cc or normal unspents from mempool
 void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC)
 {
+    // lock mempool
+    ENTER_CRITICAL_SECTION(cs_main);
+    ENTER_CRITICAL_SECTION(mempool.cs);
+
     for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
         mi != mempool.mapTx.end(); ++mi)
     {
@@ -1258,4 +1262,6 @@ void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUn
             }
         }
     }
+    LEAVE_CRITICAL_SECTION(cs_main);                                                                                                                              
+    LEAVE_CRITICAL_SECTION(mempool.cs);
 }
