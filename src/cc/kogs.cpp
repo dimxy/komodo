@@ -1556,7 +1556,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         containerobj = (KogsContainer*)pobj;
         info.push_back(std::make_pair("playerId", containerobj->playerid.GetHex()));
         ListContainerTokenids(*containerobj);
-        for (auto t : containerobj->tokenids)
+        for (const auto &t : containerobj->tokenids)
         {
             infotokenids.push_back(t.GetHex());
         }
@@ -1575,7 +1575,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         info.push_back(std::make_pair("KogsInContainer", gameconfigobj->numKogsInContainer));
         info.push_back(std::make_pair("KogsToAdd", gameconfigobj->numKogsToAdd));
         info.push_back(std::make_pair("MaxTurns", gameconfigobj->maxTurns));
-        for (auto v : gameconfigobj->heightRanges)
+        for (const auto &v : gameconfigobj->heightRanges)
         {
             UniValue range(UniValue::VOBJ);
 
@@ -1585,7 +1585,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
             heightranges.push_back(range);
         }
         info.push_back(std::make_pair("HeightRanges", heightranges));
-        for (auto v : gameconfigobj->strengthRanges)
+        for (const auto & v : gameconfigobj->strengthRanges)
         {
             UniValue range(UniValue::VOBJ);
 
@@ -1603,7 +1603,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
 
     default:
         err.push_back(std::make_pair("result", "error"));
-        err.push_back(std::make_pair("error", "unsupported objectType"));
+        err.push_back(std::make_pair("error", "unsupported objectType: " + std::string(1, (char)pobj->objectType)));
         return err;
     }
     return info;
@@ -2094,7 +2094,8 @@ static void decode_kogs_opret_to_univalue(const CTransaction &tx, UniValue &univ
 
     std::shared_ptr<KogsBaseObject> spobj( DecodeGameObjectOpreturn(tx) );
 
-    univout = DecodeObjectInfo(spobj.get());    
+    UniValue uniret = DecodeObjectInfo(spobj.get());  
+    univout.pushKVs(uniret);
 }
 
 void decode_kogs_vout(const CTransaction &tx, int32_t nvout, UniValue &univout)
