@@ -2056,7 +2056,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             // try to create send back containers 
                             // this is not needed now: "this can be repeated many times on each create-new-block if not all the created transfer tx will fit into the block", tx are just sent to mempool
                             int testcount = 0;
-                            for (auto &c : containers)
+                            for (const auto &c : containers)
                             {
                                 if (testcount > 0)  // test create only one tx on each block creation
                                     break;
@@ -2080,13 +2080,14 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                     {
                                         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx for containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
                                         isError = true;
-                                        //break;
+                                        break;  // restored break, do not create game finish on this node if it has errors
                                     }
                                 }
                             }
                             cc_free(probeCond);
                             
                             //if (myTransactions.empty())  // nothing to send back - create finish baton
+                            if (!isError)  // do not finish the game if errors on this node
                             {
                                 KogsGameFinished gamefinished;
                              
