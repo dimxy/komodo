@@ -1148,8 +1148,9 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
     }
 
     // check loop amount:
-    if (creationLoopData.amount != lclAmount) 
+    if (abs(creationLoopData.amount - lclAmount) > MARMARA_LOOP_TOLERANCE)
     {
+        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "amounts do not match, creationLoopData.amount=" << creationLoopData.amount << " lclAmount=" << lclAmount << " creationLoopData.amount=" << creationLoopData.amount << std::endl);
         errorStr = "tx LCL amount invalid";
         return false;
     }
