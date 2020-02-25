@@ -2083,7 +2083,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 cp = CCinit(&C, EVAL_TOKENS);
                                 if (AddTokenCCInputs(cp, mtx, tokensrcaddr, c->creationtxid, 1, 5, true) > 0)  // check if container not transferred yet
                                 {
-                                    UniValue sigData = TokenTransferExt(mypk, 0, c->creationtxid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) },
+                                    UniValue sigData = TokenTransferExt(CPubKey()/*to indicate use localpk*/, 0, c->creationtxid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) },
                                         std::vector<CPubKey>{ c->encOrigPk }, 1, true); // amount = 1 always for NFTs
                                     vuint8_t vtx = ParseHex(ResultGetTx(sigData)); // unmarshal tx to get it txid;
                                     CTransaction transfertx;
@@ -2154,7 +2154,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             }
                             catch (UniValue error)
                             {
-                                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("error: can't send tx: ") + hextx + " error: " + ResultGetError(error) << std::endl);
+                                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("error: can't send tx: ") + hextx + " error: " + ResultGetError(error) << " (" << error["code"].get_int()<< " " << error["message"].getValStr() << ")" << std::endl);
                             }
                         }
                     }
