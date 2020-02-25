@@ -2960,9 +2960,12 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
             {
                 if (ASSETCHAINS_MARMARA)
                 {
-                    if (GetArg(MARMARA_STAKE_PROVIDER_ARG, 0) != 0)
+                    if (nHeight >= MARMARA_POS_IMPROVEMENTS_HEIGHT)
                     {
-                        eligible += rand() % 60;  // for stake-provider postpone utxo usage for some seconds
+                        if (GetArg(MARMARA_STAKE_PROVIDER_ARG, 0) != 0)
+                        {
+                            eligible += rand() % 60;  // for stake-provider postpone utxo usage for some seconds
+                        }
                     }
                 }
                 // have elegible utxo to stake with. 
