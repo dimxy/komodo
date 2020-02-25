@@ -2047,6 +2047,11 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             LogPrintf("marmara: no '-pubkey' set, use -pubkey for mining\n");
         }
 
+        if (GetArg(MARMARA_STAKE_PROVIDER_ARG, 0) != 0)
+        {
+            LogPrintf("marmara: started as stake provider\n");
+        }
+
         srand(time(NULL));
     }
 
