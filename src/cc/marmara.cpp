@@ -3942,6 +3942,14 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
             std::vector<uint256> creditloop;
             int32_t endorsersNumber = MarmaraGetbatontxid(creditloop, dummytxid, requesttxid);
 
+            int32_t height = komodo_nextheight();
+            if (height > 0 && height < MARMARA_POS_IMPROVEMENTS_HEIGHT && endorsersNumber >= 2) {
+                errorStr = "endorser number >= 3 allowed after hardfork";
+                result.push_back(Pair("result", "error"));
+                result.push_back(Pair("error", errorStr));
+                return result;
+            }
+
             if (endorsersNumber >= 0 && endorsersNumber < MARMARA_MAXENDORSERS)
             {
                 char activated1of2addr[KOMODO_ADDRESS_BUFSIZE];
@@ -4024,7 +4032,6 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
                     errorStr = "too many endorsers";
                 else
                     errorStr = "incorrect requesttxid";
-
             }
         }
         else
