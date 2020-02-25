@@ -607,6 +607,9 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-ac_txpow", _("Enforce transaction-rate limit, default 0"));
     strUsage += HelpMessageOpt("-ac_veruspos", _("Use Verus Proof-Of-Stake (-ac_veruspos=50) default 0"));
 
+    strUsage += HelpMessageOpt("-ac_marmara", _("Use marmara features (-ac_marmara=1) default 0"));
+    strUsage += HelpMessageOpt("-marmara-stake-provider", _("Run as marmara stake provider (-marmara-stake-provider=1) default 0"));
+    
     return strUsage;
 }
 
@@ -2043,6 +2046,8 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         {
             LogPrintf("marmara: no '-pubkey' set, use -pubkey for mining\n");
         }
+
+        srand(time(NULL));
     }
 
 

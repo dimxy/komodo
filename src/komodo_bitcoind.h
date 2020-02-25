@@ -1555,6 +1555,7 @@ uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 
 
     if (ASSETCHAINS_MARMARA)
     {
+        // pubkey is added before the hardfork
         // this is for the marmara stakebox that provides staking services for users with activated or locked-in-loop coins
         // add mypubkey to hashed array for marmara stakeboxes
         // this is to prevent contention when several stakeboxes create same PoS block
@@ -1565,12 +1566,14 @@ uint32_t komodo_stakehash(uint256 *hashp,char *address,uint8_t *hashbuf,uint256 
         }
         else
         {
+            /* do not report error as we decided not to use pubkey in hash after the hardfork
             int32_t height = 0;
             CBlockIndex *tipindex = chainActive.Tip();
             if (tipindex)
                 height = tipindex->GetHeight() + 1;
             if (height > 0 && (height & 0x01) == 0)
                 LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "staker pubkey not provided for even height (not the marmara's coinbase or -pubkey not set), height=" << height << std::endl);
+            */
         }
     }
     vcalc_sha256(0,(uint8_t *)hashp, hashbuf, hashed_size);
@@ -1888,8 +1891,8 @@ int32_t komodo_is_PoSblock(int32_t slowflag,int32_t height,CBlock *pblock,arith_
             {
                 // after 'pos improvements' update:
                 // the pk for adding to stakehash is only in even blocks
-                if (height > 0 && (height & 0x01) == 0)
-                    vcoinbasepk = MarmaraGetStakerPubkeyFromCoinbaseOpret(pblock->vtx[0].vout[0].scriptPubKey);
+                //if (height > 0 && (height & 0x01) == 0)
+                //    vcoinbasepk = MarmaraGetStakerPubkeyFromCoinbaseOpret(pblock->vtx[0].vout[0].scriptPubKey);
                 // for odd blocks this pk is not used because no block contention is supposed as only the wallet utxos are staked
             }
         }
@@ -2932,6 +2935,7 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
             }
             else
             {
+                /* decided not to use pubkey in stake hash
                 // new behavoiur:
                 if (nHeight > 1 && (nHeight & 0x1) == 0)
                 {
@@ -2944,15 +2948,23 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
                     }
                 }
                 // else: for odd blocks no need to add pubkey to stakehash
+                */
             }
         }
 
-        eligible = komodo_stake(0,bnTarget,nHeight,kp->txid,kp->vout,0,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc, vhashpk);
-        if ( eligible > 0 )
+        eligible = komodo_stake(0, bnTarget, nHeight, kp->txid, kp->vout, 0, (uint32_t)tipindex->nTime + ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF, kp->address, PoSperc, vhashpk);
+        if (eligible > 0)
         {
             besttime = 0;
-            if ( eligible == komodo_stake(1,bnTarget,nHeight,kp->txid,kp->vout,eligible,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp->address,PoSperc, vhashpk) )
+            if (eligible == komodo_stake(1, bnTarget, nHeight, kp->txid, kp->vout, eligible, (uint32_t)tipindex->nTime + ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF, kp->address, PoSperc, vhashpk))
             {
+                if (ASSETCHAINS_MARMARA)
+                {
+                    if (GetArg(MARMARA_STAKE_PROVIDER_ARG, 0) != 0)
+                    {
+                        eligible += rand() % 60;  // for stake-provider postpone utxo usage for some seconds
+                    }
+                }
                 // have elegible utxo to stake with. 
                 if ( earliest == 0 || eligible < earliest || (eligible == earliest && (*utxovaluep == 0 || kp->nValue < *utxovaluep)) )
                 {

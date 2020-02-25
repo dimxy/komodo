@@ -33,6 +33,8 @@
 
 #define MARMARA_CURRENCY "MARMARA"
 
+const char MARMARA_STAKE_PROVIDER_ARG[] = "-marmara-stake-provider";
+
 enum MARMARA_FUNCID : uint8_t {
     MARMARA_COINBASE = 'C',
     MARMARA_COINBASE_3X = 'E',

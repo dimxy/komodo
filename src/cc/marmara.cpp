@@ -2912,7 +2912,7 @@ struct komodo_staking *MarmaraGetStakingUtxos(struct komodo_staking *array, int3
         }
         else if (height > 0)
         {
-            if (GetArg("-marmara-stakebox", 0) != 0)
+            if (GetArg(MARMARA_STAKE_PROVIDER_ARG, 0) != 0)
             {
                 // started as a stake box - use all utxo
                 useLocalUtxos = false;
