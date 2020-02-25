@@ -1186,6 +1186,7 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
                             return false;
                         }
                         redistributedAmount += v.nValue;
+                        break; // found -> break, don't reuse;
                     }
                 }
             }
