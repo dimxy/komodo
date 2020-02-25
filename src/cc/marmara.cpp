@@ -16,6 +16,8 @@
 
 #include <stdlib.h>
 #include <list>
+#include <algorithm>
+
 #include "komodo_defs.h"
 #include "CCMarmara.h"
 #include "key_io.h"
@@ -1206,7 +1208,7 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
     }
 
     // enum spent locked-in-loop vins and collect pubkeys
-    std::set<CPubKey> endorserPksPrev;
+    std::list<CPubKey> endorserPksPrev;
     for (int32_t i = startvin; i >= 0 && i < tx.vin.size(); i++)
     {
         if (IsCCInput(tx.vin[i].scriptSig))
@@ -1229,7 +1231,7 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
                             return false;
                         }
 
-                        endorserPksPrev.insert(pk_in_opret);
+                        endorserPksPrev.push_back(pk_in_opret);
                         LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "vintx pubkey=" << HexStr(vuint8_t(pk_in_opret.begin(), pk_in_opret.end())) << std::endl);
                     }
                     else
@@ -1252,14 +1254,15 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
         }
     }
 
-    // convert to set to compare
-    std::set<CPubKey> endorserPksSet(endorserPks.begin(), endorserPks.end());
-    if (endorserPksSet != endorserPksPrev)
+    // sort as pubkeys could be in any order in vintx / transfertx
+    endorserPks.sort();
+    endorserPksPrev.sort();
+    if (endorserPks != endorserPksPrev)
     {
         LOGSTREAMFN("marmara", CCLOG_INFO, stream << "LCL vintx pubkeys do not match vout pubkeys" << std::endl);
         for (const auto &pk : endorserPksPrev)
             LOGSTREAMFN("marmara", CCLOG_INFO, stream << "vintx pubkey=" << HexStr(vuint8_t(pk.begin(), pk.end())) << std::endl);
-        for (const auto &pk : endorserPksSet)
+        for (const auto &pk : endorserPks)
             LOGSTREAMFN("marmara", CCLOG_INFO, stream << "vout pubkey=" << HexStr(vuint8_t(pk.begin(), pk.end())) << std::endl);
         LOGSTREAMFN("marmara", CCLOG_INFO, stream << "popped vout last pubkey=" << HexStr(vuint8_t(latestpk.begin(), latestpk.end())) << std::endl);
         errorStr = "issue/transfer tx has incorrect loop pubkeys";
@@ -1267,7 +1270,7 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
     }
 
     loopAmount = creationLoopData.amount;
-    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << tx.GetHash().GetHex() << std::endl);
+    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "validation okay for tx=" << tx.GetHash().GetHex() << std::endl);
     return true;
 }
 
