@@ -4273,7 +4273,7 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                 }
             }
             result.push_back(Pair("n", static_cast<int64_t>(n)));
-            result.push_back(Pair("numerrors", static_cast<int64_t>(numerrs)));
+//            result.push_back(Pair("numerrors", static_cast<int64_t>(numerrs)));
             result.push_back(Pair("creditloop", a));
 
         }
