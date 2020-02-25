@@ -4248,11 +4248,11 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                             obj.push_back(Pair("receiverCCAddress", ccaddr));
                         }
                         Getscriptaddress(vout0addr, lasttx.vout[0].scriptPubKey);
-                        if (strcmp(vout0addr, normaladdr) != 0)
+                        /*if (strcmp(vout0addr, normaladdr) != 0)  
                         {
                             obj.push_back(Pair("incorrect-vout0address", vout0addr));
                             numerrs++;
-                        }
+                        }*/
                         if (i == 0 && isSettledOk)  // why isSettledOk checked?..
                         {
                             result.push_back(Pair("amount", ValueFromAmount(loopData.amount)));
