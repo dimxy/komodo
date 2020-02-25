@@ -175,6 +175,15 @@ static bool IsNFTBurned(uint256 tokenid, CTransaction &lasttx)
         return false;
 }
 
+static bool IsTxSigned(const CTransaction &tx)
+{
+    for (const auto &vin : tx.vin)
+        if (vin.scriptSig.size() == 0)
+            return false;
+
+    return true;
+}
+
 // checks if game finished
 bool IsGameFinished(const KogsGameConfig &gameconfig, const KogsBaton &baton) 
 { 
@@ -2087,7 +2096,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                         std::vector<CPubKey>{ c->encOrigPk }, 1, true); // amount = 1 always for NFTs
                                     vuint8_t vtx = ParseHex(ResultGetTx(sigData)); // unmarshal tx to get it txid;
                                     CTransaction transfertx;
-                                    if (ResultHasTx(sigData) && E_UNMARSHAL(vtx, ss >> transfertx)) {
+                                    if (ResultHasTx(sigData) && E_UNMARSHAL(vtx, ss >> transfertx) && IsTxSigned(transfertx)) {
                                         myTransactions.push_back(transfertx);
                                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << ResultGetTx(sigData) << " txid=" << transfertx.GetHash().GetHex() << std::endl);
                                         txtransfers++;
@@ -2095,7 +2104,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                     }
                                     else
                                     {
-                                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx for containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
+                                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx=" << HexStr(E_MARSHAL(ss << transfertx)) << " for containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
                                         isError = true;
                                         break;  // restored break, do not create game finish on this node if it has errors
                                     }
@@ -2114,7 +2123,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 gamefinished.isError = isError;
 
                                 CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, /*GetUnspendable(cp, NULL)*/gametxidPk);  // send game finished baton to unspendable addr
-                                if (!fintx.IsNull())
+                                if (!fintx.IsNull() && IsTxSigned(fintx))
                                 {
                                     txbatons++;
                                     myTransactions.push_back(fintx);
@@ -2122,18 +2131,22 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 }
                                 else
                                 {
-                                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create finish baton for game=" << newbaton.gameid.GetHex() << " CCerror=" << CCerror << std::endl);
+                                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create finish baton tx==" << HexStr(E_MARSHAL(ss << fintx)) << " for game=" << newbaton.gameid.GetHex() << " CCerror=" << CCerror << std::endl);
                                 }
                             }
                         }
                         else
                         {
                             CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, &newbaton, pplayer->encOrigPk);  // send baton to player pubkey;
-                            if (!batontx.IsNull())
+                            if (!batontx.IsNull() && IsTxSigned(batontx))
                             {
                                 LOGSTREAMFN("kogs", CCLOG_INFO, stream << "created baton txid=" << batontx.GetHash().GetHex() << " to next playerid=" << newbaton.nextplayerid.GetHex() << std::endl);
                                 txbatons++;
                                 myTransactions.push_back(batontx);
+                            }
+                            else
+                            {
+                                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create baton tx=" << HexStr(E_MARSHAL(ss << batontx)) << " to next playerid=" << newbaton.nextplayerid.GetHex() << std::endl);
                             }
                         }
                         //for (const auto &tx : myTransactions)
@@ -2172,13 +2185,13 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "created batons=" << txbatons << " created container transfers=" << txtransfers << std::endl);
 }
 
-// utils
+// decode kogs tx utils
 static void decode_kogs_opret_to_univalue(const CTransaction &tx, UniValue &univout)
 {
 
-    std::shared_ptr<KogsBaseObject> spobj( DecodeGameObjectOpreturn(tx) );
+    std::shared_ptr<KogsBaseObject> spobj(DecodeGameObjectOpreturn(tx));
 
-    UniValue uniret = DecodeObjectInfo(spobj.get());  
+    UniValue uniret = DecodeObjectInfo(spobj.get());
     univout.pushKVs(uniret);
 }
 
@@ -2191,9 +2204,6 @@ void decode_kogs_vout(const CTransaction &tx, int32_t nvout, UniValue &univout)
         char addr[KOMODO_ADDRESS_BUFSIZE];
 
         univout.push_back(Pair("nValue", tx.vout[nvout].nValue));
-        Getscriptaddress(addr, tx.vout[nvout].scriptPubKey);
-        univout.push_back(Pair("address", addr));
-
         if (tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition())
         {
             CScript ccopret;
@@ -2212,6 +2222,9 @@ void decode_kogs_vout(const CTransaction &tx, int32_t nvout, UniValue &univout)
         {
             univout.push_back(Pair("vout-type", "normal"));
         }
+        Getscriptaddress(addr, tx.vout[nvout].scriptPubKey);
+        univout.push_back(Pair("address", addr));
+        univout.push_back(Pair("scriptPubKey", tx.vout[nvout].scriptPubKey.ToString()));
     }
     else
     {
@@ -2230,33 +2243,34 @@ UniValue KogsDecodeTxdata(const vuint8_t &txdata, bool printvins)
     {
         result.push_back(Pair("object", "transaction"));
 
-        if (printvins)
+        UniValue univins(UniValue::VARR);
+
+        if (tx.IsCoinBase())
         {
-            UniValue univins(UniValue::VARR);
+            UniValue univin(UniValue::VOBJ);
+            univin.push_back(Pair("coinbase", ""));
+            univins.push_back(univin);
+        }
+        else if (tx.IsCoinImport())
+        {
+            UniValue univin(UniValue::VOBJ);
+            univin.push_back(Pair("coinimport", ""));
+            univins.push_back(univin);
+        }
+        else
+        {
+            for (int i = 0; i < tx.vin.size(); i++)
+            {
+                CTransaction vintx;
+                uint256 hashBlock;
+                UniValue univin(UniValue::VOBJ);
 
-            if (tx.IsCoinBase())
-            {
-                UniValue univin(UniValue::VOBJ);
-                univin.push_back(Pair("coinbase", ""));
-                univins.push_back(univin);
-            }
-            else if (tx.IsCoinImport())
-            {
-                UniValue univin(UniValue::VOBJ);
-                univin.push_back(Pair("coinimport", ""));
-                univins.push_back(univin);
-            }
-            else
-            {
-                for (int i = 0; i < tx.vin.size(); i++)
+                univin.push_back(Pair("n", std::to_string(i)));
+                univin.push_back(Pair("prev-txid", tx.vin[i].prevout.hash.GetHex()));
+                univin.push_back(Pair("prev-n", (int64_t)tx.vin[i].prevout.n));
+                univin.push_back(Pair("scriptSig", tx.vin[i].scriptSig.ToString()));
+                if (printvins)
                 {
-                    CTransaction vintx;
-                    uint256 hashBlock;
-                    UniValue univin(UniValue::VOBJ);
-
-                    univin.push_back(Pair("n", std::to_string(i)));
-                    univin.push_back(Pair("prev-txid", tx.vin[i].prevout.hash.GetHex()));
-                    univin.push_back(Pair("prev-n", (int64_t)tx.vin[i].prevout.n));
                     if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock))
                     {
                         UniValue univintx(UniValue::VOBJ);
@@ -2267,11 +2281,12 @@ UniValue KogsDecodeTxdata(const vuint8_t &txdata, bool printvins)
                     {
                         univin.push_back(Pair("error", "could not load vin tx"));
                     }
-                    univins.push_back(univin);
                 }
+                univins.push_back(univin);
             }
-            result.push_back(Pair("vins", univins));
         }
+        result.push_back(Pair("vins", univins));
+
 
         UniValue univouts(UniValue::VARR);
 
@@ -2299,9 +2314,9 @@ UniValue KogsDecodeTxdata(const vuint8_t &txdata, bool printvins)
         }
         /*else if (MyGetCCopret(opret, ccopret))  // reserved until cc opret use
         {
-            univout.push_back(Pair("object", "vout-ccdata"));
-            decode_kogs_opret_to_univalue(ccopret, univout);
-            result.push_back(Pair("decoded", univout));
+        univout.push_back(Pair("object", "vout-ccdata"));
+        decode_kogs_opret_to_univalue(ccopret, univout);
+        result.push_back(Pair("decoded", univout));
         }*/
         else {
             result.push_back(Pair("object", "cannot decode"));
