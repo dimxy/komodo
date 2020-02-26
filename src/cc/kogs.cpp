@@ -1880,16 +1880,16 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
 
     if (containers.size() != playerids.size())
     {
-        static thread_local std::map<uint256, int32_t> gameid_container_num;
+        static thread_local std::map<uint256, int32_t> gameid_container_num_errlogs;
 
-        if (gameid_container_num[gameid] != containers.size())   // prevent logging this message on each loop when miner creates transactions
+        if (gameid_container_num_errlogs[gameid] != containers.size())   // prevent logging this message on each loop when miner creates transactions
         {
-            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "can't create baton: not all players deposited containers" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "can't create baton: not all players deposited containers, gameid=" << gameid.GetHex() << std::endl);
             for (const auto &c : containers)
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "deposited container=" << c->creationtxid.GetHex() << std::endl);
             for (const auto &p : playerids)
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "player=" << p.GetHex() << std::endl);
-            gameid_container_num[gameid] = containers.size();
+            gameid_container_num_errlogs[gameid] = containers.size();
         }
         return false;
     }
@@ -2077,6 +2077,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
 
                             bool isError = false;
+                            std::vector<CTransaction> transferContainerTxns;
 
                             // TODO: if 'play for keeps' mode then try to create tokens back tx
 
@@ -2098,9 +2099,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                     vuint8_t vtx = ParseHex(ResultGetTx(sigData)); // unmarshal tx to get it txid;
                                     CTransaction transfertx;
                                     if (ResultHasTx(sigData) && E_UNMARSHAL(vtx, ss >> transfertx) && IsTxSigned(transfertx)) {
-                                        myTransactions.push_back(transfertx);
+                                        transferContainerTxns.push_back(transfertx);
                                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << ResultGetTx(sigData) << " txid=" << transfertx.GetHash().GetHex() << std::endl);
-                                        txtransfers++;
                                         testcount++;
                                     }
                                     else
@@ -2126,6 +2126,12 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, /*GetUnspendable(cp, NULL)*/gametxidPk);  // send game finished baton to unspendable addr
                                 if (!fintx.IsNull() && IsTxSigned(fintx))
                                 {
+                                    for (auto const &ttx : transferContainerTxns) {
+                                        myTransactions.push_back(ttx);
+                                        txtransfers++;
+                                    }
+
+                                    txtransfers++;
                                     txbatons++;
                                     myTransactions.push_back(fintx);
                                     LOGSTREAMFN("kogs", CCLOG_INFO, stream << "all final transfers done, created gamefinished txid=" << fintx.GetHash().GetHex() << " winner playerid=" << gamefinished.winnerid.GetHex() << std::endl);
