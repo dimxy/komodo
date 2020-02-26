@@ -683,7 +683,6 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::ve
     
     ActivateUtxoLock();
 
-    srand(time(NULL));
     for (auto &obj : matchobjects) {
 
         int32_t borderColor = rand() % 26 + 1; // 1..26

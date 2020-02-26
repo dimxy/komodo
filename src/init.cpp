@@ -2027,5 +2027,10 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // SENDALERT
     threadGroup.create_thread(boost::bind(ThreadSendAlert));
 
+    if (GetArg("-ac_kogsgame", 0) != 0)
+    {
+        srand(time(NULL));
+    }
+
     return !fRequestShutdown;
 }
