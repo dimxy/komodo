@@ -1435,13 +1435,13 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
         }
 
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found baton or SlamParam or GameFinished objectType=" << (char)spobj->objectType << " txid=" << batontxid.GetHex() << std::endl);
+        batons.push_back(batontxid);
 
         if (spobj->objectType == KOGSID_BATON)
         {
             KogsBaton *pbaton = (KogsBaton *)spobj.get();
             prevTurn = nextTurn;
             nextTurn = pbaton->nextturn;
-            batons.push_back(batontxid);
 
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "pbaton->kogsInStack=" << pbaton->kogsInStack.size() << " pbaton->kogFlipped=" << pbaton->kogsFlipped.size() << std::endl);
 
@@ -1459,8 +1459,10 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             nextPlayerid = pbaton->playerids[nextTurn];
             nvout = 0;  // baton tx's next baton vout
         }
-        else  if (spobj->objectType == KOGSID_SLAMPARAMS)
+        else if (spobj->objectType == KOGSID_SLAMPARAMS)
+        {
             nvout = 0;  // slamparams tx's next baton vout
+        }
         else // KOGSID_GAMEFINISHED
         { 
             KogsGameFinished *pGameFinished = (KogsGameFinished *)spobj.get();
@@ -1469,7 +1471,6 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             kogsInStack = pGameFinished->kogsInStack;
             nextPlayerid = zeroid;
             nextTurn = -1;
-            batons.push_back(batontxid);
 
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "pGameFinished->kogsInStack=" << kogsInStack.size() << " pGameFinished->kogsFlipped=" << prevFlipped.size() << std::endl);
             break;
