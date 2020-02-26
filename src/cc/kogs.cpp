@@ -1784,6 +1784,7 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &sla
 
     return true;
 }
+ 
 
 // adding kogs to stack from the containers, check if kogs are not in the stack already or not flipped
 static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, const std::vector<std::shared_ptr<KogsContainer>> &spcontainers)
@@ -1842,7 +1843,7 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
     return true;
 }
 
-static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton, std::vector<std::shared_ptr<KogsContainer>> &containers)
+static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton, std::vector<std::shared_ptr<KogsContainer>> &containers, bool &bInsufficientContainers)
 {   
     if (pGameOrParams->objectType != KOGSID_GAME && pGameOrParams->objectType != KOGSID_SLAMPARAMS)
     {
@@ -1878,6 +1879,8 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
     for(const auto &c : containers)
         owners.insert(c->playerid);
 
+    bInsufficientContainers = false;
+    // check deposited containers
     if (containers.size() != playerids.size())
     {
         static thread_local std::map<uint256, int32_t> gameid_container_num_errlogs;
@@ -1891,15 +1894,14 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "player=" << p.GetHex() << std::endl);
             gameid_container_num_errlogs[gameid] = containers.size();
         }
-        return false;
+        bInsufficientContainers = true;
     }
 
     if (containers.size() != owners.size())
     {
         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "some containers are from the same owner" << std::endl);
-        return false;
+        bInsufficientContainers = true;
     }
-    
 
     // TODO: check that the pubkeys are from this game's players
 
@@ -1916,9 +1918,68 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
         FlipKogs(gameconfig, *pslamparams, newbaton);
     }
 
-    AddKogsToStack(gameconfig, newbaton, containers);
+    if (!bInsufficientContainers)
+        AddKogsToStack(gameconfig, newbaton, containers);
+
     return true;
 }
+
+static bool CreateTransferContainersTxns(uint256 gameid, const std::vector<std::shared_ptr<KogsContainer>> &containers, std::vector<CTransaction> &transferContainerTxns)
+{
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    // send containers back:
+    uint8_t kogsPriv[32];
+    CPubKey kogsPk = GetUnspendable(cp, kogsPriv);
+    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
+
+    char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
+    GetTokensCCaddress1of2(cp, tokensrcaddr, kogsPk, gametxidPk);
+
+
+    //add probe condition to sign vintx 1of2 utxo:
+    CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
+
+    bool isError = false;
+
+    // TODO: if 'play for keeps' mode then try to create tokens back tx
+
+    // try to create send back containers 
+    // this is not needed now: "this can be repeated many times on each create-new-block if not all the created transfer tx will fit into the block", tx are just sent to mempool
+    int testcount = 0;
+    for (const auto &c : containers)
+    {
+        if (testcount > 0)  // test create only one tx on each block creation
+            break;
+
+        CMutableTransaction mtx;
+        struct CCcontract_info *cp, C;
+        cp = CCinit(&C, EVAL_TOKENS);
+        if (AddTokenCCInputs(cp, mtx, tokensrcaddr, c->creationtxid, 1, 5, true) > 0)  // check if container not transferred yet
+        {
+            UniValue sigData = TokenTransferExt(CPubKey()/*to indicate use localpk*/, 0, c->creationtxid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) },
+                std::vector<CPubKey>{ c->encOrigPk }, 1, true); // amount = 1 always for NFTs
+            vuint8_t vtx = ParseHex(ResultGetTx(sigData)); // unmarshal tx to get it txid;
+            CTransaction transfertx;
+            if (ResultHasTx(sigData) && E_UNMARSHAL(vtx, ss >> transfertx) && IsTxSigned(transfertx)) {
+                transferContainerTxns.push_back(transfertx);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << ResultGetTx(sigData) << " txid=" << transfertx.GetHash().GetHex() << std::endl);
+                testcount++;
+            }
+            else
+            {
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx=" << HexStr(E_MARSHAL(ss << transfertx)) << " for containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
+                isError = true;
+                break;  // restored break, do not create game finish on this node if it has errors
+            }
+        }
+    }
+    cc_free(probeCond);
+    return isError;
+}
+
 
 void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &minersTransactions)
 {
@@ -2051,10 +2112,13 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     }
 
                     KogsGameConfig *pGameConfig = (KogsGameConfig*)spGameConfig.get();
+                    KogsBaton *prevbaton = (KogsBaton *)spBaton.get();  // could be null
 
-                    // calc slam results and kogs ownership and fill the new baton
-                    KogsBaton *prevbaton = (KogsBaton *)spBaton.get();
-                    if (KogsManageStack(*pGameConfig, spSlamData.get(), prevbaton, newbaton, containers))
+                    // calc slam results and kogs ownership and set the stack in the new baton
+                    bool bInsufficientContainers = false;
+                    bool bManagedStackOk = KogsManageStack(*pGameConfig, spSlamData.get(), prevbaton, newbaton, containers, bInsufficientContainers);
+
+                    if (bManagedStackOk || (bInsufficientContainers && spSlamData->objectType != KOGSID_GAME))  // if insufficient containers after the game started maybe it was error, try to continue send back containers
                     {
                         std::vector<CTransaction> myTransactions; // store transactions in this buffer as minersTransactions could have other modules created txns
 
@@ -2062,57 +2126,11 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         // my addition: finish if stack is empty
                         if (IsGameFinished(*pGameConfig, newbaton))
                         {                            
-                            // send containers back:
-                            uint8_t kogsPriv[32];
-                            CPubKey kogsPk = GetUnspendable(cp, kogsPriv);
-                            char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-                            CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, newbaton.gameid);
-                            
-                            char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
-                            GetTokensCCaddress1of2(cp, tokensrcaddr, kogsPk, gametxidPk);
-
                             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "either stack empty=" << newbaton.kogsInStack.empty() << " or all reached max turns, total turns=" << newbaton.prevturncount << ", starting to finish game=" << newbaton.gameid.GetHex() << std::endl);
 
-                            //add probe condition to sign vintx 1of2 utxo:
-                            CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
-
-                            bool isError = false;
                             std::vector<CTransaction> transferContainerTxns;
+                            bool isError = CreateTransferContainersTxns(gameid, containers, transferContainerTxns);
 
-                            // TODO: if 'play for keeps' mode then try to create tokens back tx
-
-                            // try to create send back containers 
-                            // this is not needed now: "this can be repeated many times on each create-new-block if not all the created transfer tx will fit into the block", tx are just sent to mempool
-                            int testcount = 0;
-                            for (const auto &c : containers)
-                            {
-                                if (testcount > 0)  // test create only one tx on each block creation
-                                    break;
-
-                                CMutableTransaction mtx;
-                                struct CCcontract_info *cp, C;
-                                cp = CCinit(&C, EVAL_TOKENS);
-                                if (AddTokenCCInputs(cp, mtx, tokensrcaddr, c->creationtxid, 1, 5, true) > 0)  // check if container not transferred yet
-                                {
-                                    UniValue sigData = TokenTransferExt(CPubKey()/*to indicate use localpk*/, 0, c->creationtxid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{ std::make_pair(probeCond, kogsPriv) },
-                                        std::vector<CPubKey>{ c->encOrigPk }, 1, true); // amount = 1 always for NFTs
-                                    vuint8_t vtx = ParseHex(ResultGetTx(sigData)); // unmarshal tx to get it txid;
-                                    CTransaction transfertx;
-                                    if (ResultHasTx(sigData) && E_UNMARSHAL(vtx, ss >> transfertx) && IsTxSigned(transfertx)) {
-                                        transferContainerTxns.push_back(transfertx);
-                                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << ResultGetTx(sigData) << " txid=" << transfertx.GetHash().GetHex() << std::endl);
-                                        testcount++;
-                                    }
-                                    else
-                                    {
-                                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx=" << HexStr(E_MARSHAL(ss << transfertx)) << " for containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
-                                        isError = true;
-                                        break;  // restored break, do not create game finish on this node if it has errors
-                                    }
-                                }
-                            }
-                            cc_free(probeCond);
-                            
                             //if (myTransactions.empty())  // nothing to send back - create finish baton
                             if (!isError)  // do not finish the game if errors on this node
                             {
@@ -2123,7 +2141,10 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 gamefinished.gameid = newbaton.gameid;
                                 gamefinished.isError = isError;
 
-                                CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, /*GetUnspendable(cp, NULL)*/gametxidPk);  // send game finished baton to unspendable addr
+                                char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+                                CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
+
+                                CTransaction fintx = CreateBatonTx(it->first.txhash, it->first.index, &gamefinished, gametxidPk);  // send game finished baton to unspendable addr
                                 if (!fintx.IsNull() && IsTxSigned(fintx))
                                 {
                                     for (auto const &ttx : transferContainerTxns) {
