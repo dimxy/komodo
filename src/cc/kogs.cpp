@@ -187,7 +187,7 @@ static bool IsTxSigned(const CTransaction &tx)
 // checks if game finished
 bool IsGameFinished(const KogsGameConfig &gameconfig, const KogsBaton &baton) 
 { 
-    return baton.kogsInStack.empty() || baton.prevturncount >= baton.playerids.size() * gameconfig.maxTurns; 
+    return  baton.prevturncount > 0 && baton.kogsInStack.empty() || baton.prevturncount >= baton.playerids.size() * gameconfig.maxTurns;
 }
 
 // create game object NFT by calling token cc function
@@ -2120,12 +2120,12 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
                     // calc slam results and kogs ownership and set the stack in the new baton
                     bool bInsufficientContainers = false;
-                    bool bManagedStackOk = KogsManageStack(*pGameConfig, spSlamData.get(), prevbaton, newbaton, containers, bInsufficientContainers);
+                    bool bBatonCreated = KogsManageStack(*pGameConfig, spSlamData.get(), prevbaton, newbaton, containers, bInsufficientContainers);
 
-                    if (bInsufficientContainers && spSlamData->objectType == KOGSID_GAME)  // game not started, not enough containers, waiting containers...
+                    if (bInsufficientContainers && spSlamData->objectType == KOGSID_GAME)  // game not started, not enough containers, waiting for containers...
                         continue;
 
-                    if (bManagedStackOk || bInsufficientContainers)  // if insufficient containers after the game started maybe it was erroron previous sending, try to continue send back containers
+                    if (bBatonCreated || bInsufficientContainers)  // if insufficient containers after the game started maybe it was erroron previous sending, try to continue send back containers
                     {
                         std::vector<CTransaction> myTransactions; // store transactions in this buffer as minersTransactions could have other modules created txns
 
