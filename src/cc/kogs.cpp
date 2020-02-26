@@ -1505,6 +1505,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
         arrWonTotals.push_back(elem);
     }
 
+    info.push_back(std::make_pair("gameconfigid", gameobj.gameconfigid.GetHex()));
     info.push_back(std::make_pair("finished", (isFinished ? std::string("true") : std::string("false"))));
     info.push_back(std::make_pair("KogsWonByPlayerId", arrWon));
     info.push_back(std::make_pair("KogsWonByPlayerIdTotals", arrWonTotals));
@@ -2171,6 +2172,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             }
                         }
                     }
+                    else
+                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't manage stack for slam data txid=" << spSlamData->creationtxid.GetHex() << std::endl);
                 }
                 else
                     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't load next turn player with id=" << playerids[nextturn].GetHex() << std::endl);
