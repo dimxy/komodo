@@ -1887,19 +1887,23 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
 
         if (gameid_container_num_errlogs[gameid] != containers.size())   // prevent logging this message on each loop when miner creates transactions
         {
-            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "can't create baton: not all players deposited containers, gameid=" << gameid.GetHex() << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "warning: not all players deposited containers yet, gameid=" << gameid.GetHex() << std::endl);
             for (const auto &c : containers)
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "deposited container=" << c->creationtxid.GetHex() << std::endl);
             for (const auto &p : playerids)
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "player=" << p.GetHex() << std::endl);
             gameid_container_num_errlogs[gameid] = containers.size();
         }
+
+        if (pGameOrParams->objectType != KOGSID_GAME)
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "some containers transferred back, gameid=" << gameid.GetHex() << std::endl);  // game started and not all containers, seems some already transferred
+
         bInsufficientContainers = true;
     }
 
     if (containers.size() != owners.size())
     {
-        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "some containers are from the same owner" << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "containers number != container owners number, some containers are from the same owner" << std::endl);
         bInsufficientContainers = true;
     }
 
@@ -2118,7 +2122,10 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     bool bInsufficientContainers = false;
                     bool bManagedStackOk = KogsManageStack(*pGameConfig, spSlamData.get(), prevbaton, newbaton, containers, bInsufficientContainers);
 
-                    if (bManagedStackOk || (bInsufficientContainers && spSlamData->objectType != KOGSID_GAME))  // if insufficient containers after the game started maybe it was error, try to continue send back containers
+                    if (bInsufficientContainers && spSlamData->objectType == KOGSID_GAME)  // game not started, not enough containers, waiting containers...
+                        continue;
+
+                    if (bManagedStackOk || bInsufficientContainers)  // if insufficient containers after the game started maybe it was erroron previous sending, try to continue send back containers
                     {
                         std::vector<CTransaction> myTransactions; // store transactions in this buffer as minersTransactions could have other modules created txns
 
