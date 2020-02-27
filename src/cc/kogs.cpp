@@ -1200,6 +1200,7 @@ UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams
     {
         uint256 dummytxid;
         int32_t dummyvout;
+        // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
         if (it->second.satoshis == KOGS_BATON_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) // picking batons with marker=20000
         {
             std::shared_ptr<KogsBaseObject> spbaton(LoadGameObject(it->first.txhash));
@@ -2021,6 +2022,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
         uint256 dummytxid;
         int32_t dummyvout;
 
+        // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
         if (it->second.satoshis == KOGS_BATON_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) // picking game or slamparam utxos with markers=20000
         {
             LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "found utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << std::endl);
