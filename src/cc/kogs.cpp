@@ -1198,7 +1198,9 @@ UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams
     SetCCunspentsInMempool(addressUnspents, myccaddr, true);    // look for baton on my cc addr in mempool
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
-        if (it->second.satoshis == KOGS_BATON_AMOUNT) // picking batons with marker=20000
+        uint256 dummytxid;
+        int32_t dummyvout;
+        if (it->second.satoshis == KOGS_BATON_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, KOGS_BATON_VOUT)) // picking batons with marker=20000
         {
             std::shared_ptr<KogsBaseObject> spbaton(LoadGameObject(it->first.txhash));
             if (spbaton != nullptr && spbaton->objectType == KOGSID_BATON)
