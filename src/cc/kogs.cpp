@@ -1200,7 +1200,7 @@ UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams
     {
         uint256 dummytxid;
         int32_t dummyvout;
-        if (it->second.satoshis == KOGS_BATON_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, KOGS_BATON_VOUT)) // picking batons with marker=20000
+        if (it->second.satoshis == KOGS_BATON_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) // picking batons with marker=20000
         {
             std::shared_ptr<KogsBaseObject> spbaton(LoadGameObject(it->first.txhash));
             if (spbaton != nullptr && spbaton->objectType == KOGSID_BATON)
@@ -2018,7 +2018,10 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     SetCCunspentsInMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
-        if (it->second.satoshis == KOGS_BATON_AMOUNT) // picking game or slamparam utxos with markers=20000
+        uint256 dummytxid;
+        int32_t dummyvout;
+
+        if (it->second.satoshis == KOGS_BATON_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) // picking game or slamparam utxos with markers=20000
         {
             LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "found utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << std::endl);
 

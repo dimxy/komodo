@@ -40,7 +40,7 @@ const uint8_t KOGS_VERSION = 1;
 
 #define TOKEN_MARKER_VOUT           0   // token global address basic cc marker vout num
 #define KOGS_NFT_MARKER_VOUT        2   // additional kogs global address marker vout num for tokens
-#define KOGS_BATON_VOUT             0
+//#define KOGS_BATON_VOUT               // different vouts
 
 #define KOGS_NFT_MARKER_AMOUNT      10000   // additional kogs global address marker vout num for tokens
 #define KOGS_BATON_AMOUNT           20000
