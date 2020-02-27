@@ -376,7 +376,7 @@ static bool LoadTokenData(const CTransaction &tx, uint256 &creationtxid, vuint8_
             {
                 uint256 hashBlock;
 
-                if (!myGetTransaction(tokenid, createtx, hashBlock) || hashBlock.IsNull())  //use non-locking version, check that tx not in mempool
+                if (!myGetTransaction(tokenid, createtx, hashBlock) /*|| hashBlock.IsNull()*/)  //use non-locking version, check that tx not in mempool
                 {
                     return false;
                 }
@@ -628,7 +628,7 @@ void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containeri
     std::vector<std::shared_ptr<KogsContainer>> containers;
     KogsDepositedContainerListImpl(gameid, containers);
 
-    for (auto c : containers)
+    for (const auto &c : containers)
         containerids.push_back(c->creationtxid);
 }
 
@@ -641,7 +641,7 @@ void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool only
     // get all objects with this objectType
     ListGameObjects(remotepk, objectType, onlymy ? &checker : nullptr, objlist);
 
-    for (auto &o : objlist)
+    for (const auto &o : objlist)
     {
         creationtxids.push_back(o->creationtxid);
     }
