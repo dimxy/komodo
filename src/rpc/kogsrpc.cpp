@@ -1196,7 +1196,7 @@ UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& remot
     }
 
     std::vector<uint256> creationids;
-    KogsCreationTxidList(remotepk, KOGSID_PLAYER, false, creationids);
+    KogsCreationTxidList(remotepk, KOGSID_PLAYER, onlymy, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &i : creationids)
