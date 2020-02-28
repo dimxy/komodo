@@ -1295,7 +1295,7 @@ static bool FindAdvertisings(uint256 playerId, uint256 &adtxid, int32_t &nvout, 
         uint256 dummytxid;
         int32_t dummyvout;
         // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
-        if (it->second.satoshis == KOGS_ADVERISING_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) // picking batons with marker=20000
+        if (it->second.satoshis == KOGS_ADVERISING_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) // picking markers==5000
         {
             std::shared_ptr<KogsBaseObject> spadobj(LoadGameObject(it->first.txhash));
             if (spadobj != nullptr && spadobj->objectType == KOGSID_ADVERTISING)
@@ -1304,12 +1304,12 @@ static bool FindAdvertisings(uint256 playerId, uint256 &adtxid, int32_t &nvout, 
                 CTransaction tx;
                 uint256 hashBlock;
 
-                if (padobj->playerId.IsNull() || padobj->playerId == playerId)
+                if (playerId.IsNull() || padobj->playerId == playerId)
                 {
                     // not very good: second time tx load
                     if (myGetTransaction(it->first.txhash, tx, hashBlock) && TotalPubkeyNormalInputs(tx, padobj->encOrigPk) > 0) // check if player signed
                     {
-                        if (!padobj->playerId.IsNull()) // find a specific player ad object
+                        if (!playerId.IsNull()) // find a specific player ad object
                         {
                             //if (padobj->encOrigPk == mypk) we already checked in the caller that playerId is signed with mypk
                             //{
@@ -1821,7 +1821,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
 
     case KOGSID_ADVERTISING:
         adobj = (KogsAdvertising*)pobj;
-        info.push_back(std::make_pair("gameid", std::to_string(adobj->gameOpts)));
+        info.push_back(std::make_pair("gameOpts", std::to_string(adobj->gameOpts)));
         info.push_back(std::make_pair("playerid", adobj->playerId.GetHex()));
         break;
 
