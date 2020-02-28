@@ -1179,11 +1179,20 @@ UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& remot
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerror.clear();
 
-    if (fHelp || (params.size() != 0))
+    if (fHelp || (params.size() > 1))
     {
         throw runtime_error(
-            "kogsplayerlist\n"
-            "returns all player creationids\n" "\n");
+            "kogsplayerlist [my]\n"
+            "returns all or my player creationids\n" "\n");
+    }
+
+    bool onlymy = false;
+    if (params.size() == 1)
+    {
+        if (params[0].get_str() == "my")
+            onlymy = true;
+        else
+            throw runtime_error("incorrect param\n");
     }
 
     std::vector<uint256> creationids;
