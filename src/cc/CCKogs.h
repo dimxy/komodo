@@ -875,7 +875,7 @@ struct KogsAdvertising : public KogsBaseObject {
 
     KogsAdvertising() : KogsBaseObject() {
         objectType = KOGSID_ADVERTISING;
-        gameOpts = 0;
+        gameOpts = KOGS_OPTS_PLAYFORFUN;
         nameId = "AD";
         descriptionId = "";
     }
