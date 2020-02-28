@@ -34,7 +34,8 @@ static std::map<uint8_t, std::string> objectids = {
     { KOGSID_CONTAINER, "KOGSID_CONTAINER" },
     { KOGSID_BATON , "KOGSID_BATON" },
     { KOGSID_SLAMPARAMS, "KOGSID_SLAMPARAMS" },
-    { KOGSID_GAMEFINISHED, "KOGSID_GAMEFINISHED" }
+    { KOGSID_GAMEFINISHED, "KOGSID_GAMEFINISHED" },
+    { KOGSID_ADVERTISING, "KOGSID_ADVERTISING" }
 };
 
 
@@ -352,6 +353,43 @@ static UniValue CreateSlamParamTx(const CPubKey &remotepk, uint256 prevtxid, int
             return NullUniValue;
         }
         return sigData; 
+    }
+    else
+    {
+        CCerror = "could not find normal inputs for txfee";
+        return NullUniValue; // empty 
+    }
+}
+
+// create an advertising tx to make known the player is ready to play
+static UniValue CreateAdvertisingTx(const CPubKey &remotepk, const KogsAdvertising &ad)
+{
+    const CAmount  txfee = 10000;
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    KogsEnclosure enc(mypk);  
+    enc.vdata = ad.Marshal();
+    enc.name = ad.nameId;
+    enc.description = ad.descriptionId;
+
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 8) > 0)   // add always from mypk because it will be checked who signed this advertising tx
+    {
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_ADVERISING_AMOUNT, GetUnspendable(cp, NULL))); // baton for miner to indicate the slam data added
+
+        CScript opret;
+        opret << OP_RETURN << enc.EncodeOpret();
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret);
+        if (!ResultHasTx(sigData)) {
+            CCerror = "could not finalize or sign advertising transaction";
+            return NullUniValue;
+        }
+        return sigData;
     }
     else
     {
@@ -1235,6 +1273,98 @@ UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams
         return NullUniValue;
     }
 }
+
+// if playerId set returns found adtxid and nvout
+// if not set returns all advertisings (checked if signed correctly) in adlist
+static bool FindAdvertisings(uint256 playerId, uint256 &adtxid, int32_t &nvout, std::vector<KogsAdvertising> &adlist)
+{
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    char kogsaddr[KOMODO_ADDRESS_BUFSIZE];
+    GetCCaddress(cp, kogsaddr, GetUnspendable(cp, NULL));
+
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "searching my advertizing marker" << std::endl);
+
+    // check if advertising is already on kogs global:
+    SetCCunspents(addressUnspents, kogsaddr, true);    // look for baton on my cc addr 
+    SetCCunspentsInMempool(addressUnspents, kogsaddr, true);    // look for baton on my cc addr in mempool
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
+    {
+        uint256 dummytxid;
+        int32_t dummyvout;
+        // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
+        if (it->second.satoshis == KOGS_ADVERISING_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) // picking batons with marker=20000
+        {
+            std::shared_ptr<KogsBaseObject> spadobj(LoadGameObject(it->first.txhash));
+            if (spadobj != nullptr && spadobj->objectType == KOGSID_ADVERTISING)
+            {
+                KogsAdvertising* padobj = (KogsAdvertising*)spadobj.get();
+                CTransaction tx;
+                uint256 hashBlock;
+
+                if (padobj->playerId.IsNull() || padobj->playerId == playerId)
+                {
+                    // not very good: second time tx load
+                    if (myGetTransaction(it->first.txhash, tx, hashBlock) && TotalPubkeyNormalInputs(tx, padobj->encOrigPk) > 0) // check if player signed
+                    {
+                        if (!padobj->playerId.IsNull()) // find a specific player ad object
+                        {
+                            //if (padobj->encOrigPk == mypk) we already checked in the caller that playerId is signed with mypk
+                            //{
+                            adtxid = it->first.txhash;
+                            nvout = it->first.index;
+                            return true;
+                            //}
+                        }
+                        else
+                            adlist.push_back(*padobj);
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
+UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &newad)
+{
+    std::shared_ptr<KogsBaseObject> spplayer(LoadGameObject(newad.playerId));
+    if (spplayer == nullptr || spplayer->objectType != KOGSID_PLAYER)
+    {
+        CCerror = "can't load player object";
+        return NullUniValue;
+    }
+
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+    
+    KogsPlayer *pplayer = (KogsPlayer*)spplayer.get();
+    if (pplayer->encOrigPk != mypk) {
+        CCerror = "not this pubkey player";
+        return NullUniValue;
+    }
+
+    uint256 adtxid;
+    int32_t nvout;
+    std::vector<KogsAdvertising> dummy;
+
+    if (FindAdvertisings(newad.playerId, adtxid, nvout, dummy)) {
+        CCerror = "this player already made advertising";
+        return NullUniValue;
+    }
+    return CreateAdvertisingTx(remotepk, newad);
+}
+
+void KogsAdvertisedList(std::vector<KogsAdvertising> &adlist)
+{
+    uint256 adtxid;
+    int32_t nvout;
+    
+    FindAdvertisings(zeroid, adtxid, nvout, adlist);
+}
+
 
 static bool IsGameObjectDeleted(uint256 tokenid)
 {

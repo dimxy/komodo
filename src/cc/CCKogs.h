@@ -33,6 +33,7 @@ const uint8_t KOGSID_CONTAINER = 'C';
 const uint8_t KOGSID_BATON = 'B';
 const uint8_t KOGSID_SLAMPARAMS = 'R';
 const uint8_t KOGSID_GAMEFINISHED = 'F';
+const uint8_t KOGSID_ADVERTISING = 'A';
 
 const uint8_t KOGS_VERSION = 1;
 
@@ -44,8 +45,17 @@ const uint8_t KOGS_VERSION = 1;
 
 #define KOGS_NFT_MARKER_AMOUNT      10000   // additional kogs global address marker vout num for tokens
 #define KOGS_BATON_AMOUNT           20000
+#define KOGS_ADVERISING_AMOUNT      5000
 
 #define KOGS_ENCLOSURE_MARKER_VOUT  1   // marker vout num for kogs enclosure tx in kogs global address
+
+#define KOGS_OPTS_PLAYFORKEEPS   0x01
+#define KOGS_OPTS_PLAYFORFUN     0x20
+#define KOGS_OPTS_PLAYFORWAGES   0x40
+
+const char opt_playforkeeps[] = "playforkeeps";
+const char opt_playforfun[] =   "playforfun";
+const char opt_playforwages[] = "playforwages";
 
 struct KogsBaseObject {
     std::string nameId;
@@ -826,6 +836,35 @@ struct KogsGameFinished : public KogsBaseObject {
     }
 };
 
+// slam range structure
+struct KogsAdvertising : public KogsBaseObject {
+
+    uint32_t gameOpts;
+    uint256 playerId;     // playerid who adveertises himself to play
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        READWRITE(gameOpts);
+        READWRITE(playerId);
+    }
+
+    virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
+    virtual bool Unmarshal(vscript_t v)
+    {
+        bool result = E_UNMARSHAL(v, ss >> (*this));
+        return result;
+    }
+
+    KogsAdvertising() : KogsBaseObject() {
+        objectType = KOGSID_ADVERTISING;
+        gameOpts = 0;
+        nameId = "AD";
+        descriptionId = "";
+    }
+};
 
 // simple factory for Kogs game objects
 class KogsFactory
@@ -840,8 +879,9 @@ public:
         struct KogsPlayer *r;
         struct KogsGame *g;
         struct KogsBaton *b;
-        struct KogsSlamParams *a;
+        struct KogsSlamParams *sp;
         struct KogsGameFinished *e;
+        struct KogsAdvertising *a;
 
         switch (objectType)
         {
@@ -875,12 +915,16 @@ public:
             return (KogsBaseObject*)b;
 
         case KOGSID_SLAMPARAMS:
-            a = new KogsSlamParams();
-            return (KogsBaseObject*)a;
+            sp = new KogsSlamParams();
+            return (KogsBaseObject*)sp;
 
         case KOGSID_GAMEFINISHED:
             e = new KogsGameFinished();
             return (KogsBaseObject*)e;
+
+        case KOGSID_ADVERTISING:
+            a = new KogsAdvertising();
+            return (KogsBaseObject*)a;
 
         default:
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "requested to create unsupported objectType=" << (int)objectType << std::endl);
@@ -909,6 +953,8 @@ UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid);
 void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool onlymy, std::vector<uint256> &tokenids);
 void KogsGameTxidList(const CPubKey &remotepk, uint256 playerid, std::vector<uint256> &creationtxids);
 UniValue KogsObjectInfo(uint256 gameobjectid);
+UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &newad);
+void KogsAdvertisedList(std::vector<KogsAdvertising> &adlist);
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 

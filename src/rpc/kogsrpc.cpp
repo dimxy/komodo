@@ -1271,6 +1271,106 @@ UniValue kogsobjectinfo(const UniValue& params, bool fHelp, const CPubKey& remot
     return result;
 }
 
+// rpc kogsadvertiseplayer impl (advertise that a player ready to play)
+UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
+    CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+    if (fHelp || (params.size() != 1))
+    {
+        throw runtime_error(
+            "kogsadvertiseplayer '{\"playerid\": \"id\", \"playforkeeps\":\"yes\", \"playforfun\":\"yes\", \"playforwages\":\"yes\" }'\n"
+            "create transaction to advertise player\n" "\n");
+    }
+
+    KogsAdvertising newadplayer;
+   
+    if (params[0].getType() == UniValue::VOBJ)
+        jsonParams = params[0].get_obj();
+    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[0].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VOBJ)
+        throw runtime_error("parameter 1 must be object\n");
+
+    // parse json object with ad params:
+
+    std::vector<std::string> ikeys = jsonParams.getKeys();
+    std::vector<std::string>::const_iterator iter;
+
+    iter = std::find(ikeys.begin(), ikeys.end(), "playerid");
+    UniValue param;
+    if (iter != ikeys.end()) {
+        param = jsonParams[iter - ikeys.begin()];
+        newadplayer.playerId = Parseuint256(param.get_str().c_str());
+        if (newadplayer.playerId.IsNull())
+            throw runtime_error("playerid param is incorrect\n");
+    }
+
+    iter = std::find(ikeys.begin(), ikeys.end(), "playforkeeps");
+    if (iter != ikeys.end()) {
+        param = jsonParams[iter - ikeys.begin()];
+        newadplayer.gameOpts += param.get_str() == "true" ? KOGS_OPTS_PLAYFORKEEPS : 0;
+    }
+    iter = std::find(ikeys.begin(), ikeys.end(), "playforfun");
+    if (iter != ikeys.end()) {
+        param = jsonParams[iter - ikeys.begin()];
+        newadplayer.gameOpts += param.get_str() == "true" ? KOGS_OPTS_PLAYFORFUN : 0;
+    }
+    iter = std::find(ikeys.begin(), ikeys.end(), "playforwages");
+    if (iter != ikeys.end()) {
+        param = jsonParams[iter - ikeys.begin()];
+        newadplayer.gameOpts += param.get_str() == "true" ? KOGS_OPTS_PLAYFORWAGES : 0;
+    }
+
+    result = KogsAdvertisePlayer(remotepk, newadplayer);
+    RETURN_IF_ERROR(CCerror);
+
+    return result;
+}
+
+// rpc kogsadvertisedplayerlist impl (to return all player ads)
+UniValue kogsadvertisedplayerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
+    CCerror.clear();
+
+    if (fHelp || (params.size() > 0))
+    {
+        throw runtime_error(
+            "kogsadvertisedplayerlist\n"
+            "returns all advertised playerid and accepted game opts\n" "\n");
+    }
+
+    uint256 playerid = zeroid;
+    if (params.size() == 1)
+        playerid = Parseuint256(params[0].get_str().c_str());
+    std::vector<KogsAdvertising> ads;
+    KogsAdvertisedList(ads);
+    RETURN_IF_ERROR(CCerror);
+
+    for (const auto &ad : ads) {
+        UniValue el(UniValue::VOBJ);
+        el.push_back(std::make_pair("playerid", ad.playerId.GetHex()));
+        if (ad.gameOpts & KOGS_OPTS_PLAYFORFUN)
+            el.push_back(std::make_pair(opt_playforfun, "yes"));
+        if (ad.gameOpts & KOGS_OPTS_PLAYFORKEEPS)
+            el.push_back(std::make_pair(opt_playforkeeps, "yes"));
+        if (ad.gameOpts & KOGS_OPTS_PLAYFORWAGES)
+            el.push_back(std::make_pair(opt_playforwages, "yes"));
+
+        resarray.push_back(el);
+    }
+
+    result.push_back(std::make_pair("advertisedPlayerList", resarray));
+    return result;
+}
+
+
 UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue crparams(UniValue::VARR);
@@ -1445,6 +1545,8 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsremoveobject",       &kogsremoveobject,        true },
     { "kogs",         "kogsslamdata",           &kogsslamdata,            true },
     { "kogs",         "kogsobjectinfo",         &kogsobjectinfo,          true },
+    { "kogs",         "kogsadvertiseplayer",    &kogsadvertiseplayer,          true },
+    { "kogs",         "kogsadvertisedplayerlist",    &kogsadvertisedplayerlist,          true },
     { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
     { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true },
     { "kogs",         "kogsdecodetxdata",         &kogs_decodetxdata,          true }
