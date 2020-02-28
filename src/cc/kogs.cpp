@@ -584,11 +584,11 @@ private:
     uint256 playerid;
 };
 
-static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, GOCheckerBase *pObjChecker, std::vector<std::shared_ptr<KogsBaseObject>> &list)
+static void ListGameObjects(const CPubKey &dummypk, uint8_t objectType, GOCheckerBase *pObjChecker, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-    bool isRemote = IS_REMOTE(remotepk);
-    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+    //bool isRemote = IS_REMOTE(remotepk);
+    //CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
 
     struct CCcontract_info *cp, C; 
     cp = CCinit(&C, EVAL_KOGS);

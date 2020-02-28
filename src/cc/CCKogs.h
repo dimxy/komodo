@@ -855,7 +855,7 @@ struct KogsAdvertising : public KogsBaseObject {
         READWRITE(evalcode);
         READWRITE(objectType);
         READWRITE(version);
-        if (evalcode == EVAL_KOGS && objectType == KOGSID_SLAMPARAMS && version == KOGS_VERSION)
+        if (evalcode == EVAL_KOGS && objectType == KOGSID_ADVERTISING && version == KOGS_VERSION)
         {
             READWRITE(gameOpts);
             READWRITE(playerId);
