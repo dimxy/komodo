@@ -1705,6 +1705,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         KogsGameFinished *gamefinishedobj;
         KogsBaton *batonobj;
         KogsSlamParams *slamparamsobj;
+        KogsAdvertising *adobj;
 
 
     case KOGSID_KOG:
@@ -1816,6 +1817,12 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         info.push_back(std::make_pair("gameid", slamparamsobj->gameid.GetHex()));
         info.push_back(std::make_pair("height", slamparamsobj->armHeight));
         info.push_back(std::make_pair("strength", slamparamsobj->armStrength));
+        break;
+
+    case KOGSID_ADVERTISING:
+        adobj = (KogsAdvertising*)pobj;
+        info.push_back(std::make_pair("gameid", std::to_string(adobj->gameOpts)));
+        info.push_back(std::make_pair("playerid", adobj->playerId.GetHex()));
         break;
 
     default:

@@ -847,8 +847,23 @@ struct KogsAdvertising : public KogsBaseObject {
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action)
     {
-        READWRITE(gameOpts);
-        READWRITE(playerId);
+        if (ser_action.ForRead()) {
+            evalcode = 0;
+            objectType = 0;
+            version = 0;
+        }
+        READWRITE(evalcode);
+        READWRITE(objectType);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && objectType == KOGSID_SLAMPARAMS && version == KOGS_VERSION)
+        {
+            READWRITE(gameOpts);
+            READWRITE(playerId);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsAdvertising" << " " << "incorrect evalcode=" << (int)evalcode << " or not a KogsAdvertising objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+        }
     }
 
     virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
