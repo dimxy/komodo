@@ -1294,7 +1294,7 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
     {
         throw runtime_error(
             "kogsadvertiseplayer '{\"playerid\": \"id\", \"playforkeeps\":\"true\", \"playforfun\":\"true\", \"playforwages\":\"true\" }'\n"
-            "create transaction to advertise player\n" "\n");
+            "create transaction to advertise player. If no game mode set 'playforfun' is default\n" "\n");
     }
 
     KogsAdvertising newadplayer;
@@ -1341,6 +1341,8 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
             throw runtime_error(opt_playforwages + std::string(" param is incorrect\n"));
         newadplayer.gameOpts += param.get_str() == "true" ? KOGS_OPTS_PLAYFORWAGES : 0;
     }
+    if (newadplayer.gameOpts == 0)
+        newadplayer.gameOpts = KOGS_OPTS_PLAYFORFUN;
 
     result = KogsAdvertisePlayer(remotepk, newadplayer);
     RETURN_IF_ERROR(CCerror);
