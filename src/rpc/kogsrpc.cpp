@@ -1293,7 +1293,7 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
     if (fHelp || (params.size() != 1))
     {
         throw runtime_error(
-            "kogsadvertiseplayer '{\"playerid\": \"id\", \"playforkeeps\":\"true\", \"playforfun\":\"true\", \"playforwages\":\"true\" }'\n"
+            "kogsadvertiseplayer '{\"playerid\": \"id\", \"opts\" : [ \"playforkeeps\", \"playforfun\", \"playforwages\" ] }'\n"
             "create transaction to advertise player. If no game mode set 'playforfun' is default\n" "\n");
     }
 
@@ -1319,26 +1319,22 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
             throw runtime_error("playerid param is incorrect\n");
     }
 
-    iter = std::find(ikeys.begin(), ikeys.end(), opt_playforkeeps);
+    iter = std::find(ikeys.begin(), ikeys.end(), "opts");
     if (iter != ikeys.end()) {
         UniValue param = jsonParams[iter - ikeys.begin()];
-        if (param.get_str() != "true" && param.get_str() != "false")
-            throw runtime_error(opt_playforkeeps + std::string(" param is incorrect\n"));
-        newadplayer.gameOpts += param.get_str() == "true" ? KOGS_OPTS_PLAYFORKEEPS : 0;
-    }
-    iter = std::find(ikeys.begin(), ikeys.end(), opt_playforfun);
-    if (iter != ikeys.end()) {
-        UniValue param = jsonParams[iter - ikeys.begin()];
-        if (param.get_str() != "true" && param.get_str() != "false")
-            throw runtime_error(opt_playforfun + std::string(" param is incorrect\n"));
-        newadplayer.gameOpts += param.get_str() == "true" ? KOGS_OPTS_PLAYFORFUN : 0;
-    }
-    iter = std::find(ikeys.begin(), ikeys.end(), opt_playforwages);
-    if (iter != ikeys.end()) {
-        UniValue param = jsonParams[iter - ikeys.begin()];
-        if (param.get_str() != "true" && param.get_str() != "false")
-            throw runtime_error(opt_playforwages + std::string(" param is incorrect\n"));
-        newadplayer.gameOpts += param.get_str() == "true" ? KOGS_OPTS_PLAYFORWAGES : 0;
+        if (!param.isArray())
+            throw runtime_error(std::string("opts is incorrect\n"));
+
+        std::vector<UniValue> optvals = param.get_array().getValues();
+        for (auto const &val : optvals)  {
+            if (val.getValStr() == opt_playforfun)
+                newadplayer.gameOpts += KOGS_OPTS_PLAYFORFUN;
+            if (val.getValStr() == opt_playforkeeps)
+                newadplayer.gameOpts += KOGS_OPTS_PLAYFORKEEPS;
+            if (val.getValStr() == opt_playforwages)
+                newadplayer.gameOpts += KOGS_OPTS_PLAYFORWAGES;
+
+        }
     }
     if (newadplayer.gameOpts == 0)
         newadplayer.gameOpts = KOGS_OPTS_PLAYFORFUN;
@@ -1371,13 +1367,14 @@ UniValue kogsadvertisedplayerlist(const UniValue& params, bool fHelp, const CPub
 
     for (const auto &ad : ads) {
         UniValue el(UniValue::VOBJ);
+        UniValue opts(UniValue::VARR);
         el.push_back(std::make_pair("playerid", ad.playerId.GetHex()));
         if (ad.gameOpts & KOGS_OPTS_PLAYFORFUN)
-            el.push_back(std::make_pair(opt_playforfun, "true"));
+            opts.push_back(opt_playforfun);
         if (ad.gameOpts & KOGS_OPTS_PLAYFORKEEPS)
-            el.push_back(std::make_pair(opt_playforkeeps, "true"));
+            opts.push_back(opt_playforkeeps);
         if (ad.gameOpts & KOGS_OPTS_PLAYFORWAGES)
-            el.push_back(std::make_pair(opt_playforwages, "true"));
+            opts.push_back(opt_playforwages);
 
         resarray.push_back(el);
     }
