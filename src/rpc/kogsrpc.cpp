@@ -1312,9 +1312,8 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
     std::vector<std::string>::const_iterator iter;
 
     iter = std::find(ikeys.begin(), ikeys.end(), "playerid");
-    UniValue param;
     if (iter != ikeys.end()) {
-        param = jsonParams[iter - ikeys.begin()];
+        UniValue param = jsonParams[iter - ikeys.begin()];
         newadplayer.playerId = Parseuint256(param.get_str().c_str());
         if (newadplayer.playerId.IsNull())
             throw runtime_error("playerid param is incorrect\n");
@@ -1322,21 +1321,21 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
 
     iter = std::find(ikeys.begin(), ikeys.end(), opt_playforkeeps);
     if (iter != ikeys.end()) {
-        param = jsonParams[iter - ikeys.begin()];
+        UniValue param = jsonParams[iter - ikeys.begin()];
         if (param.get_str() != "true" && param.get_str() != "false")
             throw runtime_error(opt_playforkeeps + std::string(" param is incorrect\n"));
         newadplayer.gameOpts += param.get_str() == "true" ? KOGS_OPTS_PLAYFORKEEPS : 0;
     }
     iter = std::find(ikeys.begin(), ikeys.end(), opt_playforfun);
     if (iter != ikeys.end()) {
-        param = jsonParams[iter - ikeys.begin()];
+        UniValue param = jsonParams[iter - ikeys.begin()];
         if (param.get_str() != "true" && param.get_str() != "false")
             throw runtime_error(opt_playforfun + std::string(" param is incorrect\n"));
         newadplayer.gameOpts += param.get_str() == "true" ? KOGS_OPTS_PLAYFORFUN : 0;
     }
     iter = std::find(ikeys.begin(), ikeys.end(), opt_playforwages);
     if (iter != ikeys.end()) {
-        param = jsonParams[iter - ikeys.begin()];
+        UniValue param = jsonParams[iter - ikeys.begin()];
         if (param.get_str() != "true" && param.get_str() != "false")
             throw runtime_error(opt_playforwages + std::string(" param is incorrect\n"));
         newadplayer.gameOpts += param.get_str() == "true" ? KOGS_OPTS_PLAYFORWAGES : 0;
