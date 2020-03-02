@@ -1315,9 +1315,10 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
     if (iter != ikeys.end()) {
         UniValue param = jsonParams[iter - ikeys.begin()];
         newadplayer.playerId = Parseuint256(param.get_str().c_str());
-        if (newadplayer.playerId.IsNull())
-            throw runtime_error("playerid param is incorrect\n");
     }
+    if (newadplayer.playerId.IsNull())
+        throw runtime_error("playerid param is incorrect\n");
+
 
     iter = std::find(ikeys.begin(), ikeys.end(), "opts");
     if (iter != ikeys.end()) {
@@ -1336,6 +1337,9 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
 
         }
     }
+    else
+        throw runtime_error("opts param is incorrect\n");
+
     if (newadplayer.gameOpts == 0)
         newadplayer.gameOpts = KOGS_OPTS_PLAYFORFUN;
 
@@ -1375,7 +1379,7 @@ UniValue kogsadvertisedplayerlist(const UniValue& params, bool fHelp, const CPub
             opts.push_back(opt_playforkeeps);
         if (ad.gameOpts & KOGS_OPTS_PLAYFORWAGES)
             opts.push_back(opt_playforwages);
-
+        el.push_back(std::make_pair("opts", opts));
         resarray.push_back(el);
     }
 
