@@ -66,6 +66,7 @@ struct KogsBaseObject {
     uint8_t version;
 
     uint256 creationtxid;
+    bool istoken;
     //CTransaction latesttx;
     //CTxOut vout; // vout where the object is currently sent to
 

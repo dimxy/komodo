@@ -80,8 +80,8 @@ static int32_t AppearanceIdCount(int32_t appearanceId)
 // get NFT unspent transaction
 static bool GetNFTUnspentTx(uint256 tokenid, CTransaction &unspenttx)
 {
-    uint256 txid, spenttxid;
-    int32_t vini, height;
+    uint256 txid, spenttxid, dummytxid;
+    int32_t vini, height, dummyvout;
     uint256 hashBlock;
     int32_t nvout = 1; // cc vout with token value in the tokenbase tx
 
@@ -92,7 +92,9 @@ static bool GetNFTUnspentTx(uint256 tokenid, CTransaction &unspenttx)
         nvout = 0; // cc vout with token value in the subsequent txns
     }
 
-    if (/*txid != tokenid && */ myGetTransaction(txid, unspenttx, hashBlock))  // use non-locking ver as this func could be called from validation code
+    // use non-locking ver as this func could be called from validation code
+    // check the tx not spent in mempool
+    if (/*txid != tokenid && */ myGetTransaction(txid, unspenttx, hashBlock) && !myIsutxo_spentinmempool(dummytxid, dummyvout, txid, nvout))  
         return true;
     else
         return false;
@@ -490,6 +492,7 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
                     obj->nameId = name;
                     obj->descriptionId = description;
                     obj->encOrigPk = pubkey2pk(vorigpubkey);
+                    obj->istoken = true;
                     return obj;
                 }
                 else
@@ -525,6 +528,7 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
                 obj->descriptionId = enc.description;
                 obj->encOrigPk = enc.origpk;
                 //obj->latesttx = enc.latesttx;
+                obj->istoken = false;
                 return obj;
             }
             else
@@ -1686,6 +1690,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
     }
 
     info.push_back(std::make_pair("result", "success"));
+    info.push_back(std::make_pair("evalcode", HexStr(std::string(1, pobj->evalcode))));
     info.push_back(std::make_pair("objectType", std::string(1, (char)pobj->objectType)));
     info.push_back(std::make_pair("objectDesc", objectids[pobj->objectType]));
     info.push_back(std::make_pair("version", std::to_string(pobj->version)));
@@ -2374,6 +2379,14 @@ static void decode_kogs_opret_to_univalue(const CTransaction &tx, UniValue &univ
 
     UniValue uniret = DecodeObjectInfo(spobj.get());
     univout.pushKVs(uniret);
+    if (spobj->istoken) {
+        univout.push_back(std::make_pair("category", "token"));
+        univout.push_back(std::make_pair("opreturn-from", "creation-tx"));
+    }
+    else    {
+        univout.push_back(std::make_pair("category", "enclosure"));
+        univout.push_back(std::make_pair("opreturn-from", "latest-tx"));
+    }
 }
 
 void decode_kogs_vout(const CTransaction &tx, int32_t nvout, UniValue &univout)
