@@ -37,7 +37,7 @@ int64_t HasBurnedTokensvouts(/*struct CCcontract_info *cp, Eval* eval,*/ const C
 CPubKey GetTokenOriginatorPubKey(CScript scriptPubKey);
 bool IsTokenMarkerVout(CTxOut vout);
 
-int64_t GetTokenBalance(CPubKey pk, uint256 tokenid);
+int64_t GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool = false);
 UniValue TokenInfo(uint256 tokenid);
 UniValue TokenList();
 

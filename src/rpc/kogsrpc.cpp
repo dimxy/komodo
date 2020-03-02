@@ -1387,6 +1387,50 @@ UniValue kogsadvertisedplayerlist(const UniValue& params, bool fHelp, const CPub
     return result;
 }
 
+UniValue kogsbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ);
+    uint256 tokenid;
+    CAmount balance;
+    std::vector<uint8_t> pubkey;
+    struct CCcontract_info *cp, C;
+    CCerror.clear();
+
+    if (fHelp || params.size() > 2)
+        throw runtime_error("kogsbalance tokenid [pubkey]\n" 
+        "returns token balance, looks into mempool\n\n" );
+    if (ensure_CCrequirements(EVAL_TOKENS) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+
+    LOCK(cs_main);
+
+    tokenid = Parseuint256((char *)params[0].get_str().c_str());
+    if (params.size() == 2)
+        pubkey = ParseHex(params[1].get_str().c_str());
+    else
+        pubkey = Mypubkey();
+
+    balance = GetTokenBalance(pubkey2pk(pubkey), tokenid, true);
+
+    if (CCerror.empty()) {
+        char destaddr[64];
+
+        result.push_back(Pair("result", "success"));
+        cp = CCinit(&C, EVAL_TOKENS);
+        if (GetCCaddress(cp, destaddr, pubkey2pk(pubkey)) != 0)
+            result.push_back(Pair("CCaddress", destaddr));
+
+        result.push_back(Pair("tokenid", params[0].get_str()));
+        result.push_back(Pair("balance", (int64_t)balance));
+    }
+    else {
+        ERR_RESULT(CCerror);
+    }
+
+    return(result);
+}
+
+
 
 UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
@@ -1563,6 +1607,7 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsslamdata",           &kogsslamdata,            true },
     { "kogs",         "kogsobjectinfo",         &kogsobjectinfo,          true },
     { "kogs",         "kogsadvertiseplayer",    &kogsadvertiseplayer,          true },
+    { "kogs",         "kogsbalance",    &kogsbalance,          true },
     { "kogs",         "kogsadvertisedplayerlist",    &kogsadvertisedplayerlist,          true },
     { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
     { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true },

@@ -45,6 +45,7 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     { "kogsremovekogsfromcontainer",  true }, { "kogsaddress", true }, { "kogsburntoken", true }, { "kogspacklist", true }, { "kogskoglist", true },
     { "kogsslammerlist", true }, { "kogscontainerlist", true }, { "kogsdepositedcontainerlist",  true }, { "kogsplayerlist", true }, { "kogsgameconfiglist", true },
     { "kogsgamelist", true }, { "kogsremoveobject", true }, { "kogsslamdata",  true }, { "kogsobjectinfo", true }, { "kogsadvertiseplayer", true }, { "kogsadvertisedplayerlist", true },
+    { "kogsbalance", true },
     // tokens:
     { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false }
 };

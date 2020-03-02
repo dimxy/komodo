@@ -1122,7 +1122,7 @@ UniValue TokenTransferSpk(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
     return  NullUniValue;
 }
 
-int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
+int64_t GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool)
 {
 	uint256 hashBlock;
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -1150,7 +1150,7 @@ int64_t GetTokenBalance(CPubKey pk, uint256 tokenid)
 
 	struct CCcontract_info *cp, C;
 	cp = CCinit(&C, EVAL_TOKENS);
-	return(AddTokenCCInputs(cp, mtx, pk, tokenid, 0, 0));
+	return(AddTokenCCInputs(cp, mtx, pk, tokenid, 0, 0, usemempool));
 }
 
 UniValue TokenInfo(uint256 tokenid)
