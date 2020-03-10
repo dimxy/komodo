@@ -631,9 +631,14 @@ static void ListContainerTokenids(KogsContainer &container)
     SetCCunspentsInMempool(addressUnspents, tokenaddr, true);
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
-        std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(it->first.txhash) ); // load and unmarshal gameobject for this txid
-        if (spobj != nullptr && KOGS_IS_MATCH_OBJECT(spobj->objectType))
-            container.tokenids.push_back(spobj->creationtxid);
+        uint256 dummytxid;
+        int32_t dummyvout;
+        if (!myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index))
+        {
+            std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(it->first.txhash)); // load and unmarshal gameobject for this txid
+            if (spobj != nullptr && KOGS_IS_MATCH_OBJECT(spobj->objectType))
+                container.tokenids.push_back(spobj->creationtxid);
+        }
     }
 }
 
