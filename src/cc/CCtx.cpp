@@ -507,7 +507,7 @@ static void AddCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAd
             {
                 uint256 dummytxid;
                 int32_t dummyvout;
-                if (myIsutxo_spentinmempool(dummytxid, dummyvout, memtx.GetHash(), i))
+                if (!myIsutxo_spentinmempool(dummytxid, dummyvout, memtx.GetHash(), i))
                 {
                     char voutaddr[64];
                     Getscriptaddress(voutaddr, memtx.vout[i].scriptPubKey);
