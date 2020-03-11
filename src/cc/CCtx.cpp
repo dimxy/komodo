@@ -505,32 +505,37 @@ static void AddCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAd
         {
             if (isCC && memtx.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !memtx.vout[i].scriptPubKey.IsPayToCryptoCondition())
             {
-                char voutaddr[64];
-                Getscriptaddress(voutaddr, memtx.vout[i].scriptPubKey);
-                if (strcmp(voutaddr, destaddr) == 0)
+                uint256 dummytxid;
+                int32_t dummyvout;
+                if (myIsutxo_spentinmempool(dummytxid, dummyvout, memtx.GetHash(), i))
                 {
-                    uint160 hashBytes;
-                    std::string addrstr(destaddr);
-                    CBitcoinAddress address(addrstr);
-                    int type;
+                    char voutaddr[64];
+                    Getscriptaddress(voutaddr, memtx.vout[i].scriptPubKey);
+                    if (strcmp(voutaddr, destaddr) == 0)
+                    {
+                        uint160 hashBytes;
+                        std::string addrstr(destaddr);
+                        CBitcoinAddress address(addrstr);
+                        int type;
 
-                    if (address.GetIndexKey(hashBytes, type, isCC) == 0)
-                        continue;
+                        if (address.GetIndexKey(hashBytes, type, isCC) == 0)
+                            continue;
 
-                    // create unspent output key value pair
-                    CAddressUnspentKey key;
-                    CAddressUnspentValue value;
+                        // create unspent output key value pair
+                        CAddressUnspentKey key;
+                        CAddressUnspentValue value;
 
-                    key.type = type;
-                    key.hashBytes = hashBytes;
-                    key.txhash = memtx.GetHash();
-                    key.index = i;
+                        key.type = type;
+                        key.hashBytes = hashBytes;
+                        key.txhash = memtx.GetHash();
+                        key.index = i;
 
-                    value.satoshis = memtx.vout[i].nValue;
-                    value.blockHeight = 0;
-                    value.script = memtx.vout[i].scriptPubKey;
+                        value.satoshis = memtx.vout[i].nValue;
+                        value.blockHeight = 0;
+                        value.script = memtx.vout[i].scriptPubKey;
 
-                    unspentOutputs.push_back(std::make_pair(key, value));
+                        unspentOutputs.push_back(std::make_pair(key, value));
+                    }
                 }
             }
         }
