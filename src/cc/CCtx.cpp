@@ -568,12 +568,15 @@ void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddress
 {
     SetCCunspents(unspentOutputs, coinaddr, ccflag);
     // remove utxps spent in mempool
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it ++)
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::iterator it_prev = unspentOutputs.begin();
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it_prev = it, it ++)
     {
         uint256 dummytxid;
         int32_t dummyvout;
-        if (myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index))
+        if (myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) {
             unspentOutputs.erase(it);
+            it = it_prev;  // return to the valid iterator
+        }
     }
     AddCCunspentsInMempool(unspentOutputs, coinaddr, ccflag);
 }
