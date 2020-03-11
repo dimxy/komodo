@@ -567,16 +567,17 @@ void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValu
 void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag)
 {
     SetCCunspents(unspentOutputs, coinaddr, ccflag);
-    // remove utxps spent in mempool
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::iterator it_prev = unspentOutputs.begin();
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it_prev = it, it ++)
+
+    // remove utxos spent in mempool
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); )
     {
         uint256 dummytxid;
         int32_t dummyvout;
         if (myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) {
-            unspentOutputs.erase(it);
-            it = it_prev;  // return to the valid iterator
+            it = unspentOutputs.erase(it);
         }
+        else
+            it++;
     }
     AddCCunspentsInMempool(unspentOutputs, coinaddr, ccflag);
 }
