@@ -872,7 +872,7 @@ int64_t TotalPubkeyNormalInputs(const CTransaction &tx, const CPubKey &pubkey)
         CTransaction vintx;
         uint256 hashBlock;
 
-        if (!IsCCInput(vin.scriptSig) && (myGetTransaction(vin.prevout.hash, vintx, hashBlock) || GetInMemoryTransaction(vin.prevout.hash, vintx))) // GetInMemoryTransaction returns just created mtx objects, which can also be spent
+        if (!IsCCInput(vin.scriptSig) && (myGetTransaction(vin.prevout.hash, vintx, hashBlock) || LockUtxoInMemory::GetInMemoryTransaction(vin.prevout.hash, vintx))) // GetInMemoryTransaction returns just created mtx objects, which can also be spent
         {
             typedef std::vector<unsigned char> valtype;
             std::vector<valtype> vSolutions;
