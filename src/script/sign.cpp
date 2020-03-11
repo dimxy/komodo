@@ -60,7 +60,7 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, 
         }
     }
     SIG_TXHASH = hash;
-    fprintf(stderr, "%s DEBUG SignatureHash hash=%s\n", __func__, hash.GetHex().c_str());  // TODO: remove
+    // fprintf(stderr, "%s DEBUG SignatureHash hash=%s\n", __func__, hash.GetHex().c_str());  // TODO: remove
     if ( KOMODO_NSPV_SUPERLITE )
         key = DecodeSecret(NSPV_wifstr);
     else if (pprivKey)

@@ -248,8 +248,8 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                 {
                     if (!remote)
                     {
-                        std::cerr << "mtx.before SignTx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
-                        std::cerr << "mtx.hash SignTx before=" << mtx.GetHash().GetHex() << std::endl;
+                        //std::cerr << "mtx.before SignTx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
+                        //std::cerr << "mtx.hash SignTx before=" << mtx.GetHash().GetHex() << std::endl;
 
                         if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0)
                             fprintf(stderr, "signing error for vini.%d of %llx\n", i, (long long)vinimask);
