@@ -1186,6 +1186,11 @@ struct CInMemoryTxns : public memtx_map {
     }
 };
 
+
+// def static LockUtxoInMemory member vars:
+thread_local struct CLockedInMemoryUtxos LockUtxoInMemory::utxosLocked;
+thread_local struct CInMemoryTxns LockUtxoInMemory::txnsInMem;
+
 // activate locking, Addnormalinputs begins locking utxos and will not spend the locked utxos
 void LockUtxoInMemory::activateUtxoLock()
 {
