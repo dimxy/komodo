@@ -1189,18 +1189,18 @@ struct CInMemoryTxns : public memtx_map {
 // activate locking, Addnormalinputs begins locking utxos and will not spend the locked utxos
 void LockUtxoInMemory::activateUtxoLock()
 {
-    txnsInMem.clear();
-    utxosLocked.clear();
-    utxosLocked.isActive = true;
+    LockUtxoInMemory::txnsInMem.clear();
+    LockUtxoInMemory::utxosLocked.clear();
+    LockUtxoInMemory::utxosLocked.isActive = true;
     LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo locking activated" << std::endl);
 }
 
 // Stop locking, unlocks all locked utxos: Addnormalinputs functions will not prevent utxos from spending
 void LockUtxoInMemory::deactivateUtxoLock()
 {
-    utxosLocked.isActive = false;
-    txnsInMem.clear();
-    utxosLocked.clear();
+    LockUtxoInMemory::utxosLocked.isActive = false;
+    LockUtxoInMemory::txnsInMem.clear();
+    LockUtxoInMemory::utxosLocked.clear();
     LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo locking deactivated" << std::endl);
 }
 
@@ -1217,13 +1217,13 @@ LockUtxoInMemory::~LockUtxoInMemory()
 // returns if utxo locking is active
 bool LockUtxoInMemory::isLockUtxoActive()
 {
-    return utxosLocked.isActive;
+    return LockUtxoInMemory::utxosLocked.isActive;
 }
 
 // checks if utxo is locked (added to a mtx object)
 bool LockUtxoInMemory::isUtxoLocked(uint256 txid, int32_t nvout)
 {
-    if (std::find(utxosLocked.begin(), utxosLocked.end(), std::make_pair(txid, nvout)) != utxosLocked.end()) {
+    if (std::find(LockUtxoInMemory::utxosLocked.begin(), LockUtxoInMemory::utxosLocked.end(), std::make_pair(txid, nvout)) != LockUtxoInMemory::utxosLocked.end()) {
         LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo already locked: " << txid.GetHex() << "/" << nvout << std::endl);
         return true;
     }
@@ -1235,7 +1235,7 @@ bool LockUtxoInMemory::isUtxoLocked(uint256 txid, int32_t nvout)
 void LockUtxoInMemory::LockUtxo(uint256 txid, int32_t nvout)
 {
     if (!isUtxoLocked(txid, nvout)) {
-        utxosLocked.insert(std::make_pair(txid, nvout));
+        LockUtxoInMemory::utxosLocked.insert(std::make_pair(txid, nvout));
         LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo locked: " << txid.GetHex() << "/" << nvout << std::endl);
     }
 }

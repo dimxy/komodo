@@ -724,7 +724,7 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::ve
     if (!CheckSysPubKey())
         return NullResults;
     
-    LockUtxoInMemory();  //activate in-mem utxo locking
+    LockUtxoInMemory lockutxos;  //activate in-mem utxo locking
 
     for (auto &obj : matchobjects) {
 
@@ -878,7 +878,7 @@ std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContain
     }
 
     //call this before txns creation
-    LockUtxoInMemory();  
+    LockUtxoInMemory lockutxos;  
 
     UniValue sigData = CreateGameObjectNFT(remotepk, &newcontainer);
     if (!ResultHasTx(sigData)) 
@@ -1154,7 +1154,7 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey containertxidPk = CCtxidaddr_tweak(txidaddr, containerid);
 
-    LockUtxoInMemory(); // activate locking
+    LockUtxoInMemory lockutxos; // activate locking
 
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress(cp, tokenaddr, mypk);
@@ -1193,7 +1193,7 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, createtxidPk);
 
-    LockUtxoInMemory(); // activate locking
+    LockUtxoInMemory lockutxos; // activate locking
 
     for (auto tokenid : tokenids)
     {
@@ -1404,7 +1404,7 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
 
             std::vector<UniValue> results;
 
-            LockUtxoInMemory();
+            LockUtxoInMemory lockutxos;
 
             // create txns sending the pack's kog NFTs to pack's vout address:
             for (auto tokenid : pack->tokenids)
@@ -2146,7 +2146,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
     //srand(time(NULL));  // TODO check srand already called in init()
 
-    LockUtxoInMemory();  // lock in memory tx inputs to prevent from subsequent adding
+    LockUtxoInMemory lockutxos;  // lock in memory tx inputs to prevent from subsequent adding
 
     // find all games with unspent batons:
     SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr
