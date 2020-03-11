@@ -622,6 +622,55 @@ void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentVa
 void NSPV_CCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &txids,char *coinaddr,bool ccflag);
 void NSPV_CCtxids(std::vector<uint256> &txids,char *coinaddr,bool ccflag, uint8_t evalcode,uint256 filtertxid, uint8_t func);
 
+// set cc or normal unspents from mempool
+static void AddCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC)
+{
+    // lock mempool
+    ENTER_CRITICAL_SECTION(cs_main);
+    ENTER_CRITICAL_SECTION(mempool.cs);
+
+    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
+        mi != mempool.mapTx.end(); ++mi)
+    {
+        const CTransaction& memtx = mi->GetTx();
+        for (int32_t i = 0; i < memtx.vout.size(); i++)
+        {
+            if (isCC && memtx.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !memtx.vout[i].scriptPubKey.IsPayToCryptoCondition())
+            {
+                char voutaddr[64];
+                Getscriptaddress(voutaddr, memtx.vout[i].scriptPubKey);
+                if (strcmp(voutaddr, destaddr) == 0)
+                {
+                    uint160 hashBytes;
+                    std::string addrstr(destaddr);
+                    CBitcoinAddress address(addrstr);
+                    int type;
+
+                    if (address.GetIndexKey(hashBytes, type, isCC) == 0)
+                        continue;
+
+                    // create unspent output key value pair
+                    CAddressUnspentKey key;
+                    CAddressUnspentValue value;
+
+                    key.type = type;
+                    key.hashBytes = hashBytes;
+                    key.txhash = memtx.GetHash();
+                    key.index = i;
+
+                    value.satoshis = memtx.vout[i].nValue;
+                    value.blockHeight = 0;
+                    value.script = memtx.vout[i].scriptPubKey;
+
+                    unspentOutputs.push_back(std::make_pair(key, value));
+                }
+            }
+        }
+    }
+    LEAVE_CRITICAL_SECTION(cs_main);
+    LEAVE_CRITICAL_SECTION(mempool.cs);
+}
+
 void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool ccflag)
 {
     int32_t type=0,i,n; char *ptr; std::string addrstr; uint160 hashBytes; std::vector<std::pair<uint160, int> > addresses;
@@ -646,6 +695,22 @@ void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValu
     }
 }
 
+// SetCCunspents with looking utxos in mempool support and check that utxo is not spent in mempool
+void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag)
+{
+    SetCCunspents(unspentOutputs, coinaddr, ccflag);
+    // remove utxps spent in mempool
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it ++)
+    {
+        uint256 dummytxid;
+        int32_t dummyvout;
+        if (myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index))
+            unspentOutputs.erase(it);
+    }
+    AddCCunspentsInMempool(unspentOutputs, coinaddr, ccflag);
+}
+
+/*
 // gets mempool indexes for coinaddr from mempool address index
 // converts and adds them into unspentOutputs array (for use in AddNormalInputsRemote
 void AddMempoolUnspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag)
@@ -684,6 +749,7 @@ void AddMempoolUnspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspen
         }
     }
 }
+*/
 
 void SetCCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,char *coinaddr,bool ccflag)
 {
@@ -1059,22 +1125,27 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx, int64_t total, int32_t maxinp
 // has additional mypk param for nspv calls
 int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs)
 {
-    int32_t abovei,belowi,ind,vout,i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; char coinaddr[64]; uint256 txid,hashBlock; CTransaction tx; struct CC_utxo *utxos,*up;
+    int32_t abovei, belowi, ind, vout, i, n = 0; int64_t sum, threshold, above, below; int64_t remains, nValue, totalinputs = 0; char coinaddr[64]; uint256 txid, hashBlock; CTransaction tx; struct CC_utxo *utxos, *up;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
-    if ( KOMODO_NSPV_SUPERLITE )
-        return(NSPV_AddNormalinputs(mtx,mypk,total,maxinputs,&NSPV_U));   // TODO: add utxo locking to NSPV_AddNormalinputs
-    utxos = (struct CC_utxo *)calloc(CC_MAXVINS,sizeof(*utxos));
-    if ( maxinputs > CC_MAXVINS )
-        maxinputs = CC_MAXVINS;
-    if ( maxinputs > 0 )
-        threshold = total/maxinputs;
-    else threshold = total;
-    sum = 0;
-    Getscriptaddress(coinaddr,CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
-    SetCCunspents(unspentOutputs,coinaddr,false);
-    AddMempoolUnspents(unspentOutputs, coinaddr, false);
 
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
+    if (KOMODO_NSPV_SUPERLITE)
+        return(NSPV_AddNormalinputs(mtx, mypk, total, maxinputs, &NSPV_U));   // TODO: add utxo locking to NSPV_AddNormalinputs
+
+    utxos = (struct CC_utxo *)calloc(CC_MAXVINS, sizeof(*utxos));
+    if (maxinputs > CC_MAXVINS)
+        maxinputs = CC_MAXVINS;
+    
+    if (maxinputs > 0)
+        threshold = total / maxinputs;
+    else 
+        threshold = total;
+
+    sum = 0;
+    Getscriptaddress(coinaddr, CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
+    SetCCunspents(unspentOutputs, coinaddr, false);
+    // AddCCunspentsInMempool(unspentOutputs, coinaddr, false);  // do not spend coins in mempool, spend only confirmed
+
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
     {
         txid = it->first.txhash;
         vout = (int32_t)it->first.index;
@@ -1085,21 +1156,21 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
         if (isLockUtxoActive() && isUtxoLocked(txid, vout))
             continue;   // if the utxo has been already added to another mtx object
 
-        if ( myGetTransaction(txid,tx,hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0 )
+        if (myGetTransaction(txid, tx, hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0)
         {
             //fprintf(stderr,"check %.8f to vins array.%d of %d %s/v%d\n",(double)out.tx->vout[out.i].nValue/COIN,n,maxutxos,txid.GetHex().c_str(),(int32_t)vout);
             if (IsVinInArray(mtx.vin, txid, vout))
                 continue;
-            
-            if ( n > 0 )
+
+            if (n > 0)
             {
-                for (i=0; i<n; i++)
-                    if ( txid == utxos[i].txid && vout == utxos[i].vout )
+                for (i = 0; i < n; i++)
+                    if (txid == utxos[i].txid && vout == utxos[i].vout)
                         break;
-                if ( i != n )
+                if (i != n)
                     continue;
             }
-            if ( myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
+            if (myIsutxo_spentinmempool(ignoretxid, ignorevin, txid, vout) == 0)
             {
                 up = &utxos[n++];
                 up->txid = txid;
@@ -1107,13 +1178,15 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
                 up->vout = vout;
                 sum += up->nValue;
                 //fprintf(stderr,"add %.8f to vins array.%d of %d\n",(double)up->nValue/COIN,n,maxutxos);
-                if ( n >= maxinputs || sum >= total )
+                if (n >= maxinputs || sum >= total)
                     break;
             }
         }
     }
 
-    // check that in-memory utxos are not already used in mtx objects and add them to utxo array too:
+    // Allow to spend change in transactions just being created, for this add in-memory utxos
+    // check that in-memory utxos are not already used in mtx objects and add them to utxo array too
+    // this would allow to have only a single utxo on user address abd create several transactions
     if (n < maxinputs && sum < total)
     {
         std::vector<CC_utxo> utxosInMem;
@@ -1149,27 +1222,27 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
     }
 
     remains = total;
-    for (i=0; i<maxinputs && n>0; i++)
+    for (i = 0; i < maxinputs && n>0; i++)
     {
         below = above = 0;
         abovei = belowi = -1;
-        if ( CC_vinselect(&abovei,&above,&belowi,&below,utxos,n,remains) < 0 )
+        if (CC_vinselect(&abovei, &above, &belowi, &below, utxos, n, remains) < 0)
         {
-            printf("error finding unspent i.%d of %d, %.8f vs %.8f\n",i,n,(double)remains/COIN,(double)total/COIN);
+            printf("error finding unspent i.%d of %d, %.8f vs %.8f\n", i, n, (double)remains / COIN, (double)total / COIN);
             free(utxos);
             return(0);
         }
-        if ( belowi < 0 || abovei >= 0 )
+        if (belowi < 0 || abovei >= 0)
             ind = abovei;
         else ind = belowi;
-        if ( ind < 0 )
+        if (ind < 0)
         {
-            printf("error finding unspent i.%d of %d, %.8f vs %.8f, abovei.%d belowi.%d ind.%d\n",i,n,(double)remains/COIN,(double)total/COIN,abovei,belowi,ind);
+            printf("error finding unspent i.%d of %d, %.8f vs %.8f, abovei.%d belowi.%d ind.%d\n", i, n, (double)remains / COIN, (double)total / COIN, abovei, belowi, ind);
             free(utxos);
             return(0);
         }
         up = &utxos[ind];
-        mtx.vin.push_back(CTxIn(up->txid,up->vout,CScript()));
+        mtx.vin.push_back(CTxIn(up->txid, up->vout, CScript()));
 
         if (isLockUtxoActive())
             LockUtxo(up->txid, up->vout); // lock utxo to prevent adding it to other mtx objects
@@ -1177,13 +1250,13 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
         totalinputs += up->nValue;
         remains -= up->nValue;
         utxos[ind] = utxos[--n];
-        memset(&utxos[n],0,sizeof(utxos[n]));
+        memset(&utxos[n], 0, sizeof(utxos[n]));
         //fprintf(stderr,"totalinputs %.8f vs total %.8f i.%d vs max.%d\n",(double)totalinputs/COIN,(double)total/COIN,i,maxinputs);
-        if ( totalinputs >= total || (i+1) >= maxinputs )
+        if (totalinputs >= total || (i + 1) >= maxinputs)
             break;
     }
     free(utxos);
-    if ( totalinputs >= total )
+    if (totalinputs >= total)
     {
         //fprintf(stderr,"return totalinputs %.8f\n",(double)totalinputs/COIN);
         return(totalinputs);
@@ -1217,51 +1290,3 @@ void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std:
 }
 
 
-// set cc or normal unspents from mempool
-void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC)
-{
-    // lock mempool
-    ENTER_CRITICAL_SECTION(cs_main);
-    ENTER_CRITICAL_SECTION(mempool.cs);
-
-    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
-        mi != mempool.mapTx.end(); ++mi)
-    {
-        const CTransaction& memtx = mi->GetTx();
-        for (int32_t i = 0; i < memtx.vout.size(); i++)
-        {
-            if (isCC && memtx.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !memtx.vout[i].scriptPubKey.IsPayToCryptoCondition())
-            {
-                char voutaddr[64];
-                Getscriptaddress(voutaddr, memtx.vout[i].scriptPubKey);
-                if (strcmp(voutaddr, destaddr) == 0)
-                {
-                    uint160 hashBytes;
-                    std::string addrstr(destaddr);
-                    CBitcoinAddress address(addrstr);
-                    int type;
-
-                    if (address.GetIndexKey(hashBytes, type, isCC) == 0)
-                        continue;
-
-                    // create unspent output key value pair
-                    CAddressUnspentKey key;
-                    CAddressUnspentValue value;
-
-                    key.type = type;
-                    key.hashBytes = hashBytes;
-                    key.txhash = memtx.GetHash();
-                    key.index = i;
-
-                    value.satoshis = memtx.vout[i].nValue;
-                    value.blockHeight = 0;
-                    value.script = memtx.vout[i].scriptPubKey;
-
-                    unspentOutputs.push_back(std::make_pair(key, value));
-                }
-            }
-        }
-    }
-    LEAVE_CRITICAL_SECTION(cs_main);                                                                                                                              
-    LEAVE_CRITICAL_SECTION(mempool.cs);
-}

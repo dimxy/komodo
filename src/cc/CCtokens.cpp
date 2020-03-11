@@ -660,9 +660,11 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
             cp->additionalTokensEvalcode2 = vopretNonfungible.begin()[0];  // set evalcode of NFT, for signing
     }
 
-	SetCCunspents(unspentOutputs, (char*)tokenaddr, true);
-    if (useMempool)
-        SetCCunspentsInMempool(unspentOutputs, (char*)tokenaddr, true);  // add tokens in mempool too
+    if (!useMempool)
+	    SetCCunspents(unspentOutputs, (char*)tokenaddr, true);
+    else
+        SetCCunspentsWithMempool(unspentOutputs, (char*)tokenaddr, true);  // add tokens in mempool too
+
     if (unspentOutputs.empty()) {
         LOGSTREAM("cctokens", CCLOG_INFO, stream << "AddTokenCCInputs() no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->additionalTokensEvalcode2 << std::endl);
     }

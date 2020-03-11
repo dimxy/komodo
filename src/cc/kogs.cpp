@@ -93,7 +93,7 @@ static bool GetNFTUnspentTx(uint256 tokenid, CTransaction &unspenttx)
     }
 
     // use non-locking ver as this func could be called from validation code
-    // check the tx not spent in mempool
+    // also check the utxo is not spent in mempool
     if (/*txid != tokenid && */ myGetTransaction(txid, unspenttx, hashBlock) && !myIsutxo_spentinmempool(dummytxid, dummyvout, txid, nvout))  
         return true;
     else
@@ -598,9 +598,7 @@ static void ListGameObjects(const CPubKey &dummypk, uint8_t objectType, GOChecke
     cp = CCinit(&C, EVAL_KOGS);
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectType=" << (char)objectType << std::endl);
-    SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
-    SetCCunspentsInMempool(addressUnspents, cp->unspendableCCaddr, true); // look in mempool too
-
+    SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
         if (it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // 10000 to differenciate it from batons with 20000
@@ -627,18 +625,17 @@ static void ListContainerTokenids(KogsContainer &container)
     CPubKey containertxidPk = CCtxidaddr_tweak(txidaddr, container.creationtxid);
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, containertxidPk);
 
-    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
-    SetCCunspentsInMempool(addressUnspents, tokenaddr, true);
+    SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
         uint256 dummytxid;
         int32_t dummyvout;
-        if (!myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index))
-        {
-            std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(it->first.txhash)); // load and unmarshal gameobject for this txid
-            if (spobj != nullptr && KOGS_IS_MATCH_OBJECT(spobj->objectType))
-                container.tokenids.push_back(spobj->creationtxid);
-        }
+        //if (!myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index))
+        //{
+        std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(it->first.txhash)); // load and unmarshal gameobject for this txid
+        if (spobj != nullptr && KOGS_IS_MATCH_OBJECT(spobj->objectType))
+            container.tokenids.push_back(spobj->creationtxid);
+        //}
     }
 }
 
@@ -656,8 +653,7 @@ static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shar
     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
 
-    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
-    SetCCunspentsInMempool(addressUnspents, tokenaddr, true);
+    SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         KogsBaseObject* pobj = LoadGameObject(it->first.txhash); // load and unmarshal gameobject for this txid
@@ -1241,14 +1237,13 @@ UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams
 
     // find all games with unspent batons:
     uint256 batontxid = zeroid;
-    SetCCunspents(addressUnspents, myccaddr, true);    // look for baton on my cc addr 
-    SetCCunspentsInMempool(addressUnspents, myccaddr, true);    // look for baton on my cc addr in mempool
+    SetCCunspentsWithMempool(addressUnspents, myccaddr, true);    // look for baton on my cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         uint256 dummytxid;
         int32_t dummyvout;
         // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
-        if (it->second.satoshis == KOGS_BATON_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) // picking batons with marker=20000
+        if (it->second.satoshis == KOGS_BATON_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*/) // picking batons with marker=20000
         {
             std::shared_ptr<KogsBaseObject> spbaton(LoadGameObject(it->first.txhash));
             if (spbaton != nullptr && spbaton->objectType == KOGSID_BATON)
@@ -1297,14 +1292,13 @@ static bool FindAdvertisings(uint256 playerId, uint256 &adtxid, int32_t &nvout, 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "searching my advertizing marker" << std::endl);
 
     // check if advertising is already on kogs global:
-    SetCCunspents(addressUnspents, kogsaddr, true);    // look for baton on my cc addr 
-    SetCCunspentsInMempool(addressUnspents, kogsaddr, true);    // look for baton on my cc addr in mempool
+    SetCCunspentsWithMempool(addressUnspents, kogsaddr, true);    // look for baton on my cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         uint256 dummytxid;
         int32_t dummyvout;
         // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
-        if (it->second.satoshis == KOGS_ADVERISING_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) // picking markers==5000
+        if (it->second.satoshis == KOGS_ADVERISING_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*/) // picking markers==5000
         {
             std::shared_ptr<KogsBaseObject> spadobj(LoadGameObject(it->first.txhash));
             if (spadobj != nullptr && spadobj->objectType == KOGSID_ADVERTISING)
@@ -2162,15 +2156,14 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     ActivateUtxoLock();  // lock inputs added to tx from subsequent adding
 
     // find all games with unspent batons:
-    SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr 
-    SetCCunspentsInMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr 
+    SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         uint256 dummytxid;
         int32_t dummyvout;
 
         // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
-        if (it->second.satoshis == KOGS_BATON_AMOUNT && !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) // picking game or slamparam utxos with markers=20000
+        if (it->second.satoshis == KOGS_BATON_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*/) // picking game or slamparam utxos with markers=20000
         {
             LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "found utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << std::endl);
 

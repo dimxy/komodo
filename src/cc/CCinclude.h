@@ -953,11 +953,12 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t skipmask, struct CCcontract_info 
 /// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
 void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool CCflag = true);
 
-/// returns a vector of unspent outputs in mempool for an address
+/// returns a vector of unspent outputs in the chain and mempool for an address
+/// checks that utxo in the chain is not spent in mempool
 /// @param[out] unspentOutputs vector of pairs of address key and amount
 /// @param coinaddr address where unspent outputs are searched
 /// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
-void SetCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC);
+void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC);
 
 /// SetCCtxids returns a vector of all outputs on an address
 /// @param[out] addressIndex vector of pairs of address index key and amount
