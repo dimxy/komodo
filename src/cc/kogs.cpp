@@ -724,7 +724,7 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::ve
     if (!CheckSysPubKey())
         return NullResults;
     
-    ActivateUtxoLock();
+    LockUtxoInMemory;  //activate in-mem utxo locking
 
     for (auto &obj : matchobjects) {
 
@@ -747,8 +747,6 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::ve
         else
             results.push_back(sigData);
     }
-
-    DeactivateUtxoLock();
 
     return results;
 }
@@ -880,13 +878,12 @@ std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContain
     }
 
     //call this before txns creation
-    ActivateUtxoLock();  
+    LockUtxoInMemory();  
 
     UniValue sigData = CreateGameObjectNFT(remotepk, &newcontainer);
-    if (!ResultHasTx(sigData)) {
-        DeactivateUtxoLock();
+    if (!ResultHasTx(sigData)) 
         return NullResults;
-    }
+    
 
     results.push_back(sigData);
 
@@ -923,8 +920,6 @@ std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContain
         return NullResults;
     } */
 
-    // after txns creation
-    DeactivateUtxoLock();
     return results;
 }
 
@@ -1158,7 +1153,8 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey containertxidPk = CCtxidaddr_tweak(txidaddr, containerid);
-    ActivateUtxoLock();
+
+    LockUtxoInMemory; // activate locking
 
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress(cp, tokenaddr, mypk);
@@ -1172,7 +1168,6 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
         }
         result.push_back(sigData);
     }
-    DeactivateUtxoLock();
     return result;
 }
 
@@ -1197,7 +1192,8 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
     CC *probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, createtxidPk);
     char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, createtxidPk);
-    ActivateUtxoLock();
+
+    LockUtxoInMemory; // activate locking
 
     for (auto tokenid : tokenids)
     {
@@ -1208,7 +1204,6 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
         }
         results.push_back(sigData);
     }
-    DeactivateUtxoLock();
     cc_free(probeCond);
     return results;
 }
@@ -1409,7 +1404,7 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
 
             std::vector<UniValue> results;
 
-            ActivateUtxoLock();
+            LockUtxoInMemory;
 
             // create txns sending the pack's kog NFTs to pack's vout address:
             for (auto tokenid : pack->tokenids)
@@ -1443,7 +1438,6 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
                     results.push_back(sigData);
             }
 
-            DeactivateUtxoLock();
             return results;
         }
     }
@@ -2150,10 +2144,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "listing all games with batons" << std::endl);
 
-    srand(time(NULL));
+    //srand(time(NULL));  // TODO check srand already called in init()
 
-    // TODO: move it to outer komodo_createminerstransaction call:
-    ActivateUtxoLock();  // lock inputs added to tx from subsequent adding
+    LockUtxoInMemory;  // lock in memory tx inputs to prevent from subsequent adding
 
     // find all games with unspent batons:
     SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr
@@ -2363,8 +2356,6 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spSlamData.get() ? std::string("incorrect objectType=") + std::string(1, (char)spSlamData->objectType) : std::string("nullptr")) << std::endl);
         }
     }
-
-    DeactivateUtxoLock();
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "created batons=" << txbatons << " created container transfers=" << txtransfers << std::endl);
 }

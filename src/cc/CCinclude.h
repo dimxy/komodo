@@ -1106,7 +1106,45 @@ void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::
 /// @returns 0 if okay or -1
 int32_t ensure_CCrequirements(uint8_t evalcode);
 
+/// @private forward decl
+struct CLockedInMemoryUtxos;
+
+/// @private forward decl
+struct CInMemoryTxns;
+
 // locking utxo functions (to prevent adding utxo to several mtx objects:
+// activate locking, Addnormalinputs begins locking utxos and will not spend the locked utxos
+class LockUtxoInMemory
+{
+private:
+    static thread_local struct CLockedInMemoryUtxos utxosLocked;
+    static thread_local struct CInMemoryTxns txnsInMem;
+
+    // activate locking in-memory utxos preventing adding to mtx
+    void activateUtxoLock();
+
+    // Stop locking, unlocks all locked utxos: Addnormalinputs functions will not prevent utxos from spending
+    void deactivateUtxoLock();
+
+public:
+    LockUtxoInMemory();
+    ~LockUtxoInMemory();
+
+    // returns if utxo locking is active
+    static bool isLockUtxoActive();
+    // checks if utxo is locked (added to a mtx object)
+    static bool isUtxoLocked(uint256 txid, int32_t nvout);
+
+    // lock utxo
+    static void LockUtxo(uint256 txid, int32_t nvout);
+
+    friend bool AddInMemoryTransaction(const CTransaction &tx);
+    friend bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
+    friend void GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vector<CC_utxo> &utxosInMem);
+    friend void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem);
+};
+
+
 void ActivateUtxoLock();
 void DeactivateUtxoLock();
 bool isLockUtxoActive();

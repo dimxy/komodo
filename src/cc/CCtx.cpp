@@ -16,9 +16,9 @@
 #include "CCinclude.h"
 #include "key_io.h"
 
-const char CCUTILS_CAT[] = "ccutils";
+const char LOG_CCUTILS_CATEGORY[] = "ccutils";
 
-bool inline IsVinInArray(const std::vector<CTxIn> &vins, uint256 txid, int32_t vout) {
+static bool inline IsVinInArray(const std::vector<CTxIn> &vins, uint256 txid, int32_t vout) {
     return (std::find_if(vins.begin(), vins.end(), [&](const CTxIn &vin) {return vin.prevout.hash == txid && vin.prevout.n == vout;}) != vins.end());
 }
 
@@ -32,138 +32,6 @@ struct NSPV_CCmtxinfo NSPV_U;
 // AddInMemoryTransaction() stores mtx objects in the thread memory array to make possible to spend thier outputs in other mtx objects
 // GetInMemoryTransaction gets tx from the thread memory array
 
-typedef std::set<std::pair<uint256, int32_t>> utxo_set;
-typedef std::map<uint256, CTransaction> memtx_map;
-
-// utxo array that are locked, that is, used in mtx objects created in the current rpc call
-static thread_local struct CLockedUtxos : public utxo_set {
-    bool isActive;
-    //mutable CCriticalSection cs;
-    CLockedUtxos() {
-        isActive = false;
-        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxosLocked object created" << std::endl);
-    }
-    ~CLockedUtxos() {
-        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxosLocked object deleted" << std::endl);
-    }
-} utxosLocked;  // will be created in each thread at the first usage
-
-// thread memory array of mtx objects
-static thread_local struct CInMemoryTxns : public memtx_map {
-    CInMemoryTxns() {
-        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "txnsInMem object created" << std::endl);
-    }
-    ~CInMemoryTxns() {
-        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "txnsInMem object deleted" << std::endl);
-    }
-} txnsInMem;
-
-// activate locking, Addnormalinputs begins locking utxos and will not spend the locked utxos
-void ActivateUtxoLock()
-{
-    txnsInMem.clear();
-    utxosLocked.clear();
-    utxosLocked.isActive = true;
-    LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxo locking activated" << std::endl);
-}
-// Stop locking, unlocks all locked utxos: Addnormalinputs functions will not prevent utxos from spending
-void DeactivateUtxoLock()
-{
-    //utxosLocked.clear();
-    utxosLocked.isActive = false;
-    txnsInMem.clear();
-    utxosLocked.clear();
-    LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxo locking deactivated" << std::endl);
-}
-// returns if utxo locking is active
-bool isLockUtxoActive()
-{
-    return utxosLocked.isActive;
-}
-// checks if utxo is locked (added to a mtx object)
-bool isUtxoLocked(uint256 txid, int32_t nvout)
-{
-    if (std::find(utxosLocked.begin(), utxosLocked.end(), std::make_pair(txid, nvout)) != utxosLocked.end())   {
-        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxo already locked: " << txid.GetHex() << "/" << nvout << std::endl);
-        return true;
-    }
-    else
-        return false;
-}
-
-// lock utxo
-void LockUtxo(uint256 txid, int32_t nvout)
-{
-    if (!isUtxoLocked(txid, nvout)) {
-        utxosLocked.insert(std::make_pair(txid, nvout));
-        LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "utxo locked: " << txid.GetHex() << "/" << nvout << std::endl);
-    }
-}
-
-// add utxo to thread memory array
-bool AddInMemoryTransaction(const CTransaction &tx)
-{
-    uint256 txid = tx.GetHash();
-    txnsInMem[txid] = tx;
-    LOGSTREAMFN(CCUTILS_CAT, CCLOG_DEBUG1, stream << "transaction added to thread memory txid=" << txid.GetHex() << std::endl);
-    return true;
-}
-
-// get tx from thread mem array
-bool GetInMemoryTransaction(uint256 txid, CTransaction &tx)
-{
-    tx = txnsInMem[txid];
-    return !tx.IsNull();
-}
-
-// get utxos from the thread memory tx array that were sent to one of my addresses (in the wallet)
-// params:
-// pWallet wallet object
-// isCC selects only cc utxos (or vice versa)
-// utxosInMem output utxo array
-static void GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vector<CC_utxo> &utxosInMem)
-{
-    if (pWallet)
-    {
-        for (const auto &elem : txnsInMem)
-        {
-            for (int32_t i = 0; i < elem.second.vout.size(); i++)
-            {
-                if (isCC && elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition())
-                {
-                    if (pWallet->IsMine(elem.second.vout[i]))
-                    {
-                        utxosInMem.push_back(CC_utxo{ elem.second.GetHash(), elem.second.vout[i].nValue, i });
-                    }
-                }
-            }
-        }
-    }
-}
-
-// get utxos from the thread memory tx array sent to 'destaddr' param
-// params:
-// destaddr uxtos are selected if sent to this address
-// isCC selects only cc utxos (or vice versa)
-// utxosInMem output utxo array
-static void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem)
-{
-    for (const auto &elem : txnsInMem)
-    {
-        for (int32_t i = 0; i < elem.second.vout.size(); i++)
-        {
-            if (isCC && elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition())
-            {
-                char voutaddr[64];
-                Getscriptaddress(voutaddr, elem.second.vout[i].scriptPubKey);
-                if (strcmp(voutaddr, destaddr) == 0)
-                {
-                    utxosInMem.push_back(CC_utxo{ elem.second.GetHash(), elem.second.vout[i].nValue, i });
-                }
-            }
-        }
-    }
-}
 
 /*
 // get utxos from the mempool sent to 'destaddr' param and adds them to the standard unspentOutputs
@@ -1290,3 +1158,150 @@ void AddSigData2UniValue(UniValue &sigdata, int32_t vini, UniValue& ccjson, std:
 }
 
 
+typedef std::set<std::pair<uint256, int32_t>> utxo_set;
+typedef std::map<uint256, CTransaction> memtx_map;
+
+// utxo array that are locked, that is, used in mtx objects created in the current rpc call
+struct CLockedInMemoryUtxos : public utxo_set {
+    bool isActive;
+    //mutable CCriticalSection cs;
+    CLockedInMemoryUtxos() {
+        isActive = false;
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxosLocked object created" << std::endl);
+    }
+    ~CLockedInMemoryUtxos() {
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxosLocked object deleted" << std::endl);
+    }
+};  // will be created in each thread at the first usage
+
+    // thread memory array of mtx objects
+struct CInMemoryTxns : public memtx_map {
+    CInMemoryTxns() {
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "txnsInMem object created" << std::endl);
+    }
+    ~CInMemoryTxns() {
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "txnsInMem object deleted" << std::endl);
+    }
+};
+
+// activate locking, Addnormalinputs begins locking utxos and will not spend the locked utxos
+void LockUtxoInMemory::activateUtxoLock()
+{
+    txnsInMem.clear();
+    utxosLocked.clear();
+    utxosLocked.isActive = true;
+    LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo locking activated" << std::endl);
+}
+
+// Stop locking, unlocks all locked utxos: Addnormalinputs functions will not prevent utxos from spending
+void LockUtxoInMemory::deactivateUtxoLock()
+{
+    utxosLocked.isActive = false;
+    txnsInMem.clear();
+    utxosLocked.clear();
+    LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo locking deactivated" << std::endl);
+}
+
+LockUtxoInMemory::LockUtxoInMemory()
+{
+    activateUtxoLock();
+}
+
+LockUtxoInMemory::~LockUtxoInMemory()
+{
+    deactivateUtxoLock();
+}
+
+// returns if utxo locking is active
+bool LockUtxoInMemory::isLockUtxoActive()
+{
+    return utxosLocked.isActive;
+}
+
+// checks if utxo is locked (added to a mtx object)
+bool LockUtxoInMemory::isUtxoLocked(uint256 txid, int32_t nvout)
+{
+    if (std::find(utxosLocked.begin(), utxosLocked.end(), std::make_pair(txid, nvout)) != utxosLocked.end()) {
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo already locked: " << txid.GetHex() << "/" << nvout << std::endl);
+        return true;
+    }
+    else
+        return false;
+}
+
+// lock utxo
+void LockUtxoInMemory::LockUtxo(uint256 txid, int32_t nvout)
+{
+    if (!isUtxoLocked(txid, nvout)) {
+        utxosLocked.insert(std::make_pair(txid, nvout));
+        LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "utxo locked: " << txid.GetHex() << "/" << nvout << std::endl);
+    }
+}
+
+
+
+
+// add utxo to thread memory array
+bool AddInMemoryTransaction(const CTransaction &tx)
+{
+    uint256 txid = tx.GetHash();
+    LockUtxoInMemory::txnsInMem[txid] = tx;
+    LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "transaction added to thread memory txid=" << txid.GetHex() << std::endl);
+    return true;
+}
+
+// get tx from thread mem array
+bool GetInMemoryTransaction(uint256 txid, CTransaction &tx)
+{
+    tx = LockUtxoInMemory::txnsInMem[txid];
+    return !tx.IsNull();
+}
+
+// get utxos from the thread memory tx array that were sent to one of my addresses (in the wallet)
+// params:
+// pWallet wallet object
+// isCC selects only cc utxos (or vice versa)
+// utxosInMem output utxo array
+static void GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vector<CC_utxo> &utxosInMem)
+{
+    if (pWallet)
+    {
+        for (const auto &elem : LockUtxoInMemory::txnsInMem)
+        {
+            for (int32_t i = 0; i < elem.second.vout.size(); i++)
+            {
+                if (isCC && elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition())
+                {
+                    if (pWallet->IsMine(elem.second.vout[i]))
+                    {
+                        utxosInMem.push_back(CC_utxo{ elem.second.GetHash(), elem.second.vout[i].nValue, i });
+                    }
+                }
+            }
+        }
+    }
+}
+
+// get utxos from the thread memory tx array sent to 'destaddr' param
+// params:
+// destaddr uxtos are selected if sent to this address
+// isCC selects only cc utxos (or vice versa)
+// utxosInMem output utxo array
+static void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem)
+{
+    for (const auto &elem : LockUtxoInMemory::txnsInMem)
+    {
+        for (int32_t i = 0; i < elem.second.vout.size(); i++)
+        {
+            if (isCC && elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition())
+            {
+                char voutaddr[64];
+                Getscriptaddress(voutaddr, elem.second.vout[i].scriptPubKey);
+                if (strcmp(voutaddr, destaddr) == 0)
+                {
+                    utxosInMem.push_back(CC_utxo{ elem.second.GetHash(), elem.second.vout[i].nValue, i });
+                }
+            }
+        }
+    }
+}
