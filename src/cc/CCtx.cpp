@@ -181,7 +181,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     {
         if (i==0 && mtx.vin[i].prevout.n==10e8)
             continue;
-        if ( (myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock) != 0 || GetInMemoryTransaction(mtx.vin[i].prevout.hash, vintx) != 0) && mtx.vin[i].prevout.n < vintx.vout.size() )
+        if ( (myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock) != 0 || LockUtxoInMemory::GetInMemoryTransaction(mtx.vin[i].prevout.hash, vintx) != 0) && mtx.vin[i].prevout.n < vintx.vout.size() )
         {
             if ( vintx.vout[mtx.vin[i].prevout.n].scriptPubKey.IsPayToCryptoCondition() == 0 && ccvins==0)
                 normalvins++;            
@@ -206,7 +206,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     for (i=0; i<n; i++)
     {
         if (i==0 && mtx.vin[i].prevout.n==10e8) continue;
-        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock) || GetInMemoryTransaction(mtx.vin[i].prevout.hash, vintx) != 0) != 0 )
+        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock) || LockUtxoInMemory::GetInMemoryTransaction(mtx.vin[i].prevout.hash, vintx) != 0) != 0 )
         {
             utxovout = mtx.vin[i].prevout.n;
             utxovalues[i] = vintx.vout[utxovout].nValue;
@@ -239,7 +239,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     {
         if (i==0 && mtx.vin[i].prevout.n==10e8)
             continue;
-        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock)) != 0 || (mgret=GetInMemoryTransaction(mtx.vin[i].prevout.hash, vintx)) != 0)
+        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock)) != 0 || (mgret= LockUtxoInMemory::GetInMemoryTransaction(mtx.vin[i].prevout.hash, vintx)) != 0)
         {
             utxovout = mtx.vin[i].prevout.n;
             if ( vintx.vout[utxovout].scriptPubKey.IsPayToCryptoCondition() == 0 )
@@ -869,7 +869,7 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
             int32_t vout = out.i;
 
             // check if the utxo has been already added to another mtx object
-            if (isLockUtxoActive() && isUtxoLocked(txid, vout))
+            if (LockUtxoInMemory::isLockUtxoActive() && LockUtxoInMemory::isUtxoLocked(txid, vout))
                 continue;   
 
             if ( myGetTransaction(txid,tx,hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0 )
@@ -905,8 +905,8 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
     if (n < maxinputs && sum < total)
     {
         std::vector<CC_utxo> utxosInMem;
-        if (isLockUtxoActive())
-            GetMyUtxosInMemory(pwalletMain, false, utxosInMem);
+        if (LockUtxoInMemory::isLockUtxoActive())
+            LockUtxoInMemory::GetMyUtxosInMemory(pwalletMain, false, utxosInMem);
 
         for (int i = 0;  i < utxosInMem.size(); i ++)
         {
@@ -914,10 +914,10 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
             int32_t vout = utxosInMem[i].vout;
             CAmount value = utxosInMem[i].nValue;
             // check if the utxo has been already added to another mtx object
-            if (isLockUtxoActive() && isUtxoLocked(txid, vout))
+            if (LockUtxoInMemory::isLockUtxoActive() && LockUtxoInMemory::isUtxoLocked(txid, vout))
                 continue;   
 
-            if (GetInMemoryTransaction(txid, tx) && tx.vout.size() > 0 && vout < tx.vout.size() && !tx.vout[vout].scriptPubKey.IsPayToCryptoCondition())
+            if (LockUtxoInMemory::GetInMemoryTransaction(txid, tx) && tx.vout.size() > 0 && vout < tx.vout.size() && !tx.vout[vout].scriptPubKey.IsPayToCryptoCondition())
             {
                 // check if utxo is already in mtx.vin
                 if (IsVinInArray(mtx.vin, txid, vout))
@@ -959,8 +959,8 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
         up = &utxos[ind];
         mtx.vin.push_back(CTxIn(up->txid,up->vout,CScript()));
 
-        if (isLockUtxoActive())
-            LockUtxo(up->txid, up->vout); // lock utxo to prevent adding it to other mtx objects
+        if (LockUtxoInMemory::isLockUtxoActive())
+            LockUtxoInMemory::LockUtxo(up->txid, up->vout); // lock utxo to prevent adding it to other mtx objects
 
         totalinputs += up->nValue;
         remains -= up->nValue;
@@ -1021,7 +1021,7 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
         //if ( it->second.satoshis < threshold ) // threshold is not used any more
         //    continue;
 
-        if (isLockUtxoActive() && isUtxoLocked(txid, vout))
+        if (LockUtxoInMemory::isLockUtxoActive() && LockUtxoInMemory::isUtxoLocked(txid, vout))
             continue;   // if the utxo has been already added to another mtx object
 
         if (myGetTransaction(txid, tx, hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0)
@@ -1058,8 +1058,8 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
     if (n < maxinputs && sum < total)
     {
         std::vector<CC_utxo> utxosInMem;
-        if (isLockUtxoActive())
-            GetAddrUtxosInMemory(coinaddr, false, utxosInMem);
+        if (LockUtxoInMemory::isLockUtxoActive())
+            LockUtxoInMemory::GetAddrUtxosInMemory(coinaddr, false, utxosInMem);
 
         for (int i = 0; i < utxosInMem.size(); i++)
         {
@@ -1067,10 +1067,10 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
             int32_t vout = utxosInMem[i].vout;
             CAmount value = utxosInMem[i].nValue;
             // check if the utxo has been already added to another mtx object
-            if (isLockUtxoActive() && isUtxoLocked(txid, vout))
+            if (LockUtxoInMemory::isLockUtxoActive() && LockUtxoInMemory::isUtxoLocked(txid, vout))
                 continue;
 
-            if (GetInMemoryTransaction(txid, tx) && tx.vout.size() > 0 && vout < tx.vout.size() && !tx.vout[vout].scriptPubKey.IsPayToCryptoCondition())
+            if (LockUtxoInMemory::GetInMemoryTransaction(txid, tx) && tx.vout.size() > 0 && vout < tx.vout.size() && !tx.vout[vout].scriptPubKey.IsPayToCryptoCondition())
             {
                 // check if utxo is already in mtx.vin
                 if (IsVinInArray(mtx.vin, txid, vout))
@@ -1112,8 +1112,8 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
         up = &utxos[ind];
         mtx.vin.push_back(CTxIn(up->txid, up->vout, CScript()));
 
-        if (isLockUtxoActive())
-            LockUtxo(up->txid, up->vout); // lock utxo to prevent adding it to other mtx objects
+        if (LockUtxoInMemory::isLockUtxoActive())
+            LockUtxoInMemory::LockUtxo(up->txid, up->vout); // lock utxo to prevent adding it to other mtx objects
 
         totalinputs += up->nValue;
         remains -= up->nValue;
@@ -1134,8 +1134,10 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
 
 int64_t AddNormalinputs(CMutableTransaction &mtx,CPubKey mypk,int64_t total,int32_t maxinputs,bool remote)
 {
-    if (!remote)  return (AddNormalinputsLocal(mtx,mypk,total,maxinputs));
-    else return (AddNormalinputsRemote(mtx,mypk,total,maxinputs));
+    if (!remote)  
+        return (AddNormalinputsLocal(mtx,mypk,total,maxinputs));
+    else 
+        return (AddNormalinputsRemote(mtx,mypk,total,maxinputs));
 }
 
 
@@ -1239,21 +1241,19 @@ void LockUtxoInMemory::LockUtxo(uint256 txid, int32_t nvout)
 }
 
 
-
-
 // add utxo to thread memory array
-bool AddInMemoryTransaction(const CTransaction &tx)
+bool LockUtxoInMemory::AddInMemoryTransaction(const CTransaction &tx)
 {
     uint256 txid = tx.GetHash();
-    LockUtxoInMemory::txnsInMem[txid] = tx;
+    txnsInMem[txid] = tx;
     LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "transaction added to thread memory txid=" << txid.GetHex() << std::endl);
     return true;
 }
 
 // get tx from thread mem array
-bool GetInMemoryTransaction(uint256 txid, CTransaction &tx)
+bool LockUtxoInMemory::GetInMemoryTransaction(uint256 txid, CTransaction &tx)
 {
-    tx = LockUtxoInMemory::txnsInMem[txid];
+    tx = txnsInMem[txid];
     return !tx.IsNull();
 }
 
@@ -1262,11 +1262,11 @@ bool GetInMemoryTransaction(uint256 txid, CTransaction &tx)
 // pWallet wallet object
 // isCC selects only cc utxos (or vice versa)
 // utxosInMem output utxo array
-static void GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vector<CC_utxo> &utxosInMem)
+void LockUtxoInMemory::GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vector<CC_utxo> &utxosInMem)
 {
     if (pWallet)
     {
-        for (const auto &elem : LockUtxoInMemory::txnsInMem)
+        for (const auto &elem : txnsInMem)
         {
             for (int32_t i = 0; i < elem.second.vout.size(); i++)
             {
@@ -1287,9 +1287,9 @@ static void GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vector<CC_utxo>
 // destaddr uxtos are selected if sent to this address
 // isCC selects only cc utxos (or vice versa)
 // utxosInMem output utxo array
-static void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem)
+void LockUtxoInMemory::GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem)
 {
-    for (const auto &elem : LockUtxoInMemory::txnsInMem)
+    for (const auto &elem : txnsInMem)
     {
         for (int32_t i = 0; i < elem.second.vout.size(); i++)
         {

@@ -929,7 +929,7 @@ UniValue CreateTokenExt(const CPubKey &remotepk, int64_t txfee, int64_t tokensup
         if (addTxInMemory)
         {
             // add tx to in-mem array to use in subsequent AddNormalinputs()
-            AddInMemoryTransaction(mtx);
+            LockUtxoInMemory::AddInMemoryTransaction(mtx);
         }
         return sigData;
 	}
@@ -1040,7 +1040,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
             if (!ResultHasTx(sigData))
                 CCerror = "could not finalize tx";
             else
-                AddInMemoryTransaction(mtx);  // to be able to spend mtx change
+                LockUtxoInMemory::AddInMemoryTransaction(mtx);  // to be able to spend mtx change
             return sigData;
                                                                                                                                                    
 		}

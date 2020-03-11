@@ -1085,17 +1085,6 @@ inline UniValue MakeResultError(const std::string &err) {
 /// @private
 bool inline IS_REMOTE(const CPubKey &remotepk) { return remotepk.IsValid(); }
 
-/*! \cond INTERNAL */
-// locking and reservation of utxo to prevent adding utxo to several mtx objects and allow use of normal change utxos:
-void ActivateUtxoLock();
-void DeactivateUtxoLock();
-bool isLockUtxoActive();
-bool isUtxoLocked(uint256 txid, int32_t nvout);
-void LockUtxo(uint256 txid, int32_t nvout);
-bool AddInMemoryTransaction(const CTransaction &tx);
-bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
-/*! \endcond */
-
 
 /// @private add sig data for signing partially signed tx to UniValue object
 void AddSigData2UniValue(UniValue &result, int32_t vini, UniValue& ccjson, std::string sscriptpubkey, int64_t amount, uint8_t *privkey);
@@ -1112,8 +1101,8 @@ struct CLockedInMemoryUtxos;
 /// @private forward decl
 struct CInMemoryTxns;
 
-// locking utxo functions (to prevent adding utxo to several mtx objects:
-// activate locking, Addnormalinputs begins locking utxos and will not spend the locked utxos
+/// locking utxo functions (to prevent adding utxo to several mtx objects:
+/// if in-memory utxo locking activated Addnormalinputs begins to lock in-mem utxos and will not add to mtx already locked utxos
 class LockUtxoInMemory
 {
 private:
@@ -1138,20 +1127,12 @@ public:
     // lock utxo
     static void LockUtxo(uint256 txid, int32_t nvout);
 
-    friend bool AddInMemoryTransaction(const CTransaction &tx);
-    friend bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
-    friend void GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vector<CC_utxo> &utxosInMem);
-    friend void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem);
+    static bool AddInMemoryTransaction(const CTransaction &tx);
+    static bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
+
+    static void GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vector<CC_utxo> &utxosInMem);
+    static void GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem);
 };
-
-
-void ActivateUtxoLock();
-void DeactivateUtxoLock();
-bool isLockUtxoActive();
-bool isUtxoLocked(uint256 txid, int32_t nvout);
-void LockUtxo(uint256 txid, int32_t nvout);
-bool AddInMemoryTransaction(const CTransaction &tx);
-bool GetInMemoryTransaction(uint256 txid, CTransaction &tx);
 
 /*! \cond INTERNAL */
 UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
