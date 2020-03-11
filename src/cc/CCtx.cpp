@@ -1245,7 +1245,7 @@ void LockUtxoInMemory::LockUtxo(uint256 txid, int32_t nvout)
 bool LockUtxoInMemory::AddInMemoryTransaction(const CTransaction &tx)
 {
     uint256 txid = tx.GetHash();
-    txnsInMem[txid] = tx;
+    LockUtxoInMemory::txnsInMem[txid] = tx;
     LOGSTREAMFN(LOG_CCUTILS_CATEGORY, CCLOG_DEBUG1, stream << "transaction added to thread memory txid=" << txid.GetHex() << std::endl);
     return true;
 }
@@ -1253,7 +1253,7 @@ bool LockUtxoInMemory::AddInMemoryTransaction(const CTransaction &tx)
 // get tx from thread mem array
 bool LockUtxoInMemory::GetInMemoryTransaction(uint256 txid, CTransaction &tx)
 {
-    tx = txnsInMem[txid];
+    tx = LockUtxoInMemory::txnsInMem[txid];
     return !tx.IsNull();
 }
 
@@ -1266,7 +1266,7 @@ void LockUtxoInMemory::GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vect
 {
     if (pWallet)
     {
-        for (const auto &elem : txnsInMem)
+        for (const auto &elem : LockUtxoInMemory::txnsInMem)
         {
             for (int32_t i = 0; i < elem.second.vout.size(); i++)
             {
@@ -1289,13 +1289,13 @@ void LockUtxoInMemory::GetMyUtxosInMemory(CWallet *pWallet, bool isCC, std::vect
 // utxosInMem output utxo array
 void LockUtxoInMemory::GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vector<CC_utxo> &utxosInMem)
 {
-    for (const auto &elem : txnsInMem)
+    for (const auto &elem : LockUtxoInMemory::txnsInMem)
     {
         for (int32_t i = 0; i < elem.second.vout.size(); i++)
         {
             if (isCC && elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !elem.second.vout[i].scriptPubKey.IsPayToCryptoCondition())
             {
-                char voutaddr[64];
+                char voutaddr[KOMODO_ADDRESS_BUFSIZE];
                 Getscriptaddress(voutaddr, elem.second.vout[i].scriptPubKey);
                 if (strcmp(voutaddr, destaddr) == 0)
                 {
