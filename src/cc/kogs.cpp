@@ -188,7 +188,7 @@ static bool IsTxSigned(const CTransaction &tx)
 }
 
 // checks if game finished
-bool IsGameFinished(const KogsGameConfig &gameconfig, const KogsBaton &baton) 
+static bool IsGameFinished(const KogsGameConfig &gameconfig, const KogsBaton &baton) 
 { 
     return  baton.prevturncount > 0 && baton.kogsInStack.empty() || baton.prevturncount >= baton.playerids.size() * gameconfig.maxTurns;
 }
@@ -400,6 +400,8 @@ static UniValue CreateAdvertisingTx(const CPubKey &remotepk, const KogsAdvertisi
     }
 }
 
+// if playerId set returns found adtxid and nvout
+// if not set returns all advertisings (checked if signed correctly) in adlist
 
 static bool LoadTokenData(const CTransaction &tx, uint256 &creationtxid, vuint8_t &vorigpubkey, std::string &name, std::string &description, std::vector<std::pair<uint8_t, vscript_t>> &oprets)
 {
@@ -665,6 +667,61 @@ static void KogsDepositedContainerListImpl(uint256 gameid, std::vector<std::shar
     }
 }
 
+static bool FindAdvertisings(uint256 playerId, uint256 &adtxid, int32_t &nvout, std::vector<KogsAdvertising> &adlist)
+{
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    char kogsaddr[KOMODO_ADDRESS_BUFSIZE];
+    GetCCaddress(cp, kogsaddr, GetUnspendable(cp, NULL));
+
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "searching my advertizing marker" << std::endl);
+
+    // check if advertising is already on kogs global:
+    SetCCunspentsWithMempool(addressUnspents, kogsaddr, true);    // look for baton on my cc addr 
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
+    {
+        uint256 dummytxid;
+        int32_t dummyvout;
+        // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
+        if (it->second.satoshis == KOGS_ADVERISING_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*/) // picking markers==5000
+        {
+            std::shared_ptr<KogsBaseObject> spadobj(LoadGameObject(it->first.txhash));
+            if (spadobj != nullptr && spadobj->objectType == KOGSID_ADVERTISING)
+            {
+                KogsAdvertising* padobj = (KogsAdvertising*)spadobj.get();
+                CTransaction tx;
+                uint256 hashBlock;
+
+                if (playerId.IsNull() || padobj->playerId == playerId)
+                {
+                    // not very good: second time tx load
+                    if (myGetTransaction(it->first.txhash, tx, hashBlock) && TotalPubkeyNormalInputs(tx, padobj->encOrigPk) > 0) // check if player signed
+                    {
+                        if (!playerId.IsNull()) // find a specific player ad object
+                        {
+                            //if (padobj->encOrigPk == mypk) we already checked in the caller that playerId is signed with mypk
+                            //{
+                            adtxid = it->first.txhash;
+                            nvout = it->first.index;
+                            return true;
+                            //}
+                        }
+                        else
+                            adlist.push_back(*padobj);
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
+
+
+// RPC implementations:
+
 // wrapper to load container ids deposited on gameid 1of2 addr 
 void KogsDepositedContainerList(uint256 gameid, std::vector<uint256> &containerids)
 {
@@ -705,15 +762,6 @@ void KogsGameTxidList(const CPubKey &remotepk, uint256 playerid, std::vector<uin
     }
 }
 
-
-// consensus code
-
-bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn)
-{
-    return true;
-}
-
-// rpc impl:
 
 // iterate match object params and call NFT creation function
 std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::vector<KogsMatchObject> & matchobjects)
@@ -847,7 +895,19 @@ UniValue KogsStartGame(const CPubKey &remotepk, KogsGame newgame)
         return NullUniValue;
     }
 
-    //return CreateGameObjectNFT(&newgame);
+    // check if all players advertised:
+    for (auto const &playerid : newgame.playerids) 
+    {
+        uint256 adtxid;
+        int32_t advout;
+        std::vector<KogsAdvertising> dummy;
+
+        if (!FindAdvertisings(playerid, adtxid, advout, dummy)) {
+            CCerror = "playerid did not advertise: " + playerid.GetHex();
+            return NullUniValue;
+        }
+    }
+
     return CreateEnclosureTx(remotepk, &newgame, false, true);
 }
 
@@ -1273,59 +1333,6 @@ UniValue KogsAddSlamParams(const CPubKey &remotepk, KogsSlamParams newslamparams
     }
 }
 
-// if playerId set returns found adtxid and nvout
-// if not set returns all advertisings (checked if signed correctly) in adlist
-static bool FindAdvertisings(uint256 playerId, uint256 &adtxid, int32_t &nvout, std::vector<KogsAdvertising> &adlist)
-{
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-    struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_KOGS);
-
-    char kogsaddr[KOMODO_ADDRESS_BUFSIZE];
-    GetCCaddress(cp, kogsaddr, GetUnspendable(cp, NULL));
-
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "searching my advertizing marker" << std::endl);
-
-    // check if advertising is already on kogs global:
-    SetCCunspentsWithMempool(addressUnspents, kogsaddr, true);    // look for baton on my cc addr 
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
-    {
-        uint256 dummytxid;
-        int32_t dummyvout;
-        // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
-        if (it->second.satoshis == KOGS_ADVERISING_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*/) // picking markers==5000
-        {
-            std::shared_ptr<KogsBaseObject> spadobj(LoadGameObject(it->first.txhash));
-            if (spadobj != nullptr && spadobj->objectType == KOGSID_ADVERTISING)
-            {
-                KogsAdvertising* padobj = (KogsAdvertising*)spadobj.get();
-                CTransaction tx;
-                uint256 hashBlock;
-
-                if (playerId.IsNull() || padobj->playerId == playerId)
-                {
-                    // not very good: second time tx load
-                    if (myGetTransaction(it->first.txhash, tx, hashBlock) && TotalPubkeyNormalInputs(tx, padobj->encOrigPk) > 0) // check if player signed
-                    {
-                        if (!playerId.IsNull()) // find a specific player ad object
-                        {
-                            //if (padobj->encOrigPk == mypk) we already checked in the caller that playerId is signed with mypk
-                            //{
-                            adtxid = it->first.txhash;
-                            nvout = it->first.index;
-                            return true;
-                            //}
-                        }
-                        else
-                            adlist.push_back(*padobj);
-                    }
-                }
-            }
-        }
-    }
-    return false;
-}
-
 UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &newad)
 {
     std::shared_ptr<KogsBaseObject> spplayer(LoadGameObject(newad.playerId));
@@ -1345,10 +1352,10 @@ UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &new
     }
 
     uint256 adtxid;
-    int32_t nvout;
+    int32_t advout;
     std::vector<KogsAdvertising> dummy;
 
-    if (FindAdvertisings(newad.playerId, adtxid, nvout, dummy)) {
+    if (FindAdvertisings(newad.playerId, adtxid, advout, dummy)) {
         CCerror = "this player already made advertising";
         return NullUniValue;
     }
@@ -2562,4 +2569,11 @@ UniValue KogsDecodeTxdata(const vuint8_t &txdata, bool printvins)
     }
 
     return result;
+}
+
+// consensus code
+
+bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn)
+{
+    return true;
 }
