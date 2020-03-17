@@ -971,6 +971,7 @@ void KogsGameTxidList(const CPubKey &remotepk, uint256 playerid, std::vector<uin
 UniValue KogsObjectInfo(uint256 gameobjectid);
 UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &newad);
 void KogsAdvertisedList(std::vector<KogsAdvertising> &adlist);
+UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId);
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 

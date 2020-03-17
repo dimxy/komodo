@@ -1387,6 +1387,36 @@ UniValue kogsadvertisedplayerlist(const UniValue& params, bool fHelp, const CPub
     return result;
 }
 
+// rpc kogsstopadvertiseplayer impl 
+UniValue kogsstopadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
+    CCerror.clear();
+
+    int32_t error = ensure_CCrequirements(EVAL_KOGS);
+    if (error < 0)
+        throw runtime_error(strprintf("to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet. ERR=%d\n", error));
+
+    if (fHelp || params.size() != 1)
+    {
+        throw runtime_error(
+            "kogsstopadvertiseplayer playerid \n"
+            "removes playerid from advertising list\n" "\n");
+    }
+
+    uint256 playerid = Parseuint256(params[0].get_str().c_str());
+    if (playerid.IsNull())
+        throw runtime_error("playerid incorrect\n");
+
+    UniValue sigData = KogsStopAdvertisePlayer(remotepk, playerid);
+    RETURN_IF_ERROR(CCerror);
+
+    result = sigData;
+    result.push_back(std::make_pair("result", "success"));
+    return result;
+}
+
+// rpc kogsbalance impl (with accounting for mempool tx)
 UniValue kogsbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
@@ -1398,7 +1428,7 @@ UniValue kogsbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
     if (fHelp || params.size() > 2)
         throw runtime_error("kogsbalance tokenid [pubkey]\n" 
-        "returns token balance, looks into mempool\n\n" );
+        "returns token balance, looks also into mempool\n\n" );
     if (ensure_CCrequirements(EVAL_TOKENS) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
@@ -1609,6 +1639,7 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsadvertiseplayer",    &kogsadvertiseplayer,          true },
     { "kogs",         "kogsbalance",    &kogsbalance,          true },
     { "kogs",         "kogsadvertisedplayerlist",    &kogsadvertisedplayerlist,          true },
+    { "kogs",         "kogsstopadvertiseplayer",    &kogsstopadvertiseplayer,          true },
     { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
     { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true },
     { "kogs",         "kogsdecodetxdata",         &kogs_decodetxdata,          true }

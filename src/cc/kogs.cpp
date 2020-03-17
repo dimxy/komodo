@@ -1534,6 +1534,61 @@ UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout)
     return NullUniValue;
 }
 
+// stop advertising player by spending the marker from kogs global address
+UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId)
+{
+    std::shared_ptr<KogsBaseObject> spplayer(LoadGameObject(playerId));
+    if (spplayer == nullptr || spplayer->objectType != KOGSID_PLAYER)
+    {
+        CCerror = "can't load player object";
+        return NullUniValue;
+    }
+
+    const CAmount  txfee = 10000;
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+    if (!mypk.IsFullyValid())
+    {
+        CCerror = "mypk is not set";
+        return  NullUniValue;
+    }
+
+    KogsPlayer *pplayer = (KogsPlayer*)spplayer.get();
+    if (pplayer->encOrigPk != mypk) {
+        CCerror = "not this pubkey player";
+        return NullUniValue;
+    }
+
+
+    uint256 adtxid;
+    int32_t advout;
+    std::vector<KogsAdvertising> adlist;
+
+    if (!FindAdvertisings(playerId, adtxid, advout, adlist)) {
+        CCerror = "can't find advertising tx";
+        return NullUniValue;
+    }
+
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    struct CCcontract_info *cp, C;
+
+    cp = CCinit(&C, EVAL_KOGS);
+
+    if (AddNormalinputs(mtx, mypk, txfee, 4, isRemote) > 0)
+    {
+        mtx.vin.push_back(CTxIn(adtxid, advout));   // spend advertising marker:
+        mtx.vout.push_back(CTxOut(KOGS_ADVERISING_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, CScript());
+        if (ResultHasTx(sigData))
+            return sigData;
+        else
+            CCerror = "can't finalize or sign removal tx";
+    }
+    else
+        CCerror = "can't find normals for txfee";
+    return NullUniValue;
+}
+
 // retrieve game info: open/finished, won kogs
 UniValue KogsGameStatus(const KogsGame &gameobj)
 {
