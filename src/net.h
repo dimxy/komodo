@@ -300,6 +300,7 @@ public:
     //    until it has initialized its bloom filter.
     bool fRelayTxes;
     bool fSentAddr;
+    uint32_t sentAddrTime;
     CSemaphoreGrant grantOutbound;
     CCriticalSection cs_filter;
     CBloomFilter* pfilter;

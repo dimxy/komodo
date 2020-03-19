@@ -7521,12 +7521,12 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
     {
         // Only send one GetAddr response per connection to reduce resource waste
         //  and discourage addr stamping of INV announcements.
-        //if (pfrom->fSentAddr) {
-        if (pfrom->fSentAddr && (pfrom->nServices & NODE_NSPV) == 0) {  // allow for nspv nodes to make repeated requests
+        if (pfrom->fSentAddr) {  
             LogPrint("net", "Ignoring repeated \"getaddr\". peer=%d\n", pfrom->id);
             return true;
         }
         pfrom->fSentAddr = true;
+        pfrom->sentAddrTime = GetTime();
         
         pfrom->vAddrToSend.clear();
         vector<CAddress> vAddr = addrman.GetAddr();
@@ -8301,6 +8301,25 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
             if (!vNodes.empty())
                 nLastRebroadcast = GetTime();
         }
+
+        // periodically allow for clients (meaning libnspv clients) to repeat getaddr requests
+        static int64_t lastSentAddrReset = 0L;
+        if (!IsInitialBlockDownload() && GetTime() - lastSentAddrReset > 60)
+        {
+            LOCK(cs_vNodes);
+            BOOST_FOREACH(CNode* pnode, vNodes)
+            {
+                // clear addr sent status after timeout
+                if (pnode->fClient)
+                {
+                    if (GetTime() - pnode->sentAddrTime > 60) {
+                        pnode->fSentAddr = false;
+                        LogPrintf("net", "allow for peer %d to request getaddr again\n", pnode->id);
+                    }
+                }
+            }
+        }
+
 
         //
         // Message: addr

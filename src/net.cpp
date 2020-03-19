@@ -2130,6 +2130,7 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     fGetAddr = false;
     fRelayTxes = false;
     fSentAddr = false;
+    sentAddrTime = 0;
     pfilter = new CBloomFilter();
     nPingNonceSent = 0;
     nPingUsecStart = 0;
