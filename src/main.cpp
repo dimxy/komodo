@@ -8314,7 +8314,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 {
                     if (GetTime() - pnode->sentAddrTime > 60) {
                         pnode->fSentAddr = false;
-                        LogPrintf("net", "allow for peer %d to request getaddr again\n", pnode->id);
+                        LogPrint("net", "allow for peer %d to request getaddr again\n", pnode->id);
                     }
                 }
             }
