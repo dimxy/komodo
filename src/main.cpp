@@ -8302,7 +8302,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 nLastRebroadcast = GetTime();
         }
 
-        // periodically allow for clients (meaning libnspv clients) to repeat getaddr requests
+        // periodically set node flag fSentAddr to allow for clients (meaning libnspv clients) to repeat getaddr requests
         static int64_t lastSentAddrReset = 0L;
         if (!IsInitialBlockDownload() && GetTime() - lastSentAddrReset > 60)
         {
@@ -8318,6 +8318,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                     }
                 }
             }
+            lastSentAddrReset = GetTime();
         }
 
 
