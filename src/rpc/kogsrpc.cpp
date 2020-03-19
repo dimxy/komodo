@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright © 2014-2019 The SuperNET Developers.                             *
+ * Copyright ï¿½ 2014-2019 The SuperNET Developers.                             *
  *                                                                            *
  * See the AUTHORS, DEVELOPER-AGREEMENT and LICENSE files at                  *
  * the top-level directory of this distribution for the individual copyright  *
@@ -1607,6 +1607,22 @@ UniValue kogs_decodetxdata(const UniValue& params, bool fHelp, const CPubKey& re
     return result;
 }
 
+UniValue kogs_praddrman(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    CCerror.clear();
+    if (fHelp )
+    {
+        throw runtime_error("praddrman \n"
+            "\n"
+            "" "\n");
+    }
+    UniValue va(UniValue::VARR), result(UniValue::VOBJ);
+    for(auto const & a : addrman.GetAddr())
+        va.push_back(a.ToStringIPPort());
+
+    result.push_back(std::make_pair("addrs", va));
+    return result;
+}
 
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
@@ -1642,7 +1658,9 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsstopadvertiseplayer",    &kogsstopadvertiseplayer,          true },
     { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
     { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true },
-    { "kogs",         "kogsdecodetxdata",         &kogs_decodetxdata,          true }
+    { "kogs",         "kogsdecodetxdata",         &kogs_decodetxdata,          true },
+    { "hidden",         "praddrman",         &kogs_praddrman,          true },
+
 
 };
 
