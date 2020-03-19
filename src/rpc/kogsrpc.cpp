@@ -1606,7 +1606,7 @@ UniValue kogs_decodetxdata(const UniValue& params, bool fHelp, const CPubKey& re
     RETURN_IF_ERROR(CCerror);
     return result;
 }
-
+#include "addrman.h"
 UniValue kogs_praddrman(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     CCerror.clear();
@@ -1617,7 +1617,8 @@ UniValue kogs_praddrman(const UniValue& params, bool fHelp, const CPubKey& remot
             "" "\n");
     }
     UniValue va(UniValue::VARR), result(UniValue::VOBJ);
-    for(auto const & a : addrman.GetAddr())
+    std::vector<CAddress> addrs = addrman.GetAddr();
+    for(auto const & a : addrs)
         va.push_back(a.ToStringIPPort());
 
     result.push_back(std::make_pair("addrs", va));
