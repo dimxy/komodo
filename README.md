@@ -11,7 +11,7 @@
 [![discord](https://img.shields.io/discord/412898016371015680)](https://discord.gg/QZNMw73)
 
 
-![MarmaraCreditLoop Logo](/marmara_coin_logo.png "Marmara Credit Loop Logo")
+![MarmaraCreditLoop Logo](https://raw.githubusercontent.com/marmarachain/Marmara-v.1.0/master/sonhali-beyaz-fon.png "Marmara Credit Loop Logo")
 
 # Marmara v.1.0.1 Hardfork Change log
 ```
