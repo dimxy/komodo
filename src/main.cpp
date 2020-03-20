@@ -8318,17 +8318,25 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                         pnode->fSentAddr = false;
                         LogPrint("net", "allow for peer %d to request getaddr again\n", pnode->id);
                     }
-                    // clear known addresses after some timeout
-                    if (GetTime() - lastClientKnownReset > 60) 
+                    
+                }
+            }
+
+            // clear known addresses after some timeout
+            if (GetTime() - lastClientKnownReset > 60) 
+            {
+                if (lastClientKnownReset > 0)  // dont call reset early
+                {
+                    BOOST_FOREACH(CNode* pnode, vNodes)
                     {
-                        if (lastClientKnownReset > 0)  // dont call reset early
+                        if (pnode->fClient)
                         {
                             pnode->addrKnown.reset();
                             LogPrint("net", "known addresses cleared for peer %d\n", pnode->id);
                         }
-                        lastClientKnownReset = GetTime();
                     }
                 }
+                lastClientKnownReset = GetTime();
             }
             lastClientAddrCheck = GetTime();
         }
