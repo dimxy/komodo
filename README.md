@@ -7,193 +7,473 @@
 [![Last Commit](https://img.shields.io/github/last-commit/komodoplatform/komodo)](https://github.com/KomodoPlatform/komodo/graphs/commit-activity)
 
 [![gitstars](https://img.shields.io/github/stars/komodoplatform/komodo?style=social)](https://github.com/KomodoPlatform/komodo/stargazers)
-[![twitter](https://img.shields.io/twitter/follow/komodoplatform?style=social)](https://twitter.com/komodoplatform)
-[![discord](https://img.shields.io/discord/412898016371015680)](https://discord.gg/tvp96Gf)
+[![twitter](https://img.shields.io/twitter/follow/marmarachain?style=social)](https://twitter.com/marmarachain)
+[![discord](https://img.shields.io/discord/412898016371015680)](https://discord.gg/QZNMw73)
+
+
+![MarmaraCreditLoop Logo](/marmara_coin_logo.png "Marmara Credit Loop Logo")
+
+# Marmara v.1.0.1 Hardfork Change log
+```
+- fixed incorrect coin cache usage causing chain forks
+- staking utxo processing performance improvements
+- loop transaction validation fixes
+- chain security fixes and improvements
+- fixed settlement failure on the loop holder node
+- fixed memory leaks
+- fixed daemon crash if multiple setgenerate true 0 calls are done
+```
+
+# Marmara v.1.0.1 setup
+
+Aciklama
+Gereksinimlere dikkat ediniz. aksi halde gereksinimleri karşılamayan sunucu özelliklerinde hata verebilir. Gereksinim karşılanmayan sunucularda hata ve zararlar tamamen kullanıcıya aittir.,
+```
+Requirements:
+Min. 4 GB Free RAM
+Min. 2 CPUs
+OS : Ubuntu 16.04 LTS x86_64
+```
+
+#### 1. kısım - Install the dependency packages 
+```	
+	sudo apt-get update
+	sudo apt-get upgrade -y
+	sudo apt install ufw
+	sudo ufw --version
+	echo y | sudo ufw enable
+	sudo apt-get install ssh
+	sudo ufw allow "OpenSSH"
+	sudo apt-get install build-essential pkg-config libc6-dev m4 g++-multilib autoconf libtool ncurses-dev unzip git python zlib1g-dev wget bsdmainutils automake libboost-all-dev libssl-dev libprotobuf-dev protobuf-compiler libgtest-dev libqt4-dev libqrencode-dev libdb++-dev ntp ntpdate software-properties-common curl clang libcurl4-gnutls-dev cmake clang -y
+	sudo apt-get install libsodium-dev
+```
+#### 2. kısım - Install nanomsg 
+```	
+2. kısım
+	Install nanomsg
+	
+	cd /tmp
+	wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz -O nanomsg-1.0.0.tar.gz --no-check-certificate
+	tar -xzvf nanomsg-1.0.0.tar.gz
+	cd nanomsg-1.0.0
+	mkdir build
+	cd build
+	cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+	cmake — build .
+	sudo ldconfig
+	
+	2.1
+	git clone https://github.com/nanomsg/nanomsg
+	cd nanomsg
+	cmake .
+	make
+	sudo make install
+	sudo ldconfig
+	
+```
+#### 3. kısım - Change swap size on to 4GB (Ubuntu) 
+	
+```
+	sudo swapon --show
+	free -h
+	df -h
+	sudo fallocate -l 4G /swapfile
+	ls -lh /swapfile 
+	sudo chmod 600 /swapfile 
+	ls -lh /swapfile 
+	sudo mkswap /swapfile 
+	sudo swapon /swapfile
+	sudo swapon --show 
+	free -h
+	sudo cp /etc/fstab /etc/fstab.bak
+	echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+#### 4 .kısım 
+```	sudo sysctl vm.swappiness=10 
+	This setting will persist until the next reboot. We can set this value automatically at restart by adding the line to our /etc/sysctl.conf file:
+	sudo nano /etc/sysctl.conf 
+	vm.swappiness=10
+	sudo ufw allow 33824
+```
+
+	
+#### 5. kısım - Installing Komodo	
+```
+	cd 
+	git clone https://github.com/marmarachain/Marmara-v.1.0 komodo --branch master --single-branch
+	cd komodo
+	./zcutil/fetch-params.sh
+	./zcutil/build.sh -j$(nproc)
+
+```
+
+### Bu sıralamadan sonra her şey normal çalışır vaziyette olacaktır. Chain'i sorunsuz vaziyette kullanabilirsiniz.
+---
+Wallet adresi ve Pubkey alıp - pubkey ile Staking mod da başlatma.
+
+#### chain e start verelim. 
+
+src klasorümüze girelim.
+
+`cd ~/komodo/src`
+  
+#### chaine ilk startımızı verelim.
+
+```
+./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 &
+```
+
+#### ardından bir wallet adresi oluşturup not alınız. 
+
+`./komodo-cli -ac_name=MCL getnewaddress`
+
+#### örnek wallet adresi 
+
+`RJajZNoEcCRD5wduqt1tna5DiLqiBC23bo`
+
+#### oluşturulan wallet adresini alttaki komuttaki "wallet-adresi" yazan kısma girip enter'a basıyoruz 
+
+```
+./komodo-cli -ac_name=MCL validateaddress "wallet-adresi"
+```
+
+
+#### bu şekilde çıktı alacaksınız. ve burada yazan pubkey i de not alınız. 
+```
+{
+	": true,
+	"address": "RJajZNoEcCRD5wduqt1tna5DiLqiBC23bo",
+	"scriptPubKey": "76a914660a7b5c8ec61c59b80cf8f2184adf8a24bccb6b88ac",
+	"segid": 52,
+	"ismine": true,
+	"iswatchonly": false,
+	"isscript": false,
+	"pubkey": "03a3f641c4679c579b20c597435e8a32d50091bfc56e28303f5eb26fb1cb1eee72",
+	"iscompressed": true,
+	"account": ""
+}
+```
+
+ oluşturulan pubkeyi niz : 03a3f641c4679c579b20c597435e8a32d50091bfc56e28303f5eb26fb1cb1eee72
+
+#### Chaini  durduruyoruz. 
+```
+./komodo-cli -ac_name=MCL stop
+```
+#### Sırada pubkeyimizi kullanarak chain i Mining modun da çalıştırmak. 
+
+Aşağıki komutu kullanarak çalıştırabilirsiniz. aşağıda ki "-pubkey=pubkeyburayagirilecek"  kısma not aldığınız pubkeyi giriniz. ve alttaki komut satırını düzenledikten sonra "cd komodo/src" klasorüne girip yapıştırın.
+	
+```
+./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 -gen -genproclimit=-1 -pubkey="pubkeyburayagirilecek" &
+```
+
+#### Ve artık mining halde çalışıyor sunucumuz. 
+
+#### mining dökümlerinize aşağıdaki kodları kullanarak ulaşabilirsiniz. 
+
+```
+./komodo-cli -ac_name=MCL getinfo
+./komodo-cli -ac_name=MCL marmarainfo 0 0 0 0 pubkey (to get details)
+```
+
+#### Marmara Chaini farklı modlarda çalıştırma  seçenekleri. 
+
+```
+-genproclimit=-1 Şayet -1 (yaparsanız tüm işlemci (CPU) günü kullanır.)
+-genproclimit=1  Şayet 1  (yaparsanız tek işlemci kullanır.)
+-genproclimit=0  Şayet 0  (yaparsanız Staking modunda çalışır ve Aktif coini kullanarak Staking yaparsınız.)
+
+```
+
+#### Not : Sunucu kapanma durumunda yapılacaklar. 
+
+```
+cd /komodo/src
+./komodo-cli -ac_name=MCL stop
+./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 -gen -genproclimit=-1 -pubkey="pubkeyburayagirilecek" &
+```
+---
+#### MCL params.
+```	
+./komodo-cli -ac_name=MCL marmaracreditloop txid
+./komodo-cli -ac_name=MCL marmarainfo firstheight lastheight minamount maxamount [currency issuerpk]
+./komodo-cli -ac_name=MCL marmaraissue receiverpk amount currency matures approvaltxid
+./komodo-cli -ac_name=MCL marmaralock amount unlockht
+./komodo-cli -ac_name=MCL marmarapoolpayout perc firstheight "[[\"pubkey\":shares], ...]"
+./komodo-cli -ac_name=MCL marmarareceive senderpk amount currency matures batontxid
+./komodo-cli -ac_name=MCL marmarasettlement batontxid
+./komodo-cli -ac_name=MCL marmaratransfer receiverpk amount currency matures approvaltxid
+./komodo-cli -ac_name=MCL marmaraaddress
+./komodo-cli -ac_name=MCL marmarainfo 0 0 0 0 <pubkey> //to get details
+./komodo-cli -ac_name=MCL walletaddress amount
+```
+
+#### Cüzdanınızı yedekleyin
+
+ `wallet.dat` dosyası bütün varlıklarınızın bulunduğu güvenli bir dosyadır. yedeğini almayı unutmatınız!
+
+Linux'ta dosya burada bulunur: `~/.komodo/MCL/wallet.dat`
+
+Bu dosyayı yedeklemenin bir yolu, dosyanın bir kopyasını arşivlemektir.
+
+```bash
+# Dosyayı kopyalayın
+cp -av ~/.komodo/MCL/wallet.dat ~/wallet.dat
+
+# Dosyayı yeniden adlandır
+mv ~/wallet.dat ~/2019-05-17-wallet_backup.dat
+
+# Arşiv yapmak için
+tar -czvf ~/2019-05-17-wallet_backup.dat.tgz ~/2019-05-17-wallet_backup.dat
+
+# Son dosyayı güvenli bir yere taşıyıp saklayınız.
+```
+
+
+
 
 ---
-![Komodo Logo](https://i.imgur.com/E8LtkAa.png "Komodo Logo")
+---
+---
+---
+# English
 
-
-## Komodo
-
-This is the official Komodo sourcecode repository based on https://github.com/jl777/komodo. 
-
-## Development Resources
-
-- Komodo Website: [https://komodoplatform.com](https://komodoplatform.com/)
-- Komodo Blockexplorer: [https://kmdexplorer.io](https://kmdexplorer.io/)
-- Komodo Discord: [https://komodoplatform.com/discord](https://komodoplatform.com/discord)
-- Forum: [https://forum.komodoplatform.com](https://forum.komodoplatform.com/)
-- Mail: [info@komodoplatform.com](mailto:info@komodoplatform.com)
-- Support: [https://support.komodoplatform.com/support/home](https://support.komodoplatform.com/support/home)
-- Knowledgebase & How-to: [https://support.komodoplatform.com/en/support/solutions](https://support.komodoplatform.com/en/support/solutions)
-- API references & Dev Documentation: [https://developers.komodoplatform.com](https://developers.komodoplatform.com/)
-- Blog: [https://blog.komodoplatform.com](https://blog.komodoplatform.com/)
-- Whitepaper: [Komodo Whitepaper](https://komodoplatform.com/whitepaper)
-- Komodo Platform public material: [Komodo Platform public material](https://docs.google.com/document/d/1AbhWrtagu4vYdkl-vsWz-HSNyNvK-W-ZasHCqe7CZy0)
-
-## List of Komodo Platform Technologies
-
-- Delayed Proof of Work (dPoW) - Additional security layer and Komodos own consensus algorithm  
-- zk-SNARKs - Komodo Platform's privacy technology for shielded transactions  
-- Tokens/Assets Technology - create "colored coins" on the Komodo Platform and use them as a layer for securites  
-- Reward API - Komodo CC technology for securities  
-- CC - Crypto Conditions to realize "smart contract" logic on top of the Komodo Platform  
-- Jumblr - Decentralized tumbler for KMD and other cryptocurrencies  
-- Assetchains - Create your own Blockchain that inherits all Komodo Platform functionalities and blockchain interoperability  
-- Pegged Assets - Chains that maintain a peg to fiat currencies  
-- Peerchains - Scalability solution where sibling chains form a network of blockchains  
-- More in depth covered [here](https://docs.google.com/document/d/1AbhWrtagu4vYdkl-vsWz-HSNyNvK-W-ZasHCqe7CZy0)  
-- Also note you receive 5% Active User Reward on your balance.  
-[See this article for more details](https://support.komodoplatform.com/en/support/solutions/articles/29000024515-how-to-claim-the-kmd-active-user-reward-in-agama)
-
-## Tech Specification
-- Max Supply: 200 million KMD
-- Block Time: 60 seconds
-- Block Reward: 3 KMD
-- Mining Algorithm: Equihash
-
-## About this Project
-Komodo is based on Zcash and has been extended by our innovative consensus algorithm called dPoW which utilizes Bitcoin's hashrate to store Komodo blockchain information into the Bitcoin blockchain. Other new and native Komodo features are the privacy technology called JUMBLR, our assetchain capabilities (one click plug and play blockchain solutions) and a set of financial decentralization and interoperability technologies. More details are available under https://komodoplatform.com/ and https://blog.komodoplatform.com.
-
-## Getting started
-
-### Dependencies
-
-```shell
-#The following packages are needed:
-sudo apt-get install build-essential pkg-config libc6-dev m4 g++-multilib autoconf libtool ncurses-dev unzip git python python-zmq zlib1g-dev wget libcurl4-gnutls-dev bsdmainutils automake curl libsodium-dev
+# Marmara v.1.0.1 Hardfork Change log
+```
+- fixed incorrect coin cache usage causing chain forks
+- staking utxo processing performance improvements
+- loop transaction validation fixes
+- chain security fixes and improvements
+- fixed settlement failure on the loop holder node
+- fixed memory leaks
+- fixed daemon crash if multiple setgenerate true 0 calls are done
 ```
 
-### Build Komodo
-
-This software is based on zcash and considered experimental and is continously undergoing heavy development.
-
-The dev branch is considered the bleeding edge codebase while the master-branch is considered tested (unit tests, runtime tests, functionality). At no point of time do the Komodo Platform developers take any responsbility for any damage out of the usage of this software. 
-Komodo builds for all operating systems out of the same codebase. Follow the OS specific instructions from below.
-
-#### Linux
-```shell
-git clone https://github.com/komodoplatform/komodo --branch master --single-branch
-cd komodo
-./zcutil/fetch-params.sh
-./zcutil/build.sh -j$(expr $(nproc) - 1)
-#This can take some time.
+### Explanation 
+Pay attention to the requirements. otherwise, it may fail in server properties that do not meet the requirements. Errors and damages on these servers are the responsibility of the user.
+```
+Requirements:
+Min. 4 GB Free RAM
+Min. 2 CPUs
+OS : Ubuntu 16.04 LTS x86_64
 ```
 
-
-#### OSX
-Ensure you have [brew](https://brew.sh) and Command Line Tools installed.
-```shell
-# Install brew
-/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-# Install Xcode, opens a pop-up window to install CLT without installing the entire Xcode package
-xcode-select --install 
-# Update brew and install dependencies
-brew update
-brew upgrade
-brew tap discoteq/discoteq; brew install flock
-brew install autoconf autogen automake
-brew update && brew install gcc@8
-brew install binutils
-brew install protobuf
-brew install coreutils
-brew install wget
-# Clone the Komodo repo
-git clone https://github.com/komodoplatform/komodo --branch master --single-branch
-# Change master branch to other branch you wish to compile
-cd komodo
-./zcutil/fetch-params.sh
-./zcutil/build-mac.sh -j$(expr $(sysctl -n hw.ncpu) - 1)
-# This can take some time.
+#### 1. step - Install the dependency packages 
+```	sudo apt-get update
+	sudo apt-get upgrade -y
+	sudo apt install ufw
+	sudo ufw --version
+	echo y | sudo ufw enable
+	sudo apt-get install ssh
+	sudo ufw allow "OpenSSH"
+	sudo apt-get install build-essential pkg-config libc6-dev m4 g++-multilib autoconf libtool ncurses-dev unzip git python zlib1g-dev wget bsdmainutils automake libboost-all-dev libssl-dev libprotobuf-dev protobuf-compiler libgtest-dev libqt4-dev libqrencode-dev libdb++-dev ntp ntpdate software-properties-common curl clang libcurl4-gnutls-dev cmake clang -y
+	sudo apt-get install libsodium-dev
+```
+#### 2. step - Install nanomsg 
+```	
+2. kısım
+	Install nanomsg
+	
+	cd /tmp
+	wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz -O nanomsg-1.0.0.tar.gz --no-check-certificate
+	tar -xzvf nanomsg-1.0.0.tar.gz
+	cd nanomsg-1.0.0
+	mkdir build
+	cd build
+	cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+	cmake — build .
+	sudo ldconfig
+	
+	2.1
+	git clone https://github.com/nanomsg/nanomsg
+	cd nanomsg
+	cmake .
+	make
+	sudo make install
+	sudo ldconfig
+	
+```
+#### 3. step - Change swap size on to 4GB (Ubuntu) 
+	
+```
+	sudo swapon --show
+	free -h
+	df -h
+	sudo fallocate -l 4G /swapfile
+	ls -lh /swapfile 
+	sudo chmod 600 /swapfile 
+	ls -lh /swapfile 
+	sudo mkswap /swapfile 
+	sudo swapon /swapfile
+	sudo swapon --show 
+	free -h
+	sudo cp /etc/fstab /etc/fstab.bak
+	echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-#### Windows
-Use a debian cross-compilation setup with mingw for windows and run:
-```shell
-sudo apt-get install build-essential pkg-config libc6-dev m4 g++-multilib autoconf libtool ncurses-dev unzip git python python-zmq zlib1g-dev wget libcurl4-gnutls-dev bsdmainutils automake curl cmake mingw-w64 libsodium-dev libevent-dev
-curl https://sh.rustup.rs -sSf | sh
-source $HOME/.cargo/env
-rustup target add x86_64-pc-windows-gnu
-git clone https://github.com/jl777/komodo --branch master --single-branch
-cd komodo
-./zcutil/fetch-params.sh
-./zcutil/build-win.sh -j$(expr $(nproc) - 1)
-#This can take some time.
-```
-**komodo is experimental and a work-in-progress.** Use at your own risk.
-
-To reset the Komodo blockchain change into the *~/.komodo* data directory and delete the corresponding files by running `rm -rf blocks chainstate debug.log komodostate db.log`
-
-#### Create komodo.conf
-
-Create a komodo.conf file:
-
-```
-mkdir ~/.komodo
-cd ~/.komodo
-touch komodo.conf
-
-#Add the following lines to the komodo.conf file:
-rpcuser=yourrpcusername
-rpcpassword=yoursecurerpcpassword
-rpcbind=127.0.0.1
-txindex=1
-addnode=77.75.121.138
-addnode=95.213.238.100
-addnode=94.130.148.142
-addnode=103.6.12.105
-addnode=139.99.209.214
-addnode=185.130.212.13
-addnode=5.9.142.219
-addnode=200.25.4.38
-addnode=139.99.136.148
-
-```
-### Create your own Blockchain based on Komodo
-
-Komodo allows anyone to create a runtime fork which represents an independent Blockchain. Below are the detailed instructions:
-Setup two independent servers with at least 1 server having a static IP and build komodod on those servers.  
-
-#### On server 1 (with static IP) run:
-```shell
-./komodod -ac_name=name_of_your_chain -ac_supply=100000 -bind=ip_of_server_1 &
+#### 4 .step 
+```	sudo sysctl vm.swappiness=10 
+	This setting will persist until the next reboot. We can set this value automatically at restart by adding the line to our /etc/sysctl.conf file:
+	sudo nano /etc/sysctl.conf 
+	vm.swappiness=10
+	sudo ufw allow 33824
 ```
 
-#### On server 2 run:
-```shell
-./komodod -ac_name=name_of_your_chain -ac_supply=100000 -addnode=ip_of_server_1 -gen &
+	
+#### 5. step - Installing Komodo	
+```
+	cd 
+	git clone https://github.com/marmarachain/Marmara-v.1.0 komodo --branch master --single-branch
+	cd komodo
+	./zcutil/fetch-params.sh
+	./zcutil/build.sh -j$(nproc)
+
+```
+*** Note: The installation process takes 20 to 45 minutes.
+
+#### After the setup, you are ready to use MCL blockchain
+---
+Start at staking mode by getting wallet address and pubkey
+
+#### Start the chain.
+
+Go to src folder.
+
+```
+cd ~/komodo/src
+```
+  
+#### Start the chain firstly.
+
+```
+./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 -pubkey="pubkey to enter here" &
 ```
 
-**Komodo is based on Zcash which is unfinished and highly experimental.** Use at your own risk.
+#### then create a wallet address and write down this wallet address. 
 
-License
--------
-For license information see the file [COPYING](COPYING).
+```
+./komodo-cli -ac_name=MCL getnewaddress
+```
 
-**NOTE TO EXCHANGES:**
-https://bitcointalk.org/index.php?topic=1605144.msg17732151#msg17732151
-There is a small chance that an outbound transaction will give an error due to mismatched values in wallet calculations. There is a -exchange option that you can run komodod with, but make sure to have the entire transaction history under the same -exchange mode. Otherwise you will get wallet conflicts.
+#### Wallet address sample 
+```
+RJajZNoEcCRD5wduqt1tna5DiLqiBC23bo
+```
 
-**To change modes:**
+#### To confirm this wallet address and then create the pubkey, Text this wallet address in quotation marks , “Enter your wallet address here” secion.
+```
+./komodo-cli -ac_name=MCL validateaddress "Enter your wallet address here"
+```
 
-a) backup all privkeys (launch komodod with `-exportdir=<path>` and `dumpwallet`)  
-b) start a totally new sync including `wallet.dat`, launch with same `exportdir`  
-c) stop it before it gets too far and import all the privkeys from a) using `komodo-cli importwallet filename`  
-d) resume sync till it gets to chaintip  
+#### you will get the output like below. and then, write down also the pubkey that written here.
+```
+{
+	": true,
+	"address": "RJajZNoEcCRD5wduqt1tna5DiLqiBC23bo",
+	"scriptPubKey": "76a914660a7b5c8ec61c59b80cf8f2184adf8a24bccb6b88ac",
+	"segid": 52,
+	"ismine": true,
+	"iswatchonly": false,
+	"isscript": false,
+	"pubkey": "03a3f641c4679c579b20c597435e8a32d50091bfc56e28303f5eb26fb1cb1eee72",
+	"iscompressed": true,
+	"account": ""
+}
+```
 
-For example:
-```shell
-./komodod -exportdir=/tmp &
-./komodo-cli dumpwallet example
-./komodo-cli stop
-mv ~/.komodo ~/.komodo.old && mkdir ~/.komodo && cp ~/.komodo.old/komodo.conf ~/.komodo.old/peers.dat ~/.komodo
-./komodod -exchange -exportdir=/tmp &
-./komodo-cli importwallet /tmp/example
+this is the your pubkey : `03a3f641c4679c579b20c597435e8a32d50091bfc56e28303f5eb26fb1cb1eee72`
+
+#### Stop the  chain.
+```
+./komodo-cli -ac_name=MCL stop
+```
+
+#### next step is the runing to chain in mining mode by using your own pubkey.
+
+You can run it by using following command. text your pubkey to the area "-pubkey="pubkey to enter here" and then, copy to all command and then, when it is at "cd komodo/src" , paste it and click "enter"
+```
+./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 -gen -genproclimit=-1 -pubkey="pubkey to enter here" &
+```
+
+#### at the moment, our server starts to running as mining mode . 
+
+#### you can reach your mining document by using codes below.
+
+```
+./komodo-cli -ac_name=MCL getinfo
+./komodo-cli -ac_name=MCL marmarainfo 0 0 0 0 pubkey (to get details)
+```
+
+#### Options to operate the Marmara Chain in different modes are as follows;
+
+```
+-genproclimit=-1 Şayet -1 (If you make -1, all processor (cpu) use.)
+-genproclimit=1  Şayet 1  (If you make 1, single processor use.)
+-genproclimit=0  Şayet 0  (if you make 0, it run at Staking mode and you can do staking by using active coin.)
+
+```
+
+#### Not : Note: these are what to do in cases of server shutdown,  crashed, reset
+
+```
+cd /komodo/src
+./komodo-cli -ac_name=MCL stop
+./komodod -ac_name=MCL -ac_supply=2000000 -ac_cc=2 -addnode=37.148.210.158 -addnode=37.148.212.36 -addressindex=1 -spentindex=1 -ac_marmara=1 -ac_staked=75 -ac_reward=3000000000 -gen -genproclimit=-1 -pubkey="pubkey to enter here" &
 ```
 ---
+#### MCL params.
+```	
+./komodo-cli -ac_name=MCL marmaracreditloop txid
+./komodo-cli -ac_name=MCL marmarainfo firstheight lastheight minamount maxamount [currency issuerpk]
+./komodo-cli -ac_name=MCL marmaraissue receiverpk amount currency matures approvaltxid
+./komodo-cli -ac_name=MCL marmaralock amount unlockht
+./komodo-cli -ac_name=MCL marmarapoolpayout perc firstheight "[[\"pubkey\":shares], ...]"
+./komodo-cli -ac_name=MCL marmarareceive senderpk amount currency matures batontxid
+./komodo-cli -ac_name=MCL marmarasettlement batontxid
+./komodo-cli -ac_name=MCL marmaratransfer receiverpk amount currency matures approvaltxid
+./komodo-cli -ac_name=MCL marmaraaddress
+./komodo-cli -ac_name=MCL marmarainfo 0 0 0 0 <pubkey> //to get details
+./komodo-cli -ac_name=MCL walletaddress amount
+```
+#### Backup your wallet
+
+We can not stress enough the importance of backing up your `wallet.dat` file.
+
+On Linux, the file is located here: `~/.komodo/MCL/wallet.dat`
+
+One method to backup this file is to archive a copy of the file.
+
+```bash
+# Copy the file
+cp -av ~/.komodo/MCL/wallet.dat ~/wallet.dat
+
+# Rename file
+mv ~/wallet.dat ~/2019-05-17-wallet_backup.dat
+
+# To make archive
+tar -czvf ~/2019-05-17-wallet_backup.dat.tgz ~/2019-05-17-wallet_backup.dat
+
+# Move the final file to a secure location
+```
+
+#### Now, You are ready to participate in MCL credit loops.
+
+You can reach Marmara Credit Loop guide here.
+
+https://github.com/marmarachain/Marmara-Versiyon-1.0-setup/issues/1
 
 
+### contact :  
+B. Gültekin Çetiner http://twitter.com/drcetiner & ~Paro, (c) 2019  
+
+
+### Thanks for translation :  
+Betül Zengin  
+https://tr.linkedin.com/in/bet%C3%BCl-zengin-6839b816a
+
+---
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
