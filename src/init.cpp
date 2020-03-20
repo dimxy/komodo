@@ -93,6 +93,9 @@
 using namespace std;
 
 #include "komodo_defs.h"
+#include "cc/CCinclude.h"
+#include "cc/CCMarmara.h"
+
 extern void ThreadSendAlert();
 extern bool komodo_dailysnapshot(int32_t height);
 extern int32_t KOMODO_LOADINGBLOCKS;
@@ -604,6 +607,9 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-ac_txpow", _("Enforce transaction-rate limit, default 0"));
     strUsage += HelpMessageOpt("-ac_veruspos", _("Use Verus Proof-Of-Stake (-ac_veruspos=50) default 0"));
 
+    strUsage += HelpMessageOpt("-ac_marmara", _("Use marmara features (-ac_marmara=1) default 0"));
+    strUsage += HelpMessageOpt("-marmara-stake-provider", _("Run as marmara stake provider (-marmara-stake-provider=1) default 0"));
+    
     return strUsage;
 }
 
@@ -2091,6 +2097,27 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     // SENDALERT
     threadGroup.create_thread(boost::bind(ThreadSendAlert));
+
+    if (ASSETCHAINS_MARMARA)
+    {
+        // report hard fork height
+        LogPrintf( "marmara: MARMARA_POS_IMPROVEMENTS_HEIGHT=%d\n", MARMARA_POS_IMPROVEMENTS_HEIGHT);
+
+        // we need mypubkey set for stake_hash to work
+        vuint8_t vmypk = Mypubkey();
+        if (vmypk.size() == 0 || vmypk[0] == '\0')
+        {
+            LogPrintf("marmara: no '-pubkey' set, use -pubkey for mining\n");
+        }
+
+        if (GetArg(MARMARA_STAKE_PROVIDER_ARG, 0) != 0)
+        {
+            LogPrintf("marmara: started as stake provider\n");
+        }
+
+        srand(time(NULL));
+    }
+
 
     return !fRequestShutdown;
 }

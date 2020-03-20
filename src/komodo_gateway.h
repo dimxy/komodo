@@ -2744,12 +2744,11 @@ void komodo_createminerstransactions()
         }
         catch (std::runtime_error error)
         {
-            LOGSTREAMFN("miner", CCLOG_ERROR, stream << std::string("could not send miner created transaction: bad parameters: ") + error.what());
+            LOGSTREAMFN("miner", CCLOG_ERROR, stream << std::string("could not send miner created transaction: bad parameters: ") + error.what() << std::endl);
         }
         catch (UniValue error)
         {
-            LOGSTREAMFN("miner", CCLOG_ERROR, stream << std::string("error: could not send miner created tx: ") + error.getValStr());
+            LOGSTREAMFN("miner", CCLOG_ERROR, stream << std::string("could not send miner created transaction: ") + error.getValStr() << std::endl);
         }
     }
-
 }

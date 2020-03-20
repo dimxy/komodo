@@ -72,7 +72,7 @@ UniValue marmara_poolpayout(const UniValue& params, bool fHelp, const CPubKey& r
 UniValue marmara_receive(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
-    uint256 batontxid; std::vector<uint8_t> senderpub; int64_t amount = 0; int32_t matures = 0; std::string currency;
+    uint256 batontxid; std::vector<uint8_t> vsenderpub; int64_t amount = 0; int32_t matures = 0; std::string currency;
 
     if (fHelp || (params.size() != 5 && params.size() != 3))
     {
@@ -94,17 +94,25 @@ UniValue marmara_receive(const UniValue& params, bool fHelp, const CPubKey& remo
 #endif 
     
     memset(&batontxid, 0, sizeof(batontxid));
-    senderpub = ParseHex(params[0].get_str().c_str());
-    if (senderpub.size() != 33)
+    vsenderpub = ParseHex(params[0].get_str().c_str());
+    if (vsenderpub.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
     {
         ERR_RESULT("invalid sender pubkey");
         return result;
     }
-
+    CPubKey senderpub = pubkey2pk(vsenderpub);
+    if(!senderpub.IsFullyValid())
+    {
+        ERR_RESULT("invalid sender pubkey");
+        return result;
+    }
     int njson;
     if (params.size() == 5)
     {
         amount = AmountFromValue(params[1]);
+        if (amount <= 0)
+            throw runtime_error("amount should be > 0\n");
+
         currency = params[2].get_str();
         matures = chainActive.LastTip()->GetHeight() + atol(params[3].get_str().c_str()) + 1;  // if no baton (first call) then matures value is relative
         njson = 4;
@@ -124,7 +132,7 @@ UniValue marmara_receive(const UniValue& params, bool fHelp, const CPubKey& remo
         jsonParams.read(params[njson].get_str().c_str());
     if (jsonParams.getType() != UniValue::VOBJ || jsonParams.empty())
         throw runtime_error("last parameter must be object\n");
-    std::cerr << __func__ << " test output optParams=" << jsonParams.write(0, 0) << std::endl; 
+    //std::cerr << __func__ << " test output optParams=" << jsonParams.write(0, 0) << std::endl; 
     // TODO: check allowed params
     int32_t avalcount = 0;
     std::vector<std::string> keys = jsonParams.getKeys();
@@ -132,9 +140,11 @@ UniValue marmara_receive(const UniValue& params, bool fHelp, const CPubKey& remo
     if (iter != keys.end()) {
         avalcount = atoi(jsonParams[iter - keys.begin()].get_str().c_str());
         //std::cerr << __func__ << " test output avalcount=" << avalcount << std::endl;
+        if (avalcount != 0)
+            throw runtime_error("avalcount should be 0\n");
     }
 
-    result = MarmaraReceive(remotepk, 0, pubkey2pk(senderpub), amount, currency, matures, avalcount, batontxid, true);
+    result = MarmaraReceive(remotepk, 0, senderpub, amount, currency, matures, avalcount, batontxid, true);
     return result;
 }
 
@@ -142,7 +152,7 @@ UniValue marmara_issue(const UniValue& params, bool fHelp, const CPubKey& remote
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ); 
     uint256 requesttxid; 
-    std::vector<uint8_t> receiverpub; 
+    std::vector<uint8_t> vreceiverpub; 
 
     if (fHelp || params.size() != 3)
     {
@@ -157,8 +167,14 @@ UniValue marmara_issue(const UniValue& params, bool fHelp, const CPubKey& remote
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 #endif    
 
-    receiverpub = ParseHex(params[0].get_str().c_str());
-    if (receiverpub.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+    vreceiverpub = ParseHex(params[0].get_str().c_str());
+    if (vreceiverpub.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+    {
+        ERR_RESULT("invalid receiver pubkey");
+        return result;
+    }
+    CPubKey receiverpub = pubkey2pk(vreceiverpub);
+    if (!receiverpub.IsFullyValid())
     {
         ERR_RESULT("invalid receiver pubkey");
         return result;
@@ -182,42 +198,56 @@ UniValue marmara_issue(const UniValue& params, bool fHelp, const CPubKey& remote
     if (iter != keys.end()) {
         optParams.avalCount = atoi(jsonParams[iter - keys.begin()].get_str().c_str());
         //std::cerr << __func__ << " test output avalcount=" << optParams.avalCount << std::endl;
+        if (optParams.avalCount != 0)
+            throw runtime_error("avalcount should be 0\n");
     }
     iter = std::find(keys.begin(), keys.end(), "autosettlement");
     if (iter != keys.end()) {
         std::string value = jsonParams[iter - keys.begin()].get_str();
         optParams.autoSettlement = std::equal(value.begin(), value.end(), "true", [](char c1, char c2) {return std::toupper(c1) == std::toupper(c2);});
         //std::cerr << __func__ << " test output autosettlement=" << optParams.autoSettlement << std::endl;
+        if (!optParams.autoSettlement)
+            throw runtime_error("autosettlement should be true\n");
     }
     iter = std::find(keys.begin(), keys.end(), "autoinsurance");
     if (iter != keys.end()) {
         std::string value = jsonParams[iter - keys.begin()].get_str();
         optParams.autoInsurance = std::equal(value.begin(), value.end(), "true", [](char c1, char c2) {return std::toupper(c1) == std::toupper(c2);});
         //std::cerr << __func__ << " test output autoinsurance=" << optParams.autoInsurance << std::endl;
+        if (!optParams.autoInsurance)
+            throw runtime_error("autoinsurance should be true\n");
     }
     iter = std::find(keys.begin(), keys.end(), "disputeexpires");
     if (iter != keys.end()) {
         std::string value = jsonParams[iter - keys.begin()].get_str();
-        optParams.disputeExpiresOffset = atoi(jsonParams[iter - keys.begin()].get_str().c_str());
+
+        // do not parse, use default:
         //std::cerr << __func__ << " test output disputeexpiresoffset=" << optParams.disputeExpiresOffset << std::endl;
+        //optParams.disputeExpiresOffset = atoi(jsonParams[iter - keys.begin()].get_str().c_str());
+        //if (optParams.disputeExpiresOffset != 1 * 365 * 24 * 60)
+        //    throw runtime_error("disputeexpires should be 1 * 365 * 24 * 60\n");
     }
     iter = std::find(keys.begin(), keys.end(), "EscrowOn");
     if (iter != keys.end()) {
         std::string value = jsonParams[iter - keys.begin()].get_str();
         optParams.escrowOn = std::equal(value.begin(), value.end(), "true", [](char c1, char c2) {return std::toupper(c1) == std::toupper(c2);});
         //std::cerr << __func__ << " test output EscrowOn=" << optParams.escrowOn << std::endl;
+        if (optParams.escrowOn)
+            throw runtime_error("EscrowOn should be false\n");
     }
     iter = std::find(keys.begin(), keys.end(), "BlockageAmount");
     if (iter != keys.end()) {
         optParams.blockageAmount = atoll(jsonParams[iter - keys.begin()].get_str().c_str());
         //std::cerr << __func__ << " test output BlockageAmount=" << optParams.blockageAmount << std::endl;
+        if (optParams.blockageAmount != 0)
+            throw runtime_error("BlockageAmount should be 0\n");
     }
 
     requesttxid = Parseuint256((char *)params[2].get_str().c_str());
     if (requesttxid.IsNull())
         throw runtime_error("incorrect requesttxid\n");
 
-    result = MarmaraIssue(remotepk, 0, MARMARA_ISSUE, pubkey2pk(receiverpub), optParams, requesttxid, zeroid);
+    result = MarmaraIssue(remotepk, 0, MARMARA_ISSUE, receiverpub, optParams, requesttxid, zeroid);
     return result;
 }
 
@@ -225,7 +255,7 @@ UniValue marmara_transfer(const UniValue& params, bool fHelp, const CPubKey& rem
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ); 
     uint256 requesttxid, batontxid; 
-    std::vector<uint8_t> receiverpub;
+    std::vector<uint8_t> vreceiverpub;
     std::vector<uint256> creditloop;
 
     if (fHelp || params.size() != 3)
@@ -234,8 +264,14 @@ UniValue marmara_transfer(const UniValue& params, bool fHelp, const CPubKey& rem
     }
     if ( ensure_CCrequirements(EVAL_MARMARA) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    receiverpub = ParseHex(params[0].get_str().c_str());
-    if (receiverpub.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+    vreceiverpub = ParseHex(params[0].get_str().c_str());
+    if (vreceiverpub.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+    {
+        ERR_RESULT("invalid receiver pubkey");
+        return result;
+    }
+    CPubKey receiverpub = pubkey2pk(vreceiverpub);
+    if (!receiverpub.IsFullyValid())
     {
         ERR_RESULT("invalid receiver pubkey");
         return result;
@@ -264,6 +300,8 @@ UniValue marmara_transfer(const UniValue& params, bool fHelp, const CPubKey& rem
     if (iter != keys.end()) {
         optParams.avalCount = atoi(jsonParams[iter - keys.begin()].get_str().c_str());
         //std::cerr << __func__ << " test output avalcount=" << optParams.avalCount << std::endl;
+        if (optParams.avalCount != 0)
+            throw runtime_error("avalcount should be 0\n");
     }
 
     requesttxid = Parseuint256((char *)params[2].get_str().c_str());
@@ -274,7 +312,7 @@ UniValue marmara_transfer(const UniValue& params, bool fHelp, const CPubKey& rem
     if (MarmaraGetbatontxid(creditloop, batontxid, requesttxid) < 0)
         throw runtime_error("couldnt find batontxid\n");
 
-    result = MarmaraIssue(remotepk, 0, MARMARA_TRANSFER, pubkey2pk(receiverpub), optParams, requesttxid, batontxid);
+    result = MarmaraIssue(remotepk, 0, MARMARA_TRANSFER, receiverpub, optParams, requesttxid, batontxid);
     return result;
 }
 
@@ -311,6 +349,12 @@ UniValue marmara_info(const UniValue& params, bool fHelp, const CPubKey& remotep
             return result;
         }
         pk = pubkey2pk(vpk);
+        if (!pk.IsFullyValid())
+        {
+            ERR_RESULT("invalid pubkey parameter");
+            return result;
+        }
+
     }
     if ( params.size() == 6 )
     {
@@ -394,12 +438,18 @@ UniValue marmara_lock(const UniValue& params, bool fHelp, const CPubKey& remotep
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 #endif   
 
-    amount = atof(params[0].get_str().c_str()) * COIN + 0.00000000499999;
+    amount = AmountFromValue(params[0]);
+    if (amount <= 0)
+        throw runtime_error("amount should be > 0\n");
 
     CPubKey destPk; // created empty
     if (params.size() == 2) {
         vuint8_t vpubkey = ParseHex(params[1].get_str().c_str());
+        if (vpubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+            throw runtime_error("invalid pubkey\n");
         destPk = pubkey2pk(vpubkey);
+        if (!destPk.IsFullyValid())
+            throw runtime_error("invalid pubkey\n");
     }
 
     result = MarmaraLock(remotepk, 0, amount, destPk);
@@ -464,7 +514,7 @@ UniValue marmara_lock64(const UniValue& params, bool fHelp, const CPubKey& remot
     //if (!pwalletMain->IsLocked())
     //    pwalletMain->TopUpKeyPool();
 
-    CAmount amount = (CAmount)(atof(params[0].get_str().c_str()) * (double)COIN);
+    CAmount amount = AmountFromValue(params[0]);
     if (amount <= 0)
         throw runtime_error("amount should be > 0\n");
 
@@ -594,6 +644,25 @@ UniValue marmara_unlock(const UniValue& params, bool fHelp, const CPubKey& remot
     return result;
 }
 
+// marmaraposstat rpc impl, return PoS statistics
+UniValue marmara_decodetxdata(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    CCerror.clear();
+    if (fHelp || params.size() < 1 || params.size() > 2)
+    {
+        throw runtime_error("marmaradecodetxdata txdata [true]\n"
+            "returns decoded marmara transaction or cc scriptpubkey or opreturn scriptpubkey\n"
+            "if 'true' is passed also decodes vin txns for the passed tx\n" "\n");
+    }
+
+    vuint8_t vdata = ParseHex(params[0].get_str());
+    bool decodevintx = false;
+    if (params.size() > 1)
+        decodevintx = (params[1].get_str() == "true") ? true : false;
+    UniValue result = MarmaraDecodeTxdata(vdata, decodevintx);
+    RETURN_IF_ERROR(CCerror);
+    return result;
+}
 
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
@@ -613,7 +682,8 @@ static const CRPCCommand commands[] =
     { "marmara",       "marmaralistactivatedaddresses",   &marmara_listactivatedaddresses,      true },
     { "marmara",       "marmarareleaseactivatedcoins",   &marmara_releaseactivatedcoins,      true },
     { "marmara",       "marmaraposstat",   &marmara_posstat,      true },
-    { "marmara",       "marmaraunlock",   &marmara_unlock,      true },
+//    { "marmara",       "marmaraunlock",   &marmara_unlock,      true },
+    { "marmara",       "marmaradecodetxdata",   &marmara_decodetxdata,      true }
 };
 
 void RegisterMarmaraRPCCommands(CRPCTable &tableRPC)

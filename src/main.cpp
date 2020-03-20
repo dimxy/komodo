@@ -1403,12 +1403,14 @@ bool CheckTransaction(uint32_t tiptime,const CTransaction& tx, CValidationState 
         }
     }
     
-    
-    if ( ASSETCHAINS_STAKED != 0 && komodo_newStakerActive(0, tiptime) != 0 && tx.vout.size() == 2 && DecodeStakingOpRet(tx.vout[1].scriptPubKey, merkleroot) != 0 )
+    CBlockIndex *tipindex = chainActive.LastTip();
+    if (!ASSETCHAINS_MARMARA || (tipindex && tipindex->GetHeight() >=  MARMARA_POS_IMPROVEMENTS_HEIGHT))
     {
-        if ( numTxs == 0 || txIndex != numTxs-1 ) 
+        if (ASSETCHAINS_STAKED != 0 && komodo_newStakerActive(0, tiptime) != 0 && tx.vout.size() == 2 && DecodeStakingOpRet(tx.vout[1].scriptPubKey, merkleroot) != 0)
         {
-            if (!ASSETCHAINS_MARMARA) {     // turn this of for marmara as this sometimes rejects some non-staking txns when a pos block is being synced
+            // ensure that the stake tx is not used as an ordinary tx
+            if (numTxs == 0 || txIndex != numTxs - 1)
+            {
                 return state.DoS(100, error("CheckTransaction(): staking tx is not staking a block"),
                     REJECT_INVALID, "bad-txns-stakingtx");
             }

@@ -112,7 +112,10 @@ unsigned char *base64_decode(const unsigned char *data_,
     if (data[input_length - 2] == '=') (*output_length)--;
 
     unsigned char *decoded_data = calloc(1,*output_length);
-    if (decoded_data == NULL) return NULL;
+    if (decoded_data == NULL) {
+		if (data) free(data);
+		return NULL;
+	}
 
     for (int i = 0, j = 0; i < input_length;) {
 
@@ -131,6 +134,7 @@ unsigned char *base64_decode(const unsigned char *data_,
         if (j < *output_length) decoded_data[j++] = (triple >> 0 * 8) & 0xFF;
     }
 
+	if (data) free(data);
     return decoded_data;
 }
 
