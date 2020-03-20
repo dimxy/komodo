@@ -8303,22 +8303,34 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         }
 
         // periodically set node flag fSentAddr to allow for clients (meaning libnspv clients) to repeat getaddr requests
-        static int64_t lastSentAddrReset = 0L;
-        if (!IsInitialBlockDownload() && GetTime() - lastSentAddrReset > 60)
+        static int64_t lastClientAddrCheck = 0L;
+        static int64_t lastClientKnownReset = 0L;
+        if (!IsInitialBlockDownload() && GetTime() - lastClientAddrCheck > 60)
         {
             LOCK(cs_vNodes);
             BOOST_FOREACH(CNode* pnode, vNodes)
             {
-                // clear addr sent status after timeout
                 if (pnode->fClient)
                 {
-                    if (GetTime() - pnode->sentAddrTime > 60) {
+                    // clear addr sent status after timeout
+                    if (GetTime() - pnode->sentAddrTime > 60) 
+                    {
                         pnode->fSentAddr = false;
                         LogPrint("net", "allow for peer %d to request getaddr again\n", pnode->id);
                     }
+                    // clear known addresses after some timeout
+                    if (GetTime() - lastClientKnownReset > 60) 
+                    {
+                        if (lastClientKnownReset > 0)  // dont call reset early
+                        {
+                            pnode->addrKnown.reset();
+                            LogPrint("net", "known addresses cleared for peer %d\n", pnode->id);
+                        }
+                        lastClientKnownReset = GetTime();
+                    }
                 }
             }
-            lastSentAddrReset = GetTime();
+            lastClientAddrCheck = GetTime();
         }
 
 
