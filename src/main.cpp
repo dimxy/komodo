@@ -8366,7 +8366,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
             pto->vAddrToSend.clear();
             if (!vAddr.empty())   {
                 pto->PushMessage("addr", vAddr);
-                LogPrint("net", "sent %ld addresses to peer %d\n", pto->vAddrToSend.size(), pto->id);
+                LogPrint("net", "sent %d addresses to peer %d\n", vAddr.size(), pto->id);
             }
         }
 
