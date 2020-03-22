@@ -8,6 +8,13 @@
 #include "cc/utils.h"
 #include "cc/pycc.h"
 #include "primitives/transaction.h"
+#include <univalue.h>
+#include "CCinclude.h"
+
+//extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry); 
+//#include "../core_io.h" // used by PyBlockchainDecodeTx
+
+
 
 
 Eval* getEval(PyObject* self)
@@ -20,6 +27,95 @@ static PyObject* PyBlockchainGetHeight(PyObject* self, PyObject* args)
     auto height = getEval(self)->GetCurrentHeight();
     return PyLong_FromLong(height);
 }
+
+static PyObject* PyBlockchainRpc(PyObject* self, PyObject* args)
+{
+    char* request; UniValue valRequest;
+
+    if (!PyArg_ParseTuple(args, "s", &request)) {
+        PyErr_SetString(PyExc_TypeError, "argument error, expecting json");
+        fprintf(stderr, "Parse error\n");
+        return NULL;
+    }
+    valRequest.read(request);
+    JSONRequest jreq;
+    try {
+        if (valRequest.isObject())
+        {
+            jreq.parse(valRequest);
+            UniValue result = tableRPC.execute(jreq.strMethod, jreq.params);
+            std::string valStr = result.write(0, 0);
+            char* valChr = const_cast<char*> (valStr.c_str());
+            return PyUnicode_FromString(valChr);
+        }
+    } catch (const UniValue& objError) {
+        std::string valStr = objError.write(0, 0);
+        char* valChr = const_cast<char*> (valStr.c_str());
+        return PyUnicode_FromString(valChr);
+    } catch (const std::exception& e) {
+        return PyUnicode_FromString("RPC parse error2");
+    }
+    return PyUnicode_FromString("RPC parse error, must be object");
+}
+
+static PyObject* PyBlockchainEvalInfo(PyObject* self, PyObject* args)
+{
+    int8_t eval_int; struct CCcontract_info *cp,C;
+    if (!PyArg_ParseTuple(args, "b", &eval_int)) {
+        PyErr_SetString(PyExc_TypeError, "argument error, expecting int");
+        fprintf(stderr, "Parse error\n");
+        return NULL;
+    }
+
+    cp = CCinit(&C,eval_int);
+
+    /*
+    char unspendableCCaddr[64]; //!< global contract cryptocondition address, set by CCinit function
+    char CChexstr[72];          //!< global contract pubkey in hex, set by CCinit function
+    char normaladdr[64];        //!< global contract normal address, set by CCinit function
+    uint8_t CCpriv[32];         //!< global contract private key, set by CCinit function
+    see CCinclude.h for others
+    */
+
+    UniValue result(UniValue::VOBJ);
+    result.push_back(Pair("unspendableCCaddr", cp->unspendableCCaddr));
+    result.push_back(Pair("CChexstr", cp->CChexstr));
+    result.push_back(Pair("normaladdr", cp->normaladdr));
+    result.push_back(Pair("CCpriv", cp->CCpriv));
+
+    std::string valStr = result.write(0, 0);
+    char* valChr = const_cast<char*> (valStr.c_str());
+
+    return PyUnicode_FromString(valChr);
+}
+
+/*
+// leaving this here as an example of how to directly use an rpc command
+// might be useful for if a single rpc command is called many times in py script
+static PyObject* PyBlockchainDecodeTx(PyObject* self, PyObject* args)
+{
+
+    char* txhex; CTransaction tx;
+
+    if (!PyArg_ParseTuple(args, "s", &txhex)) {
+        PyErr_SetString(PyExc_TypeError, "argument error, expecting hex encoded raw tx");
+        fprintf(stderr, "Parse error\n");
+        return NULL;
+    }
+
+    if (!DecodeHexTx(tx, txhex))
+    {
+        fprintf(stderr, "TX decode failed\n");
+        return NULL;
+    }
+    UniValue result(UniValue::VOBJ);
+    TxToJSON(tx, uint256(), result);
+    std::string valStr = result.write(0, 0);
+    char* valChr = const_cast<char*> (valStr.c_str());
+
+    return PyUnicode_FromString(valChr);
+}
+*/
 
 static PyObject* PyBlockchainGetTxConfirmed(PyObject* self, PyObject* args)
 {
@@ -47,6 +143,17 @@ static PyObject* PyBlockchainGetTxConfirmed(PyObject* self, PyObject* args)
 static PyMethodDef PyBlockchainMethods[] = {
     {"get_height", PyBlockchainGetHeight, METH_NOARGS,
      "Get chain height.\n() -> int"},
+
+/*
+    {"decode_tx", PyBlockchainDecodeTx, METH_VARARGS,
+     "Decode transaction hex to json.\n(rawtx_hex) -> json"},
+*/
+
+    {"eval_info", PyBlockchainEvalInfo, METH_VARARGS,
+     "Get eval code info.\n(eval_code_int) -> json"},
+
+     {"rpc", PyBlockchainRpc, METH_VARARGS,
+      "RPC interface\n({\"method\":method, \"params\":[param0,param1], \"id\":\"rpc_id\"}) -> json"},
 
     {"get_tx_confirmed", PyBlockchainGetTxConfirmed, METH_VARARGS,
      "Get confirmed transaction. Throws IndexError if not found.\n(txid_hex) -> tx_bin" },
