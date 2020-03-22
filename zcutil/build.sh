@@ -35,7 +35,7 @@ fi
 
 # Allow users to set arbitrary compile flags. Most users will not need this.
 if [[ -z "${CONFIGURE_FLAGS-}" ]]; then
-    CONFIGURE_FLAGS=""
+    CONFIGURE_FLAGS="--enable-pycc"
 fi
 
 if [ "x$*" = 'x--help' ]
