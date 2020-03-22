@@ -26,6 +26,9 @@
 #include "chain.h"
 #include "core_io.h"
 #include "crosschain.h"
+#if ENABLE_PYCC
+#include "cc/pycc.h"
+#endif
 
 bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn);
 char *CClib_name();
@@ -86,7 +89,13 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn)
             return Invalid("disabled-code, -ac_ccenables didnt include this ecode");
         }
     }
+
+    if (ExternalRunCCEval != NULL) {
+        return ExternalRunCCEval(this, txTo, nIn, cond->code, cond->codeLength);
+    }
+
     std::vector<uint8_t> vparams(cond->code+1, cond->code+cond->codeLength);
+
     if ( ecode >= EVAL_FIRSTUSER && ecode <= EVAL_LASTUSER )
     {
         if ( ASSETCHAINS_CCLIB.size() > 0 && ASSETCHAINS_CCLIB == CClib_name() )

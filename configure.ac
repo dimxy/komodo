@@ -119,6 +119,12 @@ AC_ARG_ENABLE([tsan],
   [use_tsan=$enableval],
   [use_tsan=no])
 
+AC_ARG_ENABLE([pycc],
+  [AS_HELP_STRING([--enable-pycc],
+  [Enable Python CC interface (default is no)])],
+  [enable_pycc=$enableval],
+  [enable_pycc=no])
+
 if test x$TARGET_OS = xdarwin; then
 AC_ARG_ENABLE([hardening],
   [AS_HELP_STRING([--enable-hardening],
@@ -857,6 +863,39 @@ if test x$enable_wallet != xno; then
 else
   AC_MSG_RESULT(no)
 fi
+
+AC_MSG_CHECKING([if pycc should be enabled])
+if test x$enable_pycc != xno; then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE_UNQUOTED([ENABLE_PYCC],[1],[Define to 1 to enable PYCC])
+else
+  AC_MSG_RESULT(no)
+fi
+
+if test "x$enable_pycc" = xyes; then
+  AC_DEFINE(ENABLE_PYCC, 1, [Define this symbol to enable PYCC])
+  AM_PATH_PYTHON([3])
+  AC_ARG_VAR([PYTHON_INCLUDE], [Include flags for python, bypassing python-config])
+  AC_ARG_VAR([PYTHON_CONFIG], [Path to python-config])
+  AS_IF([test -z "$PYTHON_INCLUDE"], [
+    AS_IF([test -z "$PYTHON_CONFIG"], [
+      AC_PATH_PROGS([PYTHON_CONFIG],
+                    [python$PYTHON_VERSION-config python-config],
+                    [no],
+                    [`dirname $PYTHON`])
+      AS_IF([test "$PYTHON_CONFIG" = no], [AC_MSG_ERROR([cannot find python-config for $PYTHON.])])
+    ])
+    AC_MSG_CHECKING([python include flags])
+    PYTHON_INCLUDE=`$PYTHON_CONFIG --includes`
+    AC_MSG_RESULT([$PYTHON_INCLUDE])
+
+    AC_MSG_CHECKING([python libs])
+    PYTHON_LIBS=`$PYTHON_CONFIG --libs`
+    AC_MSG_RESULT([$PYTHON_LIBS])
+  ])
+fi
+
+AM_CONDITIONAL([ENABLE_PYCC], [test "x$enable_pycc" = "xyes"])
 
 dnl enable mining
 AC_MSG_CHECKING([if mining should be enabled])

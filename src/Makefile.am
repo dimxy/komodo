@@ -31,16 +31,7 @@ BITCOIN_INCLUDES += -I$(srcdir)/snark
 BITCOIN_INCLUDES += -I$(srcdir)/snark/libsnark
 BITCOIN_INCLUDES += -I$(srcdir)/univalue/include
 
-if TARGET_WINDOWS
-LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl
-endif
-if TARGET_DARWIN
-LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl
-endif
-if TARGET_LINUX
-LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl
-endif
-
+LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl $(PYTHON_LIBS) -lpython3.6m
 LIBBITCOIN_WALLET=libbitcoin_wallet.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
 LIBBITCOIN_CLI=libbitcoin_cli.a
@@ -352,6 +343,11 @@ libbitcoin_server_a_SOURCES = \
   validationinterface.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
+
+if ENABLE_PYCC
+libbitcoin_server_a_SOURCES += cc/pycc.cpp
+libbitcoin_server_a_CPPFLAGS += $(PYTHON_INCLUDE)
+endif
 
 if ENABLE_ZMQ
 libbitcoin_zmq_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(ZMQ_CFLAGS)

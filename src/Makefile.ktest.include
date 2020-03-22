@@ -12,8 +12,15 @@ komodo_test_SOURCES = \
 	test-komodo/test_eval_notarisation.cpp \
 	test-komodo/test_parse_notarisation.cpp
 
+
 komodo_test_CPPFLAGS = $(komodod_CPPFLAGS)
 
 komodo_test_LDADD = -lgtest $(komodod_LDADD)
+
+if ENABLE_PYCC
+komodo_test_SOURCES += test-komodo/test_pycc.cpp
+komodo_test_CPPFLAGS += $(PYTHON_INCLUDE)
+endif
+	
 
 komodo_test_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static

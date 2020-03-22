@@ -135,6 +135,12 @@ public:
 
 bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn);
 
+/*
+ * This is a global symbol that can be optionally defined or linked at runtime
+ * using LD_LIBRARY_PATH and LD_PRELOAD.
+ */
+bool __attribute__((weak))
+  (*ExternalRunCCEval)(Eval* eval, const CTransaction& txTo, unsigned int nIn, uint8_t* code, size_t codeLength);
 
 /*
  * Virtual machine to use in the case of on-chain app evaluation
@@ -289,6 +295,5 @@ typedef std::pair<uint256,MerkleBranch> TxProof;
 uint256 GetMerkleRoot(const std::vector<uint256>& vLeaves);
 struct CCcontract_info *CCinit(struct CCcontract_info *cp,uint8_t evalcode);
 bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction &tx, unsigned int nIn);
-
 
 #endif /* CC_EVAL_H */

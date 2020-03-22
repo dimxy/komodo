@@ -23,6 +23,10 @@
 #include <boost/thread.hpp>
 #endif
 
+#if ENABLE_PYCC
+#include "cc/pycc.h"
+#endif
+
 #define SATOSHIDEN ((uint64_t)100000000L)
 #define dstr(x) ((double)(x) / SATOSHIDEN)
 #define portable_mutex_t pthread_mutex_t
@@ -1767,6 +1771,10 @@ void komodo_args(char *argv0)
     ASSETCHAINS_BLOCKTIME = GetArg("-ac_blocktime",60);
     ASSETCHAINS_PUBLIC = GetArg("-ac_public",0);
     ASSETCHAINS_PRIVATE = GetArg("-ac_private",0);
+#if ENABLE_PYCC
+	ASSETCHAINS_PYCC = GetArg("-ac_pycc","");
+	if (!ASSETCHAINS_PYCC.empty()) PyccGlobalInit(ASSETCHAINS_PYCC);
+#endif
     KOMODO_SNAPSHOT_INTERVAL = GetArg("-ac_snapshot",0);
     Split(GetArg("-ac_nk",""), sizeof(ASSETCHAINS_NK)/sizeof(*ASSETCHAINS_NK), ASSETCHAINS_NK, 0);
     

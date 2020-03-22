@@ -376,6 +376,9 @@ extern int32_t KOMODO_EXCHANGEWALLET;
 extern int32_t VERUS_MIN_STAKEAGE;
 extern std::string DONATION_PUBKEY;
 extern uint8_t ASSETCHAINS_PRIVATE;
+#if ENABLE_PYCC
+extern std::string ASSETCHAINS_PYCC;
+#endif
 extern int32_t USE_EXTERNAL_PUBKEY;
 extern char NOTARYADDRS[64][64];
 extern char NOTARY_ADDRESSES[NUM_KMD_SEASONS][64][64];

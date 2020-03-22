@@ -579,7 +579,10 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-ac_cc", _("Cryptoconditions, default 0"));
     strUsage += HelpMessageOpt("-ac_beam", _("BEAM integration"));
     strUsage += HelpMessageOpt("-ac_coda", _("CODA integration"));
-    strUsage += HelpMessageOpt("-ac_cclib", _("Cryptoconditions dynamicly loadable library"));
+    strUsage += HelpMessageOpt("-ac_cclib", _("Cryptoconditions dynamically loadable library"));
+#if ENABLE_PYCC
+    strUsage += HelpMessageOpt("-ac_pycc", _("Provide a Python module for validating CryptoConditions"));
+#endif
     strUsage += HelpMessageOpt("-ac_ccenable", _("Cryptoconditions to enable"));
     strUsage += HelpMessageOpt("-ac_ccactivate", _("Block height to enable Cryptoconditions"));
     strUsage += HelpMessageOpt("-ac_decay", _("Percentage of block reward decrease at each halving"));
