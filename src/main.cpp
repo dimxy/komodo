@@ -8332,7 +8332,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                         if (pnode->fClient)
                         {
                             pnode->addrKnown.reset();
-                            LogPrint("net", "known addresses cleared for peer %d\n", pnode->id);
+                            LogPrint("net", "known addresses table reset for peer %d\n", pnode->id);
                         }
                     }
                 }
@@ -8364,8 +8364,10 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 }
             }
             pto->vAddrToSend.clear();
-            if (!vAddr.empty())
+            if (!vAddr.empty())   {
                 pto->PushMessage("addr", vAddr);
+                LogPrint("net", "sent %ld addresses to peer %d\n", pto->vAddrToSend.size(), pto->id);
+            }
         }
 
         CNodeState &state = *State(pto->GetId());
