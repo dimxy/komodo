@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright © 2014-2019 The SuperNET Developers.                             *
+* Copyright ï¿½ 2014-2019 The SuperNET Developers.                             *
 *                                                                            *
 * See the AUTHORS, DEVELOPER-AGREEMENT and LICENSE files at                  *
 * the top-level directory of this distribution for the individual copyright  *
@@ -437,7 +437,7 @@ static bool LoadTokenData(const CTransaction &tx, uint256 &creationtxid, vuint8_
         }
     }
     else
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no opret in token tx" << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no opret in token" << std::endl);
     return false;
 }
 
@@ -447,12 +447,12 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
     vscript_t vopret;
 
     if (tx.vout.size() < 1) {
-        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cant find vouts in tx" << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cant find vouts in txid=" << tx.GetHash().GetHex() << std::endl);
         return nullptr;
     }
     if (!GetOpReturnData(tx.vout.back().scriptPubKey, vopret) || vopret.size() < 2)
     {
-        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cant find opret in tx" << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cant find opret in txid=" << tx.GetHash().GetHex() << std::endl);
         return nullptr;
     }
 
@@ -473,7 +473,7 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
                 uint8_t objectType;
                 CTransaction dummytx;
                 if (!KogsBaseObject::DecodeObjectHeader(vnftopret, objectType)) {
-                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "DecodeObjectHeader tokens returned null" << std::endl);
+                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "DecodeObjectHeader tokens returned null tokenid=" << tokenid.GetHex() << std::endl);
                     return nullptr;
                 }
 
@@ -484,7 +484,7 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
 
                 KogsBaseObject *obj = KogsFactory::CreateInstance(objectType);
                 if (obj == nullptr) {
-                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "CreateInstance tokens returned null" << std::endl);
+                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "CreateInstance tokens returned null tokenid=" << tokenid.GetHex() << std::endl);
                     return nullptr;
                 }
 
@@ -498,11 +498,13 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
                     return obj;
                 }
                 else
-                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal nft to GameObject" << std::endl);
+                    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "cant unmarshal nft to GameObject for tokenid=" << tokenid.GetHex() << std::endl);
             }
             else
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant find nft opret in token opret" << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "cant find nft opret in token opret for tokenid=" << tokenid.GetHex() << std::endl);
         }
+        else
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "cant load token data for tokenid=" << tokenid.GetHex() << std::endl);
     }
     else if (vopret.begin()[0] == EVAL_KOGS)
     {
@@ -514,13 +516,13 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
             uint8_t objectType;
 
             if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectType)) {
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "DecodeObjectHeader kogs returned null" << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "DecodeObjectHeader kogs returned null txid=" << tx.GetHash().GetHex() << std::endl);
                 return nullptr;
             }
 
             KogsBaseObject *obj = KogsFactory::CreateInstance(objectType);
             if (obj == nullptr) {
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "CreateInstance kogs returned null" << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "CreateInstance kogs returned null txid=" << tx.GetHash().GetHex() << std::endl);
                 return nullptr;
             }
             if (obj->Unmarshal(enc.vdata))
@@ -534,8 +536,10 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx)
                 return obj;
             }
             else
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cant unmarshal non-nft kogs object to GameObject" << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "cant unmarshal non-nft kogs object to GameObject txid=" << tx.GetHash().GetHex() << std::endl);
         }
+        else
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "cant unmarshal non-nft kogs object to GameObject txid" << tx.GetHash().GetHex() << std::endl);
     }
     else
     {
@@ -2430,13 +2434,16 @@ static void decode_kogs_opret_to_univalue(const CTransaction &tx, UniValue &univ
 
     UniValue uniret = DecodeObjectInfo(spobj.get());
     univout.pushKVs(uniret);
-    if (spobj->istoken) {
-        univout.push_back(std::make_pair("category", "token"));
-        univout.push_back(std::make_pair("opreturn-from", "creation-tx"));
-    }
-    else    {
-        univout.push_back(std::make_pair("category", "enclosure"));
-        univout.push_back(std::make_pair("opreturn-from", "latest-tx"));
+    if (spobj != nullptr)
+    {
+        if (spobj->istoken) {
+            univout.push_back(std::make_pair("category", "token"));
+            univout.push_back(std::make_pair("opreturn-from", "creation-tx"));
+        }
+        else    {
+            univout.push_back(std::make_pair("category", "enclosure"));
+            univout.push_back(std::make_pair("opreturn-from", "latest-tx"));
+        }
     }
 }
 
