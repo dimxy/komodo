@@ -234,6 +234,36 @@ PyObject* PyccGetFunc(PyObject* pyccModule, std::string funcName)
 
 
 PyObject* pyccGlobalEval = NULL;
+PyObject* pyccGlobalRpc = NULL;
+
+UniValue PyccRunGlobalCCRpc(Eval* eval, UniValue params)
+{
+    std::string valStr = params.write(0, 0);
+    char* valChr = const_cast<char*> (valStr.c_str());
+
+    PyBlockchain* chain = CreatePyBlockchainAPI(eval);
+    PyObject* out = PyObject_CallFunction(
+            pyccGlobalRpc,
+            "Os", chain, valChr); // FIXME possibly use {items} instead of string
+
+    if (PyErr_Occurred() != NULL) {
+        PyErr_PrintEx(0);
+        fprintf(stderr, "pycli PyErr_Occurred");
+        return eval->Error("PYCC module raised an exception");
+    }
+
+    UniValue result(UniValue::VOBJ);
+
+    if (PyUnicode_Check(out)) {
+        long len;
+        char* resp_s = PyUnicode_AsUTF8AndSize(out, &len);
+        result.read(resp_s);
+    } else { // FIXME test case
+        fprintf(stderr, "FIXME?\n");
+    }
+    Py_DECREF(out);
+    return(resp_u);
+}
 
 
 bool PyccRunGlobalCCEval(Eval* eval, const CTransaction& txTo, unsigned int nIn, uint8_t* code, size_t codeLength)
@@ -280,11 +310,18 @@ void PyccGlobalInit(std::string moduleName)
     }
 
     pyccGlobalEval = PyccGetFunc(pyccModule, "cc_eval");
+    pyccGlobalRpc = PyccGetFunc(pyccModule, "cc_cli");
+
     if (!pyccGlobalEval) {
         printf("Python module \"%s\" does not export \"cc_eval\" or not callable\n", &moduleName[0]);
         exit(1);
     }
+    if (!pyccGlobalRpc) {
+        printf("Python module \"%s\" does not export \"cc_cli\" or not callable\n", &moduleName[0]);
+        exit(1);
+    }
 
     ExternalRunCCEval = &PyccRunGlobalCCEval;
+    ExternalRunCCRpc = &PyccRunGlobalCCRpc;
 }
 

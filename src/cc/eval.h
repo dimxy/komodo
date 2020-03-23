@@ -25,6 +25,8 @@
 #include "consensus/validation.h"
 #include "primitives/transaction.h"
 
+#include <univalue.h> // pycli
+
 #define KOMODO_FIRSTFUNGIBLEID 100
 
 /*
@@ -142,6 +144,8 @@ bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn);
 bool __attribute__((weak))
   (*ExternalRunCCEval)(Eval* eval, const CTransaction& txTo, unsigned int nIn, uint8_t* code, size_t codeLength);
 
+UniValue __attribute__((weak))
+    (*ExternalRunCCRpc)(Eval* eval, UniValue params);
 /*
  * Virtual machine to use in the case of on-chain app evaluation
  */

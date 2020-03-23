@@ -31,6 +31,8 @@
 #include "notaries_staked.h"
 #include "cc/eval.h"
 #include "cc/CCinclude.h"
+#include "cc/pycc.h" // FIXME if build flag
+
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
 #include "wallet/walletdb.h"
@@ -1662,6 +1664,29 @@ UniValue decodeccopret(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return result;
 }
 
+UniValue pycli(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); Eval* eval_what = 0; // FIXME Dummy eval
+    if (fHelp || params.size() != 1)
+    {
+        string msg = "pycli string\n"
+            "\nPass cc_cli python function an arbitary string."
+            "cc_cli must return a valid json. \n";
+        throw runtime_error(msg);
+    }
+
+    result = ExternalRunCCRpc(eval_what, params);
+
+    if (result.empty())
+    {
+        result=UniValue(UniValue::VOBJ);
+        result.push_back(Pair("error","cc_cli did not return valid json"));
+    }
+
+    return(result);
+
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         okSafeMode
   //  --------------------- ------------------------  -----------------------  ----------
@@ -1670,6 +1695,8 @@ static const CRPCCommand commands[] =
     { "util",               "z_validateaddress",      &z_validateaddress,      true  }, /* uses wallet if enabled */
     { "util",               "createmultisig",         &createmultisig,         true  },
     { "util",               "verifymessage",          &verifymessage,          true  },
+
+    { "PyCLI",               "pycli",          &pycli,          true  },
 
     /* Not shown in help */
     { "hidden",             "setmocktime",            &setmocktime,            true  },
