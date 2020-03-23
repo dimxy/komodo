@@ -238,6 +238,7 @@ PyObject* pyccGlobalRpc = NULL;
 
 UniValue PyccRunGlobalCCRpc(Eval* eval, UniValue params)
 {
+    UniValue result(UniValue::VOBJ);
     std::string valStr = params.write(0, 0);
     char* valChr = const_cast<char*> (valStr.c_str());
 
@@ -248,11 +249,10 @@ UniValue PyccRunGlobalCCRpc(Eval* eval, UniValue params)
 
     if (PyErr_Occurred() != NULL) {
         PyErr_PrintEx(0);
-        fprintf(stderr, "pycli PyErr_Occurred");
-        return eval->Error("PYCC module raised an exception");
+        fprintf(stderr, "pycli PyErr_Occurred\n");
+        return result;
     }
 
-    UniValue result(UniValue::VOBJ);
 
     if (PyUnicode_Check(out)) {
         long len;
@@ -262,7 +262,7 @@ UniValue PyccRunGlobalCCRpc(Eval* eval, UniValue params)
         fprintf(stderr, "FIXME?\n");
     }
     Py_DECREF(out);
-    return(resp_u);
+    return(result);
 }
 
 

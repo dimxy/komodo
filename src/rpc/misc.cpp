@@ -1666,7 +1666,7 @@ UniValue decodeccopret(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
 UniValue pycli(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
-    UniValue result(UniValue::VOBJ); Eval* eval_what = 0; // FIXME Dummy eval
+    UniValue result(UniValue::VOBJ); Eval eval;
     if (fHelp || params.size() != 1)
     {
         string msg = "pycli string\n"
@@ -1675,7 +1675,7 @@ UniValue pycli(const UniValue& params, bool fHelp, const CPubKey& mypk)
         throw runtime_error(msg);
     }
 
-    result = ExternalRunCCRpc(eval_what, params);
+    result = ExternalRunCCRpc(&eval, params);
 
     if (result.empty())
     {
