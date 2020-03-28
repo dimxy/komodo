@@ -76,12 +76,18 @@ static PyObject* PyBlockchainEvalInfo(PyObject* self, PyObject* args)
     uint8_t CCpriv[32];         //!< global contract private key, set by CCinit function
     see CCinclude.h for others
     */
+    
+    char CCpriv[65];
+
+    int32_t z;
+    for (int z=0; z<32; z++)
+            sprintf(CCpriv + strlen(CCpriv),"%02x",cp->CCpriv[z]);
 
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("unspendableCCaddr", cp->unspendableCCaddr));
     result.push_back(Pair("CChexstr", cp->CChexstr));
     result.push_back(Pair("normaladdr", cp->normaladdr));
-    result.push_back(Pair("CCpriv", cp->CCpriv));
+    result.push_back(Pair("CCpriv", CCpriv)); 
 
     std::string valStr = result.write(0, 0);
     char* valChr = const_cast<char*> (valStr.c_str());
