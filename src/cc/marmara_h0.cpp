@@ -21,104 +21,107 @@
 
 const bool CHECK_ONLY_CCOPRET = true;
 
-// credit loop data structure allowing to store data from different LCL tx oprets
-struct SMarmaraCreditLoopOpret {
-    bool hasCreateOpret;
-    bool hasIssuanceOpret;
-    bool hasSettlementOpret;
+namespace h0 {
 
-    uint8_t lastfuncid;
+    // credit loop data structure allowing to store data from different LCL tx oprets
+    struct SMarmaraCreditLoopOpret {
+        bool hasCreateOpret;
+        bool hasIssuanceOpret;
+        bool hasSettlementOpret;
 
-    uint8_t autoSettlement;
-    uint8_t autoInsurance;
+        uint8_t lastfuncid;
 
-    // create tx data:
-    CAmount amount;  // loop amount
-    int32_t matures; // check maturing height
-    std::string currency;  // currently MARMARA
+        uint8_t autoSettlement;
+        uint8_t autoInsurance;
 
-    // issuer data:
-    int32_t disputeExpiresHeight;
-    uint8_t escrowOn;
-    CAmount blockageAmount;
+        // create tx data:
+        CAmount amount;  // loop amount
+        int32_t matures; // check maturing height
+        std::string currency;  // currently MARMARA
 
-    // last issuer/endorser/receiver data:
-    uint256 createtxid;
-    CPubKey pk;             // always the last pk in opret
-    int32_t avalCount;      // only for issuer/endorser
+        // issuer data:
+        int32_t disputeExpiresHeight;
+        uint8_t escrowOn;
+        CAmount blockageAmount;
 
-    // settlement data:
-    CAmount remaining;
+        // last issuer/endorser/receiver data:
+        uint256 createtxid;
+        CPubKey pk;             // always the last pk in opret
+        int32_t avalCount;      // only for issuer/endorser
 
-    // init default values:
-    SMarmaraCreditLoopOpret() {
-        hasCreateOpret = false;
-        hasIssuanceOpret = false;
-        hasSettlementOpret = false;
+        // settlement data:
+        CAmount remaining;
 
-        lastfuncid = 0;
+        // init default values:
+        SMarmaraCreditLoopOpret() {
+            hasCreateOpret = false;
+            hasIssuanceOpret = false;
+            hasSettlementOpret = false;
 
-        amount = 0LL;
-        matures = 0;
-        autoSettlement = 1;
-        autoInsurance = 1;
+            lastfuncid = 0;
 
-        createtxid = zeroid;
-        disputeExpiresHeight = 0;
-        avalCount = 0;
-        escrowOn = false;
-        blockageAmount = 0LL;
+            amount = 0LL;
+            matures = 0;
+            autoSettlement = 1;
+            autoInsurance = 1;
 
-        remaining = 0L;
-    }
-};
+            createtxid = zeroid;
+            disputeExpiresHeight = 0;
+            avalCount = 0;
+            escrowOn = false;
+            blockageAmount = 0LL;
 
-
-// Classes to check opret by calling CheckOpret member func for two cases:
-// 1) the opret in cc vout data is checked first and considered primary
-// 2) if it is not required to check only cc opret, the opret in the last vout is checked second and considered secondary
-// returns the opret and pubkey from the opret
-
-class CMarmaraOpretCheckerBase {
-public:
-    bool checkOnlyCC;
-    virtual bool CheckOpret(const CScript &spk, CPubKey &opretpk) const = 0;
-};
-
-// checks if opret for activated coins, returns pk from opret
-class CMarmaraActivatedOpretChecker : public CMarmaraOpretCheckerBase
-{
-public:
-    CMarmaraActivatedOpretChecker() { checkOnlyCC = true; }   // only the cc opret allowed now
-                                                        // CActivatedOpretChecker(bool onlyCC) { checkOnlyCC = onlyCC; }
-    bool CheckOpret(const CScript &spk, CPubKey &opretpk) const
-    {
-        uint8_t funcid;
-        int32_t ht, unlockht;
-
-        return MarmaraDecodeCoinbaseOpret_h0(spk, opretpk, ht, unlockht) != 0;
-    }
-};
-
-// checks if opret for lock-in-loop coins, returns pk from opret
-class CMarmaraLockInLoopOpretChecker : public CMarmaraOpretCheckerBase
-{
-public:
-    CMarmaraLockInLoopOpretChecker() { checkOnlyCC = false; }
-    CMarmaraLockInLoopOpretChecker(bool onlyCC) { checkOnlyCC = onlyCC; }
-    bool CheckOpret(const CScript &spk, CPubKey &opretpk) const
-    {
-        struct SMarmaraCreditLoopOpret loopData;
-
-        uint8_t funcid = MarmaraDecodeLoopOpret_h0(spk, loopData);
-        if (funcid != 0) {
-            opretpk = loopData.pk;
-            return true;
+            remaining = 0L;
         }
-        return false;
-    }
+    };
+
+    // Classes to check opret by calling CheckOpret member func for two cases:
+    // 1) the opret in cc vout data is checked first and considered primary
+    // 2) if it is not required to check only cc opret, the opret in the last vout is checked second and considered secondary
+    // returns the opret and pubkey from the opret
+
+    class CMarmaraOpretCheckerBase {
+    public:
+        bool checkOnlyCC;
+        virtual bool CheckOpret(const CScript &spk, CPubKey &opretpk) const = 0;
+    };
+
+    // checks if opret for activated coins, returns pk from opret
+    class CMarmaraActivatedOpretChecker : public CMarmaraOpretCheckerBase
+    {
+    public:
+        CMarmaraActivatedOpretChecker() { checkOnlyCC = true; }   // only the cc opret allowed now
+                                                            // CActivatedOpretChecker(bool onlyCC) { checkOnlyCC = onlyCC; }
+        bool CheckOpret(const CScript &spk, CPubKey &opretpk) const
+        {
+            uint8_t funcid;
+            int32_t ht, unlockht;
+
+            return MarmaraDecodeCoinbaseOpret_h0(spk, opretpk, ht, unlockht) != 0;
+        }
+    };
+
+    // checks if opret for lock-in-loop coins, returns pk from opret
+    class CMarmaraLockInLoopOpretChecker : public CMarmaraOpretCheckerBase
+    {
+    public:
+        CMarmaraLockInLoopOpretChecker() { checkOnlyCC = false; }
+        CMarmaraLockInLoopOpretChecker(bool onlyCC) { checkOnlyCC = onlyCC; }
+        bool CheckOpret(const CScript &spk, CPubKey &opretpk) const
+        {
+            struct SMarmaraCreditLoopOpret loopData;
+
+            uint8_t funcid = MarmaraDecodeLoopOpret_h0(spk, loopData);
+            if (funcid != 0) {
+                opretpk = loopData.pk;
+                return true;
+            }
+            return false;
+        }
+    };
 };
 
+using namespace h0;
 
 uint8_t MarmaraDecodeCoinbaseOpret_h0(const CScript &scriptPubKey, CPubKey &pk, int32_t &height, int32_t &unlockht)
 {

@@ -74,31 +74,35 @@ const std::set<uint8_t> MARMARA_ACTIVATED_FUNCIDS = { MARMARA_COINBASE, MARMARA_
 const std::set<uint8_t> MARMARA_ACTIVATED_1X_FUNCIDS = { MARMARA_COINBASE, MARMARA_ACTIVATED, MARMARA_ACTIVATED_INITIAL };
 const std::set<uint8_t> MARMARA_ACTIVATED_3X_FUNCIDS = { MARMARA_COINBASE_3X };
 
-struct SMarmaraCreditLoopOpret;
-class CMarmaraOpretCheckerBase;
-class CMarmaraActivatedOpretChecker;
-class CMarmaraLockInLoopOpretChecker;
+namespace h0 {
 
-// issuer and endorser optional params
-struct SMarmaraOptParams {
-    uint8_t autoSettlement;
-    uint8_t autoInsurance;
-    int32_t disputeExpiresOffset;
-    uint8_t escrowOn;
-    CAmount blockageAmount;
-    int32_t avalCount;
+    struct SMarmaraCreditLoopOpret;
+    class CMarmaraOpretCheckerBase;
+    class CMarmaraActivatedOpretChecker;
+    class CMarmaraLockInLoopOpretChecker;
 
-    // default values:
-    SMarmaraOptParams()
-    {
-        autoSettlement = 1;
-        autoInsurance = 1;
+    // issuer and endorser optional params
+    struct SMarmaraOptParams {
+        uint8_t autoSettlement;
+        uint8_t autoInsurance;
+        int32_t disputeExpiresOffset;
+        uint8_t escrowOn;
+        CAmount blockageAmount;
+        int32_t avalCount;
 
-        disputeExpiresOffset = 3 * 365 * 24 * 60; // 3 year if blocktime == 60 sec TODO: convert to normal date calculation as banks do
-        avalCount = 0;
-        escrowOn = false;
-        blockageAmount = 0LL;
-    }
+        // default values:
+        SMarmaraOptParams()
+        {
+            autoSettlement = 1;
+            autoInsurance = 1;
+
+            disputeExpiresOffset = 3 * 365 * 24 * 60; // 3 year if blocktime == 60 sec TODO: convert to normal date calculation as banks do
+            avalCount = 0;
+            escrowOn = false;
+            blockageAmount = 0LL;
+        }
+    };
+
 };
 
 
@@ -109,7 +113,7 @@ bool MarmaraValidate_h0(struct CCcontract_info *cp, Eval* eval, const CTransacti
 
 // functions used in staking code in komodo_bitcoind.h
 uint8_t MarmaraDecodeCoinbaseOpret_h0(const CScript &scriptPubKey, CPubKey &pk, int32_t &height, int32_t &unlockht);
-uint8_t MarmaraDecodeLoopOpret_h0(const CScript scriptPubKey, struct SMarmaraCreditLoopOpret &loopData);
+uint8_t MarmaraDecodeLoopOpret_h0(const CScript scriptPubKey, struct h0::SMarmaraCreditLoopOpret &loopData);
 int32_t MarmaraGetStakeMultiplier_h0(const CTransaction & tx, int32_t nvout);
 int32_t MarmaraValidateStakeTx_h0(const char *destaddr, const CScript &vintxOpret, const CTransaction &staketx, int32_t height);
 
