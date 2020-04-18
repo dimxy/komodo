@@ -24,6 +24,8 @@
 - fixed daemon crash if multiple setgenerate true 0 calls are done
 ```
 
+### **NOT : [ Marmara Credit Loops Windows Kurulum ve Kullanım.](https://github.com/marmarachain/MarmaraChain/blob/master/win-mcl.md)**
+
 # Marmara v.1.0.1 setup
 
 Aciklama
