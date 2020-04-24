@@ -141,7 +141,7 @@ size_t cc_fulfillmentBinary(const CC *cond, unsigned char *buf, size_t length) {
     return cc_fulfillmentBinaryWithFlags(cond, buf, length, 0);
 }
 
-size_t cc_fulfillmentBinaryMixed(const CC *cond, unsigned char *buf, size_t length) {
+size_t cc_fulfillmentBinaryMixedMode(const CC *cond, unsigned char *buf, size_t length) {
     return cc_fulfillmentBinaryWithFlags(cond, buf, length, MixedMode);
 }
 
@@ -225,37 +225,17 @@ end:
     return cond;
 }
 
+CC *cc_readFulfillmentBinary(const unsigned char *ffill_bin, size_t ffill_bin_len) {
+    return cc_readFulfillmentBinaryWithFlags(ffill_bin, ffill_bin_len, 0);
+}
+
 CC *cc_readFulfillmentBinaryMixedMode(const unsigned char *ffill_bin, size_t ffill_bin_len) {
     return cc_readFulfillmentBinaryWithFlags(ffill_bin, ffill_bin_len, MixedMode);
 }
 
 int cc_readFulfillmentBinaryExt(const unsigned char *ffill_bin, size_t ffill_bin_len, CC **ppcc) {
-
-    int error = 0;
-    unsigned char *buf = calloc(1,ffill_bin_len);
-    Fulfillment_t *ffill = 0;
-    asn_dec_rval_t rval = ber_decode(0, &asn_DEF_Fulfillment, (void **)&ffill, ffill_bin, ffill_bin_len);
-    if (rval.code != RC_OK) {
-        error = rval.code;
-        goto end;
-    }
-    // Do malleability check
-    asn_enc_rval_t rc = der_encode_to_buffer(&asn_DEF_Fulfillment, ffill, buf, ffill_bin_len);
-    if (rc.encoded == -1) {
-        fprintf(stderr, "FULFILLMENT NOT ENCODED\n");
-        error = -1;
-        goto end;
-    }
-    if (rc.encoded != ffill_bin_len || 0 != memcmp(ffill_bin, buf, rc.encoded)) {
-        error = (rc.encoded == ffill_bin_len) ? -3 : -2;
-        goto end;
-    }
-    
-    *ppcc = fulfillmentToCC(ffill, 0);
-end:
-    free(buf);
-    if (ffill) ASN_STRUCT_FREE(asn_DEF_Fulfillment, ffill);
-    return error;
+    *ppcc = cc_readFulfillmentBinary(ffill_bin, ffill_bin_len);
+    return (*ppcc) ? 0 : -1;
 }
 
 
