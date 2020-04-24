@@ -160,6 +160,9 @@ bool GetOpReturnData(const CScript &sig, std::vector<unsigned char> &data)
 }
 
 
+const uint8_t CC_MIXED_MODE_PREFIX = 'M';
+
+
 struct CC* cc_readConditionBinaryMaybeMixed(const uint8_t *condBin, size_t condBinLength)
 {
     if (condBinLength == 0)
