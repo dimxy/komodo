@@ -17,11 +17,23 @@
 #include "asn/Fulfillment.h"
 #include "asn/PrefixFingerprintContents.h"
 #include "asn/OCTET_STRING.h"
-//#include <cJSON.h>
-//#include "../include/cryptoconditions.h"
+#include "../include/cryptoconditions.h"
 
 
 struct CCType CC_AnonType;
+
+
+CC* cc_anon(const CC *cond) {
+    CC *out = cc_new(CC_Anon);
+    out->conditionType = cond->type;
+    out->cost = cc_getCost(cond);
+    out->subtypes = cond->type->getSubtypes(cond);
+
+    unsigned char *fp = cond->type->fingerprint(cond);
+    memcpy(out->fingerprint, fp, 32);
+    free(fp);
+    return out;
+}
 
 
 CC *mkAnon(const Condition_t *asnCond) {
@@ -71,7 +83,7 @@ static uint32_t anonSubtypes(const CC *cond) {
 }
 
 
-static Fulfillment_t *anonFulfillment(const CC *cond) {
+static Fulfillment_t *anonFulfillment(const CC *cond, FulfillmentFlags _flags) {
     return NULL;
 }
 

@@ -275,13 +275,13 @@ static void secp256k1ToJSON(const CC *cond, cJSON *params) {
 }
 
 
-static CC *secp256k1FromFulfillment(const Fulfillment_t *ffill) {
+static CC *secp256k1FromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags _flags) {
     return cc_secp256k1Condition(ffill->choice.secp256k1Sha256.publicKey.buf,
                                  ffill->choice.secp256k1Sha256.signature.buf);
 }
 
 
-static Fulfillment_t *secp256k1ToFulfillment(const CC *cond) {
+static Fulfillment_t *secp256k1ToFulfillment(const CC *cond, FulfillmentFlags _flags) {
     if (!cond->signature) {
         return NULL;
     }
