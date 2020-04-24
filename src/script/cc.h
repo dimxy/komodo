@@ -102,4 +102,18 @@ bool GetPushData(const CScript &sig, std::vector<unsigned char> &data);
  */
 bool GetOpReturnData(const CScript &sig, std::vector<unsigned char> &data);
 
+
+uint8_t CC_MIXED_MODE_PREFIX = 'M';
+
+/*
+ * Read a condition binary that might be mixed mode (prefixed with 'M')
+ */
+struct CC* cc_readConditionBinaryMaybeMixed(const uint8_t *condBin, size_t condBinLength);
+
+/*
+ * Perform a mixed mode verification (where the condition binary might have a Mixed Mode fulfillment)
+ */
+int cc_verifyMaybeMixed(const struct CC *cond, const uint256 sigHash,
+        const uint8_t *condBin, size_t condBinLength, VerifyEval verifyEval, void *evalContext);
+
 #endif /* SCRIPT_CC_H */
