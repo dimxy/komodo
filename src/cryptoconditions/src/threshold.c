@@ -136,6 +136,7 @@ static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags
     if (flags & MixedMode) {
         CC *tc = fulfillmentToCC(t->subfulfillments.list.array[0], flags);
         if (tc->type->typeId != CC_Preimage || tc->preimageLength != 1) {
+            free(cond);
             return NULL;
         }
         cond->threshold = tc->preimage[0];
