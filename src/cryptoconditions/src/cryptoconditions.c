@@ -126,8 +126,8 @@ end:
 }
 
 
-size_t cc_fulfillmentBinary(const CC *cond, unsigned char *buf, size_t length) {
-    Fulfillment_t *ffill = asnFulfillmentNew(cond);
+size_t cc_fulfillmentBinaryWithFlags(const CC *cond, unsigned char *buf, size_t length, bool flags) {
+    Fulfillment_t *ffill = asnFulfillmentNew(cond, flags);
     asn_enc_rval_t rc = der_encode_to_buffer(&asn_DEF_Fulfillment, ffill, buf, length);
     if (rc.encoded == -1) {
         fprintf(stderr, "FULFILLMENT NOT ENCODED\n");
@@ -136,6 +136,15 @@ size_t cc_fulfillmentBinary(const CC *cond, unsigned char *buf, size_t length) {
     ASN_STRUCT_FREE(asn_DEF_Fulfillment, ffill);
     return rc.encoded;
 }
+
+size_t cc_fulfillmentBinary(const CC *cond, unsigned char *buf, size_t length) {
+    return cc_fulfillmentBinaryWithFlags(cond, buf, length, 0);
+}
+
+size_t cc_fulfillmentBinaryMixed(const CC *cond, unsigned char *buf, size_t length) {
+    return cc_fulfillmentBinaryWithFlags(cond, buf, length, MixedMode);
+}
+
 
 
 void asnCondition(const CC *cond, Condition_t *asn) {
@@ -161,8 +170,8 @@ Condition_t *asnConditionNew(const CC *cond) {
 }
 
 
-Fulfillment_t *asnFulfillmentNew(const CC *cond) {
-    return cond->type->toFulfillment(cond);
+Fulfillment_t *asnFulfillmentNew(const CC *cond, FulfillmentFlags flags) {
+    return cond->type->toFulfillment(cond, flags);
 }
 
 
@@ -181,17 +190,17 @@ CCType *getTypeByAsnEnum(Condition_PR present) {
 }
 
 
-CC *fulfillmentToCC(Fulfillment_t *ffill) {
+CC *fulfillmentToCC(Fulfillment_t *ffill, const FulfillmentFlags flags) {
     CCType *type = getTypeByAsnEnum(ffill->present);
     if (!type) {
         fprintf(stderr, "Unknown fulfillment type: %i\n", ffill->present);
         return 0;
     }
-    return type->fromFulfillment(ffill);
+    return type->fromFulfillment(ffill, flags);
 }
 
 
-CC *cc_readFulfillmentBinary(const unsigned char *ffill_bin, size_t ffill_bin_len) {
+CC *cc_readFulfillmentBinaryWithFlags(const unsigned char *ffill_bin, size_t ffill_bin_len, FulfillmentFlags flags) {
     CC *cond = 0;
     unsigned char *buf = calloc(1,ffill_bin_len);
     Fulfillment_t *ffill = 0;
@@ -209,11 +218,15 @@ CC *cc_readFulfillmentBinary(const unsigned char *ffill_bin, size_t ffill_bin_le
         goto end;
     }
     
-    cond = fulfillmentToCC(ffill);
+    cond = fulfillmentToCC(ffill, flags);
 end:
     free(buf);
     if (ffill) ASN_STRUCT_FREE(asn_DEF_Fulfillment, ffill);
     return cond;
+}
+
+CC *cc_readFulfillmentBinaryMixedMode(const unsigned char *ffill_bin, size_t ffill_bin_len) {
+    return cc_readFulfillmentBinaryWithFlags(ffill_bin, ffill_bin_len, MixedMode);
 }
 
 int cc_readFulfillmentBinaryExt(const unsigned char *ffill_bin, size_t ffill_bin_len, CC **ppcc) {
@@ -238,7 +251,7 @@ int cc_readFulfillmentBinaryExt(const unsigned char *ffill_bin, size_t ffill_bin
         goto end;
     }
     
-    *ppcc = fulfillmentToCC(ffill);
+    *ppcc = fulfillmentToCC(ffill, 0);
 end:
     free(buf);
     if (ffill) ASN_STRUCT_FREE(asn_DEF_Fulfillment, ffill);

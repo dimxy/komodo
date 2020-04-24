@@ -52,9 +52,9 @@ static unsigned long prefixCost(const CC *cond) {
 }
 
 
-static CC *prefixFromFulfillment(const Fulfillment_t *ffill) {
+static CC *prefixFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags flags) {
     PrefixFulfillment_t *p = ffill->choice.prefixSha256;
-    CC *sub = fulfillmentToCC(p->subfulfillment);
+    CC *sub = fulfillmentToCC(p->subfulfillment, flags);
     if (!sub) return 0;
     CC *cond = cc_new(CC_Prefix);
     cond->maxMessageLength = p->maxMessageLength;
@@ -66,8 +66,8 @@ static CC *prefixFromFulfillment(const Fulfillment_t *ffill) {
 }
 
 
-static Fulfillment_t *prefixToFulfillment(const CC *cond) {
-    Fulfillment_t *ffill = asnFulfillmentNew(cond->subcondition);
+static Fulfillment_t *prefixToFulfillment(const CC *cond, FulfillmentFlags flags) {
+    Fulfillment_t *ffill = asnFulfillmentNew(cond->subcondition, flags);
     if (!ffill) {
         return NULL;
     }

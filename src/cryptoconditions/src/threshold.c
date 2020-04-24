@@ -17,8 +17,6 @@
 #include "asn/Fulfillment.h"
 #include "asn/ThresholdFingerprintContents.h"
 #include "asn/OCTET_STRING.h"
-//#include <cJSON.h>
-//#include "../include/cryptoconditions.h"
 #include "internal.h"
 
 
@@ -124,50 +122,88 @@ static int cmpConditionCost(const void *a, const void *b) {
 }
 
 
-static CC *thresholdFromFulfillment(const Fulfillment_t *ffill) {
+static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags flags) {
     ThresholdFulfillment_t *t = ffill->choice.thresholdSha256;
-    int threshold = t->subfulfillments.list.count;
-    int size = threshold + t->subconditions.list.count;
+    CC *cond = cc_new(CC_Threshold);
 
-    CC **subconditions = calloc(size, sizeof(CC*));
+    cond->threshold = t->subfulfillments.list.count;
 
-    for (int i=0; i<size; i++) {
-        subconditions[i] = (i < threshold) ?
-            fulfillmentToCC(t->subfulfillments.list.array[i]) :
-            mkAnon(t->subconditions.list.array[i-threshold]);
+    int offset = 0;
 
-        if (!subconditions[i]) {
-            for (int j=0; j<i; j++) free(subconditions[j]);
-            free(subconditions);
+    // MixedMode hack
+    if (flags & MixedMode) {
+        CC *tc = fulfillmentToCC(t->subfulfillments.list.array[0], flags);
+        if (tc->type->typeId != CC_Preimage || tc->preimageLength != 1) {
+            return NULL;
+        }
+        cond->threshold = tc->preimage[0];
+        offset = 1;
+        cc_free(tc);
+    }
+
+    cond->size = cond->threshold + t->subconditions.list.count;
+    cond->subconditions = calloc(cond->size, sizeof(CC*));
+
+    for (int i=0; i<cond->size; i++) {
+
+        cond->subconditions[i] = (i < cond->threshold) ?
+            fulfillmentToCC(t->subfulfillments.list.array[i+offset], flags) :
+            mkAnon(t->subconditions.list.array[i-cond->threshold]);
+
+        if (!cond->subconditions[i]) {
+            free(cond);
             return 0;
         }
     }
 
-    CC *cond = cc_new(CC_Threshold);
-    cond->threshold = threshold;
-    cond->size = size;
-    cond->subconditions = subconditions;
     return cond;
 }
 
 
-static Fulfillment_t *thresholdToFulfillment(const CC *cond) {
-    CC *sub;
+static Fulfillment_t *thresholdToFulfillmentMixed(const CC *cond, FulfillmentFlags flags) {
     Fulfillment_t *fulfillment;
+    ThresholdFulfillment_t *tf = calloc(1, sizeof(ThresholdFulfillment_t));
+
+    // Add a marker into the threshold to indicate `t`
+    CC* t = cc_new(CC_Preimage);
+    t->code = calloc(1, 2);
+    t->code[0] = cond->threshold;
+    t->preimageLength = 1;
+    asn_set_add(&tf->subfulfillments, asnFulfillmentNew(t, flags));
+
+    for (int i=0; i<cond->size; i++) {
+        CC *sub = cond->subconditions[i];
+        if (fulfillment = asnFulfillmentNew(sub, flags)) {
+            asn_set_add(&tf->subfulfillments, fulfillment);
+        } else {
+            asn_set_add(&tf->subconditions, asnConditionNew(sub));
+        }
+    }
+
+    fulfillment = calloc(1, sizeof(Fulfillment_t));
+    fulfillment->present = Fulfillment_PR_thresholdSha256;
+    fulfillment->choice.thresholdSha256 = tf;
+    return fulfillment;
+}
+
+
+static Fulfillment_t *thresholdToFulfillment(const CC *cond, FulfillmentFlags flags) {
+    if (flags & MixedMode) return thresholdToFulfillmentMixed(cond, flags);
+
+    Fulfillment_t *fulfillment;
+    ThresholdFulfillment_t *tf = calloc(1, sizeof(ThresholdFulfillment_t));
+    int needed;
 
     // Make a copy of subconditions so we can leave original order alone
     CC** subconditions = malloc(cond->size*sizeof(CC*));
     memcpy(subconditions, cond->subconditions, cond->size*sizeof(CC*));
-    
+
     qsort(subconditions, cond->size, sizeof(CC*), cmpConditionCost);
-
-    ThresholdFulfillment_t *tf = calloc(1, sizeof(ThresholdFulfillment_t));
-
-    int needed = cond->threshold;
+    needed = cond->threshold;
 
     for (int i=0; i<cond->size; i++) {
-        sub = subconditions[i];
-        if (needed && (fulfillment = asnFulfillmentNew(sub))) {
+        CC *sub = subconditions[i];
+        if (needed && (fulfillment = asnFulfillmentNew(sub, flags))) {
             asn_set_add(&tf->subfulfillments, fulfillment);
             needed--;
         } else {

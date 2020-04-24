@@ -49,7 +49,7 @@ static void preimageFingerprint(const CC *cond, uint8_t *out) {
 }
 
 
-static CC *preimageFromFulfillment(const Fulfillment_t *ffill) {
+static CC *preimageFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags _flags) {
     CC *cond = cc_new(CC_Preimage);
     PreimageFulfillment_t p = ffill->choice.preimageSha256;
     cond->preimage = calloc(1, p.preimage.size);
@@ -59,7 +59,7 @@ static CC *preimageFromFulfillment(const Fulfillment_t *ffill) {
 }
 
 
-static Fulfillment_t *preimageToFulfillment(const CC *cond) {
+static Fulfillment_t *preimageToFulfillment(const CC *cond, FulfillmentFlags _flags) {
     Fulfillment_t *ffill = calloc(1, sizeof(Fulfillment_t));
     ffill->present = Fulfillment_PR_preimageSha256;
     PreimageFulfillment_t *pf = &ffill->choice.preimageSha256;

@@ -20,6 +20,7 @@ $(LIBSECP256K1): $(wildcard src/secp256k1/*)
 CRYPTOCONDITIONS_CORE=libcryptoconditions_core.la
 
 libcryptoconditions_core_la_SOURCES = \
+	include/cryptoconditions.h \
 	src/cryptoconditions.c \
 	src/utils.c \
 	src/include/cJSON.c \

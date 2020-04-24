@@ -32,6 +32,15 @@ typedef char bool;
 
 
 /*
+ * Fulfillment Flags
+ */
+
+typedef enum {
+    MixedMode = 1 << 0
+} FulfillmentFlags;
+
+
+/*
  * Condition Type
  */
 typedef struct CCType {
@@ -44,8 +53,8 @@ typedef struct CCType {
     uint32_t (*getSubtypes)(const  CC *cond);
     CC *(*fromJSON)(const cJSON *params, char *err);
     void (*toJSON)(const CC *cond, cJSON *params);
-    CC *(*fromFulfillment)(const Fulfillment_t *ffill);
-    Fulfillment_t *(*toFulfillment)(const CC *cond);
+    CC *(*fromFulfillment)(const Fulfillment_t *ffill, const FulfillmentFlags flags);
+    Fulfillment_t *(*toFulfillment)(const CC *cond, const FulfillmentFlags flags);
     int (*isFulfilled)(const CC *cond);
     void (*free)(struct CC *cond);
 } CCType;
@@ -65,8 +74,8 @@ uint32_t fromAsnSubtypes(ConditionTypes_t types);
 CC *mkAnon(const Condition_t *asnCond);
 void asnCondition(const CC *cond, Condition_t *asn);
 Condition_t *asnConditionNew(const CC *cond);
-Fulfillment_t *asnFulfillmentNew(const CC *cond);
-struct CC *fulfillmentToCC(Fulfillment_t *ffill);
+Fulfillment_t *asnFulfillmentNew(const CC *cond, const FulfillmentFlags flags);
+struct CC *fulfillmentToCC(Fulfillment_t *ffill, const FulfillmentFlags flags);
 struct CCType *getTypeByAsnEnum(Condition_PR present);
 
 
