@@ -76,7 +76,7 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,C
         return Invalid("empty-eval");
 
     uint8_t ecode = cond->code[0];
-    if (evalcodeChecker!=NULL && evalcodeChecker->CheckEvalCode(ecode)!=0) return true;
+    if (evalcodeChecker!=NULL && evalcodeChecker->CheckEvalCode(txTo.GetHash(),ecode)!=0) return true;
     if ( ASSETCHAINS_CCDISABLES[ecode] != 0 )
     {
         // check if a height activation has been set. 
@@ -112,7 +112,7 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,C
             break;
 
         default:
-            if (evalcodeChecker!=NULL) evalcodeChecker->MarkEvalCode(ecode);
+            if (evalcodeChecker!=NULL) evalcodeChecker->MarkEvalCode(txTo.GetHash(),ecode);
             return(ProcessCC(cp,this, vparams, txTo, nIn));
             break;
     }

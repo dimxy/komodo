@@ -1008,7 +1008,7 @@ bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,co
         height &= ((1<<30) - 1);
     }
     evalcode = cond->code[0];
-    if (evalcodeChecker!=NULL && evalcodeChecker->CheckEvalCode(evalcode)!=0) return true;
+    if (evalcodeChecker!=NULL && evalcodeChecker->CheckEvalCode(txTo.GetHash(),evalcode)!=0) return true;
     if ( evalcode >= EVAL_FIRSTUSER && evalcode <= EVAL_LASTUSER )
     {
         cp = &CCinfos[(int32_t)evalcode];
@@ -1023,7 +1023,7 @@ bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,co
             return eval->Invalid("Cannot have params");
         else if ( CClib_validate(cp,height,eval,txTo,nIn) != 0 )
         {
-            if (evalcodeChecker!=NULL) evalcodeChecker->MarkEvalCode(evalcode);
+            if (evalcodeChecker!=NULL) evalcodeChecker->MarkEvalCode(txTo.GetHash(),evalcode);
             return(true);
         }
         return(false); //eval->Invalid("error in CClib_validate");
