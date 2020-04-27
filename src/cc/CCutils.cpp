@@ -948,7 +948,7 @@ int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey)
     return total;
 }
 
-bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull,const CTransaction &ctx, unsigned int nIn)
+bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull,const CTransaction &ctx, unsigned int nIn, CCheckCCEvalCodes *evalcodeChecker)
 {
     CTransaction createTx; uint256 assetid,assetid2,hashBlock; uint8_t funcid; int32_t height,i,n,from_mempool = 0; int64_t amount; std::vector<uint8_t> origpubkey;
     height = KOMODO_CONNECTING;
@@ -979,6 +979,7 @@ bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> param
     {
         //fprintf(stderr,"done CC %02x\n",cp->evalcode);
         //cp->prevtxid = txid;
+        if (evalcodeChecker!=NULL) evalcodeChecker->MarkEvalCode(ctx.GetHash(),cp->evalcode);
         return(true);
     }
     //fprintf(stderr,"invalid CC %02x\n",cp->evalcode);

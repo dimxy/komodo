@@ -112,8 +112,7 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,C
             break;
 
         default:
-            if (evalcodeChecker!=NULL) evalcodeChecker->MarkEvalCode(txTo.GetHash(),ecode);
-            return(ProcessCC(cp,this, vparams, txTo, nIn));
+            return(ProcessCC(cp,this, vparams, txTo, nIn, evalcodeChecker));
             break;
     }
     return Invalid("invalid-code, dont forget to add EVAL_NEWCC to Eval::Dispatch");

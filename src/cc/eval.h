@@ -290,7 +290,7 @@ typedef std::pair<uint256,MerkleBranch> TxProof;
 
 uint256 GetMerkleRoot(const std::vector<uint256>& vLeaves);
 struct CCcontract_info *CCinit(struct CCcontract_info *cp,uint8_t evalcode);
-bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction &tx, unsigned int nIn);
+bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction &tx, unsigned int nIn, CCheckCCEvalCodes *evalcodeChecker);
 
 
 #endif /* CC_EVAL_H */
