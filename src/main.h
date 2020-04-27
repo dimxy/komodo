@@ -662,23 +662,30 @@ CAmount GetMinRelayFee(const CTransaction& tx, unsigned int nBytes, bool fAllowF
 class CCheckCCEvalCodes
 {
     //! The set of evalcodes that are already processed in CC validation.
-    std::set<uint8_t> evalcodes;
+    std::map<uint256, std::set<uint8_t> > evalcodes;
 
     //! Mutex to protect evalcodes map
     boost::mutex mutex_eval;
 
 public:
-    void MarkEvalCode(uint8_t ecode)
+    void MarkEvalCode(uint256 txid,uint8_t ecode)
     {
         boost::unique_lock<boost::mutex> lock(mutex_eval);
-        if (evalcodes.find(ecode)==evalcodes.end()) evalcodes.insert(ecode);
+        auto search = evalcodes.find(txid);
+        if (search==evalcodes.end())
+        {
+            std::set<uint8_t> tmp;
+            tmp.insert(ecode);
+            evalcodes[txid]=tmp;
+        }
+        else search->second.insert(ecode);
     }
 
-    bool CheckEvalCode(uint8_t ecode)
+    bool CheckEvalCode(uint256 txid, uint8_t ecode)
     {
         boost::unique_lock<boost::mutex> lock(mutex_eval);
-        auto search = evalcodes.find(ecode);
-        return search==evalcodes.end()?false:true;
+        auto search = evalcodes.find(txid);
+        return search==evalcodes.end()?false:(search->second.find(ecode)!=search->second.end());
     }
 };
 
