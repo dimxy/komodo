@@ -42,22 +42,36 @@ void endiancpy(uint8_t *dest,uint8_t *src,int32_t len)
 #endif
 }
 
-CC *MakeCCcond1of2(uint8_t evalcode,CPubKey pk1,CPubKey pk2)
+CC *MakeCCcond1of2(uint8_t evalcode,CPubKey pk1,CPubKey pk2,bool mixedMode)
 {
-    std::vector<CC*> pks;
+    std::vector<CC*> pks; CC *Sig;
     pks.push_back(CCNewSecp256k1(pk1));
     pks.push_back(CCNewSecp256k1(pk2));
     CC *condCC = CCNewEval(E_MARSHAL(ss << evalcode));
-    CC *Sig = CCNewThreshold(1, pks);
+    if (mixedMode)
+    {
+        CC *SigPlain = CCNewThreshold(1, pks);
+        Sig = cc_anon(SigPlain);
+        cc_free(SigPlain);
+    }
+    else
+        Sig = CCNewThreshold(1, pks);
     return CCNewThreshold(2, {condCC, Sig});
 }
 
-CC *MakeCCcond1(uint8_t evalcode,CPubKey pk)
+CC *MakeCCcond1(uint8_t evalcode,CPubKey pk,bool mixedMode)
 {
-    std::vector<CC*> pks;
+    std::vector<CC*> pks; CC *Sig;
     pks.push_back(CCNewSecp256k1(pk));
     CC *condCC = CCNewEval(E_MARSHAL(ss << evalcode));
-    CC *Sig = CCNewThreshold(1, pks);
+    if (mixedMode)
+    {
+        CC *SigPlain = CCNewThreshold(1, pks);
+        Sig = cc_anon(SigPlain);
+        cc_free(SigPlain);
+    }
+    else
+        Sig = CCNewThreshold(1, pks);
     return CCNewThreshold(2, {condCC, Sig});
 }
 
