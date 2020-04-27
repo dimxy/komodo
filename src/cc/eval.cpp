@@ -27,18 +27,18 @@
 #include "core_io.h"
 #include "crosschain.h"
 
-bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn);
+bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn, CCheckCCEvalCodes *evalcodeChecker);
 char *CClib_name();
 
 Eval* EVAL_TEST = 0;
 struct CCcontract_info CCinfos[0x100];
 extern pthread_mutex_t KOMODO_CC_mutex;
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn)
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn,CCheckCCEvalCodes *evalcodeChecker)
 {
     EvalRef eval;
     pthread_mutex_lock(&KOMODO_CC_mutex);
-    bool out = eval->Dispatch(cond, tx, nIn);
+    bool out = eval->Dispatch(cond, tx, nIn, evalcodeChecker);
     pthread_mutex_unlock(&KOMODO_CC_mutex);
     if ( eval->state.IsValid() != out)
         fprintf(stderr,"out %d vs %d isValid\n",(int32_t)out,(int32_t)eval->state.IsValid());
@@ -69,13 +69,14 @@ bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn)
 /*
  * Test the validity of an Eval node
  */
-bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn)
+bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,CCheckCCEvalCodes *evalcodeChecker)
 {
     struct CCcontract_info *cp;
     if (cond->codeLength == 0)
         return Invalid("empty-eval");
 
     uint8_t ecode = cond->code[0];
+    if (evalcodeChecker!=NULL && evalcodeChecker->CheckEvalCode(ecode)!=0) return true;
     if ( ASSETCHAINS_CCDISABLES[ecode] != 0 )
     {
         // check if a height activation has been set. 
@@ -90,7 +91,7 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn)
     if ( ecode >= EVAL_FIRSTUSER && ecode <= EVAL_LASTUSER )
     {
         if ( ASSETCHAINS_CCLIB.size() > 0 && ASSETCHAINS_CCLIB == CClib_name() )
-            return CClib_Dispatch(cond,this,vparams,txTo,nIn);
+            return CClib_Dispatch(cond,this,vparams,txTo,nIn,evalcodeChecker);
         else return Invalid("mismatched -ac_cclib vs CClib_name");
     }
     cp = &CCinfos[(int32_t)ecode];
@@ -111,6 +112,7 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn)
             break;
 
         default:
+            if (evalcodeChecker!=NULL) evalcodeChecker->MarkEvalCode(ecode);
             return(ProcessCC(cp,this, vparams, txTo, nIn));
             break;
     }

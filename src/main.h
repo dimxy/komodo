@@ -659,6 +659,29 @@ struct CDiskTxPos : public CDiskBlockPos
 
 CAmount GetMinRelayFee(const CTransaction& tx, unsigned int nBytes, bool fAllowFree);
 
+class CCheckCCEvalCodes
+{
+    //! The set of evalcodes that are already processed in CC validation.
+    std::set<uint8_t> evalcodes;
+
+    //! Mutex to protect evalcodes map
+    boost::mutex mutex_eval;
+
+public:
+    void MarkEvalCode(uint8_t ecode)
+    {
+        boost::unique_lock<boost::mutex> lock(mutex_eval);
+        if (evalcodes.find(ecode)==evalcodes.end()) evalcodes.insert(ecode);
+    }
+
+    bool CheckEvalCode(uint8_t ecode)
+    {
+        boost::unique_lock<boost::mutex> lock(mutex_eval);
+        auto search = evalcodes.find(ecode);
+        return search==evalcodes.end()?false:true;
+    }
+};
+
 /**
  * Check transaction inputs, and make sure any
  * pay-to-script-hash transactions are evaluating IsStandard scripts
@@ -702,7 +725,7 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& ma
  */
 bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
                            unsigned int flags, bool cacheStore, PrecomputedTransactionData& txdata,
-                           const Consensus::Params& consensusParams, uint32_t consensusBranchId,
+                           const Consensus::Params& consensusParams, uint32_t consensusBranchId, CCheckCCEvalCodes &evalcodeChecker,
                            std::vector<CScriptCheck> *pvChecks = NULL);
 
 /** Check a transaction contextually against a set of consensus rules */
@@ -771,12 +794,13 @@ private:
     uint32_t consensusBranchId;
     ScriptError error;
     PrecomputedTransactionData *txdata;
+    CCheckCCEvalCodes *evalcodeChecker;
 
 public:
     CScriptCheck(): amount(0), ptxTo(0), nIn(0), nFlags(0), cacheStore(false), consensusBranchId(0), error(SCRIPT_ERR_UNKNOWN_ERROR) {}
-    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, uint32_t consensusBranchIdIn, PrecomputedTransactionData* txdataIn) :
+    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, uint32_t consensusBranchIdIn, CCheckCCEvalCodes &evalcodeCheckerIn,PrecomputedTransactionData* txdataIn) :
         scriptPubKey(CCoinsViewCache::GetSpendFor(&txFromIn, txToIn.vin[nInIn])), amount(txFromIn.vout[txToIn.vin[nInIn].prevout.n].nValue),
-        ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), consensusBranchId(consensusBranchIdIn), error(SCRIPT_ERR_UNKNOWN_ERROR), txdata(txdataIn) { }
+        ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), consensusBranchId(consensusBranchIdIn), error(SCRIPT_ERR_UNKNOWN_ERROR), evalcodeChecker(&evalcodeCheckerIn),txdata(txdataIn) { }
 
     bool operator()();
 
