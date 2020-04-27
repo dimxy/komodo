@@ -975,7 +975,7 @@ extern struct CCcontract_info CCinfos[0x100];
 extern std::string MYCCLIBNAME;
 bool CClib_validate(struct CCcontract_info *cp,int32_t height,Eval *eval,const CTransaction tx,unsigned int nIn);
 
-bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn)
+bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn,CCheckCCEvalCodes *evalcodeChecker)
 {
     uint8_t evalcode; int32_t height,from_mempool; struct CCcontract_info *cp;
     if ( ASSETCHAINS_CCLIB != MYCCLIBNAME )
@@ -994,6 +994,7 @@ bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,co
         height &= ((1<<30) - 1);
     }
     evalcode = cond->code[0];
+    if (evalcodeChecker!=NULL && evalcodeChecker->CheckEvalCode(evalcode)!=0) return true;
     if ( evalcode >= EVAL_FIRSTUSER && evalcode <= EVAL_LASTUSER )
     {
         cp = &CCinfos[(int32_t)evalcode];
@@ -1007,7 +1008,10 @@ bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,co
         if ( paramsNull.size() != 0 ) // Don't expect params
             return eval->Invalid("Cannot have params");
         else if ( CClib_validate(cp,height,eval,txTo,nIn) != 0 )
+        {
+            if (evalcodeChecker!=NULL) evalcodeChecker->MarkEvalCode(evalcode);
             return(true);
+        }
         return(false); //eval->Invalid("error in CClib_validate");
     }
     return eval->Invalid("cclib CC must have evalcode between 16 and 127");

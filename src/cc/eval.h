@@ -70,6 +70,7 @@ typedef uint8_t EvalCode;
 
 class AppVM;
 class NotarisationData;
+class CCheckCCEvalCodes;
 
 
 class Eval
@@ -84,7 +85,7 @@ public:
     /*
      * Test validity of a CC_Eval node
      */
-    virtual bool Dispatch(const CC *cond, const CTransaction &tx, unsigned int nIn);
+    virtual bool Dispatch(const CC *cond, const CTransaction &tx, unsigned int nIn, CCheckCCEvalCodes *evalcodeChecker);
 
     /*
      * Dispute a payout using a VM
@@ -134,7 +135,7 @@ public:
 
 
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn);
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, CCheckCCEvalCodes *evalcodeChecker);
 
 
 /*
