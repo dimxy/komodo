@@ -51,9 +51,6 @@ OS : Ubuntu 16.04 LTS x86_64
 ```
 #### 2. kısım - Install nanomsg 
 ```	
-2. kısım
-	Install nanomsg
-	
 	cd /tmp
 	wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz -O nanomsg-1.0.0.tar.gz --no-check-certificate
 	tar -xzvf nanomsg-1.0.0.tar.gz
@@ -275,9 +272,6 @@ OS : Ubuntu 16.04 LTS x86_64
 ```
 #### 2. step - Install nanomsg 
 ```	
-2. kısım
-	Install nanomsg
-	
 	cd /tmp
 	wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz -O nanomsg-1.0.0.tar.gz --no-check-certificate
 	tar -xzvf nanomsg-1.0.0.tar.gz
