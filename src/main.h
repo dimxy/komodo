@@ -734,6 +734,13 @@ bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, cons
                            unsigned int flags, bool cacheStore, PrecomputedTransactionData& txdata,
                            const Consensus::Params& consensusParams, uint32_t consensusBranchId, CCheckCCEvalCodes &evalcodeChecker,
                            std::vector<CScriptCheck> *pvChecks = NULL);
+bool ContextualCheckOutputs(
+                           const CTransaction& tx,
+                           CValidationState &state,
+                           bool fScriptChecks,
+                           PrecomputedTransactionData& txdata,
+                           CCheckCCEvalCodes &evalcodeChecker,
+                           std::vector<CScriptCheck> *pvChecks = NULL);
 
 /** Check a transaction contextually against a set of consensus rules */
 bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockIndex * const pindexPrev,const CTransaction& tx, CValidationState &state, int nHeight, int dosLevel,
@@ -795,27 +802,30 @@ private:
     CScript scriptPubKey;
     CAmount amount;
     const CTransaction *ptxTo;
-    unsigned int nIn;
+    unsigned int n;
     unsigned int nFlags;
     bool cacheStore;
     uint32_t consensusBranchId;
     ScriptError error;
     PrecomputedTransactionData *txdata;
     CCheckCCEvalCodes *evalcodeChecker;
+    bool vout;
 
 public:
-    CScriptCheck(): amount(0), ptxTo(0), nIn(0), nFlags(0), cacheStore(false), consensusBranchId(0), error(SCRIPT_ERR_UNKNOWN_ERROR) {}
-    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nInIn, unsigned int nFlagsIn, bool cacheIn, uint32_t consensusBranchIdIn, CCheckCCEvalCodes &evalcodeCheckerIn,PrecomputedTransactionData* txdataIn) :
-        scriptPubKey(CCoinsViewCache::GetSpendFor(&txFromIn, txToIn.vin[nInIn])), amount(txFromIn.vout[txToIn.vin[nInIn].prevout.n].nValue),
-        ptxTo(&txToIn), nIn(nInIn), nFlags(nFlagsIn), cacheStore(cacheIn), consensusBranchId(consensusBranchIdIn), error(SCRIPT_ERR_UNKNOWN_ERROR), evalcodeChecker(&evalcodeCheckerIn),txdata(txdataIn) { }
-
+    CScriptCheck(): amount(0), ptxTo(0), n(0), nFlags(0), cacheStore(false), consensusBranchId(0), error(SCRIPT_ERR_UNKNOWN_ERROR) {}
+    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nIn, unsigned int nFlagsIn, bool cacheIn, uint32_t consensusBranchIdIn, CCheckCCEvalCodes &evalcodeCheckerIn,PrecomputedTransactionData* txdataIn) :
+        scriptPubKey(CCoinsViewCache::GetSpendFor(&txFromIn, txToIn.vin[nIn])), amount(txFromIn.vout[txToIn.vin[nIn].prevout.n].nValue),
+        ptxTo(&txToIn), n(nIn), nFlags(nFlagsIn), cacheStore(cacheIn), consensusBranchId(consensusBranchIdIn), error(SCRIPT_ERR_UNKNOWN_ERROR), evalcodeChecker(&evalcodeCheckerIn),txdata(txdataIn), vout(false) { }
+    CScriptCheck(const CScript& scriptPubKeyIn, const CAmount& amountIn, const CTransaction& txToIn, unsigned int nIn, CCheckCCEvalCodes &evalcodeCheckerIn,PrecomputedTransactionData* txdataIn) :
+        scriptPubKey(scriptPubKeyIn), amount(amountIn), ptxTo(&txToIn), n(nIn), nFlags(0), cacheStore(false), consensusBranchId(0),
+        error(SCRIPT_ERR_UNKNOWN_ERROR), evalcodeChecker(&evalcodeCheckerIn),txdata(txdataIn), vout(true) { }
     bool operator()();
 
     void swap(CScriptCheck &check) {
         scriptPubKey.swap(check.scriptPubKey);
         std::swap(ptxTo, check.ptxTo);
         std::swap(amount, check.amount);
-        std::swap(nIn, check.nIn);
+        std::swap(n, check.n);
         std::swap(nFlags, check.nFlags);
         std::swap(cacheStore, check.cacheStore);
         std::swap(consensusBranchId, check.consensusBranchId);
