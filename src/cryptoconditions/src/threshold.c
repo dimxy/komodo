@@ -126,36 +126,43 @@ static int cmpConditionCost(const void *a, const void *b) {
 
 static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags flags) {
     ThresholdFulfillment_t *t = ffill->choice.thresholdSha256;
+
+    Fulfillment_t** arrFulfills = t->subfulfillments.list.array;
+    size_t nffills = t->subfulfillments.list.count;
+    size_t nconds = t->subconditions.list.count;
+
     CC *cond = cc_new(CC_Threshold);
 
-    cond->threshold = t->subfulfillments.list.count;
-
-    int offset = 0;
-
-    // MixedMode hack
     if (flags & MixedMode) {
-        CC *tc = fulfillmentToCC(t->subfulfillments.list.array[0], flags);
+        if (nffills == 0) {
+            free(cond);
+            return NULL;
+        }
+        CC *tc = fulfillmentToCC(arrFulfills[0], flags);
         if (tc->type->typeId != CC_Preimage || tc->preimageLength != 1) {
+            cc_free(tc);
             free(cond);
             return NULL;
         }
         cond->threshold = tc->preimage[0];
-        offset = 1;
         cc_free(tc);
+        nffills--;
+        arrFulfills++;
     }
 
-    cond->size = cond->threshold + t->subconditions.list.count;
+    cond->size = nffills + nconds;
     cond->subconditions = calloc(cond->size, sizeof(CC*));
+    
 
     for (int i=0; i<cond->size; i++) {
 
-        cond->subconditions[i] = (i < cond->threshold) ?
-            fulfillmentToCC(t->subfulfillments.list.array[i+offset], flags) :
-            mkAnon(t->subconditions.list.array[i-cond->threshold]);
+        cond->subconditions[i] = (i < nffills) ?
+            fulfillmentToCC(arrFulfills[i], flags) :
+            mkAnon(t->subconditions.list.array[i-nffills]);
 
         if (!cond->subconditions[i]) {
             free(cond);
-            return 0;
+            return NULL;
         }
     }
 
@@ -245,7 +252,7 @@ static CC *thresholdFromJSON(const cJSON *params, char *err) {
     cond->threshold = (long) threshold_item->valuedouble;
     cond->size = cJSON_GetArraySize(subfulfillments_item);
     cond->subconditions = calloc(cond->size, sizeof(CC*));
-    
+
     cJSON *sub;
     for (int i=0; i<cond->size; i++) {
         sub = cJSON_GetArrayItem(subfulfillments_item, i);
