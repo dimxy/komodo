@@ -91,6 +91,13 @@ CScript CCPubKey(const CC *cond)
     return CScript() << std::vector<unsigned char>(buf, buf+len) << OP_CHECKCRYPTOCONDITION;
 }
 
+CScript CCPubKeyMixed(const CC *cond)
+{
+    unsigned char buf[10000];
+    buf[0]='M';
+    size_t len = cc_fulfillmentBinaryMixedMode(cond, buf+1,9999);
+    return CScript() << std::vector<unsigned char>(buf, buf+len+1) << OP_CHECKCRYPTOCONDITION;
+}
 
 CScript CCSig(const CC *cond)
 {

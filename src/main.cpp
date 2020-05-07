@@ -2096,7 +2096,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
 
         if (!ContextualCheckOutputs(tx, state, true, txdata, evalcodeChecker))
-                return false;
+                return error("AcceptToMemoryPool: BUG! PLEASE REPORT THIS! ContextualCheckOutputs failed %s", hash.ToString());;
         if ( flag != 0 )
             KOMODO_CONNECTING = -1;
 
