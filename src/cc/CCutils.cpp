@@ -149,6 +149,33 @@ CTxOut MakeCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2
     return(vout);
 }
 
+
+CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, std::vector<unsigned char> *vData)
+{
+    CTxOut vout;
+    CC *payoutCond = MakeCCcond1(evalcode,pk,true);
+    vout = CTxOut(nValue,CCPubKeyMixed(payoutCond));
+    if ( vData )
+    {
+        vout.scriptPubKey << *vData << OP_DROP;
+    }
+    cc_free(payoutCond);
+    return(vout);
+}
+
+CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey pk2, std::vector<unsigned char> *vData)
+{
+    CTxOut vout;
+    CC *payoutCond = MakeCCcond1of2(evalcode,pk1,pk2,true);
+    vout = CTxOut(nValue,CCPubKeyMixed(payoutCond));
+    if ( vData )
+    {
+        vout.scriptPubKey << *vData << OP_DROP;
+    }
+    cc_free(payoutCond);
+    return(vout);
+}
+
 CC* GetCryptoCondition(CScript const& scriptSig)
 {
     auto pc = scriptSig.begin();

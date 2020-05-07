@@ -525,7 +525,7 @@ uint256 DiceHashEntropy(uint256 &entropy,uint256 _txidpriv,int32_t entropyvout,i
 /// @param pk pubkey to spend the cc
 /// @param vData pointer to vector of vectors of unsigned char data to be added to the created vout for application needs
 /// @returns vout object
-CTxOut MakeCC1vout(uint8_t evalcode,CAmount nValue,CPubKey pk, std::vector<std::vector<unsigned char>>* vData = NULL,bool mixedMode=false);
+CTxOut MakeCC1vout(uint8_t evalcode,CAmount nValue,CPubKey pk, std::vector<std::vector<unsigned char>>* vData = NULL);
 
 /// MakeCC1of2vout creates creates a transaction output with a 1of2 cryptocondition that allows to spend it by either of two keys. The returned output should be added to a transaction vout array.
 /// @param evalcode cryptocondition eval code (transactions with this eval code in cc inputs will be forwarded to the contract associated with this eval code)
@@ -534,7 +534,12 @@ CTxOut MakeCC1vout(uint8_t evalcode,CAmount nValue,CPubKey pk, std::vector<std::
 /// @param pk2 second of two pubkeys to spend the cc
 /// @param vData pointer to vector of vectors of unsigned char data to be added to the created vout for application needs
 /// @returns vout object
-CTxOut MakeCC1of2vout(uint8_t evalcode,CAmount nValue,CPubKey pk,CPubKey pk2, std::vector<std::vector<unsigned char>>* vData = NULL,bool mixedMode=false);
+CTxOut MakeCC1of2vout(uint8_t evalcode,CAmount nValue,CPubKey pk,CPubKey pk2, std::vector<std::vector<unsigned char>>* vData = NULL);
+
+
+CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, std::vector<unsigned char> *vData = NULL);
+CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey pk2, std::vector<unsigned char> *vData = NULL);
+
 
 /// @private
 int32_t has_opret(const CTransaction &tx, uint8_t evalcode);

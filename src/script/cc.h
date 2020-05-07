@@ -63,6 +63,7 @@ CC* CCNewThreshold(int t, std::vector<CC*> v);
  * Turn a condition into a scriptPubKey
  */
 CScript CCPubKey(const CC *cond);
+CScript CCPubKeyMixed(const CC *cond);
 
 
 /*
