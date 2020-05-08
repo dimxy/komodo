@@ -388,6 +388,34 @@ bool CScript::IsPayToCryptoCondition() const
     return IsPayToCryptoCondition(NULL);
 }
 
+bool CScript::IsMixedModeCC() const
+{
+    const_iterator pc = begin();
+    std::vector<unsigned char> data;
+    opcodetype opcode;
+
+    if (!this->IsPayToCryptoCondition()) return (false);
+    if (this->GetOp(pc, opcode, data))
+    {
+        if (data[0]=CC_MIXED_MODE_PREFIX) return (true);
+    }
+    return (false);
+}
+
+const std::vector<unsigned char> CScript::GetMixedModeCC() const
+{
+    const_iterator pc = begin();
+    std::vector<unsigned char> data;
+    opcodetype opcode;
+
+    if (!this->IsPayToCryptoCondition()) return (std::vector<unsigned char>());
+    if (this->GetOp(pc, opcode, data))
+    {
+        if (data[0]==CC_MIXED_MODE_PREFIX) return data;
+    }
+    return (std::vector<unsigned char>());
+}
+
 bool CScript::MayAcceptCryptoCondition() const
 {
     // Get the type mask of the condition

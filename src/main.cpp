@@ -2774,8 +2774,10 @@ bool CScriptCheck::operator()() {
     if (vout!=0)
     {
         ServerTransactionSignatureChecker checker(ptxTo, n, amount, cacheStore, evalcodeChecker, *txdata);
-        checker.CheckCryptoCondition(scriptPubKey);
-        return false;
+        if (checker.CheckCryptoCondition(scriptPubKey.GetMixedModeCC())!=1)
+        {
+            return ::error("CScriptCheck(): %s:%d CC validation failed: %s", ptxTo->GetHash().ToString(), n, ScriptErrorString(error));
+        }
     }
     else
     {
@@ -2989,7 +2991,7 @@ bool ContextualCheckOutputs(
 
         if (fScriptChecks) {
             for (unsigned int i = 0; i < tx.vout.size(); i++) {
-                if (tx.vout[i].scriptPubKey.IsPayToCryptoCondition() && tx.vout[i].scriptPubKey[0]==CC_MIXED_MODE_PREFIX)
+                if (tx.vout[i].scriptPubKey.IsMixedModeCC() )
                 {
                     CScriptCheck check(tx.vout[i].scriptPubKey, tx.vout[i].nValue, tx, i, evalcodeChecker, &txdata);
                     if (pvChecks)
