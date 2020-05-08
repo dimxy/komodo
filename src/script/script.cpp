@@ -397,7 +397,7 @@ bool CScript::IsMixedModeCC() const
     if (!this->IsPayToCryptoCondition()) return (false);
     if (this->GetOp(pc, opcode, data))
     {
-        if (data[0]=CC_MIXED_MODE_PREFIX) return (true);
+        if (data[0]==CC_MIXED_MODE_PREFIX) return (true);
     }
     return (false);
 }
