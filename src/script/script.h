@@ -595,6 +595,8 @@ public:
     bool IsPayToCryptoCondition(CScript *ccSubScript, std::vector<std::vector<unsigned char>>& vSolutions) const;
     bool IsPayToCryptoCondition(CScript *ccSubScript) const;
     bool IsPayToCryptoCondition() const;
+    bool IsMixedModeCC() const;
+    const std::vector<unsigned char> GetMixedModeCC() const;
     bool IsCoinImport() const;
     bool MayAcceptCryptoCondition() const;
 

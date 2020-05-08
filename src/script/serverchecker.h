@@ -40,7 +40,7 @@ public:
 
     bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
     int CheckEvalCondition(const CC *cond) const;
-    int CheckCryptoCondition(const CScript& scriptPubkey) const;
+    int CheckCryptoCondition(const std::vector<unsigned char> &condBin) const;
 };
 
 #endif // BITCOIN_SCRIPT_SERVERCHECKER_H
