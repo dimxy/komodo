@@ -597,6 +597,7 @@ public:
     bool IsPayToCryptoCondition() const;
     bool IsMixedModeCC() const;
     const std::vector<unsigned char> GetMixedModeCC() const;
+    bool HasCCEvalCode(uint8_t eval) const;
     bool IsCoinImport() const;
     bool MayAcceptCryptoCondition() const;
 

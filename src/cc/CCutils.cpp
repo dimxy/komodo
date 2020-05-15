@@ -197,6 +197,13 @@ bool IsCCInput(CScript const& scriptSig)
     return true;
 }
 
+bool TxHasCCEvalCode(struct CCcontract_info const *cp, const CTransaction &tx)
+{
+    for (int i=0;i<tx.vin.size();i++) if (cp->ismyvin(tx.vin[i].scriptSig)) return (true);
+    for (int i=0;i<tx.vout.size();i++) if (tx.vout[i].scriptPubKey.HasCCEvalCode(cp->evalcode)) return (true);
+    return (false);
+}
+
 bool CheckTxFee(const CTransaction &tx, uint64_t txfee, uint32_t height, uint64_t blocktime, int64_t &actualtxfee)
 {
     LOCK(mempool.cs);
