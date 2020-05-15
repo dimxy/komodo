@@ -610,6 +610,8 @@ int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode);
 /// @returns true if the scriptSig object contains a cryptocondition
 bool IsCCInput(CScript const& scriptSig);
 
+bool TxHasCCEvalCode(struct CCcontract_info const *cp, const CTransaction &tx);
+
 /// CheckTxFee checks if queried transaction fee value is not less than the actual transaction fee of a real transaction
 /// @param tx transaction object which actual txfee to check
 /// @param txfee transaction fee to check

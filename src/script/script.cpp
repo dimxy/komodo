@@ -416,6 +416,19 @@ const std::vector<unsigned char> CScript::GetMixedModeCC() const
     return (std::vector<unsigned char>());
 }
 
+bool CScript::HasCCEvalCode(uint8_t evalCode) const
+{
+    if (!this->IsMixedModeCC()) return (false);
+    CC* cond=cc_readFulfillmentBinaryMixedMode((unsigned char*)this->GetMixedModeCC().data()+1,this->GetMixedModeCC().size()-1);
+
+    VerifyEval eval = [] (CC *cond, void *evalcode)
+    {
+        return (*(int *)evalcode==cond->code[0])?1:0;
+    };
+    return cc_verifyEval(cond,eval,&evalCode);
+    return (false);
+}
+
 bool CScript::MayAcceptCryptoCondition() const
 {
     // Get the type mask of the condition
