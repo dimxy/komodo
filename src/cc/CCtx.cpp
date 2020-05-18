@@ -295,6 +295,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                 else
                 {
                     flag = 0;
+                    /* not used now, check cp->CCvintxprobes instead
                     if ( pubkeys != NULL_pubkeys )
                     {
                         char coinaddr[64];
@@ -309,7 +310,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                             cond = othercond4;
                             flag = 1;
                         }
-                    } //else  privkey = myprivkey;
+                    } //else  privkey = myprivkey; */
 
                     if (flag == 0)
                     {
