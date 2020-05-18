@@ -76,7 +76,10 @@ Details.
 
 #define CC_BURNPUBKEY "02deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddead" //!< 'dead' pubkey in hex for burning tokens (if tokens are sent to it, they become 'burned')
 /// \cond INTERNAL
-#define CC_MAXVINS 1024
+
+// #define CC_MAXVINS 1024
+#define CC_MAXVINS (1024*20)  // for marmara it could be big txns
+
 #define CC_REQUIREMENTS_MSG (KOMODO_NSPV_SUPERLITE?"to use CC contracts you need to nspv_login first\n":"to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n")
 
 #define SMALLVAL 0.000000000000001
