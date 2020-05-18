@@ -2129,7 +2129,30 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTxMemPoolEntry entry(tx, 0, GetTime(), 0, chainActive.Height(), mempool.HasNoInputsOf(tx), false, consensusBranchId);
     //fprintf(stderr, "adding %s to mempool from block %d\n",tx.GetHash().ToString().c_str(),chainActive.GetHeight());
+    
+    CCoinsView dummy;
+    CCoinsViewCache view(&dummy);
+
     pool.addUnchecked(tx.GetHash(), entry, false);
+    {
+        LOCK(pool.cs);
+
+        CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
+        view.SetBackend(viewMemPool);
+
+        if (!tx.IsCoinImport())
+        {
+            // Add memory address index
+            if (fAddressIndex) {
+                pool.addAddressIndex(entry, view);
+            }
+
+            // Add memory spent index
+            if (fSpentIndex) {
+                pool.addSpentIndex(entry, view);
+            }
+        }
+    }
     return true;
 }
 
@@ -4318,12 +4341,31 @@ private:
 
                 // return the saved txns to mempool:
 
-                BOOST_FOREACH(const CTxMemPoolEntry& e, savedMempool.mapTx) {
-                    const CTransaction &tx = e.GetTx();
-                    const uint256 &hash = tx.GetHash();
-                    mempool.addUnchecked(hash, e, true);
+                CCoinsView dummy;
+                CCoinsViewCache view(&dummy);
+                {
+                    CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
+                    view.SetBackend(viewMemPool);
+
+                    BOOST_FOREACH(const CTxMemPoolEntry& e, savedMempool.mapTx) {
+                        const CTransaction &tx = e.GetTx();
+                        const uint256 &hash = tx.GetHash();
+                        mempool.addUnchecked(hash, e, true);
+                        if (!tx.IsCoinImport())
+                        {
+                            // Add memory address index
+                            if (fAddressIndex) {
+                                mempool.addAddressIndex(e, view);
+                            }
+
+                            // Add memory spent index
+                            if (fSpentIndex) {
+                                mempool.addSpentIndex(e, view);
+                            }
+                        }
+                    }
+                    savedMempool.clear();
                 }
-                savedMempool.clear();
             }
         }
     }
