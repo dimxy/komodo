@@ -3200,7 +3200,7 @@ UniValue MarmaraLock(const CPubKey &remotepk, int64_t txfee, int64_t amount, con
             change = (inputsum - amountToAdd);
             mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
         }
-        rawtx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript()/*opret moved to cc vout*/);
+        rawtx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript()/*opret moved to cc vout*/, false);
         if (rawtx.size() == 0)
         {
             errorstr = "couldnt finalize CCtx";
@@ -3338,7 +3338,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx, int32_
         }
 
         // note: opreturn for stake tx is taken from the staking utxo (ccvout or back):
-        std::string rawtx = FinalizeCCTx(0, cp, mstaketx, mypk, txfee, finalOpret);  // opret for LCL or empty for activated
+        std::string rawtx = FinalizeCCTx(0, cp, mstaketx, mypk, txfee, finalOpret, false);  // opret for LCL or empty for activated
         if (rawtx.size() > 0)
         {
             int32_t siglen = mstaketx.vin[0].scriptSig.size();
@@ -3483,7 +3483,7 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                             LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "error: change not null=" << change << ", sent back to lock-in-loop addr=" << lockInLoop1of2addr << std::endl);
                             mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(change, createtxidPk, opret));  // NOTE: change will be rejected by the current validation code
                         }*/
-                        rawtx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, MarmaraEncodeLoopSettlementOpret(true, loopData.createtxid, loopData.pk, 0));
+                        rawtx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, MarmaraEncodeLoopSettlementOpret(true, loopData.createtxid, loopData.pk, 0), false);
                         if (rawtx.empty()) {
                             result.push_back(Pair("result", "error"));
                             result.push_back(Pair("error", "could not finalize CC Tx"));
@@ -3508,7 +3508,7 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                         //    mtx.vout.push_back(CTxOut(refamount - remaining - 2 * txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
                         mtx.vout.push_back(CTxOut(loopData.amount - remaining - txfee, CScript() << ParseHex(HexStr(loopData.pk)) << OP_CHECKSIG));
 
-                        rawtx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, MarmaraEncodeLoopSettlementOpret(false, loopData.createtxid, loopData.pk, -remaining));  //some remainder left
+                        rawtx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, MarmaraEncodeLoopSettlementOpret(false, loopData.createtxid, loopData.pk, -remaining), false);  //some remainder left
                         if (rawtx.empty()) {
                             result.push_back(Pair("result", "error"));
                             result.push_back(Pair("error", "couldnt finalize CCtx"));
@@ -3796,7 +3796,7 @@ UniValue MarmaraReceive(const CPubKey &remotepk, int64_t txfee, const CPubKey &s
             else
                 opret = MarmaraEncodeLoopRequestOpret(createtxid, senderpk);
 
-            rawtx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret);
+            rawtx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret, false);
             if (rawtx.size() == 0)
                 errorstr = "couldnt finalize CCtx";
         }
@@ -4400,7 +4400,7 @@ UniValue MarmaraPoolPayout(int64_t txfee, int32_t firstheight, double perc, char
                     poolfee = (total - totalpayout - txfee);
                     mtx.vout.push_back(MakeCC1of2vout(EVAL_MARMARA, poolfee, Marmarapk, poolpk));
                 }
-                rawtx = FinalizeCCTx(0, cp, mtx, poolpk, txfee, MarmaraEncodeCoinbaseOpret(MARMARA_POOL, poolpk, firstheight));
+                rawtx = FinalizeCCTx(0, cp, mtx, poolpk, txfee, MarmaraEncodeCoinbaseOpret(MARMARA_POOL, poolpk, firstheight), false);
                 if (rawtx.size() == 0)
                     errorstr = "couldnt finalize CCtx";
             }
@@ -4658,7 +4658,7 @@ std::string MarmaraLock64(CWallet *pwalletMain, CAmount amount, int32_t nutxos)
             }
         }
         mtx.vout.push_back(MakeCC1vout(EVAL_MARMARA, MARMARA_ACTIVATED_MARKER_AMOUNT, marmarapk));
-        std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript());
+        std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript(), false);
         if (hextx.empty())
         {
             CCerror = "could not finalize tx";
@@ -4789,7 +4789,7 @@ std::string MarmaraReleaseActivatedCoins(CWallet *pwalletMain, const std::string
             height++;
         CScript opret = MarmaraEncodeCoinbaseOpret(MARMARA_RELEASE, mypk, height); // dummy opret
 
-        std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret);
+        std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret, false);
         if (hextx.empty())
         {
             CCerror = "could not finalize tx";
@@ -4845,7 +4845,7 @@ std::string MarmaraUnlockActivatedCoins(CAmount amount)
             height++;
         CScript opret = MarmaraEncodeCoinbaseOpret(MARMARA_RELEASE, mypk, height); // dummy opret with release funcid
 
-        std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret);
+        std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret, false);
         cc_free(probeCond);
         if (hextx.empty())
         {
