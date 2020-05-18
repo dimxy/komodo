@@ -3866,17 +3866,24 @@ static int32_t redistribute_lcl_remainder(CMutableTransaction &mtx, struct CCcon
                 return -1;
             }
 
-            CAmount amountReturned = 0;
-            CAmount amountToPk = amountToDistribute / endorsersNumber;
+            CAmount amountToPkNormal = amountToDistribute / endorsersNumber;
+            CAmount amountDistributed = amountToPkNormal * endorsersNumber;
 
             //for (int32_t i = 1; i < creditloop.size() + 1; i ++)  //iterate through all issuers/endorsers, skip i=0 which is 1st receiver tx, n + 1 is batontxid
+            int32_t firstVoutNormal = mtx.vout.size();
             for (const auto &endorserPk : endorserPubkeys)
             {
-                mtx.vout.push_back(CTxOut(amountToPk, CScript() << ParseHex(HexStr(endorserPk)) << OP_CHECKSIG));  // coins returned to each previous issuer normal output
-                amountReturned += amountToPk;
-                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " sending normal amount=" << amountToPk << " to pk=" << HexStr(endorserPk) << std::endl);
+                mtx.vout.push_back(CTxOut(amountToPkNormal, CScript() << ParseHex(HexStr(endorserPk)) << OP_CHECKSIG));  // coins returned to each previous issuer normal output
+                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " sending normal amount=" << amountToPkNormal << " to pk=" << HexStr(endorserPk) << std::endl);
             }
-            change = (inputsum - amountReturned);
+
+            // distribute round error back to vouts, by 1 sat:
+            CAmount errorNormals = amountToDistribute - amountDistributed;
+            for (int32_t i = firstVoutNormal; i < mtx.vout.size() && errorNormals != 0; i ++)    
+                mtx.vout[i].nValue ++, errorNormals --;
+
+            //change = (inputsum - amountReturned);
+            change = (inputsum - amountToDistribute);
 
             // return change to the lock-in-loop fund, distribute for pubkeys:
             if (change > 0) 
@@ -3886,21 +3893,28 @@ static int32_t redistribute_lcl_remainder(CMutableTransaction &mtx, struct CCcon
                     LOGSTREAMFN("marmara", CCLOG_ERROR, stream  << " internal error not matched endorsersPubkeys.size()=" << endorserPubkeys.size() << " endorsersNumber=" << endorsersNumber << " line=" << __LINE__ << std::endl);
                     return -1;
                 } */
+                int32_t firstVoutCC = mtx.vout.size();
+                CAmount amountToPkCC = change / endorserPubkeys.size();
+                CAmount amountDistributedCC = amountToPkCC * endorserPubkeys.size();
                 for (const auto &pk : endorserPubkeys) 
                 {
                     // each LCL utxo is marked with the pubkey who owns this part of the loop amount
                     // So for staking only those LCL utxo are picked up that are marked with the current node's pubkey
                     CScript opret = MarmaraEncodeLoopCCVoutOpret(createtxid, pk);   // add mypk to vout to identify who has locked coins in the credit loop
-                    mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(change / endorserPubkeys.size(), createtxidPk, opret));  // TODO: losing remainder?
+                    mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(amountToPkCC, createtxidPk, opret));  // TODO: losing remainder?
 
-                    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream  << "distributing to loop change/pubkeys.size()=" << change / endorserPubkeys.size() << " cc opret pk=" << HexStr(pk) << std::endl);
+                    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream  << "distributing to loop change/pubkeys.size()=" << amountToPkCC << " cc opret pk=" << HexStr(pk) << std::endl);
                 }
+
+                // distribute round error back to vouts, by 1 sat:
+                CAmount errorCCOutputs = change - amountDistributedCC;
+                for (int32_t i = firstVoutCC; i < mtx.vout.size() && errorCCOutputs != 0; i ++)    
+                    mtx.vout[i].nValue ++, errorCCOutputs --;
             }
 
             CC *lockInLoop1of2cond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, createtxidPk);  
             CCAddVintxCond(cp, lockInLoop1of2cond, marmarapriv); //add probe condition to spend from the lock-in-loop address
             cc_free(lockInLoop1of2cond);
-
         }
         else  {
             LOGSTREAMFN("marmara", CCLOG_ERROR, stream  << "couldnt get locked-in-loop amount to return to endorsers" << std::endl);
