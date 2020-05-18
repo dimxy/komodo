@@ -896,7 +896,7 @@ static int32_t get_create_txid(uint256 &createtxid, uint256 txid)
     uint256 hashBlock; 
   
     createtxid = zeroid;
-    if (myGetTransaction(txid, tx, hashBlock) != 0 && !hashBlock.IsNull() && tx.vout.size() > 1)  // might be called from validation code, so non-locking version
+    if (myGetTransaction(txid, tx, hashBlock) != 0 /*&& !hashBlock.IsNull()*/ && tx.vout.size() > 1)  // might be called from validation code, so non-locking version
     {
         uint8_t funcid;
         struct SMarmaraCreditLoopOpret loopData;
@@ -914,7 +914,7 @@ static int32_t get_create_txid(uint256 &createtxid, uint256 txid)
             return(0);
         }
     }
-    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "could not get createtxid for txid=" << txid.GetHex() << " hashBlock.IsNull=" << hashBlock.IsNull() << " tx.vout.size()=" << tx.vout.size() << std::endl);
+    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "could not get createtxid for txid=" << txid.GetHex() << " tx.vout.size()=" << tx.vout.size() << std::endl);
     return(-1);
 }
 
@@ -987,7 +987,7 @@ static int32_t get_loop_endorsers_number(uint256 &createtxid, uint256 prevtxid)
     uint256 hashBlock;
 
     createtxid = zeroid;
-    if (myGetTransaction(prevtxid, tx, hashBlock)  && !hashBlock.IsNull() && tx.vout.size() > 1)  // will be called from validation code, so non-locking version
+    if (myGetTransaction(prevtxid, tx, hashBlock) /* && !hashBlock.IsNull()*/ && tx.vout.size() > 1)  // will be called from validation code, so non-locking version
     {
         struct SMarmaraCreditLoopOpret loopData;
 
@@ -1054,7 +1054,7 @@ static int32_t get_loop_creation_data(uint256 createtxid, struct SMarmaraCreditL
     CTransaction tx;
     uint256 hashBlock;
 
-    if (myGetTransaction(createtxid, tx, hashBlock) != 0 && !hashBlock.IsNull() && tx.vout.size() > 1)  // might be called from validation code, so non-locking version
+    if (myGetTransaction(createtxid, tx, hashBlock) != 0 /*&& !hashBlock.IsNull()*/ && tx.vout.size() > 1)  // might be called from validation code, so non-locking version
     {
         uint8_t funcid;
         vscript_t vopret;
@@ -1318,8 +1318,8 @@ static bool check_request_tx(uint256 requesttxid, CPubKey receiverpk, uint8_t is
     else if (!myGetTransaction(requesttxid, requesttx, hashBlock))
         errorStr = "cannot get request transaction";
     // TODO: do we need here to check the request tx in mempool?
-    else if (hashBlock.IsNull())    /*is in mempool?*/
-        errorStr = "request transaction still in mempool";
+    // else if (hashBlock.IsNull())    /*is in mempool?*/
+    //    errorStr = "request transaction still in mempool";
     else if (requesttx.vout.size() < 1 || (funcid = MarmaraDecodeLoopOpret(requesttx.vout.back().scriptPubKey, loopData)) == 0)
         errorStr = "cannot decode request tx opreturn data";
     else if (TotalPubkeyNormalInputs(requesttx, receiverpk) == 0)     // extract and check the receiver pubkey
@@ -1361,7 +1361,7 @@ static CAmount get_cc_balance(const struct CCcontract_info *cp, const CTransacti
                 CTransaction vintx;
                 uint256 hashBlock;
 
-                if (myGetTransaction(vin.prevout.hash, vintx, hashBlock) /*&& !hashBlock.IsNull() should we allow checking mempool? */)
+                if (myGetTransaction(vin.prevout.hash, vintx, hashBlock) /*&& !hashBlock.IsNull() should we allow checking mempool? This is safer, to allow to check mempool */)
                 {
                     ccInputs += vintx.vout[vin.prevout.n].nValue;
                 }
@@ -1639,7 +1639,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
     uint256 issuetxid = settletx.vin[0].prevout.hash;
     CTransaction issuetx;
     uint256 hashBlock;
-    if (!myGetTransaction(issuetxid, issuetx, hashBlock) && !hashBlock.IsNull())
+    if (!myGetTransaction(issuetxid, issuetx, hashBlock) /*&& !hashBlock.IsNull()*/)
     {
         errorStr = "could not load issue tx";
         return false;
@@ -1685,7 +1685,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
     }
     // get current baton tx
     CTransaction batontx;
-    if (!myGetTransaction(batontxid, batontx, hashBlock) && !hashBlock.IsNull())
+    if (!myGetTransaction(batontxid, batontx, hashBlock) /*&& !hashBlock.IsNull()*/)
     {
         errorStr = "could not load baton tx";
         return false;
@@ -1757,7 +1757,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         if (cp->ismyvin(settletx.vin[i].scriptSig))
         {
             CTransaction vintx;
-            if (myGetTransaction(settletx.vin[i].prevout.hash, vintx, hashBlock) && !hashBlock.IsNull() /*mo mempool*/)
+            if (myGetTransaction(settletx.vin[i].prevout.hash, vintx, hashBlock) /*&& !hashBlock.IsNull()*/ /*allow mempool*/)
             {
                 CPubKey pk_in_opret;
                 uint256 vincreatetxid;
@@ -2699,7 +2699,7 @@ static void EnumAllActivatedAddresses(std::vector<std::string> &activatedAddress
         //LOGSTREAMFN("marmara", CCLOG_DEBUG3, stream << "checking tx on markeraddr txid=" << marker_txid.GetHex() << " vout=" << marker_nvout << std::endl);
         if (marker_amount == MARMARA_ACTIVATED_MARKER_AMOUNT)
         {
-            if (myGetTransaction(marker_txid, activatetx, hashBlock) && !hashBlock.IsNull())
+            if (myGetTransaction(marker_txid, activatetx, hashBlock) /*&& !hashBlock.IsNull()*/)
             {
                 for(int32_t i = 0; i < activatetx.vout.size(); i++)
                 {
@@ -2719,7 +2719,7 @@ static void EnumAllActivatedAddresses(std::vector<std::string> &activatedAddress
                 }
             }
             else
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "error getting activated tx=" << marker_txid.GetHex() << ", is in mempool=" << hashBlock.IsNull() << std::endl);
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "error getting activated tx=" << marker_txid.GetHex() << std::endl);
         }
     }
 
@@ -2850,7 +2850,7 @@ static void EnumLockedInLoop(T func, const CPubKey &pk)
         LOGSTREAMFN("marmara", CCLOG_DEBUG3, stream  << "checking tx on markeraddr txid=" << marker_txid.GetHex() << " vout=" << marker_nvout << std::endl);
         if (marker_nvout == MARMARA_LOOP_MARKER_VOUT && marker_amount == MARMARA_LOOP_MARKER_AMOUNT)
         {
-            if (myGetTransaction(marker_txid, isssuancetx, hashBlock) && !hashBlock.IsNull())
+            if (myGetTransaction(marker_txid, isssuancetx, hashBlock) /*&& !hashBlock.IsNull()*/)
             {
                 if (!isssuancetx.IsCoinBase() && isssuancetx.vout.size() > 2 && isssuancetx.vout.back().nValue == 0 /*has opret*/)
                 {
@@ -2922,7 +2922,7 @@ static void EnumLockedInLoop(T func, const CPubKey &pk)
                 }
             }
             else
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "error getting issuance tx=" << marker_txid.GetHex() << ", in mempool=" << hashBlock.IsNull() << std::endl);
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "error getting issuance tx=" << marker_txid.GetHex() << std::endl);
         }
     }
 }
@@ -3588,7 +3588,7 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
         // enum creditloop markers:
         if (vout == nVoutMarker)
         {
-            if (myGetTransaction(issuancetxid, issuancetx, hashBlock) && !hashBlock.IsNull())  
+            if (myGetTransaction(issuancetxid, issuancetx, hashBlock) /*&& !hashBlock.IsNull()*/)  
             {
                 if (!issuancetx.IsCoinBase() && issuancetx.vout.size() > 2 && issuancetx.vout.back().nValue == 0 /*has opreturn?*/)
                 {
@@ -3620,7 +3620,7 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
 
                                     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "found settle tx for issueancetxid=" << issuancetxid.GetHex() << std::endl);
 
-                                    if (myGetTransaction(settletxid, settletx, hashBlock) && !hashBlock.IsNull() && settletx.vout.size() > 1 &&
+                                    if (myGetTransaction(settletxid, settletx, hashBlock) /*&& !hashBlock.IsNull()*/ && settletx.vout.size() > 1 &&
                                         (funcid = MarmaraDecodeLoopOpret(settletx.vout.back().scriptPubKey, loopData)) != 0)
                                     {
                                         closed.push_back(issuancetxid);
@@ -3637,7 +3637,7 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
 
                                     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "found baton tx for issueancetxid=" << issuancetxid.GetHex() << std::endl);
 
-                                    if (myGetTransaction(batontxid, batontx, hashBlock) && !hashBlock.IsNull() && batontx.vout.size() > 1 &&
+                                    if (myGetTransaction(batontxid, batontx, hashBlock) /*&& !hashBlock.IsNull()*/ && batontx.vout.size() > 1 &&
                                         (funcid = MarmaraDecodeLoopOpret(batontx.vout.back().scriptPubKey, loopData)) != 0)
                                     {
                                         issuances.push_back(issuancetxid);
@@ -3659,7 +3659,7 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
                 }
             }
             else
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "cant get tx on marmara marker addr (is in mempool=" << hashBlock.IsNull() << ") txid=" << issuancetxid.GetHex() << std::endl);
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "cant get tx on marmara marker addr" << /*"(is in mempool=" << hashBlock.IsNull() << ")*/ " txid=" << issuancetxid.GetHex() << std::endl);
         }
     }
     return(n);
@@ -3922,7 +3922,8 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
     UniValue result(UniValue::VOBJ); 
     std::string rawtx; 
     std::string errorStr;
-    uint256 createtxid;
+    uint256 createtxid, hashBlock;
+    CTransaction dummytx;
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_MARMARA);
@@ -3942,8 +3943,10 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
     
     if (mypk == receiverpk)
         errorStr = "cannot send baton to self";  // check it here
+    else if (!myGetTransaction(requesttxid, dummytx, hashBlock) || hashBlock.IsNull())
+        errorStr = "can't get requesttxid (requesttxid might be still in mempool)";
     else if (get_create_txid(createtxid, requesttxid) < 0)
-        errorStr = "can't get createtxid from requesttxid (request tx could be in mempool)";
+        errorStr = "can't get createtxid from requesttxid";
     else if (check_request_tx(requesttxid, receiverpk, funcid, errorStr))
     {
         struct SMarmaraCreditLoopOpret loopData;
