@@ -3588,7 +3588,7 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
         // enum creditloop markers:
         if (vout == nVoutMarker)
         {
-            if (myGetTransaction(issuancetxid, issuancetx, hashBlock) /*&& !hashBlock.IsNull()*/)  
+            if (myGetTransaction(issuancetxid, issuancetx, hashBlock) && !hashBlock.IsNull())  /* enume issuance only in blocks */
             {
                 if (!issuancetx.IsCoinBase() && issuancetx.vout.size() > 2 && issuancetx.vout.back().nValue == 0 /*has opreturn?*/)
                 {
