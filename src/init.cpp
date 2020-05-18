@@ -1605,7 +1605,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
         if ( pwalletMain == 0 )
             pwalletMain = new CWallet("tmptmp.wallet");
-#endif
         return !fRequestShutdown;
     }
     // ********************************************************* Step 7: load block chain
