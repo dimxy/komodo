@@ -4039,7 +4039,7 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
                             else
                                 opret = MarmaraEncodeLoopTransferOpret(createtxid, receiverpk, optParams.avalCount);
 
-                            rawtx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret);
+                            rawtx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret, false);
 
                             if (rawtx.size() == 0) {
                                 errorStr = "couldnt finalize tx";
