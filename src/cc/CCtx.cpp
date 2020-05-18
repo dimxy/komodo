@@ -42,15 +42,15 @@ This allows the contract transaction functions to create the appropriate vins an
 
 By using -addressindex=1, it allows tracking of all the CC addresses
 */
-std::string FinalizeCCTx(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
+std::string FinalizeCCTx(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, bool bAlwaysAddChange)
 {
-    UniValue sigData = FinalizeCCTxExt(false, CCmask, cp, mtx, mypk, txfee, opret, pubkeys);
+    UniValue sigData = FinalizeCCTxExt(false, CCmask, cp, mtx, mypk, txfee, opret, bAlwaysAddChange);
     return sigData[JSON_HEXTX].getValStr();
 }
 
 
 // extended version that supports signInfo object with conds to vins map for remote cc calls
-UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys)
+UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, bool bAlwaysAddChange)
 {
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTransaction vintx; std::string hex; CPubKey globalpk; uint256 hashBlock; uint64_t mask=0,nmask=0,vinimask=0;
@@ -169,7 +169,8 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     if ( totalinputs >= totaloutputs+txfee )
     {
         change = totalinputs - (totaloutputs+txfee);
-        mtx.vout.push_back(CTxOut(change,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+        if (bAlwaysAddChange || change > 0LL)     // bAlwaysAddChange==true always adds a change, even 0, for rigid struct ccs
+            mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
     }
     if ( opret.size() > 0 )
         mtx.vout.push_back(CTxOut(0,opret));

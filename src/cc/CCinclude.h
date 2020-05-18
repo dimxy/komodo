@@ -767,7 +767,7 @@ extern std::vector<CPubKey> NULL_pubkeys; //!< constant value for use in functio
 /// @param opret opreturn vout which function will add if it is not empty 
 /// @param pubkeys array of pubkeys to make multiple probe 1of2 cc's with the call Make1of2cond(cp->evalcode, globalpk, pubkeys[i])
 /// @returns signed transaction in hex encoding
-std::string FinalizeCCTx(uint64_t skipmask,struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey mypk,uint64_t txfee,CScript opret,std::vector<CPubKey> pubkeys = NULL_pubkeys);
+std::string FinalizeCCTx(uint64_t skipmask,struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey mypk,uint64_t txfee,CScript opret, bool bAlwaysAddChange = true);
 
 /// FinalizeCCTx is a very useful function that will properly sign both CC and normal inputs, adds normal change and might add an opreturn output.
 /// This allows for Antara module transaction creation rpc functions to create an CMutableTransaction object, add the appropriate vins and vouts to it and use FinalizeCCTx to properly sign the transaction.
@@ -787,7 +787,7 @@ std::string FinalizeCCTx(uint64_t skipmask,struct CCcontract_info *cp,CMutableTr
 /// @param opret opreturn vout which function will add if it is not empty 
 /// @param pubkeys array of pubkeys to make multiple probe 1of2 cc's with the call Make1of2cond(cp->evalcode, globalpk, pubkeys[i])
 /// @returns signed transaction in hex encoding
-UniValue FinalizeCCTxExt(bool remote, uint64_t skipmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys = NULL_pubkeys);
+UniValue FinalizeCCTxExt(bool remote, uint64_t skipmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, bool bAlwaysAddChange = true);
 
 /// SetCCunspents returns a vector of unspent outputs on an address 
 /// @param[out] unspentOutputs vector of pairs of address key and amount
