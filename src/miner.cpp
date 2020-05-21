@@ -1171,7 +1171,6 @@ static bool ProcessBlockFound(CBlock* pblock)
 
     // Process this block the same as if we had received it from another node
     CValidationState state;
-    std::cerr << __func__ << " about to call ProcessNewBlock for=" << pblock->GetHash().GetHex() << std::endl;
     if (!ProcessNewBlock(1,chainActive.LastTip()->GetHeight()+1,state, NULL, pblock, true, NULL))
         return error("KomodoMiner: ProcessNewBlock, block not accepted");
 
