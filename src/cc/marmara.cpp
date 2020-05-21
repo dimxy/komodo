@@ -3197,7 +3197,7 @@ UniValue MarmaraLock(const CPubKey &remotepk, int64_t txfee, int64_t amount, con
     {
         if (inputsum > amountToAdd + txfee)
         {
-            change = (inputsum - amountToAdd);
+            change = (inputsum - amountToAdd - txfee);
             mtx.vout.push_back(CTxOut(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
         }
         rawtx = FinalizeCCTx(0, cp, mtx, mypk, txfee, CScript()/*opret moved to cc vout*/, false);
