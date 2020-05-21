@@ -2130,11 +2130,11 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
     CTxMemPoolEntry entry(tx, 0, GetTime(), 0, chainActive.Height(), mempool.HasNoInputsOf(tx), false, consensusBranchId);
     //fprintf(stderr, "adding %s to mempool from block %d\n",tx.GetHash().ToString().c_str(),chainActive.GetHeight());
     
-    CCoinsView dummy;
-    CCoinsViewCache view(&dummy);
+    //CCoinsView dummy;
+    //CCoinsViewCache view(&dummy);
 
     pool.addUnchecked(tx.GetHash(), entry, false);
-    {
+    /*{
         LOCK(pool.cs);
 
         CCoinsViewMemPool viewMemPool(pcoinsTip, pool);
@@ -2152,7 +2152,7 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
                 pool.addSpentIndex(entry, view);
             }
         }
-    }
+    }*/
     return true;
 }
 
@@ -4351,6 +4351,7 @@ private:
                         const CTransaction &tx = e.GetTx();
                         const uint256 &hash = tx.GetHash();
                         mempool.addUnchecked(hash, e, true);
+                        /* TODO: check why asserts for no inputs.prev.hash in coin cache here
                         if (!tx.IsCoinImport())
                         {
                             // Add memory address index
@@ -4362,7 +4363,7 @@ private:
                             if (fSpentIndex) {
                                 mempool.addSpentIndex(e, view);
                             }
-                        }
+                        }*/
                     }
                     savedMempool.clear();
                 }
