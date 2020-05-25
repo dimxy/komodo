@@ -377,7 +377,7 @@ static UniValue CreateGameObjectNFT(const CPubKey &remotepk, const struct KogsBa
 }
 
 // create enclosure tx (similar but not exactly like NFT as enclosure could be changed) with game object inside
-static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject *baseobj, bool isSpendable, bool needBaton)
+static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject *baseobj, bool isSpendable, uint32_t batonType)
 {
     const CAmount  txfee = 10000;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -395,15 +395,21 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject 
     enc.description = baseobj->descriptionId;
 
     CAmount normals = txfee + KOGS_NFT_MARKER_AMOUNT;
-    if (needBaton)
+    if (batonType)
         normals += KOGS_BATON_AMOUNT;
 
     if (AddNormalinputsRemote(mtx, mypk, normals, 0x10000) > 0)   // use remote version to add inputs from mypk
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_NFT_MARKER_AMOUNT, GetUnspendable(cp, NULL)));  // kogs cc marker
-        if (needBaton)
+        if (batonType == BATON_GLOBAL)
             mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, GetUnspendable(cp, NULL))); // initial marker for miners who will create a baton indicating whose turn is first
+        else if (batonType == BATON_SELF)
+            mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, mypk)); // initial marker for miners who will create a baton indicating whose turn is first
+        else    {
+            CCerror = "invalid baton type";
+            return NullUniValue;
+        }
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
@@ -1040,7 +1046,7 @@ static int getRange(const std::vector<KogsSlamRange> &range, int32_t val)
 }
 
 // flip kogs based on slam data and height and strength ranges
-static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &slamparams, KogsBaton &newbaton, const KogsBaseObject *pInitBaton)
+static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, const KogsBaseObject *pInitBaton)
 {
     std::vector<KogsSlamRange> heightRanges = heightRangesDefault;
     std::vector<KogsSlamRange> strengthRanges = strengthRangesDefault;
@@ -1049,8 +1055,8 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, const KogsSlamParams &sla
     if (gameconfig.strengthRanges.size() > 0)
         strengthRanges = gameconfig.strengthRanges;
 
-    int iheight = getRange(heightRanges, slamparams.armHeight);
-    int istrength = getRange(strengthRanges, slamparams.armStrength);
+    int iheight = getRange(heightRanges, newbaton.armHeight);
+    int istrength = getRange(strengthRanges, newbaton.armStrength);
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "iheight=" << iheight << " heightRanges.size=" << heightRanges.size() << " istrength=" << istrength  << " strengthRanges.size=" << strengthRanges.size() << std::endl);
 
@@ -1197,29 +1203,30 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
     return true;
 }
 
-static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pGameOrParams, KogsBaton *prevbaton, KogsBaton &newbaton, const KogsBaseObject *pInitBaton)
+static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *prevbaton, KogsBaton &newbaton, const KogsBaseObject *pInitBaton)
 {   
-    if (pGameOrParams->objectType != KOGSID_GAME && pGameOrParams->objectType != KOGSID_SLAMPARAMS)
+    if (prevbaton == nullptr) // check for internal logic error
     {
-        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "incorrect objectType=" << (char)pGameOrParams->objectType << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "previous object is null" << (char)prevbaton->objectType << std::endl);
+        return false;
+    }
+
+    if (prevbaton->objectType != KOGSID_BATON && prevbaton->objectType != KOGSID_GAME)
+    {
+        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "incorrect previous objectType=" << (char)prevbaton->objectType << std::endl);
         return false;
     }
 
     uint256 gameid;
     std::vector<uint256> playerids;
-    if (pGameOrParams->objectType == KOGSID_GAME) {
-        gameid = pGameOrParams->creationtxid;
-        playerids = ((KogsGame *)pGameOrParams)->playerids;
+    if (prevbaton->objectType == KOGSID_GAME) {
+        gameid = prevbaton->creationtxid;
+        playerids = ((KogsGame *)prevbaton)->playerids;
     }
     else
     {
-        if (prevbaton == nullptr) // check for internal logic error
-        {
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "prevbaton is null" << (char)pGameOrParams->objectType << std::endl);
-            return false;
-        }
-        gameid = ((KogsSlamParams*)pGameOrParams)->gameid;
-        playerids = prevbaton->playerids;
+        gameid = ((KogsBaton*)prevbaton)->gameid;
+        playerids = ((KogsBaton*)prevbaton)->playerids;
     }
 
     std::vector<std::shared_ptr<KogsContainer>> containers;
@@ -1309,17 +1316,10 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
 
     // TODO: check that the pubkeys are from this game's players (?)
 
-    /* should be empty if now prev baton
-    if (pGameOrParams->objectType == KOGSID_GAME)  // first turn
-    {
-        newbaton.kogsFlipped.clear();
-        newbaton.kogsInStack.clear();
-    }*/
 
-    if (pGameOrParams->objectType == KOGSID_SLAMPARAMS)  // process slam data 
+    if (prevbaton->objectType == KOGSID_BATON)  // should be slam data in new baton
     {
-        KogsSlamParams* pslamparams = (KogsSlamParams*)pGameOrParams;
-        if (!FlipKogs(gameconfig, *pslamparams, newbaton, pInitBaton))   // before the call newbaton must contain the prev baton state 
+        if (!FlipKogs(gameconfig, newbaton, pInitBaton))   // before the call newbaton must contain the prev baton state 
             return false;
     }
     if (IsSufficientContainers)
@@ -1327,6 +1327,172 @@ static bool KogsManageStack(const KogsGameConfig &gameconfig, KogsBaseObject *pG
 
     return IsSufficientContainers;
 }
+
+// get winner playerid
+static uint256 GetWinner(const KogsBaton *pbaton)
+{
+    // calc total flipped for each playerid
+    std::map<uint256, int32_t> flippedCounts;
+    for(auto const &flipped : pbaton->kogsFlipped)
+    {
+        flippedCounts[flipped.second] ++;
+    }
+
+    // find max
+    int32_t cur_max = 0;
+    uint256 winner;
+    for(auto const &counted : flippedCounts)
+    {
+        if (cur_max < counted.second)
+        {
+            winner = counted.first;
+            cur_max = counted.second;
+        }
+    }
+    return winner;
+}
+
+// creates new baton object, manages stack according to slam data
+static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayer, KogsSlamParams *pSlamparam, KogsBaton &newbaton, const KogsBaseObject *pInitBaton, KogsGameFinished &gamefinished, bool &bGameFinished)
+{
+	int32_t nextturn;
+	int32_t turncount = 0;
+	bGameFinished = false;
+
+    if (pPrevObj == nullptr)    
+		return false; 
+    
+	if (pPrevObj->objectType != KOGSID_GAME && pPrevObj->objectType != KOGSID_BATON)	{
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "invalid previous object, creationtxid=" << pPrevObj->creationtxid.GetHex() << std::endl);
+		return false; 
+	}
+
+	// from prev baton or empty if no prev baton
+	std::vector<uint256> playerids;
+	std::vector<uint256> kogsInStack;
+	std::vector<std::pair<uint256, uint256>> kogsFlipped;
+	gameid = zeroid;
+	uint256 gameconfigid = zeroid;
+
+	if (pPrevObj->objectType == KOGSID_GAME)  // first turn
+	{
+		KogsGame *pgame = (KogsGame *)pPrevObj;
+		if (pgame->playerids.size() < 2)
+		{
+			LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "playerids.size incorrect=" << pgame->playerids.size() << " pPrevObj creationtxid=" << pPrevObj->creationtxid.GetHex() << std::endl);
+			return false;
+		}
+		// randomly select whose turn is the first:
+        if (pInitBaton == nullptr)
+		    nextturn = rand() % pgame->playerids.size();
+        else
+            nextturn = ((KogsBaton*)pInitBaton)->nextturn; // validate
+		playerids = pgame->playerids;
+		gameid = pPrevObj->creationtxid;
+		gameconfigid = pgame->gameconfigid;
+
+        // check all players in the first baton
+        for (auto const &playerid : playerids)  {
+            std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerid) );
+            if (spPlayer == nullptr || spPlayer->objectType != KOGSID_PLAYER)   {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "incorrect player=" << playerid.GetHex() << std::endl);
+                return false;
+            }
+                
+            uint256 adtxid;
+            int32_t advout;
+            std::vector<KogsAdvertising> adlist;
+            if (!FindAdvertisings(playerid, adtxid, advout, adlist)) {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "player did not advertise itself=" << playerid.GetHex() << std::endl);
+                return false;
+            }
+        }
+
+	}
+	else // prev is baton
+	{
+        KogsBaton *pPrevBaton = (KogsBaton *)pPrevObj;
+        gameid = pPrevBaton->gameid;
+
+        if (pPrevBaton && pPrevBaton->objectType == KOGSID_BATON)
+        {
+            playerids = pPrevBaton->playerids;
+            kogsInStack = pPrevBaton->kogsInStack;
+            kogsFlipped = pPrevBaton->kogsFlipped;
+            nextturn = pPrevBaton->nextturn;
+            nextturn++;
+            if (nextturn == playerids.size())
+                nextturn = 0;
+            turncount = pPrevBaton->prevturncount + 1; // previously passed turns' count
+            gameconfigid = pPrevBaton->gameconfigid;
+        }
+        else
+        {
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "prev object null or not a baton, prev txid=" << pPrevObj->creationtxid.GetHex() << std::endl);
+            return false;
+        }
+	}
+
+	KogsBaseObject *pGameConfig = LoadGameObject(gameconfigid);
+	if (pGameConfig ==nullptr || pGameConfig->objectType != KOGSID_GAMECONFIG)
+	{
+		LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "skipped prev baton for gameid=" << gameid.GetHex() << " can't load gameconfig with id=" << gameconfigid.GetHex() << std::endl);
+		return false;
+	}
+	spGameConfig.reset((KogsGameConfig*)pGameConfig);
+
+	KogsBaseObject *pPlayer = LoadGameObject(playerids[nextturn]);
+	if (pPlayer == nullptr || pPlayer->objectType != KOGSID_PLAYER)
+	{
+		LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "skipped prev baton for gameid=" << gameid.GetHex() << " can't load player with id=" << playerids[nextturn].GetHex() << std::endl);
+		return false;
+	}
+	spPlayer.reset((KogsPlayer*)pPlayer);
+
+    // create the next baton
+	newbaton.nameId = "baton";
+	newbaton.descriptionId = "turn";
+	newbaton.nextturn = nextturn;
+	newbaton.nextplayerid = playerids[nextturn];
+	newbaton.playerids = playerids;
+	newbaton.kogsInStack = kogsInStack;
+	newbaton.kogsFlipped = kogsFlipped;
+	newbaton.prevturncount = turncount;  
+	newbaton.gameid = gameid;
+	newbaton.gameconfigid = gameconfigid;
+    if (pSlamparam != nullptr)  {
+        newbaton.armHeight = pSlamparam->armHeight;
+        newbaton.armStrength = pSlamparam->armStrength;
+    }
+
+    if (pPrevObj->objectType == KOGSID_BATON && pSlamparam == nullptr)  {
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't create baton, empty slam params, prev txid" << pPrevObj->creationtxid.GetHex() << std::endl);
+        return false;
+    }
+
+	bool bBatonCreated = ManageStack(*spGameConfig.get(), pPrevObj, newbaton, pInitBaton);
+	if (!bBatonCreated) {
+		LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "baton not created for gameid=" << gameid.GetHex() << std::endl);
+		return false;
+	}
+
+    // check if the current slam finishes the game
+    if (IsGameFinished(*spGameConfig.get(), &newbaton))
+    {  
+        // create gamefinished object:
+		bGameFinished = true;
+	 	gamefinished.kogsInStack = newbaton.kogsInStack;
+		gamefinished.kogsFlipped = newbaton.kogsFlipped;
+		gamefinished.gameid = gameid;
+		gamefinished.winnerid = GetWinner(&newbaton);
+        gamefinished.randomHeightRange = newbaton.randomHeightRange;
+        gamefinished.randomStrengthRange = newbaton.randomStrengthRange;
+		gamefinished.isError = false;
+        return true;
+	}
+	return true;
+}
+
 
 
 // RPC implementations:
@@ -1480,16 +1646,52 @@ UniValue KogsStartGame(const CPubKey &remotepk, const KogsGame &newgame)
         }
     }
 
-    /*KogsGameConfig *pGameConfig = (KogsGameConfig*)spGameConfig.get();
-    std::vector<std::shared_ptr<KogsContainer>> spcontainers;
-    if(!KogsManageStack(pGameConfig, nullptr, &newgame, spcontainers))
-    {
-        CCerror = "could not manage stack: " + CCerror; // try use the CCerror from ManageStack
-        return NullUniValue;
-    }*/
-
-    return CreateEnclosureTx(remotepk, &newgame, false, true);
+    return CreateEnclosureTx(remotepk, &newgame, false, BATON_SELF);
 }
+
+UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
+{
+    std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(gameid)); // load and unmarshal game 
+    if (spPrevObj.get() != nullptr)
+    {
+        std::shared_ptr<KogsGameConfig> spGameConfig;
+        std::shared_ptr<KogsPlayer> spPlayer;
+        std::shared_ptr<KogsBaton> spPrevBaton;
+        KogsBaton newbaton;
+        KogsGameFinished gamefinished;
+        bool bGameFinished;
+        uint256 dummygameid;
+
+        if (CreateNewBaton(spPrevObj.get(), dummygameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, gamefinished, bGameFinished))
+        {    
+            const int32_t batonvout = 2;
+
+            // a bit different CreateBatonTx impl than other creation funcs, not returning sigdata but tx itself
+            CTransaction batontx = CreateBatonTx(gameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            if (!batontx.IsNull() && IsTxSigned(batontx))
+            {
+                UniValue result(UniValue::VOBJ);
+                result.push_back(Pair(JSON_HEXTX, HexStr(E_MARSHAL(ss << batontx))));
+                return result;
+            }
+            else
+            {
+                CCerror = "can't create or sign baton transaction";
+                return NullUniValue;
+            } 
+        }
+        else {
+            CCerror = "can't create baton object (check if all players deposited containers and slammers)";
+            return NullUniValue;
+        }
+    }
+    else
+    {
+        CCerror = "can't load game";
+        return NullUniValue;
+    }
+}
+
 
 // container is an NFT token
 // to add tokens to it we just send them to container 1of2 addr (kogs-global, container-create-txid)
@@ -2029,8 +2231,7 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "finding 'my turn' baton on mypk" << std::endl);
 
-    // find all games with unspent batons:
-    uint256 batontxid = zeroid;
+    // find my baton for this game:
     KogsBaton* prevBaton = nullptr;
     SetCCunspentsWithMempool(addressUnspents, myccaddr, true);    // look for baton on my cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
@@ -2044,17 +2245,17 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
             if (spbaton != nullptr && spbaton->objectType == KOGSID_BATON)
             {
                 KogsBaton* pbaton = (KogsBaton*)spbaton.get();
-                if (pbaton->gameid == newSlamParams.gameid)
+                if (pbaton->gameid == newSlamParams.gameid)  // is my gameid in the baton?
                 {
-                    if (pbaton->nextplayerid == newSlamParams.playerid)
+                    if (pbaton->nextplayerid == newSlamParams.playerid)  // is playerid param in the baton?
                     {
                         std::shared_ptr<KogsBaseObject> spplayer(LoadGameObject(newSlamParams.playerid));
                         if (spplayer.get() != nullptr && spplayer->objectType == KOGSID_PLAYER)
                         {
                             KogsPlayer* pplayer = (KogsPlayer*)spplayer.get();
-                            if (pplayer->encOrigPk == mypk)
+                            if (pplayer->encOrigPk == mypk)   // is this my playerid 
                             {
-                                batontxid = it->first.txhash;
+                                prevBaton = pbaton;
                                 break;
                             }
                         }
@@ -2064,37 +2265,44 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
         }
     }
 
-    /*if (prevBaton != nullptr)  
+    if (prevBaton)   
     {
-        std::shared_ptr<KogsBaseObject> spGameConfig(LoadGameObject(prevBaton->gameconfigid));
-        if (spGameConfig->objectType != KOGSID_GAMECONFIG)
-        {
-            CCerror = "bad gameconfigid";
-            return NullUniValue;
-        }
+        std::shared_ptr<KogsGameConfig> spGameConfig;
+        std::shared_ptr<KogsPlayer> spPlayer;
+        std::shared_ptr<KogsBaton> spPrevBaton;
+        KogsBaton newbaton;
+        KogsGameFinished gamefinished;
+        bool bGameFinished;
+        uint256 dummygameid;
 
-        KogsGameConfig *pGameConfig = (KogsGameConfig*)spGameConfig.get();
-        std::vector<std::shared_ptr<KogsContainer>> spcontainers;
-        if(!KogsManageStack(pGameConfig, prevBaton, &newSlamParams, spcontainers))
-        {
-            CCerror = "could not manage stack: " + CCerror; // try use the CCerror from ManageStack
+        if (CreateNewBaton(prevBaton, dummygameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, gamefinished, bGameFinished))
+        {    
+            const int32_t batonvout = 2;
+
+            // a bit different CreateBatonTx impl than other creation funcs, not returning sigdata but tx itself
+            CTransaction batontx = CreateBatonTx(dummygameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            if (!batontx.IsNull() && IsTxSigned(batontx))
+            {
+                UniValue result(UniValue::VOBJ);
+                result.push_back(Pair(JSON_HEXTX, HexStr(E_MARSHAL(ss << batontx))));
+                return result;
+            }
+            else
+            {
+                CCerror = "can't create or sign baton transaction";
+                return NullUniValue;
+            } 
+        }
+        else {
+            CCerror = "can't create baton object (check if all players deposited containers and slammers)";
             return NullUniValue;
         }
-        return CreateSlamParamTx(remotepk, batontxid, 0, newSlamParams);
     }
     else
     {
         CCerror = "could not find baton for your pubkey (not your turn)";
         return NullUniValue;
-    }*/
-    if (!batontxid.IsNull())
-        return CreateSlamParamTx(remotepk, batontxid, 0, newSlamParams);
-    else
-    {
-        CCerror = "could not find baton for your pubkey (not your turn)";
-        return NullUniValue;
     }
-
 }
 
 UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &newad)
@@ -2775,176 +2983,6 @@ static bool AddTransferBackTokensVouts(CMutableTransaction &mtx, struct CCcontra
     return true;
 }
 
-// get winner playerid
-static uint256 GetWinner(const KogsBaton *pbaton)
-{
-    // calc total flipped for each playerid
-    std::map<uint256, int32_t> flippedCounts;
-    for(auto const &flipped : pbaton->kogsFlipped)
-    {
-        flippedCounts[flipped.second] ++;
-    }
-
-    // find max
-    int32_t cur_max = 0;
-    uint256 winner;
-    for(auto const &counted : flippedCounts)
-    {
-        if (cur_max < counted.second)
-        {
-            winner = counted.first;
-            cur_max = counted.second;
-        }
-    }
-    return winner;
-}
-
-bool KogsCreateNewBaton(KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayer, std::shared_ptr<KogsBaton> &spPrevBaton, KogsBaton &newbaton, const KogsBaseObject *pInitBaton, KogsGameFinished &gamefinished, bool &bGameFinished)
-{
-	int32_t nextturn;
-	int32_t turncount = 0;
-	bGameFinished = false;
-
-    if (pPrevObj == nullptr)    
-		return false; 
-    
-	if (pPrevObj->objectType != KOGSID_GAME && pPrevObj->objectType != KOGSID_SLAMPARAMS)	{
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "invalid previous object, creationtxid=" << pPrevObj->creationtxid.GetHex() << std::endl);
-		return false; 
-	}
-
-	// from prev baton or emty if no prev baton
-	std::vector<uint256> playerids;
-	std::vector<uint256> kogsInStack;
-	std::vector<std::pair<uint256, uint256>> kogsFlipped;
-	gameid = zeroid;
-	uint256 gameconfigid = zeroid;
-
-	if (pPrevObj->objectType == KOGSID_GAME)  // first turn
-	{
-		KogsGame *pgame = (KogsGame *)pPrevObj;
-		if (pgame->playerids.size() < 2)
-		{
-			LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "playerids.size incorrect=" << pgame->playerids.size() << " pPrevObj creationtxid=" << pPrevObj->creationtxid.GetHex() << std::endl);
-			return false;
-		}
-		// randomly select whose turn is the first:
-        if (pInitBaton == nullptr)
-		    nextturn = rand() % pgame->playerids.size();
-        else
-            nextturn = ((KogsBaton*)pInitBaton)->nextturn; // validate
-		playerids = pgame->playerids;
-		gameid = pPrevObj->creationtxid;
-		gameconfigid = pgame->gameconfigid;
-
-        // check all players in the first baton
-        for (auto const &playerid : playerids)  {
-            std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerid) );
-            if (spPlayer == nullptr || spPlayer->objectType != KOGSID_PLAYER)   {
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "incorrect player=" << playerid.GetHex() << std::endl);
-                return false;
-            }
-                
-            uint256 adtxid;
-            int32_t advout;
-            std::vector<KogsAdvertising> adlist;
-            if (!FindAdvertisings(playerid, adtxid, advout, adlist)) {
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "player did not advertise itself=" << playerid.GetHex() << std::endl);
-                return false;
-            }
-        }
-
-	}
-	else // slamdata
-	{
-		CTransaction slamParamsTx;
-		uint256 hashBlock;
-		
-		if (myGetTransaction(pPrevObj->creationtxid, slamParamsTx, hashBlock))
-		{
-			KogsSlamParams *pslamparams = (KogsSlamParams *)pPrevObj;
-			gameid = pslamparams->gameid;
-
-			// load the baton
-			// slam param txvin[0] is the baton txid
-			KogsBaseObject *pPrevBaton = LoadGameObject(slamParamsTx.vin[0].prevout.hash);
-			// LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "p==null:" << (p==nullptr) << " p->objectType=" << (char)(p?p->objectType:' ') << std::endl);
-			// spBaton.reset(p);
-			if (pPrevBaton && pPrevBaton->objectType == KOGSID_BATON)
-			{
-				spPrevBaton.reset( (KogsBaton *)pPrevBaton );
-				playerids = spPrevBaton->playerids;
-				kogsInStack = spPrevBaton->kogsInStack;
-				kogsFlipped = spPrevBaton->kogsFlipped;
-				nextturn = spPrevBaton->nextturn;
-				nextturn++;
-				if (nextturn == playerids.size())
-					nextturn = 0;
-				turncount = spPrevBaton->prevturncount + 1; // previously passed turns' count
-				gameconfigid = spPrevBaton->gameconfigid;
-			}
-			else
-			{
-				LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "slam params vin0 is not the baton, slamparams txid=" << pPrevObj->creationtxid.GetHex() << std::endl);
-				return false;
-			}
-		}
-		else
-		{
-			LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not load slamparams tx for txid=" << pPrevObj->creationtxid.GetHex() << std::endl);
-			return false;
-		}
-	}
-
-	KogsBaseObject *pGameConfig = LoadGameObject(gameconfigid);
-	if (pGameConfig ==nullptr || pGameConfig->objectType != KOGSID_GAMECONFIG)
-	{
-		LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "skipped prev baton for gameid=" << gameid.GetHex() << " can't load gameconfig with id=" << gameconfigid.GetHex() << std::endl);
-		return false;
-	}
-	spGameConfig.reset((KogsGameConfig*)pGameConfig);
-
-	KogsBaseObject *pPlayer = LoadGameObject(playerids[nextturn]);
-	if (pPlayer == nullptr || pPlayer->objectType != KOGSID_PLAYER)
-	{
-		LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "skipped prev baton for gameid=" << gameid.GetHex() << " can't load player with id=" << playerids[nextturn].GetHex() << std::endl);
-		return false;
-	}
-	spPlayer.reset((KogsPlayer*)pPlayer);
-
-    // create the next baton
-	newbaton.nameId = "baton";
-	newbaton.descriptionId = "turn";
-	newbaton.nextturn = nextturn;
-	newbaton.nextplayerid = playerids[nextturn];
-	newbaton.playerids = playerids;
-	newbaton.kogsInStack = kogsInStack;
-	newbaton.kogsFlipped = kogsFlipped;
-	newbaton.prevturncount = turncount;  
-	newbaton.gameid = gameid;
-	newbaton.gameconfigid = gameconfigid;
-
-	bool bBatonCreated = KogsManageStack(*spGameConfig.get(), (KogsSlamParams *)pPrevObj, spPrevBaton.get(), newbaton, pInitBaton);
-	if (!bBatonCreated) {
-		LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "baton not created for gameid=" << gameid.GetHex() << std::endl);
-		return false;
-	}
-
-    if (IsGameFinished(*spGameConfig.get(), &newbaton))
-    {  
-        // create gamefinished object:
-		bGameFinished = true;
-	 	gamefinished.kogsInStack = newbaton.kogsInStack;
-		gamefinished.kogsFlipped = newbaton.kogsFlipped;
-		gamefinished.gameid = gameid;
-		gamefinished.winnerid = GetWinner(&newbaton);
-        gamefinished.randomHeightRange = newbaton.randomHeightRange;
-        gamefinished.randomStrengthRange = newbaton.randomStrengthRange;
-		gamefinished.isError = false;
-	}
-
-	return true;
-}
 
 // create baton or gamefinished tx
 void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &minersTransactions)
@@ -3000,7 +3038,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 				uint256 gameid;
 				bool bGameFinished;
 
-				if (!KogsCreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, spPrevBaton, newbaton, nullptr, gamefinished, bGameFinished))
+				if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, gamefinished, bGameFinished))
 					continue;
 
                 // first requirement: finish the game if turncount == player.size * maxTurns and send kogs to the winners
@@ -3037,6 +3075,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     else
                         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error adding transfer container vouts for gameid=" << gameid.GetHex() << std::endl);
                 }
+                /* no batons are created by nodes any more
                 else
                 {
                     // game not finished - send baton:
@@ -3050,8 +3089,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     else
                     {
                         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create baton tx=" << HexStr(E_MARSHAL(ss << batontx)) << " to next playerid=" << newbaton.nextplayerid.GetHex() << std::endl);
-                    }
-                }
+                    } 
+                } */
                 
                 for (const auto &tx : myTransactions)
                 {
@@ -3365,22 +3404,21 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
         return errorStr = "no cc vin", false;
 
     std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(tx.vin[ccvin].prevout.hash)); 
-    if (spPrevObj == nullptr || spPrevObj->objectType != KOGSID_GAME && spPrevObj->objectType != KOGSID_SLAMPARAMS)
-        return errorStr = "could not load prev object game or slamdata", false;
+    if (spPrevObj == nullptr || spPrevObj->objectType != KOGSID_GAME && spPrevObj->objectType != KOGSID_BATON)
+        return errorStr = "could not load prev object game or baton", false;
 
-    CTransaction prevtx;
-    uint256 hashBlock;
-    if (!myGetTransaction(tx.vin[ccvin].prevout.hash, prevtx, hashBlock) || prevtx.vout[tx.vin[ccvin].prevout.n].nValue != KOGS_BATON_AMOUNT)
-        return errorStr = "could not load previous game or slamdata tx or invalid baton amount", false;
-
+    //CTransaction prevtx;
+    //uint256 hashBlock;
+    //if (!myGetTransaction(tx.vin[ccvin].prevout.hash, prevtx, hashBlock) || prevtx.vout[tx.vin[ccvin].prevout.n].nValue != KOGS_BATON_AMOUNT)
+    //    return errorStr = "could not load previous game or slamdata tx or invalid baton amount", false;
     //KogsBaton *pbaton = pobj->objectType == KOGSID_BATON ? (KogsBaton*)pobj : nullptr;
-    // create test baton object
+
+    // create test baton object using validated object as an init object (with the stored random data)
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating test baton for gameid=" << gameid.GetHex() << std::endl);
-    if (!KogsCreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, spPrevBaton, testbaton, pobj, testgamefinished, bGameFinished))
+    if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, testbaton, pobj, testgamefinished, bGameFinished))
         return errorStr = "could not create test baton", false;
 
     // compare test and validated baton objects
-    
     if (bGameFinished)
     {                            
         // check gamefinished data:
@@ -3847,10 +3885,12 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
                     // could only be in funcid 'c':
                     return log_and_return_error(eval, "invalid game object transfer", tx);
                 case KOGSID_SLAMPARAMS:
-                    if (!check_slamdata(cp, pBaseObj, tx, errorStr))
+                    // slam params discontinued, baton is used instead
+                    /* if (!check_slamdata(cp, pBaseObj, tx, errorStr))
                         return log_and_return_error(eval, "invalid slam data: " + errorStr, tx);
                     else
-                        return true;
+                        return true;  */
+                    return false;
                 case KOGSID_GAMEFINISHED:
                 case KOGSID_BATON:
                     if (!check_baton(cp, pBaseObj, tx, errorStr))

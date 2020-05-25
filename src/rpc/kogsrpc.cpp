@@ -1571,6 +1571,32 @@ UniValue kogsstopadvertiseplayer(const UniValue& params, bool fHelp, const CPubK
     return result;
 }
 
+// rpc kogscreatefirstbaton impl (to create first move baton)
+UniValue kogscreatefirstbaton(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 1))
+    {
+        throw runtime_error(
+            "kogscreatefirstbaton gameid\n"
+            "creates first baton if all the players deposited containers to the game\n" "\n");
+    }
+
+    uint256 gameid = Parseuint256(params[0].get_str().c_str());
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+
+    UniValue sigData = KogsCreateFirstBaton(remotepk, gameid);
+    RETURN_IF_ERROR(CCerror);
+
+    result = sigData;
+    result.push_back(std::make_pair("result", "success"));
+    return result;
+}
+
 // rpc kogsbalance impl (with accounting for mempool tx)
 UniValue kogsbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
@@ -1818,14 +1844,13 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsobjectinfo",         &kogsobjectinfo,          true },
     { "kogs",         "kogsadvertiseplayer",    &kogsadvertiseplayer,          true },
     { "kogs",         "kogsbalance",    &kogsbalance,          true },
+    { "kogs",         "kogscreatefirstbaton",    &kogscreatefirstbaton,          true },
     { "kogs",         "kogsadvertisedplayerlist",    &kogsadvertisedplayerlist,          true },
     { "kogs",         "kogsstopadvertiseplayer",    &kogsstopadvertiseplayer,          true },
     { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
     { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true },
     { "kogs",         "kogsdecodetxdata",         &kogs_decodetxdata,          true },
-    { "hidden",         "praddrman",         &kogs_praddrman,          true },
-
-
+    { "hidden",         "kogspraddrman",         &kogs_praddrman,          true }
 };
 
 

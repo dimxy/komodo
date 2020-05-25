@@ -73,6 +73,9 @@ const char opt_playforkeeps[] = "playforkeeps";
 const char opt_playforfun[] =   "playforfun";
 const char opt_playforwages[] = "playforwages";
 
+#define BATON_GLOBAL      0x1
+#define BATON_SELF        0x2
+
 struct KogsBaseObject {
     std::string nameId;
     std::string descriptionId;
@@ -668,6 +671,7 @@ struct KogsBaton : public KogsBaseObject {
     std::vector<uint256> kogsInStack;
     std::vector<std::pair<uint256, uint256>> kogsFlipped;
     int32_t randomHeightRange, randomStrengthRange;
+    int32_t armHeight, armStrength;
 
     ADD_SERIALIZE_METHODS;
 
@@ -694,6 +698,8 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(kogsFlipped);
             READWRITE(randomHeightRange);
             READWRITE(randomStrengthRange);
+            READWRITE(armHeight);
+            READWRITE(armStrength);
         }
         else
         {
@@ -713,6 +719,8 @@ struct KogsBaton : public KogsBaseObject {
         objectType = KOGSID_BATON; 
         nextturn = 0;
         prevturncount = 0;
+        armHeight = armStrength = 0;
+        randomHeightRange = randomStrengthRange = 0;
     }
 
     bool operator!=(const KogsBaton &baton)   
@@ -1253,6 +1261,7 @@ UniValue KogsClaimDepositedToken(const CPubKey &remotepk, int64_t txfee, uint256
 std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 containerid, const std::set<uint256> &tokenids);
 std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid, const std::set<uint256> &tokenids);
 void KogsDepositedTokenList(uint256 gameid, std::vector<uint256> &tokenids, uint8_t objectType);
+UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid);
 UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newslamparams);
 UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout);
 UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid);
