@@ -471,40 +471,40 @@ static void AddGameFinishedInOuts(CMutableTransaction &mtx, struct CCcontract_in
 
 // create baton tx to pass turn to the next player
 // called by a miner
-static CTransaction CreateBatonTx(uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, CPubKey destpk)
+static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk)
 {
     const CAmount  txfee = 10000;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey minerpk = pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
+    CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    KogsEnclosure enc(minerpk);  // 'zeroid' means 'for creation'
+    KogsEnclosure enc(mypk);  // 'zeroid' means 'for creation'
     enc.vdata = pbaton->Marshal();
     enc.name = pbaton->nameId;
     enc.description = pbaton->descriptionId;
 
-    if (AddNormalinputsRemote(mtx, minerpk, txfee, 0x10000) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
     {
         mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
-        std::string hextx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
-        if (hextx.empty())
+        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
+        if (ResultHasTx(sigData))
         {
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
-            return CTransaction(); // empty tx
+            return sigData; 
         }
         else
         {
-            return mtx;
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
+            return NullUniValue;
         }
     }
     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't normal inputs for txfee" << std::endl);
-    return CTransaction(); // empty tx
+    return NullUniValue; 
 }
 
 
@@ -1667,12 +1667,10 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
             const int32_t batonvout = 2;
 
             // a bit different CreateBatonTx impl than other creation funcs, not returning sigdata but tx itself
-            CTransaction batontx = CreateBatonTx(gameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
-            if (!batontx.IsNull() && IsTxSigned(batontx))
+            UniValue sigData = CreateBatonTx(gameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            if (ResultHasTx(sigData))
             {
-                UniValue result(UniValue::VOBJ);
-                result.push_back(Pair(JSON_HEXTX, HexStr(E_MARSHAL(ss << batontx))));
-                return result;
+                retrun sigData;
             }
             else
             {
@@ -2279,13 +2277,10 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
         {    
             const int32_t batonvout = 2;
 
-            // a bit different CreateBatonTx impl than other creation funcs, not returning sigdata but tx itself
-            CTransaction batontx = CreateBatonTx(dummygameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
-            if (!batontx.IsNull() && IsTxSigned(batontx))
+            UniValue sigData = CreateBatonTx(dummygameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            if (ResultHasTx(sigData))
             {
-                UniValue result(UniValue::VOBJ);
-                result.push_back(Pair(JSON_HEXTX, HexStr(E_MARSHAL(ss << batontx))));
-                return result;
+                return sigData;
             }
             else
             {
