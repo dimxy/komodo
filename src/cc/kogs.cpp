@@ -470,7 +470,7 @@ static void AddGameFinishedInOuts(CMutableTransaction &mtx, struct CCcontract_in
 }
 
 // create baton tx to pass turn to the next player
-// called by a miner
+// called by a player
 static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk)
 {
     const CAmount  txfee = 10000;
@@ -1207,7 +1207,7 @@ static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *
 {   
     if (prevbaton == nullptr) // check for internal logic error
     {
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "previous object is null" << (char)prevbaton->objectType << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "previous object is null"  << std::endl);
         return false;
     }
 
@@ -1666,7 +1666,6 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
         {    
             const int32_t batonvout = 2;
 
-            // a bit different CreateBatonTx impl than other creation funcs, not returning sigdata but tx itself
             UniValue sigData = CreateBatonTx(remotepk, gameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
@@ -2230,7 +2229,7 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "finding 'my turn' baton on mypk" << std::endl);
 
     // find my baton for this game:
-    KogsBaton* prevBaton = nullptr;
+    std::shared_ptr<KogsBaseObject> spPrevBaton;
     SetCCunspentsWithMempool(addressUnspents, myccaddr, true);    // look for baton on my cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
@@ -2253,7 +2252,7 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
                             KogsPlayer* pplayer = (KogsPlayer*)spplayer.get();
                             if (pplayer->encOrigPk == mypk)   // is this my playerid 
                             {
-                                prevBaton = pbaton;
+                                spPrevBaton = spbaton;
                                 break;
                             }
                         }
@@ -2263,21 +2262,20 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
         }
     }
 
-    if (prevBaton)   
+    if (spPrevBaton != nullptr)   
     {
         std::shared_ptr<KogsGameConfig> spGameConfig;
         std::shared_ptr<KogsPlayer> spPlayer;
-        std::shared_ptr<KogsBaton> spPrevBaton;
         KogsBaton newbaton;
         KogsGameFinished gamefinished;
         bool bGameFinished;
         uint256 dummygameid;
 
-        if (CreateNewBaton(prevBaton, dummygameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, gamefinished, bGameFinished))
+        if (CreateNewBaton(spPrevBaton.get(), dummygameid, spGameConfig, spPlayer, &newSlamParams, newbaton, nullptr, gamefinished, bGameFinished))
         {    
-            const int32_t batonvout = 2;
+            const int32_t batonvout = 0;
 
-            UniValue sigData = CreateBatonTx(remotepk, dummygameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            UniValue sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
                 return sigData;
