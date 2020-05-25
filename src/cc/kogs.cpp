@@ -1667,10 +1667,10 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
             const int32_t batonvout = 2;
 
             // a bit different CreateBatonTx impl than other creation funcs, not returning sigdata but tx itself
-            UniValue sigData = CreateBatonTx(gameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            UniValue sigData = CreateBatonTx(remotepk, gameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
-                retrun sigData;
+                return sigData;
             }
             else
             {
@@ -2277,7 +2277,7 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
         {    
             const int32_t batonvout = 2;
 
-            UniValue sigData = CreateBatonTx(dummygameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            UniValue sigData = CreateBatonTx(remotepk, dummygameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
                 return sigData;
