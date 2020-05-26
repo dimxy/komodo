@@ -485,6 +485,7 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
     enc.name = pbaton->nameId;
     enc.description = pbaton->descriptionId;
 
+std::cerr << __func__ << " mypk=" << HexStr(mypk) << std::endl;
     if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
     {
         mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
