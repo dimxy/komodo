@@ -1785,7 +1785,7 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
             const int32_t batonvout = 2;
 
             UniValue sigData;
-            if (bGameFinished)
+            if (!bGameFinished)
                 sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             else
                 sigData = CreateGameFinishedTx(remotepk, spPrevBaton->creationtxid, batonvout, &gamefinished, spPlayer->encOrigPk);  // send baton to player pubkey;
@@ -2398,7 +2398,7 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
             const int32_t batonvout = 0;
 
             UniValue sigData;
-            if (bGameFinished)
+            if (!bGameFinished)
                 sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             else
                 sigData = CreateGameFinishedTx(remotepk, spPrevBaton->creationtxid, batonvout, &gamefinished, spPlayer->encOrigPk);  // send baton to player pubkey;
