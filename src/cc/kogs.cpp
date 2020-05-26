@@ -427,91 +427,6 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject 
     return NullUniValue;
 }
 
-// create baton tx to pass turn to the next player
-// called by a miner
-static void AddGameFinishedInOuts(CMutableTransaction &mtx, struct CCcontract_info *cp, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk, CScript &opret)
-{
-    const CAmount  txfee = 10000;
-    //CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey minerpk = pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
-
-    KogsEnclosure enc(minerpk);  // 'zeroid' means 'for creation'
-    enc.vdata = pbaton->Marshal();
-    enc.name = pbaton->nameId;
-    enc.description = pbaton->descriptionId;
-
-    //if (AddNormalinputs(mtx, minerpk, txfee, 0x10000, false) > 0)
-    //{
-    mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
-    mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
-
-    // add probe cc and kogs priv to spend from kogs global pk
-    struct CCcontract_info *cpKogs, C;
-    cpKogs = CCinit(&C, EVAL_KOGS);
-    uint8_t kogspriv[32];
-    CPubKey kogsPk = GetUnspendable(cpKogs, kogspriv);
-
-    CC* probeCond = MakeCCcond1(EVAL_KOGS, kogsPk);
-    CCAddVintxCond(cp, probeCond, kogspriv);
-    cc_free(probeCond);
-
-    //CScript opret;
-    opret << OP_RETURN << enc.EncodeOpret();  // create opreturn
-        /*std::string hextx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
-        if (hextx.empty())
-        {
-            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
-            return CTransaction(); // empty tx
-        }
-        else
-        {
-            return mtx;
-        }*/
-    ///}
-    //LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't normal inputs for txfee" << std::endl);
-    //return CTransaction(); // empty tx
-}
-
-// create baton tx to pass turn to the next player
-// called by a player
-static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk)
-{
-    const CAmount  txfee = 10000;
-    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
-
-    struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_KOGS);
-
-    KogsEnclosure enc(mypk);  // 'zeroid' means 'for creation'
-    enc.vdata = pbaton->Marshal();
-    enc.name = pbaton->nameId;
-    enc.description = pbaton->descriptionId;
-
-std::cerr << __func__ << " mypk=" << HexStr(mypk) << std::endl;
-    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
-    {
-        mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
-        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
-
-        CScript opret;
-        opret << OP_RETURN << enc.EncodeOpret();
-        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
-        if (ResultHasTx(sigData))
-        {
-            return sigData; 
-        }
-        else
-        {
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
-            return NullUniValue;
-        }
-    }
-    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't normal inputs for txfee" << std::endl);
-    return NullUniValue; 
-}
-
-
 static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creationtxid, vuint8_t &vorigpubkey, std::string &name, std::string &description, std::vector<vscript_t> &oprets)
 {
     uint256 tokenid;
@@ -733,6 +648,246 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
     return LoadGameObject(txid, 10e8);  // 10e8 means use last vout opreturn
 }
 
+
+// create baton tx to pass turn to the next player
+// called by a miner
+static void AddGameFinishedInOuts(CMutableTransaction &mtx, struct CCcontract_info *cp, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk, CScript &opret)
+{
+    const CAmount  txfee = 10000;
+    //CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    CPubKey minerpk = pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
+
+    KogsEnclosure enc(minerpk);  // 'zeroid' means 'for creation'
+    enc.vdata = pbaton->Marshal();
+    enc.name = pbaton->nameId;
+    enc.description = pbaton->descriptionId;
+
+    //if (AddNormalinputs(mtx, minerpk, txfee, 0x10000, false) > 0)
+    //{
+    mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
+    mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
+
+    // add probe cc and kogs priv to spend from kogs global pk
+    struct CCcontract_info *cpKogs, C;
+    cpKogs = CCinit(&C, EVAL_KOGS);
+    uint8_t kogspriv[32];
+    CPubKey kogsPk = GetUnspendable(cpKogs, kogspriv);
+
+    CC* probeCond = MakeCCcond1(EVAL_KOGS, kogsPk);
+    CCAddVintxCond(cp, probeCond, kogspriv);
+    cc_free(probeCond);
+
+    //CScript opret;
+    opret << OP_RETURN << enc.EncodeOpret();  // create opreturn
+        /*std::string hextx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
+        if (hextx.empty())
+        {
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
+            return CTransaction(); // empty tx
+        }
+        else
+        {
+            return mtx;
+        }*/
+    ///}
+    //LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't normal inputs for txfee" << std::endl);
+    //return CTransaction(); // empty tx
+}
+
+
+// send containers back to the player:
+static bool AddTransferBackTokensVouts(CMutableTransaction &mtx, struct CCcontract_info *cpTokens, uint256 gameid, const std::vector<std::shared_ptr<KogsContainer>> &containers, const std::vector<std::shared_ptr<KogsMatchObject>> &slammers, std::vector<CTransaction> &transferContainerTxns)
+{
+    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
+
+    struct CCcontract_info *cpKogs, CKogs;
+    cpKogs = CCinit(&CKogs, EVAL_KOGS);
+    uint8_t kogsPriv[32];
+    CPubKey kogsPk = GetUnspendable(cpKogs, kogsPriv);
+    char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
+    GetTokensCCaddress1of2(cpKogs, tokensrcaddr, kogsPk, gametxidPk);  // get 1of2 address for game
+
+    // iterate over containers and slammers non-mempool tx and extract senders pubkeys from cc vins
+    std::vector< std::pair<uint256, CPubKey>> tokenspks;
+    tokenspks.reserve(containers.size() + slammers.size());
+    for (auto const &c : containers)    {
+        std::vector<CPubKey> vpks;
+        TokensExtractCCVinPubkeys(c->tx, vpks);
+        if (vpks.size() > 0)
+            tokenspks.push_back(std::make_pair(c->creationtxid, vpks[0]));
+    }
+    for (auto const &s : slammers)  {
+        std::vector<CPubKey> vpks;
+        TokensExtractCCVinPubkeys(s->tx, vpks);
+        if (vpks.size() > 0)
+            tokenspks.push_back(std::make_pair(s->creationtxid, vpks[0]));
+    }
+
+    for (const auto &tp : tokenspks)
+    {
+        CMutableTransaction mtxDummy;
+        if (AddTokenCCInputs(cpTokens, mtxDummy, tokensrcaddr, tp.first, 1, 5, true) > 0)  // check if container not transferred yet
+        {
+            //add probe condition to sign vintx 1of2 utxo:
+            CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
+            uint8_t kogspriv[32];
+            GetUnspendable(cpKogs, kogspriv);
+
+            // token transfer vout
+            UniValue addResult = TokenAddTransferVout(mtx, cpTokens, CPubKey()/*to indicate use localpk*/, tp.first, tokensrcaddr,  std::vector<CPubKey>{ tp.second }, {probeCond, kogspriv}, 1, true); // amount = 1 always for NFTs
+            cc_free(probeCond);
+
+            if (ResultIsError(addResult))   {
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not add transfer container back for containerid=" << tp.first.GetHex() << " error=" << ResultGetError(addResult) << std::endl);
+                return false;
+            }
+
+            /*vuint8_t vtx = ParseHex(ResultGetTx(sigData)); // unmarshal tx to get it txid;
+            CTransaction transfertx;
+            if (ResultHasTx(sigData) && E_UNMARSHAL(vtx, ss >> transfertx) && IsTxSigned(transfertx)) {
+                transferContainerTxns.push_back(transfertx);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << ResultGetTx(sigData) << " txid=" << transfertx.GetHash().GetHex() << std::endl);
+                testcount++;
+            }
+            else
+            {
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx=" << HexStr(E_MARSHAL(ss << transfertx)) << " for containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
+                isError = true;
+                break;  // restored break, do not create game finish on this node if it has errors
+            }*/
+        }
+    }
+    return true;
+}
+
+// create baton tx to pass turn to the next player
+// called by a player
+static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk)
+{
+    const CAmount  txfee = 10000;
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    KogsEnclosure enc(mypk);  // 'zeroid' means 'for creation'
+    enc.vdata = pbaton->Marshal();
+    enc.name = pbaton->nameId;
+    enc.description = pbaton->descriptionId;
+
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
+    {
+        mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
+
+        CScript opret;
+        opret << OP_RETURN << enc.EncodeOpret();
+        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
+        if (ResultHasTx(sigData))
+        {
+            return sigData; 
+        }
+        else
+        {
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
+            return NullUniValue;
+        }
+    }
+    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't normal inputs for txfee" << std::endl);
+    return NullUniValue; 
+}
+
+// loads container and slammer ids deposited on gameid 1of2 addr
+static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<KogsContainer>> &containers, std::vector<std::shared_ptr<KogsMatchObject>> &slammers, bool mempool)
+{
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
+    CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
+    GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
+
+    if (mempool)
+        SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    else
+        SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr (no mempool tx, as they are mined out of the initial order and validation might fail if there is dependencies on mempool txns)
+
+    containers.clear();
+    slammers.clear();
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
+    {
+        //std::cerr << __func__ <<  " found utxo it->first.txhash=" << it->first.txhash.GetHex() << " index=" << it->first.index << std::endl;
+        KogsBaseObject* pobj = LoadGameObject(it->first.txhash, it->first.index); // load and unmarshal gameobject for this txid
+        if (pobj != nullptr && pobj->tx.vout.size() > 0)
+        {
+            //std::cerr << __func__ <<  " objectType=" << (int)pobj->objectType << " creationtxid=" << pobj->creationtxid.GetHex() << std::endl;
+            // check it was a valid deposit operation:
+            // decode last vout opret where operaton objectType resides
+            std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(pobj->tx, pobj->tx.vout.size()-1) );
+            //if (spOperObj != nullptr )
+            //    std::cerr << __func__ <<  " spOperObj objectType=" << (int)spOperObj->objectType << " creationtxid=" << spOperObj->creationtxid.GetHex() << std::endl;
+            //else
+            //    std::cerr << __func__ <<  " spOperObj=null" << std::endl;
+            if (spOperObj != nullptr && spOperObj->objectType == KOGSID_ADDTOGAME ) 
+            {
+                if (pobj->objectType == KOGSID_CONTAINER)
+                {
+                    std::shared_ptr<KogsContainer> spcontainer((KogsContainer*)pobj);
+                    containers.push_back(spcontainer);
+                }
+                else if (pobj->objectType == KOGSID_SLAMMER)
+                {
+                    std::shared_ptr<KogsMatchObject> spslammer((KogsMatchObject*)pobj);
+                    slammers.push_back(spslammer);
+                }
+            }
+        }
+        // else
+        //    std::cerr << __func__ <<  " LoadGameObject failed for=" << it->first.txhash.GetHex() << std::endl;
+    }
+}
+
+static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const KogsGameFinished *pgamefinished, const CPubKey &destpk)
+{
+    CMutableTransaction mtx;
+    struct CCcontract_info *cpTokens, CTokens;
+    cpTokens = CCinit(&CTokens, EVAL_TOKENS);
+
+    CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());
+
+    TokenBeginTransferTx(mtx, cpTokens, mypk, 10000);
+    std::vector<CTransaction> transferContainerTxns;
+    std::vector<std::shared_ptr<KogsContainer>> spcontainers;
+    std::vector<std::shared_ptr<KogsMatchObject>> spslammers;
+    ListDepositedTokenids(pgamefinished->gameid, spcontainers, spslammers, false);
+        
+    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, pgamefinished->gameid);
+    CScript opret;
+    AddGameFinishedInOuts(mtx, cpTokens, prevtxid, prevn, pgamefinished, gametxidPk, opret);  // send game finished baton to unspendable addr
+
+    if (AddTransferBackTokensVouts(mtx, cpTokens, pgamefinished->gameid, spcontainers, spslammers, transferContainerTxns))
+    {
+        UniValue sigData = TokenFinalizeTransferTx(mtx, cpTokens, CPubKey(), 10000, opret);
+        if (!ResultIsError(sigData)) {
+            return sigData;
+        }
+        else
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error finalizing tx for gameid=" << pgamefinished->gameid.GetHex() << " error=" << ResultGetError(sigData) << std::endl);
+    }
+    else
+        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error adding transfer container vouts for gameid=" << pgamefinished->gameid.GetHex() << std::endl);
+    return NullUniValue;
+}
+
+
+
 // game object checker if NFT is mine
 class IsNFTMineChecker : public KogsObjectFilterBase  {
 public:
@@ -921,59 +1076,6 @@ static UniValue CreateAdvertisingTx(const CPubKey &remotepk, const KogsAdvertisi
     }
 }
 
-// loads container and slammer ids deposited on gameid 1of2 addr
-static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<KogsContainer>> &containers, std::vector<std::shared_ptr<KogsMatchObject>> &slammers, bool mempool)
-{
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-
-    struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_KOGS);
-
-    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey kogsPk = GetUnspendable(cp, NULL);
-    CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
-    GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, gametxidPk);
-
-    if (mempool)
-        SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
-    else
-        SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr (no mempool tx, as they are mined out of the initial order and validation might fail if there is dependencies on mempool txns)
-
-    containers.clear();
-    slammers.clear();
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
-    {
-        //std::cerr << __func__ <<  " found utxo it->first.txhash=" << it->first.txhash.GetHex() << " index=" << it->first.index << std::endl;
-        KogsBaseObject* pobj = LoadGameObject(it->first.txhash, it->first.index); // load and unmarshal gameobject for this txid
-        if (pobj != nullptr && pobj->tx.vout.size() > 0)
-        {
-            //std::cerr << __func__ <<  " objectType=" << (int)pobj->objectType << " creationtxid=" << pobj->creationtxid.GetHex() << std::endl;
-            // check it was a valid deposit operation:
-            // decode last vout opret where operaton objectType resides
-            std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(pobj->tx, pobj->tx.vout.size()-1) );
-            //if (spOperObj != nullptr )
-            //    std::cerr << __func__ <<  " spOperObj objectType=" << (int)spOperObj->objectType << " creationtxid=" << spOperObj->creationtxid.GetHex() << std::endl;
-            //else
-            //    std::cerr << __func__ <<  " spOperObj=null" << std::endl;
-            if (spOperObj != nullptr && spOperObj->objectType == KOGSID_ADDTOGAME ) 
-            {
-                if (pobj->objectType == KOGSID_CONTAINER)
-                {
-                    std::shared_ptr<KogsContainer> spcontainer((KogsContainer*)pobj);
-                    containers.push_back(spcontainer);
-                }
-                else if (pobj->objectType == KOGSID_SLAMMER)
-                {
-                    std::shared_ptr<KogsMatchObject> spslammer((KogsMatchObject*)pobj);
-                    slammers.push_back(spslammer);
-                }
-            }
-        }
-        // else
-        //    std::cerr << __func__ <<  " LoadGameObject failed for=" << it->first.txhash.GetHex() << std::endl;
-    }
-}
 
 // if playerId set returns found adtxid and nvout
 // if not set returns all advertisings (checked if signed correctly) in adlist
@@ -1682,8 +1784,11 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
         {    
             const int32_t batonvout = 2;
 
-            KogsBaseObject *pBaton = bGameFinished ? (KogsBaseObject*)&gamefinished : (KogsBaseObject*)&newbaton;
-            UniValue sigData = CreateBatonTx(remotepk, gameid, batonvout, pBaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            UniValue sigData;
+            if (bGameFinished)
+                sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            else
+                sigData = CreateGameFinishedTx(remotepk, spPrevBaton->creationtxid, batonvout, &gamefinished, spPlayer->encOrigPk);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
                 return sigData;
@@ -2292,8 +2397,11 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
         {    
             const int32_t batonvout = 0;
 
-            KogsBaseObject *pBaton = bGameFinished ? (KogsBaseObject*)&gamefinished : (KogsBaseObject*)&newbaton;
-            UniValue sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, pBaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            UniValue sigData;
+            if (bGameFinished)
+                sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            else
+                sigData = CreateGameFinishedTx(remotepk, spPrevBaton->creationtxid, batonvout, &gamefinished, spPlayer->encOrigPk);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
                 return sigData;
@@ -2927,72 +3035,6 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
     return DecodeObjectInfo(spobj.get());
 }
 
-
-// send containers back to the player:
-static bool AddTransferBackTokensVouts(CMutableTransaction &mtx, struct CCcontract_info *cpTokens, uint256 gameid, const std::vector<std::shared_ptr<KogsContainer>> &containers, const std::vector<std::shared_ptr<KogsMatchObject>> &slammers, std::vector<CTransaction> &transferContainerTxns)
-{
-    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
-
-    struct CCcontract_info *cpKogs, CKogs;
-    cpKogs = CCinit(&CKogs, EVAL_KOGS);
-    uint8_t kogsPriv[32];
-    CPubKey kogsPk = GetUnspendable(cpKogs, kogsPriv);
-    char tokensrcaddr[KOMODO_ADDRESS_BUFSIZE];
-    GetTokensCCaddress1of2(cpKogs, tokensrcaddr, kogsPk, gametxidPk);  // get 1of2 address for game
-
-    // iterate over containers and slammers non-mempool tx and extract senders pubkeys from cc vins
-    std::vector< std::pair<uint256, CPubKey>> tokenspks;
-    tokenspks.reserve(containers.size() + slammers.size());
-    for (auto const &c : containers)    {
-        std::vector<CPubKey> vpks;
-        TokensExtractCCVinPubkeys(c->tx, vpks);
-        if (vpks.size() > 0)
-            tokenspks.push_back(std::make_pair(c->creationtxid, vpks[0]));
-    }
-    for (auto const &s : slammers)  {
-        std::vector<CPubKey> vpks;
-        TokensExtractCCVinPubkeys(s->tx, vpks);
-        if (vpks.size() > 0)
-            tokenspks.push_back(std::make_pair(s->creationtxid, vpks[0]));
-    }
-
-    for (const auto &tp : tokenspks)
-    {
-        CMutableTransaction mtxDummy;
-        if (AddTokenCCInputs(cpTokens, mtxDummy, tokensrcaddr, tp.first, 1, 5, true) > 0)  // check if container not transferred yet
-        {
-            //add probe condition to sign vintx 1of2 utxo:
-            CC* probeCond = MakeTokensCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
-            uint8_t kogspriv[32];
-            GetUnspendable(cpKogs, kogspriv);
-
-            // token transfer vout
-            UniValue addResult = TokenAddTransferVout(mtx, cpTokens, CPubKey()/*to indicate use localpk*/, tp.first, tokensrcaddr,  std::vector<CPubKey>{ tp.second }, {probeCond, kogspriv}, 1, true); // amount = 1 always for NFTs
-            cc_free(probeCond);
-
-            if (ResultIsError(addResult))   {
-                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not add transfer container back for containerid=" << tp.first.GetHex() << " error=" << ResultGetError(addResult) << std::endl);
-                return false;
-            }
-
-            /*vuint8_t vtx = ParseHex(ResultGetTx(sigData)); // unmarshal tx to get it txid;
-            CTransaction transfertx;
-            if (ResultHasTx(sigData) && E_UNMARSHAL(vtx, ss >> transfertx) && IsTxSigned(transfertx)) {
-                transferContainerTxns.push_back(transfertx);
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "created transfer container back tx=" << ResultGetTx(sigData) << " txid=" << transfertx.GetHash().GetHex() << std::endl);
-                testcount++;
-            }
-            else
-            {
-                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx=" << HexStr(E_MARSHAL(ss << transfertx)) << " for containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
-                isError = true;
-                break;  // restored break, do not create game finish on this node if it has errors
-            }*/
-        }
-    }
-    return true;
-}
 
 
 // create baton or gamefinished tx
