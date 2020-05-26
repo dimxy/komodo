@@ -2210,7 +2210,7 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
 
 UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamParams)
 {
-    /*std::shared_ptr<KogsBaseObject> spbaseobj( LoadGameObject(newSlamParams.gameid) );
+    std::shared_ptr<KogsBaseObject> spbaseobj( LoadGameObject(newSlamParams.gameid) );
     if (spbaseobj == nullptr || spbaseobj->objectType != KOGSID_GAME)
     {
         CCerror = "can't load game";
@@ -2240,7 +2240,7 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
         uint256 dummytxid;
         int32_t dummyvout;
         // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
-        if (it->second.satoshis == KOGS_BATON_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*//*) // picking batons with marker=20000
+        if (it->second.satoshis == KOGS_BATON_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*/) // picking batons with marker=20000
         {
             std::shared_ptr<KogsBaseObject> spbaton(LoadGameObject(it->first.txhash));
             if (spbaton != nullptr && spbaton->objectType == KOGSID_BATON)
@@ -2300,10 +2300,7 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
     {
         CCerror = "could not find baton for your pubkey (not your turn)";
         return NullUniValue;
-    }*/
-            KogsBaton newbaton;
-            UniValue sigData = CreateEnclosureTx(remotepk, &newbaton, false, 0);
-            return sigData;
+    }
 }
 
 UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &newad)
