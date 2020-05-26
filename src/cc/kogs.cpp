@@ -2043,13 +2043,13 @@ UniValue KogsClaimDepositedToken(const CPubKey &remotepk, int64_t txfee, uint256
     //{
     if (GetNFTUnspentTx(tokenid, lasttx))
     {
-        std::vector<CPubKey> vpks0, vpks, vpks1;
+        std::vector<CPubKey> vpks0; //, vpks, vpks1;
         CTransaction prevtxout;
         int32_t nvout;
 
-        TokensExtractCCVinPubkeys(lasttx, vpks1);
+        //TokensExtractCCVinPubkeys(lasttx, vpks1);
         GetNFTPrevVout(lasttx, tokenid, prevtxout, nvout, vpks0);
-        TokensExtractCCVinPubkeys(prevtxout, vpks);
+        //TokensExtractCCVinPubkeys(prevtxout, vpks);
 
 //std::cerr << __func__ << " vpks0.size=" << vpks0.size() << " vpks1.size=" << vpks1.size() << " vpks.size=" << vpks.size() << std::endl;
         if (vpks0.size() != 1)    {

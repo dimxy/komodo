@@ -87,7 +87,7 @@ struct KogsBaseObject {
     uint8_t funcid; // token or enclosure funcid
     uint256 creationtxid;
     bool istoken;
-    CTransaction tx;
+    CTransaction tx; // tx where the opreturn was taken from (just not to load it twice, if it is needed somewhere)
     //CTxOut vout; // vout where the object is currently sent to
 
     // check basic data in opret (evalcode & version), return objectType
