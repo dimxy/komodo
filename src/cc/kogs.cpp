@@ -402,13 +402,16 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject 
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_NFT_MARKER_AMOUNT, GetUnspendable(cp, NULL)));  // kogs cc marker
-        if (batonType == BATON_GLOBAL)
-            mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, GetUnspendable(cp, NULL))); // initial marker for miners who will create a baton indicating whose turn is first
-        else if (batonType == BATON_SELF)
-            mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, mypk)); // initial marker for miners who will create a baton indicating whose turn is first
-        else    {
-            CCerror = "invalid baton type";
-            return NullUniValue;
+        if (batonType)
+        {
+            if (batonType == BATON_GLOBAL)
+                mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, GetUnspendable(cp, NULL))); // initial marker for miners who will create a baton indicating whose turn is first
+            else if (batonType == BATON_SELF)
+                mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, mypk)); // initial marker for miners who will create a baton indicating whose turn is first
+            else    {
+                CCerror = "invalid baton type";
+                return NullUniValue;
+            }
         }
 
         CScript opret;
@@ -1605,13 +1608,13 @@ UniValue KogsCreatePack(const CPubKey &remotepk, const KogsPack &newpack)
 // create game config object
 UniValue KogsCreateGameConfig(const CPubKey &remotepk, const KogsGameConfig &newgameconfig)
 {
-    return CreateEnclosureTx(remotepk, &newgameconfig, false, false);
+    return CreateEnclosureTx(remotepk, &newgameconfig, false, 0);
 }
 
 // create player object with player's params
 UniValue KogsCreatePlayer(const CPubKey &remotepk, const KogsPlayer &newplayer)
 {
-    return CreateEnclosureTx(remotepk, &newplayer, true, false);
+    return CreateEnclosureTx(remotepk, &newplayer, true, 0);
 }
 
 UniValue KogsStartGame(const CPubKey &remotepk, const KogsGame &newgame)
