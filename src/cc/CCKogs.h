@@ -803,6 +803,8 @@ struct KogsGameFinished : public KogsBaseObject {
     std::vector<uint256> kogsInStack;
     std::vector<std::pair<uint256, uint256>> kogsFlipped;
     int32_t randomHeightRange, randomStrengthRange;
+    int32_t armHeight, armStrength;
+
     uint32_t isError;
 
     ADD_SERIALIZE_METHODS;
@@ -826,6 +828,8 @@ struct KogsGameFinished : public KogsBaseObject {
             READWRITE(kogsFlipped);
             READWRITE(randomHeightRange);
             READWRITE(randomStrengthRange);
+            READWRITE(armHeight);
+            READWRITE(armStrength);
             READWRITE(isError);
         }
         else

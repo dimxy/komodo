@@ -1501,6 +1501,8 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
 		gamefinished.winnerid = GetWinner(&newbaton);
         gamefinished.randomHeightRange = newbaton.randomHeightRange;
         gamefinished.randomStrengthRange = newbaton.randomStrengthRange;
+        gamefinished.armHeight = newbaton.armHeight;
+        gamefinished.armStrength = newbaton.armStrength;
 		gamefinished.isError = false;
         return true;
 	}
