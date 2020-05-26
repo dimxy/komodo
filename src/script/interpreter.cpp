@@ -1359,7 +1359,7 @@ bool TransactionSignatureChecker::CheckSig(
     } catch (logic_error ex) {
         return false;
     }
-
+    fprintf(stderr, "%s DEBUG SignatureHash hash=%s\n", __func__, sighash.GetHex().c_str());  // TODO: remove
     if (!VerifySignature(vchSig, pubkey, sighash))
         return false;
 
