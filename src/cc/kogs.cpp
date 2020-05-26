@@ -2279,7 +2279,8 @@ UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newSlamPa
         {    
             const int32_t batonvout = 0;
 
-            UniValue sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            //UniValue sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            UniValue sigData = CreateEnclosureTx(remotepk, &newbaton, false, 0);
             if (ResultHasTx(sigData))
             {
                 return sigData;
