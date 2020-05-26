@@ -1682,7 +1682,7 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
         {    
             const int32_t batonvout = 2;
 
-            UniValue sigData = CreateBatonTx(remotepk, gameid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+            UniValue sigData = CreateBatonTx(remotepk, gameid, batonvout, bGameFinished ? &gamefinished : &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
                 return sigData;
