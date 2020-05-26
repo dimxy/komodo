@@ -698,8 +698,8 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(kogsFlipped);
             READWRITE(randomHeightRange);
             READWRITE(randomStrengthRange);
-            READWRITE(armHeight);
-            READWRITE(armStrength);
+            // READWRITE(armHeight);
+            // READWRITE(armStrength);
         }
         else
         {
