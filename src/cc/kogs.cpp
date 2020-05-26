@@ -1469,8 +1469,8 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         newbaton.armStrength = pSlamparam->armStrength;
     }
 
-    if (pPrevObj->objectType == KOGSID_BATON && pSlamparam == nullptr)  {
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't create baton, empty slam params, prev txid" << pPrevObj->creationtxid.GetHex() << std::endl);
+    if (pPrevObj->objectType == KOGSID_BATON && pInitBaton == nullptr && pSlamparam == nullptr)  {  // if testbaton is created then slamparams is in pInitBaton
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't create baton, empty slam params, prev txid=" << pPrevObj->creationtxid.GetHex() << std::endl);
         return false;
     }
 
