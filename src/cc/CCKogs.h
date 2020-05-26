@@ -693,14 +693,15 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(nextturn);
             READWRITE(prevturncount);
             READWRITE(nextplayerid);
+            if (ser_action.ForRead()) {
+
             READWRITE(playerids);
             READWRITE(kogsInStack);
             READWRITE(kogsFlipped);
             READWRITE(randomHeightRange);
             READWRITE(randomStrengthRange);
-            if (ser_action.ForRead()) {
-                READWRITE(armHeight);
-                READWRITE(armStrength);
+            READWRITE(armHeight);
+            READWRITE(armStrength);
             }
         }
         else
