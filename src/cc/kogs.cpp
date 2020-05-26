@@ -874,7 +874,7 @@ static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, 
 
     if (AddTransferBackTokensVouts(mtx, cpTokens, pgamefinished->gameid, spcontainers, spslammers, transferContainerTxns))
     {
-        UniValue sigData = TokenFinalizeTransferTx(mtx, cpTokens, CPubKey(), 10000, opret);
+        UniValue sigData = TokenFinalizeTransferTx(mtx, cpTokens, remotepk, 10000, opret);
         if (!ResultIsError(sigData)) {
             return sigData;
         }
