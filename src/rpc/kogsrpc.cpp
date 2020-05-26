@@ -1013,9 +1013,7 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& remotep
     EnsureWalletIsAvailable(false);
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
-    //UniValue sigData = KogsCreateSlamParams(remotepk, slamparams);
-        KogsPlayer newplayer;
-        UniValue sigData = KogsCreatePlayer(remotepk, newplayer);
+    UniValue sigData = KogsCreateSlamParams(remotepk, slamparams);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
