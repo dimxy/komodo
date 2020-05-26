@@ -1075,7 +1075,7 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
         newbaton.randomStrengthRange = rand();  
     }
     else {
-        // use existing randoms to validate
+        // use randoms existing in the validated baton or gamefinished to make test baton for validation
         if (pInitBaton->objectType == KOGSID_BATON) {
             newbaton.randomHeightRange = ((KogsBaton*)pInitBaton)->randomHeightRange;
             newbaton.randomStrengthRange = ((KogsBaton*)pInitBaton)->randomStrengthRange;
@@ -1467,6 +1467,16 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
     if (pSlamparam != nullptr)  {
         newbaton.armHeight = pSlamparam->armHeight;
         newbaton.armStrength = pSlamparam->armStrength;
+    }
+    else if (pInitBaton != nullptr) {  
+        // set slamparams from validated baton or finished object
+        if (pInitBaton->objectType == KOGSID_BATON) {
+            newbaton.armHeight = ((KogsBaton*)pInitBaton)->armHeight;
+            newbaton.armStrength = ((KogsBaton*)pInitBaton)->armStrength;
+        } else {
+            newbaton.armHeight = ((KogsGameFinished*)pInitBaton)->armHeight;
+            newbaton.armStrength = ((KogsGameFinished*)pInitBaton)->armStrength;
+        }
     }
 
     if (pPrevObj->objectType == KOGSID_BATON && pInitBaton == nullptr && pSlamparam == nullptr)  {  // if testbaton is created then slamparams is in pInitBaton
@@ -3411,7 +3421,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaseObject *pobj, 
     //KogsBaton *pbaton = pobj->objectType == KOGSID_BATON ? (KogsBaton*)pobj : nullptr;
 
     // create test baton object using validated object as an init object (with the stored random data)
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating test baton for gameid=" << gameid.GetHex() << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating test baton"  << std::endl);
     if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, testbaton, pobj, testgamefinished, bGameFinished))
         return errorStr = "could not create test baton", false;
 
