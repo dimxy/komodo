@@ -2710,7 +2710,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             return info;
         }
 
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found baton or SlamParam or GameFinished objectType=" << (char)spobj->objectType << " txid=" << batontxid.GetHex() << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found baton objectType=" << (char)spobj->objectType << " txid=" << batontxid.GetHex() << std::endl);
         batons.push_back(batontxid);
 
         if (spobj->objectType == KOGSID_BATON)
@@ -2731,7 +2731,6 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             }
             prevFlipped = pbaton->kogsFlipped;
             kogsInStack = pbaton->kogsInStack;
-            nextPlayerid = pbaton->playerids[nextTurn];
             nvout = 0;  // baton tx's next baton vout
             if (pbaton->isFinished) {
                 winnerid = pbaton->winnerid;
@@ -2741,6 +2740,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             }
             else {
                 nextTurn = pbaton->nextturn;
+                nextPlayerid = pbaton->playerids[nextTurn];
             }
         }
         /*else if (spobj->objectType == KOGSID_SLAMPARAMS)
