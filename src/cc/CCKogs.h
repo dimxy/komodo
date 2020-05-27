@@ -32,8 +32,8 @@ enum kogids : uint8_t {
     KOGSID_PACK = 'P',
     KOGSID_CONTAINER = 'C',
     KOGSID_BATON = 'B',
-    KOGSID_SLAMPARAMS = 'R',
-    KOGSID_GAMEFINISHED = 'F',
+//    KOGSID_SLAMPARAMS = 'R',
+//    KOGSID_GAMEFINISHED = 'F',
     KOGSID_ADVERTISING = 'A',
     KOGSID_STOPADVERTISING = 'E',
     KOGSID_ADDTOCONTAINER = 'H',
@@ -110,9 +110,9 @@ struct KogsBaseObject {
         switch (objectType)
         {
         case KOGSID_BATON:          // every baton transfer is a new baton
-        case KOGSID_SLAMPARAMS:     // slamparams could not be transferred
+//        case KOGSID_SLAMPARAMS:     // slamparams could not be transferred
         case KOGSID_GAME:           // game could not be transferred
-        case KOGSID_GAMEFINISHED:   // gamefinished could not be transferred
+//        case KOGSID_GAMEFINISHED:   // gamefinished could not be transferred
             return false;
         default:
             break;
@@ -666,12 +666,14 @@ struct KogsBaton : public KogsBaseObject {
     uint256 gameconfigid;
     int32_t nextturn;
     int32_t prevturncount;
-    uint256 nextplayerid;
+//    uint256 nextplayerid;
     std::vector<uint256> playerids;
     std::vector<uint256> kogsInStack;
     std::vector<std::pair<uint256, uint256>> kogsFlipped;
     int32_t randomHeightRange, randomStrengthRange;
     int32_t armHeight, armStrength;
+    uint8_t isFinished;
+    uint256 winnerid;
 
     ADD_SERIALIZE_METHODS;
 
@@ -690,9 +692,6 @@ struct KogsBaton : public KogsBaseObject {
         {
             READWRITE(gameid);
             READWRITE(gameconfigid);
-            READWRITE(nextturn);
-            READWRITE(prevturncount);
-            READWRITE(nextplayerid);
             READWRITE(playerids);
             READWRITE(kogsInStack);
             READWRITE(kogsFlipped);
@@ -700,6 +699,14 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(randomStrengthRange);
             READWRITE(armHeight);
             READWRITE(armStrength);
+            READWRITE(isFinished);
+            if (!isFinished) {
+                READWRITE(nextturn);
+                READWRITE(prevturncount);
+//                READWRITE(nextplayerid);
+            } else {
+                READWRITE(winnerid);
+            }
         }
         else
         {
@@ -721,37 +728,48 @@ struct KogsBaton : public KogsBaseObject {
         prevturncount = 0;
         armHeight = armStrength = 0;
         randomHeightRange = randomStrengthRange = 0;
+        isFinished = 0;
     }
 
     bool operator!=(const KogsBaton &baton)   
     {
-        if (baton.gameid == gameid && 
-            baton.gameconfigid == gameconfigid &&
-            baton.nextturn == nextturn &&
-            baton.prevturncount == prevturncount &&
-            baton.playerids == playerids &&
-            baton.kogsFlipped == kogsFlipped)
-        {
-            // compare orderred as stack is shuffled
-            std::set<uint256> set1(baton.kogsInStack.begin(), baton.kogsInStack.end()); 
-            std::set<uint256> set2(kogsInStack.begin(), kogsInStack.end());
+        if (baton.gameid != gameid || 
+            baton.gameconfigid != gameconfigid ||
+            baton.playerids != playerids ||
+            baton.kogsFlipped != kogsFlipped ||
+            baton.isFinished != isFinished)
+            return true;
+        
+        // compare orderred as stack is shuffled
+        std::set<uint256> set1(baton.kogsInStack.begin(), baton.kogsInStack.end()); 
+        std::set<uint256> set2(kogsInStack.begin(), kogsInStack.end());
+        if (set1 != set2)
+            return true;
 
-            if (set1 == set2)
-                return false;
+        if (!isFinished)    {
+            if (baton.nextturn != nextturn ||
+//                baton.nextplayerid != nextplayerid ||
+                baton.prevturncount != prevturncount)
+                return true; 
         }
-        return true;
+        else {
+            if (baton.winnerid != winnerid)
+                return true;
+        }
+
+        return false;
     }
 };
 
 // slam parameters sent by player
-struct KogsSlamParams : public KogsBaseObject {
+struct KogsSlamParams {
 
     uint256 gameid;
     uint256 playerid;
     int32_t armHeight;
     int32_t armStrength;
 
-    ADD_SERIALIZE_METHODS;
+/*    ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action)
@@ -791,10 +809,10 @@ struct KogsSlamParams : public KogsBaseObject {
         playerid = zeroid;
         armHeight = 0;
         armStrength = 0;
-    }
+    }*/
 };
 
-
+/*
 // game is finished object
 struct KogsGameFinished : public KogsBaseObject {
 
@@ -889,6 +907,7 @@ struct KogsGameFinished : public KogsBaseObject {
         return true;
     }
 };
+*/
 
 // game object
 struct KogsGame : public KogsBaseObject {
@@ -1028,9 +1047,9 @@ struct KogsContainerOps : public KogsBaseObject {
         objectType = _objectType;
     }
 
-    void Init(uint256 contid)
+    void Init(uint256 _containerid)
     {
-        containerid = contid;
+        containerid = _containerid;
     }
 };
 
@@ -1177,13 +1196,13 @@ public:
             b = new KogsBaton();
             return (KogsBaseObject*)b;
 
-        case KOGSID_SLAMPARAMS:
-            sp = new KogsSlamParams();
-            return (KogsBaseObject*)sp;
+//        case KOGSID_SLAMPARAMS:
+//            sp = new KogsSlamParams();
+//            return (KogsBaseObject*)sp;
 
-        case KOGSID_GAMEFINISHED:
-            e = new KogsGameFinished();
-            return (KogsBaseObject*)e;
+//        case KOGSID_GAMEFINISHED:
+//            e = new KogsGameFinished();
+//            return (KogsBaseObject*)e;
 
         case KOGSID_ADVERTISING:
             a = new KogsAdvertising();
