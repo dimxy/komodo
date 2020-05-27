@@ -1324,6 +1324,7 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
             return MakeResultError("zero or unsupported destination pubkey count");
         }
 
+        // send token change to mypk (no change for NFTs)
         CAmount CCchange = 0L;
         if (inputs > amount)
 			CCchange = (inputs - amount);

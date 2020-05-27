@@ -649,15 +649,15 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
 }
 
 
-// create baton tx to pass turn to the next player
-// called by a miner
-static void AddGameFinishedInOuts(CMutableTransaction &mtx, struct CCcontract_info *cp, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk, CScript &opret)
+// add game finished vout
+// called by a player
+static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &mtx, struct CCcontract_info *cp, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk, CScript &opret)
 {
     const CAmount  txfee = 10000;
     //CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CPubKey minerpk = pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
+    CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
 
-    KogsEnclosure enc(minerpk);  // 'zeroid' means 'for creation'
+    KogsEnclosure enc(mypk);  // 'zeroid' means 'for creation'
     enc.vdata = pbaton->Marshal();
     enc.name = pbaton->nameId;
     enc.description = pbaton->descriptionId;
@@ -665,17 +665,19 @@ static void AddGameFinishedInOuts(CMutableTransaction &mtx, struct CCcontract_in
     //if (AddNormalinputs(mtx, minerpk, txfee, 0x10000, false) > 0)
     //{
     mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
-    mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
+    mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // TODO where to send finish baton?
 
     // add probe cc and kogs priv to spend from kogs global pk
-    struct CCcontract_info *cpKogs, C;
-    cpKogs = CCinit(&C, EVAL_KOGS);
-    uint8_t kogspriv[32];
-    CPubKey kogsPk = GetUnspendable(cpKogs, kogspriv);
+    //struct CCcontract_info *cpKogs, C;
+    //cpKogs = CCinit(&C, EVAL_KOGS);
+    //uint8_t kogspriv[32];
+    //CPubKey kogsPk = GetUnspendable(cpKogs, kogspriv);
 
-    CC* probeCond = MakeCCcond1(EVAL_KOGS, kogsPk);
-    CCAddVintxCond(cp, probeCond, kogspriv);
+    // add probe to spend baton from mypk
+    CC* probeCond = MakeCCcond1(EVAL_KOGS, mypk);
+    CCAddVintxCond(cp, probeCond, NULL);
     cc_free(probeCond);
+
 
     //CScript opret;
     opret << OP_RETURN << enc.EncodeOpret();  // create opreturn
@@ -698,8 +700,8 @@ static void AddGameFinishedInOuts(CMutableTransaction &mtx, struct CCcontract_in
 // send containers back to the player:
 static bool AddTransferBackTokensVouts(CMutableTransaction &mtx, struct CCcontract_info *cpTokens, uint256 gameid, const std::vector<std::shared_ptr<KogsContainer>> &containers, const std::vector<std::shared_ptr<KogsMatchObject>> &slammers, std::vector<CTransaction> &transferContainerTxns)
 {
-    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
+    //char txidaddr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
 
     struct CCcontract_info *cpKogs, CKogs;
     cpKogs = CCinit(&CKogs, EVAL_KOGS);
@@ -734,8 +736,9 @@ static bool AddTransferBackTokensVouts(CMutableTransaction &mtx, struct CCcontra
             uint8_t kogspriv[32];
             GetUnspendable(cpKogs, kogspriv);
 
-            // token transfer vout
-            UniValue addResult = TokenAddTransferVout(mtx, cpTokens, CPubKey()/*to indicate use localpk*/, tp.first, tokensrcaddr,  std::vector<CPubKey>{ tp.second }, {probeCond, kogspriv}, 1, true); // amount = 1 always for NFTs
+            // add token transfer vout
+                                                                  /* use localpk, in fact not used as no change for nft*/
+            UniValue addResult = TokenAddTransferVout(mtx, cpTokens, CPubKey(), tp.first, tokensrcaddr,  std::vector<CPubKey>{ tp.second }, {probeCond, kogspriv}, 1, true); // amount = 1 always for NFTs
             cc_free(probeCond);
 
             if (ResultIsError(addResult))   {
