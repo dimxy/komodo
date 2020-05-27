@@ -698,7 +698,7 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
 
 
 // send containers back to the player:
-static bool AddTransferBackTokensVouts(CMutableTransaction &mtx, struct CCcontract_info *cpTokens, uint256 gameid, const std::vector<std::shared_ptr<KogsContainer>> &containers, const std::vector<std::shared_ptr<KogsMatchObject>> &slammers, std::vector<CTransaction> &transferContainerTxns)
+static bool AddTransferBackTokensVouts(const CPubKey &mypk, CMutableTransaction &mtx, struct CCcontract_info *cpTokens, uint256 gameid, const std::vector<std::shared_ptr<KogsContainer>> &containers, const std::vector<std::shared_ptr<KogsMatchObject>> &slammers, std::vector<CTransaction> &transferContainerTxns)
 {
     //char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
@@ -737,8 +737,7 @@ static bool AddTransferBackTokensVouts(CMutableTransaction &mtx, struct CCcontra
             GetUnspendable(cpKogs, kogspriv);
 
             // add token transfer vout
-                                                                  /* use localpk, in fact not used as no change for nft*/
-            UniValue addResult = TokenAddTransferVout(mtx, cpTokens, CPubKey(), tp.first, tokensrcaddr,  std::vector<CPubKey>{ tp.second }, {probeCond, kogspriv}, 1, true); // amount = 1 always for NFTs
+            UniValue addResult = TokenAddTransferVout(mtx, cpTokens, mypk, tp.first, tokensrcaddr,  std::vector<CPubKey>{ tp.second }, {probeCond, kogspriv}, 1, true); // amount = 1 always for NFTs
             cc_free(probeCond);
 
             if (ResultIsError(addResult))   {
@@ -873,9 +872,9 @@ static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, pgamefinished->gameid);
     CScript opret;
-    AddGameFinishedInOuts(mtx, cpTokens, prevtxid, prevn, pgamefinished, gametxidPk, opret);  // send game finished baton to unspendable addr
+    AddGameFinishedInOuts(remotepk, mtx, cpTokens, prevtxid, prevn, pgamefinished, gametxidPk, opret);  // send game finished baton to unspendable addr
 
-    if (AddTransferBackTokensVouts(mtx, cpTokens, pgamefinished->gameid, spcontainers, spslammers, transferContainerTxns))
+    if (AddTransferBackTokensVouts(remotepk, mtx, cpTokens, pgamefinished->gameid, spcontainers, spslammers, transferContainerTxns))
     {
         UniValue sigData = TokenFinalizeTransferTx(mtx, cpTokens, remotepk, 10000, opret);
         if (!ResultIsError(sigData)) {
@@ -3115,7 +3114,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
                     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
                     CScript opret;
-                    AddGameFinishedInOuts(mtx, cpTokens, it->first.txhash, it->first.index, &gamefinished, gametxidPk, opret);  // send game finished baton to unspendable addr
+                    AddGameFinishedInOuts(mypk, mtx, cpTokens, it->first.txhash, it->first.index, &gamefinished, gametxidPk, opret);  // send game finished baton to unspendable addr
 
                     if (AddTransferBackTokensVouts(mtx, cpTokens, gameid, spcontainers, spslammers, transferContainerTxns))
                     {
