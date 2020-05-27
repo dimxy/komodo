@@ -2717,7 +2717,6 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
         {
             KogsBaton *pbaton = (KogsBaton *)spobj.get();
             prevTurn = nextTurn;
-            nextTurn = pbaton->nextturn;
 
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "pbaton->kogsInStack=" << pbaton->kogsInStack.size() << " pbaton->kogFlipped=" << pbaton->kogsFlipped.size() << std::endl);
 
@@ -2734,8 +2733,15 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
             kogsInStack = pbaton->kogsInStack;
             nextPlayerid = pbaton->playerids[nextTurn];
             nvout = 0;  // baton tx's next baton vout
-            if (pbaton->isFinished)
+            if (pbaton->isFinished) {
+                winnerid = pbaton->winnerid;
+                isFinished = true;
+                nextTurn = -1;
                 break;
+            }
+            else {
+                nextTurn = pbaton->nextturn;
+            }
         }
         /*else if (spobj->objectType == KOGSID_SLAMPARAMS)
         {
