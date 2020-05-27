@@ -3116,7 +3116,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     CScript opret;
                     AddGameFinishedInOuts(mypk, mtx, cpTokens, it->first.txhash, it->first.index, &gamefinished, gametxidPk, opret);  // send game finished baton to unspendable addr
 
-                    if (AddTransferBackTokensVouts(mtx, cpTokens, gameid, spcontainers, spslammers, transferContainerTxns))
+                    if (AddTransferBackTokensVouts(remotepk, mtx, cpTokens, gameid, spcontainers, spslammers, transferContainerTxns))
                     {
                         UniValue finalizeResult = TokenFinalizeTransferTx(mtx, cpTokens, CPubKey(), 10000, opret);
                         if (!ResultIsError(finalizeResult)) {
