@@ -1939,6 +1939,63 @@ CAmount get_txfee(const CTransaction &tx)
     return inputs - outputs;
 }
 
+static bool check_release_tx(bool isLocked, const CTransaction &tx, std::string &errorStr)
+{
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_MARMARA);
+    CPubKey marmarapk = GetUnspendable(cp, 0);
+
+    CAmount ccInputs = 0LL;
+    
+    for (auto const &vin  : tx.vin)  {
+
+        if (vin.scriptSig.IsPayToCryptoCondition()) 
+        {
+            CTransaction vintx;
+            uint256 hashBlock;
+
+            // check no global pk spending in releasing:
+            if (check_signing_pubkey(vin.scriptSig) == marmarapk)  {
+                errorStr = "can't spend with global pk";
+                return false; 
+            }
+
+            if (myGetTransaction(vin.prevout.hash, vintx, hashBlock))
+            {
+                CPubKey opretpk;
+                bool isLocked = false;
+                uint256 dummytxid;
+                // only activated account are allowed to spend
+                if (IsMarmaraActivatedVout(vintx, vin.prevout.n, opretpk, dummytxid))   {
+                    ccInputs += vintx.vout[vin.prevout.n].nValue;
+                }
+                else {
+                    errorStr = "can't spend non-activated account";
+                    return false;
+                }
+            }
+        }
+    }
+
+    CAmount normalOutputs = 0LL;
+    for (auto const &vout : tx.vout)    {
+        if (vout.scriptPubKey.IsPayToCryptoCondition()) {
+            errorStr = "no cc outputs allowed";
+            return false; 
+        }
+        normalOutputs += vout.nValue;
+    }
+
+    // check released amount:
+    if (ccInputs != normalOutputs)  {
+        errorStr = "cc inputs not equal normal outputs";
+        return false; 
+    }
+
+    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << tx.GetHash().GetHex() << std::endl);
+    return true;
+}
+
 
 //#define HAS_FUNCID(v, funcid) (std::find((v).begin(), (v).end(), funcid) != (v).end())
 
@@ -2097,7 +2154,8 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
         }
         else if (funcIds == std::set<uint8_t>{MARMARA_RELEASE}) // released to normal
         {
-            validationError = "release not allowed";  // TODO: decide if deactivation is allowed
+            if (check_release_tx(false, tx, validationError))
+                return true;
         }
     }
 
