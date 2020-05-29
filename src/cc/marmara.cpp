@@ -4927,6 +4927,11 @@ std::string MarmaraReleaseActivatedCoins(CWallet *pwalletMain, const std::string
 // unlock activated coins from mypk to normal address
 std::string MarmaraUnlockActivatedCoins(CAmount amount)
 {
+    if (!MarmaraIs2020JuneUpdateActive(NULL))   {
+        CCerror = "unlocking not available yet";
+        return std::string();
+    }
+
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     const CAmount txfee = 10000;
 
