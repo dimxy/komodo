@@ -2042,6 +2042,16 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
             MarmaraDecodeLoopOpret(opret, loopData);
             funcIds.insert(loopData.lastfuncid);
         }
+
+        // release coin opret support:
+        if (i == tx.vout.size() - 1)    {
+            CPubKey pk;
+            int32_t h, uh;
+
+            uint8_t funcid = MarmaraDecodeCoinbaseOpret(tx.vout[i].scriptPubKey, pk, h, uh);
+            if (funcid)
+                funcIds.insert(funcid);
+        }
     }
 
     CAmount txfee;
