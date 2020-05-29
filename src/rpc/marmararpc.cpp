@@ -621,7 +621,7 @@ UniValue marmara_unlock(const UniValue& params, bool fHelp, const CPubKey& remot
     CCerror.clear();
     if (fHelp || params.size() != 1)
     {
-        throw runtime_error("marmaraunlock satoshis\n"
+        throw runtime_error("marmaraunlock amount\n"
             "unlocks activated coins on my pubkey and sends coins to normal address.\n" "\n");
     }
 
@@ -634,7 +634,7 @@ UniValue marmara_unlock(const UniValue& params, bool fHelp, const CPubKey& remot
 
     EnsureWalletIsUnlocked();
 
-    CAmount sat = atoll(params[0].get_str().c_str());
+    CAmount sat = AmountFromValue(params[0]);
     result = MarmaraUnlockActivatedCoins(sat);
     RETURN_IF_ERROR(CCerror);
 #else
