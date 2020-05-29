@@ -2208,8 +2208,14 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
         }
         else if (funcIds == std::set<uint8_t>{MARMARA_RELEASE} || funcIds == std::set<uint8_t>{MARMARA_RELEASE, MARMARA_ACTIVATED}) // released to normal
         {
-            if (check_release_tx(tx, validationError))
-                return true;
+            if (MarmaraIs2020JuneUpdateActive(eval))
+            {
+                if (check_release_tx(tx, validationError))
+                    return true;
+            }
+            else {
+                LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "unlock activated coin is not active yet" << std::endl);
+            }
         }
     }
 

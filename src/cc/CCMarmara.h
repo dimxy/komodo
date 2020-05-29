@@ -54,6 +54,18 @@ enum MARMARA_FUNCID : uint8_t {
 };
 
 const int32_t MARMARA_POS_IMPROVEMENTS_HEIGHT = 0;//110777;
+const uint32_t MARMARA_2020JUNE_UPDATE_TIMESTAMP = MAY2020_NNELECTION_HARDFORK;
+
+// return true if new version activation time is passed
+inline static bool MarmaraIs2020JuneUpdateActive(const Eval *eval)
+{
+    uint32_t latesttime = (eval == NULL ? GetLatestTimestamp(komodo_currentheight()) : GetLatestTimestamp(eval->GetCurrentHeight()));
+    if (latesttime >= MARMARA_2020JUNE_UPDATE_TIMESTAMP)
+        return true;
+    else
+        return false;
+}
+
 
 const uint8_t MARMARA_OPRET_VERSION = 1;
 const int32_t MARMARA_LOOP_MARKER_VOUT = 1;
