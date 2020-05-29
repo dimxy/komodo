@@ -1939,17 +1939,16 @@ CAmount get_txfee(const CTransaction &tx)
     return inputs - outputs;
 }
 
-static bool check_release_tx(bool isLocked, const CTransaction &tx, std::string &errorStr)
+static bool check_release_tx(const CTransaction &tx, std::string &errorStr)
 {
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_MARMARA);
     CPubKey marmarapk = GetUnspendable(cp, 0);
 
     CAmount ccInputs = 0LL;
-    
-    for (auto const &vin  : tx.vin)  {
-
-        if (vin.scriptSig.IsPayToCryptoCondition()) 
+    for (auto const &vin  : tx.vin)  
+    {
+        if (cp->ismyvin(vin.scriptSig)) 
         {
             CTransaction vintx;
             uint256 hashBlock;
@@ -1959,11 +1958,9 @@ static bool check_release_tx(bool isLocked, const CTransaction &tx, std::string 
                 errorStr = "can't spend with global pk";
                 return false; 
             }
-
             if (myGetTransaction(vin.prevout.hash, vintx, hashBlock))
             {
                 CPubKey opretpk;
-                bool isLocked = false;
                 uint256 dummytxid;
                 // only activated account are allowed to spend
                 if (IsMarmaraActivatedVout(vintx, vin.prevout.n, opretpk, dummytxid))   {
@@ -1978,17 +1975,27 @@ static bool check_release_tx(bool isLocked, const CTransaction &tx, std::string 
     }
 
     CAmount normalOutputs = 0LL;
-    for (auto const &vout : tx.vout)    {
-        if (vout.scriptPubKey.IsPayToCryptoCondition()) {
-            errorStr = "no cc outputs allowed";
-            return false; 
+    CAmount ccOutputs = 0LL;
+    for (int32_t i = 0; i < tx.vout.size(); i ++)    {
+        if (tx.vout[i].scriptPubKey.IsPayToCryptoCondition()) 
+        {
+            CPubKey opretpk;
+            uint256 dummytxid;
+            if (IsMarmaraActivatedVout(tx, i, opretpk, dummytxid))   {
+                ccOutputs += tx.vout[i].nValue;
+            }
+            else    {
+                errorStr = "non-activated output not allowed";
+                return false; 
+            }
         }
-        normalOutputs += vout.nValue;
+        else
+            normalOutputs += tx.vout[i].nValue;
     }
 
     // check released amount:
-    if (ccInputs != normalOutputs)  {
-        errorStr = "cc inputs not equal normal outputs";
+    if (ccInputs < ccOutputs)  {
+        errorStr = "cc inputs less than cc outputs";
         return false; 
     }
 
@@ -2162,9 +2169,9 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
             if (check_stake_tx(false, tx, validationError))
                 return true;
         }
-        else if (funcIds == std::set<uint8_t>{MARMARA_RELEASE}) // released to normal
+        else if (funcIds == std::set<uint8_t>{MARMARA_RELEASE} || funcIds == std::set<uint8_t>{MARMARA_RELEASE, MARMARA_ACTIVATED}) // released to normal
         {
-            if (check_release_tx(false, tx, validationError))
+            if (check_release_tx(tx, validationError))
                 return true;
         }
     }
@@ -4884,9 +4891,8 @@ std::string MarmaraUnlockActivatedCoins(CAmount amount)
     cp = CCinit(&C, EVAL_MARMARA);
     CPubKey mypk = pubkey2pk(Mypubkey());
     CPubKey marmarapk = GetUnspendable(cp, NULL);
-    int32_t maxvins = 128;
 
-    if (AddNormalinputs(mtx, mypk, txfee, 5) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, 0x10000) > 0)
     {
         char activated1of2addr[KOMODO_ADDRESS_BUFSIZE];
         CMarmaraActivatedOpretChecker activatedChecker;
@@ -4896,23 +4902,27 @@ std::string MarmaraUnlockActivatedCoins(CAmount amount)
         CCAddVintxCond(cp, probeCond, NULL);
 
         std::vector<CPubKey> pubkeys;
-        if (amount == 0)
-            amount = AddMarmaraCCInputs(IsMarmaraActivatedVout, mtx, pubkeys, activated1of2addr, 0, maxvins);  // calc available
-        amount = AddMarmaraCCInputs(IsMarmaraActivatedVout, mtx, pubkeys, activated1of2addr, amount, maxvins);
-        if (amount == 0) {
+        CAmount inputs = AddMarmaraCCInputs(IsMarmaraActivatedVout, mtx, pubkeys, activated1of2addr, amount, MARMARA_VINS);
+        if (inputs <= 0) {
             CCerror = "no activated inputs added";
             return std::string();
         }
 
-        mtx.vout.push_back(CTxOut(amount, CScript() << Mypubkey() << OP_CHECKSIG));  // where to send activated coins from normal 
-        LOGSTREAMFN("marmara", CCLOG_INFO, stream << "added amount=" << amount << std::endl);
+        mtx.vout.push_back(CTxOut(amount, CScript() << vuint8_t(mypk.begin(), mypk.end()) << OP_CHECKSIG));  // where to send activated coins from normal 
+        LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "added amount=" << amount << std::endl);
 
         int32_t height = komodo_nextheight();
-        // as opret creation function MarmaraCoinbaseOpret creates opret only for even blocks - adjust this base height to even value
         if ((height & 1) != 0)
-            height++;
-        CScript opret = MarmaraEncodeCoinbaseOpret(MARMARA_RELEASE, mypk, height); // dummy opret with release funcid
+            height++;   // make height even as only even height is considered for staking (TODO: strange)
 
+        CAmount change = inputs - amount;
+        if (change > 0)
+        {
+            CScript opret = MarmaraEncodeCoinbaseOpret(MARMARA_ACTIVATED, mypk, height);
+            // add coinbase opret to ccvout for the change
+            mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(change, mypk, opret));  // adding MarmaraCoinbase cc vout 'opret' for change
+        }        
+        CScript opret = MarmaraEncodeCoinbaseOpret(MARMARA_RELEASE, mypk, height); // dummy opret with release funcid
         std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret, false);
         cc_free(probeCond);
         if (hextx.empty())
