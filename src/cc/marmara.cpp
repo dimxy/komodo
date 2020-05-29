@@ -218,6 +218,7 @@ static int32_t get_next_height()
     return tipindex->GetHeight() + 1;
 }
 
+// decode activated coin opreturn
 uint8_t MarmaraDecodeCoinbaseOpretExt(const CScript &scriptPubKey, uint8_t &version, CPubKey &pk, int32_t &height, int32_t &unlockht, int32_t &matureht)
 {
     vscript_t vopret;
@@ -269,6 +270,7 @@ uint8_t MarmaraDecodeCoinbaseOpret(const CScript &scriptPubKey, CPubKey &pk, int
     return MarmaraDecodeCoinbaseOpretExt(scriptPubKey, version, pk, height, unlockht, matureht);
 }
 
+// encode activated coin opreturn
 CScript MarmaraEncodeCoinbaseOpretExt(uint8_t version, uint8_t funcid, const CPubKey &pk, int32_t ht, int32_t matureht)
 {
     CScript opret;
@@ -431,6 +433,43 @@ uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCredit
         LOGSTREAMFN("marmara", CCLOG_DEBUG3, stream << "opret too small=" << HexStr(vopret) << std::endl);
 
     return(0);
+}
+
+// decode release coin opreturn
+uint8_t MarmaraDecodeReleaseOpret(const CScript &scriptPubKey, uint8_t &version)
+{
+    vscript_t vopret;
+    GetOpReturnData(scriptPubKey, vopret);
+
+    if (vopret.size() >= 3)
+    {
+        uint8_t evalcode, funcid;
+        if (vopret[0] == EVAL_MARMARA)
+        {
+            if (IsFuncidOneOf(vopret[1], { MARMARA_RELEASE }))
+            {
+                if (vopret[2] = 1)  // check version 
+                {
+                    if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> funcid; ss >> version) != 0)
+                    {
+                        return(vopret[1]);
+                    }
+                }
+            }
+        }
+    }
+    return(0);
+}
+
+CScript MarmaraEncodeReleaseOpret()
+{
+    CScript opret;
+    uint8_t evalcode = EVAL_MARMARA;
+    uint8_t funcid = MARMARA_RELEASE; 
+    uint8_t version = MARMARA_OPRET_VERSION;
+
+    opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version);
+    return(opret);
 }
 
 static CTxOut MakeMarmaraCC1of2voutOpret(CAmount amount, const CPubKey &pk2, const CScript &opret)
@@ -2052,11 +2091,9 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
 
         // release coin opret support:
         if (i == tx.vout.size() - 1)    {
-            CPubKey pk;
-            int32_t h, uh;
-
-            uint8_t funcid = MarmaraDecodeCoinbaseOpret(tx.vout[i].scriptPubKey, pk, h, uh);
-            if (funcid)
+            uint8_t version;
+            uint8_t funcid = MarmaraDecodeReleaseOpret(tx.vout[i].scriptPubKey, version);
+            if (funcid != 0)
                 funcIds.insert(funcid);
         }
     }
@@ -4922,7 +4959,7 @@ std::string MarmaraUnlockActivatedCoins(CAmount amount)
             // add coinbase opret to ccvout for the change
             mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(change, mypk, opret));  // adding MarmaraCoinbase cc vout 'opret' for change
         }        
-        CScript opret = MarmaraEncodeCoinbaseOpret(MARMARA_RELEASE, mypk, height); // dummy opret with release funcid
+        CScript opret = MarmaraEncodeReleaseOpret(); // dummy opret with release funcid
         std::string hextx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret, false);
         cc_free(probeCond);
         if (hextx.empty())
@@ -5129,10 +5166,12 @@ static void decode_marmara_opret_to_univalue(const CScript &opret, UniValue &uni
             univout.push_back(Pair("loop-amount", loopData.amount));
             univout.push_back(Pair("mature-height", (int64_t)loopData.matures));
             univout.push_back(Pair("currency", loopData.currency));
-        } if (loopData.lastfuncid == MARMARA_REQUEST) {
+        } 
+        if (loopData.lastfuncid == MARMARA_REQUEST) {
             univout.push_back(Pair("sender-pubkey", HexStr(loopData.pk.begin(), loopData.pk.end())));
             univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
-        } if (loopData.lastfuncid == MARMARA_ISSUE || loopData.lastfuncid == MARMARA_TRANSFER) {
+        } 
+        if (loopData.lastfuncid == MARMARA_ISSUE || loopData.lastfuncid == MARMARA_TRANSFER) {
             univout.push_back(Pair("receiver-pubkey", HexStr(loopData.pk.begin(), loopData.pk.end())));
             univout.push_back(Pair("loop-create-txid", loopData.createtxid.GetHex()));
         }
@@ -5171,8 +5210,6 @@ static void decode_marmara_opret_to_univalue(const CScript &opret, UniValue &uni
             univout.push_back(Pair("description", "activated_lock64"));
         else if (funcid == MARMARA_POOL)
             univout.push_back(Pair("description", "pool"));
-        else if (funcid == MARMARA_RELEASE)
-            univout.push_back(Pair("description", "release"));
         if (pk.IsValid()) {
             univout.push_back(Pair("pubkey", HexStr(pk.begin(), pk.end())));
             char ccaddr[KOMODO_ADDRESS_BUFSIZE];
@@ -5182,6 +5219,13 @@ static void decode_marmara_opret_to_univalue(const CScript &opret, UniValue &uni
         }
         if (ver == 2)
             univout.push_back(Pair("matureHeight", matureht));
+    }
+    else if ((funcid = MarmaraDecodeReleaseOpret(opret, ver)) != 0)
+    {
+        univout.push_back(Pair("version", (int)ver));
+        univout.push_back(Pair("funcid", std::string(1, funcid)));
+        if (funcid == MARMARA_RELEASE)
+            univout.push_back(Pair("description", "release"));
     }
 }
 
