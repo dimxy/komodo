@@ -1983,6 +1983,7 @@ static bool check_release_tx(const CTransaction &tx, std::string &errorStr)
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_MARMARA);
     CPubKey marmarapk = GetUnspendable(cp, 0);
+    std::set<CPubKey> inputpks, outputpks;
 
     CAmount ccInputs = 0LL;
     for (auto const &vin  : tx.vin)  
@@ -2004,6 +2005,7 @@ static bool check_release_tx(const CTransaction &tx, std::string &errorStr)
                 // only activated account are allowed to spend
                 if (IsMarmaraActivatedVout(vintx, vin.prevout.n, opretpk, dummytxid))   {
                     ccInputs += vintx.vout[vin.prevout.n].nValue;
+                    inputpks.insert(opretpk);
                 }
                 else {
                     errorStr = "can't spend non-activated account";
@@ -2011,6 +2013,11 @@ static bool check_release_tx(const CTransaction &tx, std::string &errorStr)
                 }
             }
         }
+    }
+
+    if (inputpks.size() > 1)   {
+        errorStr = "only one pk is allowed";
+        return false;
     }
 
     CAmount normalOutputs = 0LL;
@@ -2022,6 +2029,7 @@ static bool check_release_tx(const CTransaction &tx, std::string &errorStr)
             uint256 dummytxid;
             if (IsMarmaraActivatedVout(tx, i, opretpk, dummytxid))   {
                 ccOutputs += tx.vout[i].nValue;
+                outputpks.insert(opretpk);
             }
             else    {
                 errorStr = "non-activated output not allowed";
@@ -2030,6 +2038,12 @@ static bool check_release_tx(const CTransaction &tx, std::string &errorStr)
         }
         else
             normalOutputs += tx.vout[i].nValue;
+    }
+
+    // check change to self:
+    if (inputpks != outputpks)     {
+        errorStr = "cc change should go to self pk";
+        return false;
     }
 
     // check released amount:
