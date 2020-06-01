@@ -812,7 +812,7 @@ private:
     bool vout;
 
 public:
-    CScriptCheck(): amount(0), ptxTo(0), n(0), nFlags(0), cacheStore(false), consensusBranchId(0), error(SCRIPT_ERR_UNKNOWN_ERROR) {}
+    CScriptCheck(): amount(0), ptxTo(0), n(0), nFlags(0), cacheStore(false), consensusBranchId(0), error(SCRIPT_ERR_UNKNOWN_ERROR), vout(false) {}
     CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nIn, unsigned int nFlagsIn, bool cacheIn, uint32_t consensusBranchIdIn, CCheckCCEvalCodes &evalcodeCheckerIn,PrecomputedTransactionData* txdataIn) :
         scriptPubKey(CCoinsViewCache::GetSpendFor(&txFromIn, txToIn.vin[nIn])), amount(txFromIn.vout[txToIn.vin[nIn].prevout.n].nValue),
         ptxTo(&txToIn), n(nIn), nFlags(nFlagsIn), cacheStore(cacheIn), consensusBranchId(consensusBranchIdIn), error(SCRIPT_ERR_UNKNOWN_ERROR), evalcodeChecker(&evalcodeCheckerIn),txdata(txdataIn), vout(false) { }
@@ -831,6 +831,7 @@ public:
         std::swap(consensusBranchId, check.consensusBranchId);
         std::swap(error, check.error);
         std::swap(txdata, check.txdata);
+        std::swap(vout,check.vout);
     }
 
     ScriptError GetScriptError() const { return error; }

@@ -388,7 +388,7 @@ bool CScript::IsPayToCryptoCondition() const
     return IsPayToCryptoCondition(NULL);
 }
 
-bool CScript::IsMixedModeCC() const
+bool CScript::IsCCV2() const
 {
     const_iterator pc = begin();
     std::vector<unsigned char> data;
@@ -402,7 +402,7 @@ bool CScript::IsMixedModeCC() const
     return (false);
 }
 
-const std::vector<unsigned char> CScript::GetMixedModeCC() const
+const std::vector<unsigned char> CScript::GetCCV2SPK() const
 {
     const_iterator pc = begin();
     std::vector<unsigned char> data;
@@ -416,17 +416,17 @@ const std::vector<unsigned char> CScript::GetMixedModeCC() const
     return (std::vector<unsigned char>());
 }
 
-bool CScript::HasCCEvalCode(uint8_t evalCode) const
+bool CScript::HasEvalcodeCCV2(uint8_t evalCode) const
 {
-    if (!this->IsMixedModeCC()) return (false);
-    CC* cond=cc_readFulfillmentBinaryMixedMode((unsigned char*)this->GetMixedModeCC().data()+1,this->GetMixedModeCC().size()-1);
+    std::vector<unsigned char> ccdata=this->GetCCV2SPK();
 
+    if (ccdata.empty()) return (false);
+    CC* cond=cc_readFulfillmentBinaryMixedMode((unsigned char*)ccdata.data()+1,ccdata.size()-1);
     VerifyEval eval = [] (CC *cond, void *evalcode)
     {
-        return (*(int *)evalcode==cond->code[0])?1:0;
+        return (*(uint8_t *)evalcode==cond->code[0])?1:0;
     };
     return cc_verifyEval(cond,eval,&evalCode);
-    return (false);
 }
 
 bool CScript::MayAcceptCryptoCondition() const

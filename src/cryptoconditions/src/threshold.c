@@ -124,8 +124,9 @@ static int cmpConditionCost(const void *a, const void *b) {
 }
 
 
-static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags flags) {
+static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
     ThresholdFulfillment_t *t = ffill->choice.thresholdSha256;
+    FulfillmentFlags flags = 0;
 
     Fulfillment_t** arrFulfills = t->subfulfillments.list.array;
     size_t nffills = t->subfulfillments.list.count;
@@ -133,11 +134,12 @@ static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags
 
     CC *cond = cc_new(CC_Threshold);
 
-    if (flags & MixedMode) {
-        if (nffills == 0) {
-            free(cond);
-            return NULL;
-        }
+    if (nffills == 0) {
+        free(cond);
+        return NULL;
+    }
+
+    { // Get the real threshold from the first ffill
         CC *tc = fulfillmentToCC(arrFulfills[0], flags);
         if (tc->type->typeId != CC_Preimage || tc->preimageLength != 1) {
             cc_free(tc);
@@ -146,9 +148,16 @@ static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags
         }
         cond->threshold = tc->preimage[0];
         cc_free(tc);
-        nffills--;
-        arrFulfills++;
     }
+
+    nffills--;
+
+    if (cond->threshold > nffills + nconds) {
+        free(cond);
+        return NULL;
+    }
+
+    arrFulfills++;
 
     cond->size = nffills + nconds;
     cond->subconditions = calloc(cond->size, sizeof(CC*));
@@ -166,6 +175,35 @@ static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags
         }
     }
 
+    return cond;
+}
+
+
+static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags flags) {
+    if (flags & MixedMode) return thresholdFromFulfillmentMixed(ffill);
+
+    ThresholdFulfillment_t *t = ffill->choice.thresholdSha256;
+    int threshold = t->subfulfillments.list.count;
+    int size = threshold + t->subconditions.list.count;
+
+    CC **subconditions = calloc(size, sizeof(CC*));
+
+    for (int i=0; i<size; i++) {
+        subconditions[i] = (i < threshold) ?
+            fulfillmentToCC(t->subfulfillments.list.array[i], 0) :
+            mkAnon(t->subconditions.list.array[i-threshold]);
+
+        if (!subconditions[i]) {
+            for (int j=0; j<i; j++) free(subconditions[j]);
+            free(subconditions);
+            return 0;
+        }
+    }
+
+    CC *cond = cc_new(CC_Threshold);
+    cond->threshold = threshold;
+    cond->size = size;
+    cond->subconditions = subconditions;
     return cond;
 }
 

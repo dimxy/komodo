@@ -42,36 +42,22 @@ void endiancpy(uint8_t *dest,uint8_t *src,int32_t len)
 #endif
 }
 
-CC *MakeCCcond1of2(uint8_t evalcode,CPubKey pk1,CPubKey pk2,bool mixedMode)
+CC *MakeCCcond1of2(uint8_t evalcode,CPubKey pk1,CPubKey pk2)
 {
-    std::vector<CC*> pks; CC *Sig;
+    std::vector<CC*> pks;
     pks.push_back(CCNewSecp256k1(pk1));
     pks.push_back(CCNewSecp256k1(pk2));
     CC *condCC = CCNewEval(E_MARSHAL(ss << evalcode));
-    if (mixedMode)
-    {
-        CC *SigPlain = CCNewThreshold(1, pks);
-        Sig = cc_anon(SigPlain);
-        cc_free(SigPlain);
-    }
-    else
-        Sig = CCNewThreshold(1, pks);
+    CC *Sig = CCNewThreshold(1, pks);
     return CCNewThreshold(2, {condCC, Sig});
 }
 
-CC *MakeCCcond1(uint8_t evalcode,CPubKey pk,bool mixedMode)
+CC *MakeCCcond1(uint8_t evalcode,CPubKey pk)
 {
-    std::vector<CC*> pks; CC *Sig;
+    std::vector<CC*> pks;
     pks.push_back(CCNewSecp256k1(pk));
     CC *condCC = CCNewEval(E_MARSHAL(ss << evalcode));
-    if (mixedMode)
-    {
-        CC *SigPlain = CCNewThreshold(1, pks);
-        Sig = cc_anon(SigPlain);
-        cc_free(SigPlain);
-    }
-    else
-        Sig = CCNewThreshold(1, pks);
+    CC *Sig = CCNewThreshold(1, pks);
     return CCNewThreshold(2, {condCC, Sig});
 }
 
@@ -153,8 +139,8 @@ CTxOut MakeCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2
 CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, std::vector<unsigned char> *vData)
 {
     CTxOut vout;
-    CC *payoutCond = MakeCCcond1(evalcode,pk,true);
-    vout = CTxOut(nValue,CCPubKeyMixed(payoutCond));
+    CC *payoutCond = MakeCCcond1(evalcode,pk);
+    vout = CTxOut(nValue,CCPubKey(payoutCond,true));
     if ( vData )
     {
         vout.scriptPubKey << *vData << OP_DROP;
@@ -166,8 +152,8 @@ CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, std::vector
 CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey pk2, std::vector<unsigned char> *vData)
 {
     CTxOut vout;
-    CC *payoutCond = MakeCCcond1of2(evalcode,pk1,pk2,true);
-    vout = CTxOut(nValue,CCPubKeyMixed(payoutCond));
+    CC *payoutCond = MakeCCcond1of2(evalcode,pk1,pk2);
+    vout = CTxOut(nValue,CCPubKey(payoutCond,true));
     if ( vData )
     {
         vout.scriptPubKey << *vData << OP_DROP;
@@ -197,10 +183,20 @@ bool IsCCInput(CScript const& scriptSig)
     return true;
 }
 
-bool TxHasCCEvalCode(struct CCcontract_info const *cp, const CTransaction &tx)
+bool IsTxCCV2(struct CCcontract_info const *cp, const CTransaction &tx)
 {
+    uint256 hashBlock; CTransaction prevtx;
     for (int i=0;i<tx.vin.size();i++) if (cp->ismyvin(tx.vin[i].scriptSig)) return (true);
-    for (int i=0;i<tx.vout.size();i++) if (tx.vout[i].scriptPubKey.HasCCEvalCode(cp->evalcode)) return (true);
+    for (int i=0;i<tx.vout.size();i++) if (tx.vout[i].scriptPubKey.HasEvalcodeCCV2(cp->evalcode)) return (true);
+    return (false);
+}
+
+bool IsTxCCV2Validated(struct CCcontract_info const *cp, uint256 txid)
+{
+    uint256 hashBlock; CTransaction tx;
+    if (myGetTransaction(txid,tx,hashBlock)==0) return (false);
+    for (int i=0;i<tx.vin.size();i++) if (cp->ismyvin(tx.vin[i].scriptSig)) return (true);
+    for (int i=0;i<tx.vout.size();i++) if (tx.vout[i].scriptPubKey.HasEvalcodeCCV2(cp->evalcode)) return (true);
     return (false);
 }
 
@@ -390,24 +386,24 @@ CPubKey CCCustomtxidaddr(char *txidaddr,uint256 txid,uint8_t taddr,uint8_t prefi
     return(pk);
 }
 
-bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk)
+bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk,bool mixed)
 {
     CC *payoutCond;
     destaddr[0] = 0;
     if ( (payoutCond= MakeCCcond1(evalcode,pk)) != 0 )
     {
-        Getscriptaddress(destaddr,CCPubKey(payoutCond));
+        Getscriptaddress(destaddr,CCPubKey(payoutCond,mixed));
         cc_free(payoutCond);
     }
     return(destaddr[0] != 0);
 }
 
-bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk)
+bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk,bool mixed)
 {
     destaddr[0] = 0;
     if ( pk.size() == 0 )
         pk = GetUnspendable(cp,0);
-    return(_GetCCaddress(destaddr,cp->evalcode,pk));
+    return(_GetCCaddress(destaddr,cp->evalcode,pk,mixed));
 }
 
 bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
@@ -432,13 +428,13 @@ bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk)
 }
 
 
-bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2)
+bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2, bool mixed)
 {
     CC *payoutCond;
     destaddr[0] = 0;
     if ( (payoutCond= MakeCCcond1of2(cp->evalcode,pk,pk2)) != 0 )
     {
-        Getscriptaddress(destaddr,CCPubKey(payoutCond));
+        Getscriptaddress(destaddr,CCPubKey(payoutCond,mixed));
         cc_free(payoutCond);
     }
     return(destaddr[0] != 0);

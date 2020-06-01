@@ -54,7 +54,35 @@ CC *mkAnon(const Condition_t *asnCond) {
     return cond;
 }
 
-
+static CC* anonFromJSON(const cJSON *params, char *err) {
+    size_t len;
+    cJSON *fingerprint_item = cJSON_GetObjectItem(params, "fingerprint");
+    if (!cJSON_IsString(fingerprint_item)) {
+        strcpy(err, "fingerprint must be a number");
+        return NULL;
+    }
+    unsigned char *fing = base64_decode(fingerprint_item->valuestring, &len);
+    if (32 != len) {
+        strcpy(err, "fingerprint has incorrect length");
+        free(fing);
+        return NULL;
+    }
+    cJSON *cost_item = cJSON_GetObjectItem(params, "cost");
+    if (!cJSON_IsNumber(cost_item)) {
+        strcpy(err, "cost must be a number");
+        return NULL;
+    }
+    cJSON *subtypes_item = cJSON_GetObjectItem(params, "subtypes");
+    if (!cJSON_IsNumber(subtypes_item)) {
+        strcpy(err, "subtypes must be a number");
+        return NULL;
+    }
+    CC* cond=cc_new(CC_Anon);
+    memcpy(cond->fingerprint,fing,len);
+    cond->cost = (long) cost_item->valuedouble;
+    cond->subtypes = subtypes_item->valueint;
+    return cond;
+}
 
 static void anonToJSON(const CC *cond, cJSON *params) {
     unsigned char *b64 = base64_encode(cond->fingerprint, 32);
@@ -97,4 +125,4 @@ static int anonIsFulfilled(const CC *cond) {
 }
 
 
-struct CCType CC_AnonType = { -1, "(anon)", Condition_PR_NOTHING, NULL, &anonFingerprint, &anonCost, &anonSubtypes, NULL, &anonToJSON, NULL, &anonFulfillment, &anonIsFulfilled, &anonFree };
+struct CCType CC_AnonType = { -1, "(anon)", Condition_PR_NOTHING, NULL, &anonFingerprint, &anonCost, &anonSubtypes, &anonFromJSON, &anonToJSON, NULL, &anonFulfillment, &anonIsFulfilled, &anonFree };
