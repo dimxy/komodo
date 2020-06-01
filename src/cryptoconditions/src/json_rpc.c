@@ -55,6 +55,8 @@ CC *cc_conditionFromJSON(cJSON *params, char *err) {
         strcpy(err, "\"type\" must be a string");
         return NULL;
     }
+    struct CCType *anon=&CC_AnonType;
+    if (strcmp(typeName->valuestring,"(anon)")==0) return anon->fromJSON(params,err);
     for (int i=0; i<CCTypeRegistryLength; i++) {
         if (CCTypeRegistry[i] != NULL) {
             if (0 == strcmp(typeName->valuestring, CCTypeRegistry[i]->name)) {

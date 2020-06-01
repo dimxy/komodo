@@ -20,6 +20,13 @@
 std::vector<CPubKey> NULL_pubkeys;
 struct NSPV_CCmtxinfo NSPV_U;
 
+#ifndef FINALIZECCTX_NO_CHANGE
+    #define FINALIZECCTX_NO_CHANGE 0x1
+#endif
+#ifndef FINALIZECCTX_NO_CHANGE_WHEN_ZERO
+    #define FINALIZECCTX_NO_CHANGE_WHEN_ZERO 0x2
+#endif
+
 /* see description to function definition in CCinclude.h */
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey)
 {
@@ -411,6 +418,176 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     if (vectcond != NULL)
         cc_free(vectcond);  
 
+    std::string strHex = EncodeHexTx(mtx);
+    if ( strHex.size() > 0 )
+        result.push_back(Pair(JSON_HEXTX, strHex));
+    else {
+        result.push_back(Pair(JSON_HEXTX, "0"));
+    }
+    if (sigData.size() > 0) result.push_back(Pair(JSON_SIGDATA,sigData));
+    return result;
+}
+
+// extended version that supports signInfo object with conds to vins map for remote cc calls
+UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret)
+{
+    auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
+    CTransaction vintx; std::string hex; CPubKey globalpk; uint256 hashBlock; int32_t i,mgret,utxovout,n;
+    int64_t utxovalues[CC_MAXVINS],change,totaloutputs=0,totalinputs=0; char destaddr[64],myccaddr[64],globaladdr[64];
+    uint8_t *privkey = NULL, myprivkey[32] = { '\0' }; CC *cond=NULL,*vectcond = NULL;
+    UniValue sigData(UniValue::VARR),result(UniValue::VOBJ); const UniValue sigDataNull = NullUniValue;
+
+    globalpk = GetUnspendable(cp,0);
+    _GetCCaddress(myccaddr,cp->evalcode,mypk,true);
+    _GetCCaddress(globaladdr,cp->evalcode,globalpk,true);
+    n = mtx.vout.size();
+    for (i=0; i<n; i++)
+    {
+        totaloutputs += mtx.vout[i].nValue;
+    }
+    if ( (n= mtx.vin.size()) > CC_MAXVINS )
+    {
+        fprintf(stderr,"FinalizeCCTx: %d is too many vins\n",n);
+        result.push_back(Pair(JSON_HEXTX, "0"));
+        return result;
+    }
+#ifdef ENABLE_WALLET
+    // get privkey for mypk
+    CKeyID keyID = mypk.GetID();
+    CKey vchSecret;
+    if (pwalletMain->GetKey(keyID, vchSecret))
+        memcpy(myprivkey, vchSecret.begin(), sizeof(myprivkey));
+#endif
+    memset(utxovalues,0,sizeof(utxovalues));
+    for (i=0; i<n; i++)
+    {
+        if (i==0 && mtx.vin[i].prevout.n==10e8) continue;
+        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock)) != 0 )
+        {
+            utxovout = mtx.vin[i].prevout.n;
+            utxovalues[i] = vintx.vout[utxovout].nValue;
+            totalinputs += utxovalues[i];
+        } else fprintf(stderr,"FinalizeCCTx couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
+    }
+    if ( !(mask & FINALIZECCTX_NO_CHANGE) && totalinputs >= totaloutputs+txfee )
+    {
+        change = totalinputs - (totaloutputs+txfee);
+        if (!(mask & FINALIZECCTX_NO_CHANGE_WHEN_ZERO)) mtx.vout.push_back(CTxOut(change,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+    }
+    if ( opret.size() > 0 )
+        mtx.vout.push_back(CTxOut(0,opret));
+    PrecomputedTransactionData txdata(mtx);
+    n = mtx.vin.size(); 
+    for (i=0; i<n; i++)
+    {
+        if (i==0 && mtx.vin[i].prevout.n==10e8)
+            continue;
+        if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock)) != 0 )
+        {
+            cond=NULL;
+            utxovout = mtx.vin[i].prevout.n;
+            if ( vintx.vout[utxovout].scriptPubKey.IsPayToCryptoCondition() == 0 )
+            {
+                if ( KOMODO_NSPV_FULLNODE )
+                {
+                    if (!remote)
+                    {
+                        if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0)
+                            fprintf(stderr, "signing error for vini.%d\n",i);
+                    }
+                    else
+                    {
+                        // if no myprivkey for mypk it means remote call from nspv superlite client
+                        // add sigData for superlite client
+                        UniValue cc(UniValue::VNULL);
+                        AddSigData2UniValue(sigData, i, cc, HexStr(vintx.vout[utxovout].scriptPubKey), vintx.vout[utxovout].nValue );  // store vin i with scriptPubKey
+                    }
+                }
+                else
+                {
+                    {
+                        char addr[64];
+                        Getscriptaddress(addr,vintx.vout[utxovout].scriptPubKey);
+                        fprintf(stderr,"vout[%d] %.8f -> %s\n",utxovout,dstr(vintx.vout[utxovout].nValue),addr);
+                    }
+                    if ( NSPV_SignTx(mtx,i,vintx.vout[utxovout].nValue,vintx.vout[utxovout].scriptPubKey,0) == 0 )
+                        fprintf(stderr,"NSPV signing error for vini.%d\n",i);
+                }
+            }
+            else
+            {
+                Getscriptaddress(destaddr,vintx.vout[utxovout].scriptPubKey);
+                if( strcmp(destaddr,globaladdr) == 0 )
+                {
+                    privkey = cp->CCpriv;
+                    cond = MakeCCcond1(cp->evalcode,globalpk);
+                }
+                else if( strcmp(destaddr,myccaddr) == 0 )
+                {
+                    privkey = myprivkey;
+                    cond =  MakeCCcond1(cp->evalcode,mypk);;
+                }
+                else
+                {
+                    const uint8_t nullpriv[32] = {'\0'};
+                    // use vector of dest addresses and conds to probe vintxconds
+                    for (auto &t : cp->CCvintxprobes) {
+                        char coinaddr[64];
+                        vectcond = t.CCwrapped.getCC();  // Note: need to cc_free at the function exit
+                        if (vectcond != NULL) {
+                            Getscriptaddress(coinaddr, CCPubKey(vectcond,true));
+                            if (strcmp(destaddr, coinaddr) == 0) {
+                                if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
+                                    privkey = t.CCpriv;
+                                else
+                                    privkey = myprivkey;
+                                cond = vectcond;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (cond==NULL)
+                {
+                    fprintf(stderr, "vini.%d has CC signing error address.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
+                    memset(myprivkey, 0, sizeof(myprivkey));
+                    return sigDataNull;
+                }
+                if (!remote)  // we have privkey in the wallet
+                {
+                    uint256 sighash = SignatureHash(CCPubKey(cond,true), mtx, i, SIGHASH_ALL,utxovalues[i],consensusBranchId, &txdata);
+                    if (cc_signTreeSecp256k1Msg32(cond, privkey, sighash.begin()) != 0)
+                    {
+                        mtx.vin[i].scriptSig = CCSig(cond);
+                    }
+                    else
+                    {
+                        fprintf(stderr, "vini.%d has CC signing error address.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
+                        memset(myprivkey, 0, sizeof(myprivkey));
+                        return sigDataNull;
+                    }
+                }
+                else   // no privkey locally - remote call
+                {
+                    // serialize cc:
+                    UniValue ccjson;
+                    ccjson.read(cc_conditionToJSONString(cond));
+                    if (ccjson.empty())
+                    {
+                        fprintf(stderr, "vini.%d can't serialize CC.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
+                        memset(myprivkey, 0, sizeof(myprivkey));
+                        return sigDataNull;
+                    }
+                    AddSigData2UniValue(sigData, i, ccjson, std::string(), vintx.vout[utxovout].nValue);  // store vin i with scriptPubKey
+                }
+            }
+            if (cond != NULL) cc_free(cond);
+        }
+        else fprintf(stderr,"FinalizeCCTx2 couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
+    }
+    memset(myprivkey,0,sizeof(myprivkey));
+    for (auto &t : cp->CCvintxprobes) if (t.CCwrapped.getCC() != NULL) cc_free(t.CCwrapped.getCC());
+    
     std::string strHex = EncodeHexTx(mtx);
     if ( strHex.size() > 0 )
         result.push_back(Pair(JSON_HEXTX, strHex));

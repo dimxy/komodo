@@ -552,14 +552,14 @@ bool makeCCopret(CScript &opret, std::vector<std::vector<unsigned char>> &vData)
 /// @param evalcode cryptocondition eval code (transactions with this eval code in cc inputs will be forwarded to the contract associated with this eval code)
 /// @param pk pubkey to spend the cc
 /// @returns cryptocondition object. Must be disposed with cc_free function when not used any more
-CC *MakeCCcond1(uint8_t evalcode,CPubKey pk,bool mixedMode=false);
+CC *MakeCCcond1(uint8_t evalcode,CPubKey pk);
 
 /// MakeCCcond1of2 creates new 1of2 cryptocondition that allows to spend it by either of two keys
 /// @param evalcode cryptocondition eval code (transactions with this eval code in cc inputs will be forwarded to the contract associated with this eval code)
 /// @param pk1 one of two pubkeys to spend the cc
 /// @param pk2 second of two pubkeys to spend the cc
 /// @returns cryptocondition object. Must be disposed with cc_free function when not used any more
-CC *MakeCCcond1of2(uint8_t evalcode,CPubKey pk1,CPubKey pk2,bool mixedMode=false);
+CC *MakeCCcond1of2(uint8_t evalcode,CPubKey pk1,CPubKey pk2);
 
 /// GetCryptoCondition retrieves the cryptocondition from a scriptSig object 
 /// @param scriptSig scriptSig object with a cryptocondition
@@ -610,7 +610,7 @@ int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode);
 /// @returns true if the scriptSig object contains a cryptocondition
 bool IsCCInput(CScript const& scriptSig);
 
-bool TxHasCCEvalCode(struct CCcontract_info const *cp, const CTransaction &tx);
+bool IsTxCCV2(struct CCcontract_info const *cp, const CTransaction &tx);
 
 /// CheckTxFee checks if queried transaction fee value is not less than the actual transaction fee of a real transaction
 /// @param tx transaction object which actual txfee to check
@@ -657,7 +657,7 @@ int64_t CCtoken_balance2(char *destaddr,uint256 tokenid);
 /// @param[out] destaddr the address for the cc scriptPubKey. Should have at least 64 char buffer space
 /// @param evalcode eval code for which cryptocondition will be made
 /// @param pk pubkey for which cryptocondition will be made
-bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk);
+bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk, bool mixed=false);
 
 /// GetCCaddress retrieves the address for the scriptPubKey for the cryptocondition that is made for eval code and public key.
 /// The evalcode is taken from the cp object
@@ -665,7 +665,7 @@ bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk);
 /// @param[out] destaddr the address for the cc scriptPubKey. Should have at least 64 char buffer space
 /// @param pk pubkey for which cryptocondition will be made
 /// @see CCcontract_info
-bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk);
+bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk, bool mixed=false);
 
 /// GetCCaddress1of2 retrieves the address for the scriptPubKey for the 1of2 cryptocondition that is made for eval code and two public keys.
 /// The evalcode is taken from the cp object
@@ -674,7 +674,7 @@ bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk);
 /// @param pk first pubkey 1of2 cryptocondition 
 /// @param pk2 second pubkey of 1of2 cryptocondition 
 /// @see CCcontract_info
-bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2);
+bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2, bool mixed=false);
 
 /// Gets adddress for token cryptocondition vout
 /// @param cp CCcontract_info structure initialized with EVAL_TOKENS eval code
@@ -795,6 +795,8 @@ std::string FinalizeCCTx(uint64_t skipmask,struct CCcontract_info *cp,CMutableTr
 /// @param pubkeys array of pubkeys to make multiple probe 1of2 cc's with the call Make1of2cond(cp->evalcode, globalpk, pubkeys[i])
 /// @returns signed transaction in hex encoding
 UniValue FinalizeCCTxExt(bool remote, uint64_t skipmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys = NULL_pubkeys);
+
+UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret);
 
 /// SetCCunspents returns a vector of unspent outputs on an address 
 /// @param[out] unspentOutputs vector of pairs of address key and amount
