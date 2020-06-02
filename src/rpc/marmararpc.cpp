@@ -339,8 +339,8 @@ UniValue marmara_info(const UniValue& params, bool fHelp, const CPubKey& remotep
     */
     firstheight = atol(params[0].get_str().c_str());
     lastheight = atol(params[1].get_str().c_str());
-    minamount = atof(params[2].get_str().c_str()) * COIN;
-    maxamount = atof(params[3].get_str().c_str()) * COIN;
+    minamount = AmountFromValue(params[2]);
+    maxamount = AmountFromValue(params[3]);
     if (params.size() >= 5) {
         vpk = ParseHex(params[4].get_str().c_str());
         if (vpk.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
@@ -354,7 +354,6 @@ UniValue marmara_info(const UniValue& params, bool fHelp, const CPubKey& remotep
             ERR_RESULT("invalid pubkey parameter");
             return result;
         }
-
     }
     if ( params.size() == 6 )
     {
@@ -590,6 +589,37 @@ UniValue marmara_releaseactivatedcoins(const UniValue& params, bool fHelp, const
     return result;
 }
 
+// marmarareceivelist rpc impl, lists marmarareceive txns on pubkey
+UniValue marmara_receivelist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (ensure_CCrequirements(EVAL_MARMARA) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+
+    if (fHelp || params.size() != 1)
+    {
+        throw runtime_error("marmarareceivelist pubkey\n"
+            "list unspent marmarareceive transactions on pubkey\n" "\n");
+    }
+
+    vuint8_t vpk = ParseHex(params[0].get_str().c_str());
+    if (vpk.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE)
+    {
+        UniValue result(UniValue::VOBJ);
+        ERR_RESULT("invalid pubkey parameter");
+        return result;
+    }
+    CPubKey pk = pubkey2pk(vpk);
+    if (!pk.IsFullyValid())
+    {
+        UniValue result(UniValue::VOBJ);
+        ERR_RESULT("invalid pubkey parameter");
+        return result;
+    }
+
+    UniValue result = MarmaraReceiveList(pk);    
+    return result;
+}
+
 // marmaraposstat rpc impl, return PoS statistics
 UniValue marmara_posstat(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
@@ -683,6 +713,7 @@ static const CRPCCommand commands[] =
     { "marmara",       "marmarareleaseactivatedcoins",   &marmara_releaseactivatedcoins,      true },
     { "marmara",       "marmaraposstat",   &marmara_posstat,      true },
     { "marmara",       "marmaraunlock",   &marmara_unlock,      true },
+    { "marmara",       "marmarareceivelist",   &marmara_receivelist,      true },
     { "marmara",       "marmaradecodetxdata",   &marmara_decodetxdata,      true }
 };
 

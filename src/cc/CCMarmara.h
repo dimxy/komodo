@@ -141,6 +141,7 @@ UniValue MarmaraListActivatedAddresses(CWallet *pwalletMain);
 std::string MarmaraReleaseActivatedCoins(CWallet *pwalletMain, const std::string &destaddr);
 UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight);
 std::string MarmaraUnlockActivatedCoins(CAmount amount);
+UniValue MarmaraReceiveList(const CPubKey &pk);
 
 bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 

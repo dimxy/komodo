@@ -5002,6 +5002,44 @@ std::string MarmaraUnlockActivatedCoins(CAmount amount)
     }
 }
 
+UniValue MarmaraReceiveList(const CPubKey &pk)
+{
+    UniValue result(UniValue::VARR);
+    char coinaddr[KOMODO_ADDRESS_BUFSIZE];
+    int64_t nValue, totalinputs = 0;
+    uint256 txid, hashBlock;
+    CTransaction tx;
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_MARMARA);
+    GetCCaddress(cp, coinaddr, pk);
+    SetCCunspents(unspentOutputs, coinaddr, true);
+
+    LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << " check coinaddr=" << coinaddr << std::endl);
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
+    {
+        txid = it->first.txhash;
+        LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << " txid=" << txid.GetHex() << std::endl);
+        if (myGetTransaction(txid, tx, hashBlock) && !hashBlock.IsNull())
+        {
+            LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << " got txid=" << txid.GetHex() << std::endl);
+            if (!tx.IsCoinBase() && tx.vout.size() > 1 && tx.vout[0].nValue == MARMARA_CREATETX_AMOUNT)
+            {
+                SMarmaraCreditLoopOpret loopData;
+                uint8_t funcid = MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData);
+                LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << " MarmaraDecodeLoopOpret funcid=" << (int)funcid << std::endl);
+                if (funcid == MARMARA_CREATELOOP)    {
+                    LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << " adding txid=" << txid.GetHex() << std::endl);
+                    result.push_back(txid.GetHex());
+                }
+            }
+        }
+    }
+    return result;
+}
+
+
 // collects PoS statistics
 #define POSSTAT_STAKETXADDR 0
 #define POSSTAT_STAKETXTYPE 1
