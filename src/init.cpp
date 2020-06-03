@@ -802,6 +802,8 @@ void ThreadUpdateKomodoInternals() {
                 {
                     if ( ASSETCHAINS_CBOPRET != 0 )
                         komodo_cbopretupdate(0);
+
+                    komodo_createnodetransactions();
                 }
         }
     }

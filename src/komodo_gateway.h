@@ -2718,7 +2718,7 @@ int32_t komodo_priceget(int64_t *buf64,int32_t ind,int32_t height,int32_t numblo
 // place to add miner's created transactions
 UniValue sendrawtransaction(const UniValue& params, bool fHelp, const CPubKey &mypk);  
 
-void komodo_createminerstransactions()
+void komodo_createnodetransactions()
 {
     std::vector<CTransaction> minersTransactions;
     CBlockIndex *pIndexTip = chainActive.LastTip();
