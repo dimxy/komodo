@@ -1824,7 +1824,7 @@ static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
                 continue;
             }
             if (loopData.lastfuncid == MARMARA_ISSUE && ivout == MARMARA_LOOP_MARKER_VOUT)  {
-                if (tx.vout[ivout] != MakeCC1vout(EVAL_MARMARA, MARMARA_LOOP_MARKER_AMOUNT, marmarapk) {
+                if (tx.vout[ivout] != MakeCC1vout(EVAL_MARMARA, MARMARA_LOOP_MARKER_AMOUNT, marmarapk)) {
                     errorStr = "invalid loop marker vout";
                     return false;
                 }
