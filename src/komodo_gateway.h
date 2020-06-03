@@ -2748,7 +2748,7 @@ void komodo_createnodetransactions()
         }
         catch (UniValue error)
         {
-            LOGSTREAMFN("miner", CCLOG_ERROR, stream << std::string("could not send miner created transaction: ") + error.getValStr() << std::endl);
+            LOGSTREAMFN("miner", CCLOG_ERROR, stream << std::string("could not send miner created transaction: ") + error["message"].getValStr() << std::endl);
         }
     }
 }
