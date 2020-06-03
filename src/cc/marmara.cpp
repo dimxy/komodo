@@ -1985,7 +1985,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         errorStr = "could not load issue tx";
         return false;
     }
-    if (!check_issue_tx(issuetx, errorStr)) {
+    if (!check_issue_tx_12(issuetx, errorStr)) {
         if (errorStr.empty())
             errorStr = "check_issue_tx failed";
         return false;
