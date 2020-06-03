@@ -301,12 +301,11 @@ CScript MarmaraEncodeCoinbaseOpret(uint8_t funcid, const CPubKey &pk, int32_t ht
 
 // encode lock-in-loop tx opret functions:
 
-CScript MarmaraEncodeLoopCreateOpret(CPubKey senderpk, int64_t amount, int32_t matures, std::string currency)
+CScript MarmaraEncodeLoopCreateOpret(uint8_t version, CPubKey senderpk, int64_t amount, int32_t matures, std::string currency)
 {
     CScript opret;
     uint8_t evalcode = EVAL_MARMARA;
     uint8_t funcid = MARMARA_CREATELOOP; // create tx (initial request tx)
-    uint8_t version = MARMARA_OPRET_VERSION;
 
     opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version << senderpk << amount << matures << currency);
     return(opret);
@@ -322,12 +321,11 @@ CScript MarmaraEncodeLoopIssuerOpret(uint8_t version, uint256 createtxid, CPubKe
     return(opret);
 }
 
-CScript MarmaraEncodeLoopRequestOpret(uint256 createtxid, CPubKey senderpk)
+CScript MarmaraEncodeLoopRequestOpret(uint8_t version, uint256 createtxid, CPubKey senderpk)
 {
     CScript opret;
     uint8_t evalcode = EVAL_MARMARA;
     uint8_t funcid = MARMARA_REQUEST; // request tx
-    uint8_t version = MARMARA_OPRET_VERSION;
 
     opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version << createtxid << senderpk);
     return(opret);
@@ -4125,6 +4123,8 @@ UniValue MarmaraReceive(const CPubKey &remotepk, int64_t txfee, const CPubKey &s
     int64_t requestFee; 
     std::string rawtx;
 
+    uint8_t version = MarmaraIs2020JuneUpdateActive(NULL) ? 2 : 1;
+
     cp = CCinit(&C, EVAL_MARMARA);
     if (txfee == 0)
         txfee = 10000;
@@ -4196,9 +4196,9 @@ UniValue MarmaraReceive(const CPubKey &remotepk, int64_t txfee, const CPubKey &s
 
             mtx.vout.push_back(MakeCC1vout(EVAL_MARMARA, requestFee, senderpk));
             if (batontxid.IsNull())
-                opret = MarmaraEncodeLoopCreateOpret(senderpk, amount, matures, currency);
+                opret = MarmaraEncodeLoopCreateOpret(version, senderpk, amount, matures, currency);
             else
-                opret = MarmaraEncodeLoopRequestOpret(createtxid, senderpk);
+                opret = MarmaraEncodeLoopRequestOpret(version, createtxid, senderpk);
 
             rawtx = FinalizeCCTx(0, cp, mtx, mypk, txfee, opret, false);
             if (rawtx.size() == 0)
