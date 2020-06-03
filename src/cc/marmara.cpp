@@ -4544,7 +4544,7 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
                     std::vector <CPubKey> endorserPubkeys;
 
                     CAmount inputsum = AddMarmaraCCInputs(IsMarmaraLockedInLoopVout, mtx, endorserPubkeys, lockInLoop1of2addr, 0, MARMARA_VINS); 
-                    if (llabs(inputsum - loopData.amount) != MARMARA_LOOP_TOLERANCE)  {
+                    if (llabs(inputsum - loopData.amount) > MARMARA_LOOP_TOLERANCE)  {
                         errorStr = "invalid amount locked in loop";
                         result.push_back(Pair("result", "error"));
                         result.push_back(Pair("error", errorStr));
