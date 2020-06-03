@@ -4543,7 +4543,7 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
                     GetCCaddress1of2(cp, lockInLoop1of2addr, Marmarapk, createtxidPk);
                     std::vector <CPubKey> endorserPubkeys;
 
-                    CAmount inputsum = AddMarmaraCCInputs(IsMarmaraLockedInLoopVout, mtx, endorserPubkeys, lockInLoop1of2addr, 0, MARMARA_VINS); 
+                    CAmount inputsum = AddMarmaraCCInputs(IsMarmaraLockedInLoopVout, mtx, endorserPubkeys, lockInLoop1of2addr, loopData.amount, MARMARA_VINS); 
                     if (llabs(inputsum - loopData.amount) > MARMARA_LOOP_TOLERANCE)  {
                         errorStr = "invalid amount locked in loop";
                         result.push_back(Pair("result", "error"));
