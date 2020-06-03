@@ -1776,7 +1776,7 @@ static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
                                 errorStr = "invalid prev tx loop createtxid";
                                 return false;
                             }
-                            if (IsFuncidOneOf(vintxLoopData.lastfuncid, {MARMARA_ISSUE, MARMARA_TRANSFER}))  {
+                            if (!IsFuncidOneOf(vintxLoopData.lastfuncid, {MARMARA_ISSUE, MARMARA_TRANSFER}))  {
                                 errorStr = "invalid prev tx loop funcid";
                                 return false;
                             }
