@@ -1668,6 +1668,243 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
     return true;
 }
 
+// check issue or transfer tx
+static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
+{
+    struct SMarmaraCreditLoopOpret loopData;
+    std::set<int32_t> usedccvouts;
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_MARMARA);
+
+    if (tx.vout.size() == 0) {
+        errorStr = "bad issue or transfer tx: no vouts";
+        return false;
+    }
+
+    if (skipBadLoop(tx.GetHash()))
+        return true;
+
+    MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData);
+    
+    // route to the previous version validator:
+    if (loopData.version == 1)
+        return check_issue_tx(tx, errorStr);
+
+    if (loopData.version != 2)  {
+        errorStr = "unsupported loop version";
+        return false;
+    }
+
+    if (loopData.lastfuncid != MARMARA_ISSUE && loopData.lastfuncid != MARMARA_TRANSFER) {
+        errorStr = "not an issue or transfer tx";
+        return false;
+    }
+
+    CPubKey marmarapk = GetUnspendable(cp, NULL);
+    CPubKey holderpk = loopData.pk;
+
+    // check activated vins
+    std::list<int32_t> nbatonvins;
+    std::set<CPubKey> vinpks;
+    CAmount CCActivatedInputs = 0LL;
+    CAmount CCLockedInputs = 0LL;
+    CAmount CCUnknownInputs = 0LL;
+    bool bRequestTxChecked = false;
+    bool bBatonTxChecked = false;
+
+    for (int32_t ivin = 0; ivin < tx.vin.size(); ivin ++)
+    {
+        if (IsCCInput(tx.vin[ivin].scriptSig))
+        {
+            if (cp->ismyvin(tx.vin[ivin].scriptSig))
+            {
+                CTransaction vintx;
+                uint256 hashBlock;
+
+                if (myGetTransaction(tx.vin[ivin].prevout.hash, vintx, hashBlock) /*&& !hashBlock.IsNull()*/)
+                {
+                    CPubKey pk_in_opret;
+                    uint256 dummytxid, createtxid;
+                    if (IsMarmaraActivatedVout(vintx, tx.vin[ivin].prevout.n, pk_in_opret, dummytxid))   // if vin not added by AddMarmaraCCInputs
+                    {
+                        if (check_signing_pubkey(tx.vin[ivin].scriptSig) == marmarapk)
+                        {
+                            // disallow spending with marmara global privkey:
+                            errorStr = "issue tx cannot spend activated coins using marmara global pubkey";
+                            return false;
+                        }
+                        CCActivatedInputs += vintx.vout[ tx.vin[ivin].prevout.n ].nValue;
+                    }
+                    else if (IsMarmaraLockedInLoopVout(vintx, tx.vin[ivin].prevout.n, pk_in_opret, createtxid))
+                    {
+                        if (createtxid != loopData.createtxid)  {
+                            errorStr = "not this loop input";
+                            return false;
+                        }
+                        CCLockedInputs += vintx.vout[ tx.vin[ivin].prevout.n ].nValue;
+                        vinpks.insert(pk_in_opret);
+                    }
+                    else
+                    {
+                        if (!bRequestTxChecked)   {
+                            if (!check_request_tx(tx.vin[ivin].prevout.hash, loopData.pk, loopData.lastfuncid, errorStr)) {
+                                if (errorStr.empty())
+                                    errorStr = "check_request_tx failed";
+                                return false;
+                            }
+                            if (vintx.vout[tx.vin[ivin].prevout.n].nValue != MARMARA_CREATETX_AMOUNT && vintx.vout[tx.vin[ivin].prevout.n].nValue != MARMARA_BATON_AMOUNT)   {
+                                errorStr = "invalid baton or request tx amount";
+                                return false;
+                            }
+                            bRequestTxChecked = true;
+                        }
+                        else if (loopData.lastfuncid == MARMARA_TRANSFER && !bBatonTxChecked) {
+                            // check baton tx
+                            struct SMarmaraCreditLoopOpret vintxLoopData;
+                            if (MarmaraDecodeLoopOpret(vintx.vout.back().scriptPubKey, vintxLoopData) == 0) {
+                                errorStr = "could not parse prev tx loop data";
+                                return false;
+                            }
+                            if (vintxLoopData.version != loopData.version)  {
+                                errorStr = "invalid prev tx loop version";
+                                return false;
+                            }
+                            if (vintxLoopData.createtxid != loopData.createtxid)  {
+                                errorStr = "invalid prev tx loop createtxid";
+                                return false;
+                            }
+                            if (IsFuncidOneOf(vintxLoopData.lastfuncid, {MARMARA_ISSUE, MARMARA_TRANSFER}))  {
+                                errorStr = "invalid prev tx loop funcid";
+                                return false;
+                            }
+                            if (vintx.vout[tx.vin[ivin].prevout.n].nValue != MARMARA_BATON_AMOUNT)   {
+                                errorStr = "invalid baton amount";
+                                return false;
+                            }
+                            bBatonTxChecked = true;
+                        }
+                        else
+                            CCUnknownInputs += vintx.vout[tx.vin[ivin].prevout.n].nValue;
+                    }
+                }
+                else
+                {
+                    errorStr = "issue/transfer tx: can't get vintx for vin=" + std::to_string(ivin);
+                    return false;
+                }
+            }
+            else
+            {
+                errorStr = "issue/transfer tx cannot have non-marmara cc vins";
+                return false;
+            }
+        }
+    }
+
+    // check outputs:
+    CAmount lclAmount = 0LL;
+    CAmount CCchange = 0LL;
+    CAmount CCUnknownOutputs = 0LL;
+    std::list<CPubKey> endorserPks;
+    for (int32_t ivout = 0; ivout < tx.vout.size() - 1; ivout ++)  // except the last vout opret
+    {
+        if (tx.vout[ivout].scriptPubKey.IsPayToCryptoCondition())
+        {
+            CScript ccopret;
+            CPubKey pk_in_opret;
+            SMarmaraCreditLoopOpret voutLoopData;
+            uint256 voutcreatetxid, dummytxid;
+
+            // check markers and baton
+            if (ivout == MARMARA_BATON_VOUT)  {
+                if (tx.vout[ivout] != MakeCC1vout(EVAL_MARMARA, MARMARA_BATON_AMOUNT, holderpk))  {
+                    errorStr = "invalid baton vout";
+                    return false;
+                }
+                continue;
+            }
+            if (loopData.lastfuncid == MARMARA_ISSUE && ivout == MARMARA_LOOP_MARKER_VOUT)  {
+                if (tx.vout[ivout] != MakeCC1vout(EVAL_MARMARA, MARMARA_LOOP_MARKER_AMOUNT, marmarapk) {
+                    errorStr = "invalid loop marker vout";
+                    return false;
+                }
+                continue;
+            }
+            if (loopData.lastfuncid == MARMARA_ISSUE && ivout == MARMARA_OPENCLOSE_VOUT)  {
+                if (tx.vout[ivout] != MakeCC1vout(EVAL_MARMARA, MARMARA_OPEN_MARKER_AMOUNT, marmarapk))    {
+                    errorStr = "invalid loop open/close marker vout";
+                    return false;
+                }
+                continue;
+            }
+
+            if (IsMarmaraLockedInLoopVout(tx, ivout, pk_in_opret, voutcreatetxid))
+            {
+                if (GetCCOpReturnData(tx.vout[ivout].scriptPubKey, ccopret) /*&& MarmaraDecodeLoopOpret(opret, voutLoopData) == MARMARA_LOCKED*/)
+                {
+                    if (voutcreatetxid != loopData.createtxid)
+                    {
+                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "txid=" << tx.GetHash().GetHex() << " cc vout=" << ivout << " not from this loop, createtxid=" << loopData.createtxid.GetHex() << " vout createtxid=" << voutcreatetxid.GetHex() << std::endl);
+                        errorStr = "cc vin=" + std::to_string(ivout) + " not from this loop";
+                        return false;
+                    }
+
+                    MarmaraDecodeLoopOpret(ccopret, voutLoopData);
+
+                    lclAmount += tx.vout[ivout].nValue;
+                    endorserPks.push_back(voutLoopData.pk);
+
+                    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "vout pubkey=" << HexStr(vuint8_t(voutLoopData.pk.begin(), voutLoopData.pk.end())) << " nValue=" << tx.vout[ivout].nValue << std::endl);
+                }
+            }
+            else if (IsMarmaraActivatedVout(tx, ivout, pk_in_opret, dummytxid))
+                CCchange += tx.vout[ivout].nValue;
+            else
+                CCUnknownOutputs += tx.vout[ivout].nValue;
+        }
+    }
+
+    if (CCUnknownInputs != 0)   {
+        errorStr = "unknown cc inputs";
+        return false;
+    }
+    if (CCUnknownOutputs != 0)   {
+        errorStr = "unknown cc outputs";
+        return false;
+    }
+    if (llabs(loopData.amount - lclAmount) > MARMARA_LOOP_TOLERANCE)  {
+        errorStr = "cc locked-in-loop vouts and loop amount out of tolerance";
+        return false;  
+    }
+    if (loopData.lastfuncid == MARMARA_ISSUE)   {
+        if (CCLockedInputs != 0LL)  {
+            errorStr = "locked-in-loop inputs not allowed for issue tx";
+            return false;  
+        }
+        if (llabs(CCActivatedInputs - (lclAmount + CCchange)) > MARMARA_LOOP_TOLERANCE)  {
+            errorStr = "cc balance out of tolerance for issue tx";
+            return false;  
+        }
+    }
+    else {
+        if (CCActivatedInputs != 0LL)  {
+            errorStr = "activated inputs not allowed for transfer tx";
+            return false;  
+        }
+        if (CCchange != 0LL)  {
+            errorStr = "activated outputs not allowed for transfer tx";
+            return false;  
+        }
+        if (llabs(CCLockedInputs - lclAmount) > MARMARA_LOOP_TOLERANCE)  {
+            errorStr = "cc balance out of tolerance for transfer tx";
+            return false;  
+        }
+    }
+
+    LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << " validation okay for tx=" << tx.GetHash().GetHex() << std::endl);
+    return true;
+}
+
 
 static bool check_settlement_tx(const CTransaction &settletx, std::string &errorStr)
 {

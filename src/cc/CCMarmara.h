@@ -60,6 +60,7 @@ const uint32_t MARMARA_2020JUNE_UPDATE_TIMESTAMP = nS4Timestamp;  // second upda
 // return true if new version activation time is passed
 inline static bool MarmaraIs2020JuneUpdateActive(const Eval *eval)
 {
+    return true ; // TODO remove
     uint32_t latesttime = (eval == NULL ? GetLatestTimestamp(komodo_currentheight()) : GetLatestTimestamp(eval->GetCurrentHeight()));
     if (latesttime >= MARMARA_2020JUNE_UPDATE_TIMESTAMP)
         return true;
