@@ -4516,7 +4516,7 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
 
             // return CC change to mypk activated address:
             CAmount CCchange = (inputsum - amountToLock);
-            if (CCchange > 0)
+            if (CCchange > 0)  // should not be change > 0 for transfers for ver 1.2
             {
                 int32_t height = komodo_nextheight();
                 if ((height & 1) != 0) // make height even as only even height is considered for staking (TODO: strange)
