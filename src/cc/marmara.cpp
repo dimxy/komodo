@@ -595,6 +595,40 @@ int64_t AddMarmaraCoinbases(struct CCcontract_info *cp, CMutableTransaction &mtx
 }
 
 
+// returns first normal vin pubkey
+static CPubKey GetFirstNormalInputPubKey(const CTransaction &tx)
+{
+    for (const auto &vin : tx.vin) 
+    {    
+        if (!IsCCInput(vin.scriptSig)) 
+        {
+             CTransaction vintx;
+            uint256 hashBlock;
+            if (myGetTransaction(vin.prevout.hash, vintx, hashBlock))
+            {
+                std::vector<vuint8_t> vSolutions;
+                txnouttype whichType;
+                if (Solver(vintx.vout[vin.prevout.n].scriptPubKey, whichType, vSolutions)) 
+                {
+                    if (whichType == TX_PUBKEY) {
+                        if (vSolutions.size() >= 1)
+                            return CPubKey(vSolutions[0]); // vSolutions[0] is pubkey
+                    }
+                    else if (whichType == TX_PUBKEYHASH)    {
+                        std::vector<vuint8_t> vData;
+                        CScriptBase::const_iterator pc = vin.scriptSig.begin();
+                        vin.scriptSig.GetPushedData(pc, vData);
+                        if (vData.size() >= 2)
+                            return CPubKey(vData[1]);  // vData[0] is signature, vData[1] is pubkey
+                    }
+                    // TODO: TX_SCRIPTHASH
+                }
+            }
+        }
+    }
+    return CPubKey();
+}
+
 // checks either of two options for tx:
 // tx has cc vin for the evalcode
 static bool tx_has_my_cc_vin(struct CCcontract_info *cp, const CTransaction &tx)
@@ -3945,7 +3979,7 @@ UniValue MarmaraReceive(const CPubKey &remotepk, int64_t txfee, const CPubKey &s
     {
         result.push_back(Pair("result", "success"));
         result.push_back(Pair("hex", rawtx));
-        result.push_back(Pair("funcid", "R"));
+        result.push_back(Pair("funcid", batontxid.IsNull() ? "B" : "R"));
         result.push_back(Pair("createtxid", createtxid.GetHex()));
         if (batontxid != zeroid)
             result.push_back(Pair("batontxid", batontxid.GetHex()));
@@ -5024,14 +5058,21 @@ UniValue MarmaraReceiveList(const CPubKey &pk)
         if (myGetTransaction(txid, tx, hashBlock) && !hashBlock.IsNull())
         {
             LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << " got txid=" << txid.GetHex() << std::endl);
-            if (!tx.IsCoinBase() && tx.vout.size() > 1 && tx.vout[0].nValue == MARMARA_CREATETX_AMOUNT)
+            if (!tx.IsCoinBase() && tx.vout.size() > 1 && (tx.vout[0].nValue == MARMARA_CREATETX_AMOUNT || tx.vout[0].nValue == MARMARA_BATON_AMOUNT))
             {
                 SMarmaraCreditLoopOpret loopData;
                 uint8_t funcid = MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData);
                 LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << " MarmaraDecodeLoopOpret funcid=" << (int)funcid << std::endl);
-                if (funcid == MARMARA_CREATELOOP)    {
+                if (funcid == MARMARA_CREATELOOP || funcid == MARMARA_REQUEST)    {
                     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << " adding txid=" << txid.GetHex() << std::endl);
-                    result.push_back(txid.GetHex());
+                    UniValue info(UniValue::VOBJ);
+                    info.push_back(Pair("txid", txid.GetHex()));
+                    info.push_back(Pair("funcid", std::string(1, funcid)));
+
+                    // get first normal input pubkey to get who is the receiver:
+                    CPubKey pk = GetFirstNormalInputPubKey(tx);
+                    info.push_back(Pair("receivepk", HexStr(pk)));
+                    result.push_back(info);
                 }
             }
         }
