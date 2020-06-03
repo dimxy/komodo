@@ -1805,6 +1805,15 @@ static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
         }
     }
 
+    if (!bRequestTxChecked)     {
+        errorStr = "request tx not found";
+        return false;
+    }
+    if (loopData.lastfuncid == MARMARA_TRANSFER && !bBatonTxChecked)     {
+        errorStr = "baton tx not found";
+        return false;
+    }
+
     // check outputs:
     CAmount lclAmount = 0LL;
     CAmount CCchange = 0LL;
@@ -1855,8 +1864,9 @@ static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
 
                     MarmaraDecodeLoopOpret(ccopret, voutLoopData);
 
-                    if (llabs(lclAmount/2 - tx.vout[ivout].nValue) > MARMARA_LOOP_TOLERANCE)    {
+                    if (llabs(creationLoopData.amount/2 - tx.vout[ivout].nValue) > MARMARA_LOOP_TOLERANCE)    {
                         errorStr = "loop cc vout=" + std::to_string(ivout) + " amount out of tolerance";
+                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "loop vout out of tolerance creationLoopData.amount/2=" << creationLoopData.amount/2 << " loop vout amount=" << tx.vout[ivout].nValue << std::endl);
                         return false;
                     }
 
