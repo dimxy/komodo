@@ -4349,11 +4349,10 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
     if (txfee == 0)
         txfee = 10000;
 
-    uint8_t version = MarmaraIs2020JuneUpdateActive(NULL) ? 2 : 1;
+    uint8_t version = MarmaraIs2020JuneUpdateActive(NULL) ? 2 : 1;  // version 2 matches the whole project version 1.2
 
-    // make sure less than maxlength (?)
-
-    CPubKey Marmarapk = GetUnspendable(cp, NULL);
+    uint8_t marmarapriv[32];
+    CPubKey Marmarapk = GetUnspendable(cp, marmarapriv);
     CPubKey mypk;
     bool isRemote = IS_REMOTE(remotepk);
     if (isRemote)
@@ -4456,7 +4455,7 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
             mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(version == 1 ? amountToLock : amountToLock / 2, createtxidPk, lockOpret)); //vout2 is issued amount
 
             if (version == 2)   {
-                // ad holder utxo 1/2 amount
+                // add holder utxo 1/2 amount
                 CScript opretReceiver = MarmaraEncodeLoopCCVoutOpret(createtxid, receiverpk);
                 // add cc opret with receiver to cc vout 
                 mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(amountToLock / 2, createtxidPk, opretReceiver)); //vout2 is issued amount
@@ -4468,15 +4467,15 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
             LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "sending to loop amount=" << amountToLock << " marked with mypk=" << HexStr(mypk) << std::endl);
 
             // return CC change to mypk activated address:
-            int64_t change = (inputsum - amountToLock);
-            if (change > 0)
+            CAmount CCchange = (inputsum - amountToLock);
+            if (CCchange > 0)
             {
                 int32_t height = komodo_nextheight();
                 if ((height & 1) != 0) // make height even as only even height is considered for staking (TODO: strange)
                     height++;
                 CScript opret = MarmaraEncodeCoinbaseOpret(MARMARA_ACTIVATED, mypk, height);
                 // add coinbase opret to ccvout for the change
-                mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(change, mypk, opret));  // adding MarmaraCoinbase cc vout 'opret' for change
+                mtx.vout.push_back(MakeMarmaraCC1of2voutOpret(CCchange, mypk, opret));  // adding MarmaraCoinbase cc vout 'opret' for change
             }
 
             if (version == 1)   {
@@ -4489,7 +4488,7 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
                     }
                 }
             }
-            else {
+            else {  // version == 2
                 if (funcid == MARMARA_TRANSFER) {
                     char lockInLoop1of2addr[KOMODO_ADDRESS_BUFSIZE];
                     CPubKey createtxidPk = CCtxidaddr_tweak(NULL, createtxid);
@@ -4506,10 +4505,15 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
                 }
             }
             
-            if (version == 1 || funcid == MARMARA_TRANSFER) {
+            if (version == 1 || funcid == MARMARA_ISSUE) {  // for ver 1.2 only issue has actvated 
                 CC* activated1of2cond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, mypk);  // create vintx probe 1of2 cond to spend from activated account
                 CCAddVintxCond(cp, activated1of2cond);      // add the probe to cp, it is copied and we can cc_free it
                 cc_free(activated1of2cond);
+            }
+            if (version == 2 || funcid == MARMARA_TRANSFER)   {
+                CC *lockInLoop1of2cond = MakeCCcond1of2(EVAL_MARMARA, Marmarapk, createtxidPk);  
+                CCAddVintxCond(cp, lockInLoop1of2cond, marmarapriv); //add probe condition to spend from the lock-in-loop address
+                cc_free(lockInLoop1of2cond);
             }
 
             CScript opret;
