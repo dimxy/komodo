@@ -5068,6 +5068,10 @@ UniValue MarmaraReceiveList(const CPubKey &pk)
                     UniValue info(UniValue::VOBJ);
                     info.push_back(Pair("txid", txid.GetHex()));
                     info.push_back(Pair("funcid", std::string(1, funcid)));
+                    if (funcid == MARMARA_CREATELOOP)   {
+                        info.push_back(Pair("amount", ValueFromAmount(loopData.amount)));
+                        info.push_back(Pair("matures", loopData.matures));
+                    }
 
                     // get first normal input pubkey to get who is the receiver:
                     CPubKey pk = GetFirstNormalInputPubKey(tx);
