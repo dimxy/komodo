@@ -1784,6 +1784,10 @@ static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
                                 errorStr = "invalid baton amount";
                                 return false;
                             }
+                            if (!tx_has_my_cc_vin(cp, vintx)) {
+                                errorStr = "no marmara cc vins in previous baton tx for transfer tx";
+                                return false;
+                            }
                             bBatonTxChecked = true;
                         }
                         else
