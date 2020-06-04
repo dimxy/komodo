@@ -3996,8 +3996,8 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                             LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "FinalizeCCTx error bad partial settlement mtx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl);
                         }
                         else {
-                            result.push_back(Pair("result", "error"));
-                            result.push_back(Pair("error", "insufficient funds in loop, partial settlement"));
+                            result.push_back(Pair("result", "warning"));
+                            result.push_back(Pair("warning", "insufficient funds in loop, partial settlement"));
                             result.push_back(Pair("hex", rawtx));
                             result.push_back(Pair("remaining", ValueFromAmount(remaining)));
                         }
@@ -4183,6 +4183,7 @@ void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & settle
             }
             else if (result["result"].getValStr() == "warning") {
                 LOGSTREAM("marmara", CCLOG_DEBUG1, stream << funcname << " " << "warning=" << result["warning"].getValStr() << " in settlement for batontxid=" << batontxid.GetHex() << std::endl);
+                settlementTransactions.push_back(settlementtx);
             }
             else {
                 LOGSTREAM("marmara", CCLOG_ERROR, stream << funcname << " " << "error=" << result["error"].getValStr() << " in settlement for batontxid=" << batontxid.GetHex() << std::endl);
