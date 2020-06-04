@@ -1684,8 +1684,8 @@ static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
     MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData);
     
     // route to the previous version validator:
-    if (loopData.version == 1)
-        return check_issue_tx(tx, errorStr);
+    //if (loopData.version == 1)
+    //    return check_issue_tx(tx, errorStr);
 
     if (loopData.version != 2)  {
         errorStr = "unsupported loop version";
@@ -1988,11 +1988,30 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         errorStr = "could not load issue tx";
         return false;
     }
-    if (!check_issue_tx_12(issuetx, errorStr)) {
-        if (errorStr.empty())
-            errorStr = "check_issue_tx failed";
+
+    // call depending on loop version:
+    if (settleLoopData.version == 1)    
+    {
+        if (!check_issue_tx(issuetx, errorStr)) {
+            if (errorStr.empty())
+                errorStr = "check_issue_tx failed";
+            return false;
+        }
+    } 
+    else if (settleLoopData.version == 2)    
+    {
+        if (!check_issue_tx_12(issuetx, errorStr)) {
+            if (errorStr.empty())
+                errorStr = "check_issue_tx_12 failed";
+            return false;
+        }
+    } 
+    else    
+    {
+        errorStr = "unsupported loop version for settlement";
         return false;
     }
+
 
 
     // fix bad issue tx spent:
