@@ -158,19 +158,21 @@ public:
 class CMarmaraLockInLoopOpretChecker : public CMarmaraOpretCheckerBase
 {
 public:
-    CMarmaraLockInLoopOpretChecker() { checkOnlyCC = false; }
-    CMarmaraLockInLoopOpretChecker(bool onlyCC) { checkOnlyCC = onlyCC; }
+    //CMarmaraLockInLoopOpretChecker(uint8_t _checkVersion) { checkOnlyCC = false; checkVersion = _checkVersion; }
+    CMarmaraLockInLoopOpretChecker(bool onlyCC, uint8_t _checkVersion) { checkOnlyCC = onlyCC; checkVersion = _checkVersion; }
     bool CheckOpret(const CScript &spk, CPubKey &opretpk) const
     {
         struct SMarmaraCreditLoopOpret loopData;
 
-        uint8_t funcid = MarmaraDecodeLoopOpret(spk, loopData);
+        uint8_t funcid = MarmaraDecodeLoopOpret(spk, loopData, checkVersion);
         if (funcid != 0) {
             opretpk = loopData.pk;
             return true;
         }
         return false;
     }
+private:
+    uint8_t checkVersion;
 };
 
 static bool skipBadLoop(const uint256 &refbatontxid);
@@ -363,7 +365,7 @@ CScript MarmaraEncodeLoopSettlementOpret(uint8_t version, bool isSuccess, uint25
 }
 
 // decode different lock-in-loop oprets, update the loopData
-uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCreditLoopOpret &loopData)
+uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCreditLoopOpret &loopData, uint8_t checkVersion)
 {
     vscript_t vopret;
 
@@ -417,7 +419,7 @@ uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCredit
                 return 0;
             }
            
-            if (version != 1 && version != 2)
+            if (checkVersion != MARMARA_VERSION_ANY && version != checkVersion)
             {
                 LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "unsupported opret version=" << (int)version << std::endl);
                 return 0;
@@ -434,7 +436,7 @@ uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCredit
 }
 
 // decode release coin opreturn
-uint8_t MarmaraDecodeReleaseOpret(const CScript &scriptPubKey, uint8_t &version)
+uint8_t MarmaraDecodeReleaseOpret(const CScript &scriptPubKey, uint8_t &version, uint8_t checkVersion)
 {
     vscript_t vopret;
     GetOpReturnData(scriptPubKey, vopret);
@@ -446,7 +448,7 @@ uint8_t MarmaraDecodeReleaseOpret(const CScript &scriptPubKey, uint8_t &version)
         {
             if (IsFuncidOneOf(vopret[1], { MARMARA_RELEASE }))
             {
-                if (vopret[2] = 1)  // check version 
+                if (checkVersion == MARMARA_VERSION_ANY || vopret[2] == checkVersion)  // check version 
                 {
                     if (E_UNMARSHAL(vopret, ss >> evalcode; ss >> funcid; ss >> version) != 0)
                     {
@@ -655,7 +657,7 @@ static bool activated_vout_matches_pk_in_opret(const CTransaction &tx, int32_t n
 static bool vout_matches_createtxid_in_opret(const CTransaction &tx, int32_t nvout, const CScript &opret)
 {
     struct SMarmaraCreditLoopOpret loopData;
-    MarmaraDecodeLoopOpret(opret, loopData);
+    MarmaraDecodeLoopOpret(opret, loopData, MARMARA_VERSION_ANY);
 
     CPubKey createtxidPk = CCtxidaddr_tweak(NULL, loopData.createtxid);
 
@@ -772,7 +774,7 @@ bool IsMarmaraActivatedVout(const CTransaction &tx, int32_t nvout, CPubKey &pk_i
 
 bool IsMarmaraLockedInLoopVout(const CTransaction &tx, int32_t nvout, CPubKey &pk_in_opret,  uint256 &createtxid)
 {
-    CMarmaraLockInLoopOpretChecker lclOpretChecker(true);
+    CMarmaraLockInLoopOpretChecker lclOpretChecker(CHECK_ONLY_CCOPRET, 1);
     CScript opret;
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_MARMARA);
@@ -789,7 +791,7 @@ bool IsMarmaraLockedInLoopVout(const CTransaction &tx, int32_t nvout, CPubKey &p
         SMarmaraCreditLoopOpret loopData;
         uint8_t funcid;
 
-        if ((funcid = MarmaraDecodeLoopOpret(opret, loopData)) != MARMARA_LOCKED)
+        if ((funcid = MarmaraDecodeLoopOpret(opret, loopData, MARMARA_VERSION_ANY)) != MARMARA_LOCKED)
         {
             LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "tx=" << tx.GetHash().GetHex() << " nvout=" << nvout << " has incorrect funcid=" << (int)funcid << std::endl);
             return false;
@@ -961,7 +963,7 @@ int64_t AddMarmaraCCInputs(IsMarmaraVoutT IsMarmaraVout, CMutableTransaction &mt
 
 // finds the creation txid from the loop tx opret or 
 // return itself if it is the request tx
-static int32_t get_create_txid(uint256 &createtxid, uint256 txid)
+static int32_t get_create_txid(uint256 &createtxid, uint256 txid, uint8_t checkVersion)
 {
     CTransaction tx; 
     uint256 hashBlock; 
@@ -972,7 +974,7 @@ static int32_t get_create_txid(uint256 &createtxid, uint256 txid)
         uint8_t funcid;
         struct SMarmaraCreditLoopOpret loopData;
 
-        if ((funcid = MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData)) == MARMARA_ISSUE || funcid == MARMARA_TRANSFER || funcid == MARMARA_REQUEST ) {
+        if ((funcid = MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData, checkVersion)) == MARMARA_ISSUE || funcid == MARMARA_TRANSFER || funcid == MARMARA_REQUEST ) {
             createtxid = loopData.createtxid;
             LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream  << "found for funcid=" << (char)funcid << " createtxid=" << createtxid.GetHex() << std::endl);
             return(0);
@@ -1004,7 +1006,7 @@ int32_t MarmaraGetbatontxid(std::vector<uint256> &creditloop, uint256 &batontxid
     
     uint256 txid = querytxid;
     batontxid = zeroid;
-    if (get_create_txid(createtxid, txid) == 0) // retrieve the initial creation txid
+    if (get_create_txid(createtxid, txid, MARMARA_VERSION_ANY) == 0) // retrieve the initial creation txid
     {
         uint256 spenttxid;
         txid = createtxid;
@@ -1052,7 +1054,7 @@ int32_t MarmaraGetbatontxid(std::vector<uint256> &creditloop, uint256 &batontxid
 // finds all the baton txids starting from the createtx (1+ in creditloop vector), apart from the latest baton txid
 // returns the number of txns marked with the baton
 // DO NOT USE this function from the validation code because it is not guaranteed that the validated tx is properly updated in the spent index and coin cache!
-static int32_t get_loop_endorsers_number(uint256 &createtxid, uint256 prevtxid)
+static int32_t get_loop_endorsers_number(uint256 &createtxid, uint256 prevtxid, uint8_t checkVersion)
 {
     CTransaction tx;
     uint256 hashBlock;
@@ -1062,7 +1064,7 @@ static int32_t get_loop_endorsers_number(uint256 &createtxid, uint256 prevtxid)
     {
         struct SMarmaraCreditLoopOpret loopData;
 
-        uint8_t funcid = MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData);
+        uint8_t funcid = MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData, checkVersion);
 
         if (funcid == MARMARA_CREATELOOP) {
             createtxid = tx.GetHash();
@@ -1120,7 +1122,7 @@ static int32_t get_settlement_txid(uint256 &settletxid, uint256 issuetxid)
 }
 
 // load the create tx and adds data from its opret to loopData safely, with no overriding
-static int32_t get_loop_creation_data(uint256 createtxid, struct SMarmaraCreditLoopOpret &loopData)
+static int32_t get_loop_creation_data(uint256 createtxid, struct SMarmaraCreditLoopOpret &loopData, uint8_t checkVersion)
 {
     CTransaction tx;
     uint256 hashBlock;
@@ -1133,7 +1135,7 @@ static int32_t get_loop_creation_data(uint256 createtxid, struct SMarmaraCreditL
         // first check if this is really createtx to prevent override loopData with other tx type data:
         if (GetOpReturnData(tx.vout.back().scriptPubKey, vopret) && vopret.size() >= 2 && vopret[0] == EVAL_MARMARA && vopret[1] == MARMARA_CREATELOOP)  
         {
-            if ((funcid = MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData)) == MARMARA_CREATELOOP) {
+            if ((funcid = MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData, checkVersion)) == MARMARA_CREATELOOP) {
                 return(0); //0 is okay
             }
         }
@@ -1143,7 +1145,7 @@ static int32_t get_loop_creation_data(uint256 createtxid, struct SMarmaraCreditL
 
 // consensus code:
 
-// check total loop amount in tx and redistributed back amount:
+// check total loop amount in tx and redistributed back amount (only for version 1.1):
 static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, int32_t startvin, std::set<int32_t> &usedccvouts, CAmount &loopAmount, int32_t &nPrevEndorsers, std::string &errorStr)
 {
     uint256 batontxid0, createtxid;
@@ -1157,18 +1159,18 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
 
     nPrevEndorsers = 0;
     // do not use MarmaraGetbatontxid here as the current tx is the last baton and we are not sure if it is already in the spent index, which is used by MarmaraGetbatontxid (so it might behave badly)
-    if ((nPrevEndorsers = get_loop_endorsers_number(createtxid, prevtxid)) < 0) {   // number of endorsers + issuer, without the current tx
+    if ((nPrevEndorsers = get_loop_endorsers_number(createtxid, prevtxid, 1)) < 0) {   // number of endorsers + issuer, without the current tx
         errorStr = "could not get credit loop endorsers number";
         return false;
     }
-    if (get_loop_creation_data(createtxid, creationLoopData) < 0)
+    if (get_loop_creation_data(createtxid, creationLoopData, 1) < 0)
     {
         errorStr = "could not get credit loop creation data";
         return false;
     }
 
     // get opret data
-    if (tx.vout.size() == 0 || MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, currentLoopData) == 0)
+    if (tx.vout.size() == 0 || MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, currentLoopData, 1) == 0)
     {
         errorStr = "no opreturn found in the last vout of issue/transfer tx ";
         return false;
@@ -1205,7 +1207,7 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
                         return false;
                     }
 
-                    MarmaraDecodeLoopOpret(opret, voutLoopData);
+                    MarmaraDecodeLoopOpret(opret, voutLoopData, 1);
 
                     // check each vout is 1/N lcl amount
                     CAmount  diff = tx.vout[ivout].nValue != creationLoopData.amount / (nPrevEndorsers + 1);
@@ -1362,7 +1364,7 @@ static bool check_lcl_redistribution(const CTransaction &tx, uint256 prevtxid, i
 }
 
 // check request or create tx 
-static bool check_request_tx(uint256 requesttxid, CPubKey receiverpk, uint8_t issueFuncId, std::string &errorStr)
+static bool check_request_tx(uint256 requesttxid, CPubKey receiverpk, uint8_t issueFuncId, uint8_t checkVersion, std::string &errorStr)
 {
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_MARMARA);
@@ -1381,17 +1383,17 @@ static bool check_request_tx(uint256 requesttxid, CPubKey receiverpk, uint8_t is
 
     if (requesttxid.IsNull())
         errorStr = "requesttxid can't be empty";
-    else if (get_create_txid(createtxid, requesttxid) < 0)
-        errorStr = "can't get createtxid from requesttxid (request tx could be in mempool)";
+    else if (get_create_txid(createtxid, requesttxid, checkVersion) < 0)
+        errorStr = "can't get createtxid from requesttxid (request tx could be in mempool, check version)";
     // check requested cheque params:
-    else if (get_loop_creation_data(createtxid, loopData) < 0)
+    else if (get_loop_creation_data(createtxid, loopData, checkVersion) < 0)
         errorStr = "cannot get loop creation data";
     else if (!myGetTransaction(requesttxid, requesttx, hashBlock))
         errorStr = "cannot get request transaction";
     // TODO: do we need here to check the request tx in mempool?
     // else if (hashBlock.IsNull())    /*is in mempool?*/
     //    errorStr = "request transaction still in mempool";
-    else if (requesttx.vout.size() < 1 || (funcid = MarmaraDecodeLoopOpret(requesttx.vout.back().scriptPubKey, loopData)) == 0)
+    else if (requesttx.vout.size() < 1 || (funcid = MarmaraDecodeLoopOpret(requesttx.vout.back().scriptPubKey, loopData, checkVersion)) == 0)
         errorStr = "cannot decode request tx opreturn data";
     else if (TotalPubkeyNormalInputs(requesttx, receiverpk) == 0)     // extract and check the receiver pubkey
         errorStr = "receiver pubkey does not match signer of request tx";
@@ -1450,7 +1452,7 @@ static CAmount get_cc_balance(const struct CCcontract_info *cp, const CTransacti
     return ccInputs - ccOutputs;
 }
 
-// check issue or transfer tx
+// check issue or transfer tx for ver 1.1 (opret version == 1)
 static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
 {
     struct SMarmaraCreditLoopOpret loopData;
@@ -1466,7 +1468,7 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
     if (skipBadLoop(tx.GetHash()))
         return true;
 
-    MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData);
+    MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData, 1);
     if (loopData.lastfuncid != MARMARA_ISSUE && loopData.lastfuncid != MARMARA_TRANSFER) {
         errorStr = "not an issue or transfer tx";
         return false;
@@ -1535,7 +1537,7 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
     int32_t requesttx_i = ivin;
     //nbatonvins.pop_front();
     
-    if (!check_request_tx(tx.vin[requesttx_i].prevout.hash, loopData.pk, loopData.lastfuncid, errorStr)) {
+    if (!check_request_tx(tx.vin[requesttx_i].prevout.hash, loopData.pk, loopData.lastfuncid, 1, errorStr)) {
         if (errorStr.empty())
             errorStr = "check_request_tx failed";
         return false;
@@ -1665,7 +1667,7 @@ static bool check_issue_tx(const CTransaction &tx, std::string &errorStr)
     return true;
 }
 
-// check issue or transfer tx
+// check issue or transfer tx for loop ver 1.2 (last opret ver==2)
 static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
 {
     struct SMarmaraCreditLoopOpret loopData, creationLoopData;
@@ -1681,7 +1683,7 @@ static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
     if (skipBadLoop(tx.GetHash()))
         return true;
 
-    MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData);
+    MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData, 2);
     
     // route to the previous version validator:
     //if (loopData.version == 1)
@@ -1697,7 +1699,7 @@ static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
         return false;
     }
 
-    if (get_loop_creation_data(loopData.createtxid, creationLoopData) < 0)
+    if (get_loop_creation_data(loopData.createtxid, creationLoopData, 2) < 0)
     {
         errorStr = "could not get credit loop creation data";
         return false;
@@ -1750,7 +1752,7 @@ static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
                     else
                     {
                         if (!bRequestTxChecked)   {
-                            if (!check_request_tx(tx.vin[ivin].prevout.hash, loopData.pk, loopData.lastfuncid, errorStr)) {
+                            if (!check_request_tx(tx.vin[ivin].prevout.hash, loopData.pk, loopData.lastfuncid, 2, errorStr)) {
                                 if (errorStr.empty())
                                     errorStr = "check_request_tx failed";
                                 return false;
@@ -1764,8 +1766,8 @@ static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
                         else if (loopData.lastfuncid == MARMARA_TRANSFER && !bBatonTxChecked) {
                             // check baton tx
                             struct SMarmaraCreditLoopOpret vintxLoopData;
-                            if (MarmaraDecodeLoopOpret(vintx.vout.back().scriptPubKey, vintxLoopData) == 0) {
-                                errorStr = "could not parse prev tx loop data";
+                            if (MarmaraDecodeLoopOpret(vintx.vout.back().scriptPubKey, vintxLoopData, 2) == 0) {
+                                errorStr = "could not parse prev tx loop data (check prev tx version)";
                                 return false;
                             }
                             if (vintxLoopData.version != loopData.version)  {
@@ -1865,7 +1867,7 @@ static bool check_issue_tx_12(const CTransaction &tx, std::string &errorStr)
                         return false;
                     }
 
-                    MarmaraDecodeLoopOpret(ccopret, voutLoopData);
+                    MarmaraDecodeLoopOpret(ccopret, voutLoopData, 1);  // loop vdata still has ver 1
 
                     if (llabs(creationLoopData.amount/2 - tx.vout[ivout].nValue) > MARMARA_LOOP_TOLERANCE)    {
                         errorStr = "loop cc vout=" + std::to_string(ivout) + " amount out of tolerance";
@@ -1967,7 +1969,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         return true;
 
     // check settlement tx funcid
-    MarmaraDecodeLoopOpret(settletx.vout.back().scriptPubKey, settleLoopData);
+    MarmaraDecodeLoopOpret(settletx.vout.back().scriptPubKey, settleLoopData, MARMARA_VERSION_ANY);   // allow to setlle either version
     if (settleLoopData.lastfuncid != MARMARA_SETTLE && settleLoopData.lastfuncid != MARMARA_SETTLE_PARTIAL) {
         errorStr = "not a settlement tx";
         return false;
@@ -2028,7 +2030,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
 
     // get credit loop basic data (loop amount)
     createtxid = creditloop[0];
-    if (get_loop_creation_data(createtxid, creationLoopData) < 0)
+    if (get_loop_creation_data(createtxid, creationLoopData, settleLoopData.version) < 0)
     {
         errorStr = "could not get credit loop creation data";
         return false;
@@ -2058,7 +2060,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
         return false;
     }
     // get baton tx opret (we need holder pk from there)
-    MarmaraDecodeLoopOpret(batontx.vout.back().scriptPubKey, batonLoopData);
+    MarmaraDecodeLoopOpret(batontx.vout.back().scriptPubKey, batonLoopData, settleLoopData.version);
     if (batonLoopData.lastfuncid != MARMARA_ISSUE && batonLoopData.lastfuncid != MARMARA_TRANSFER) {
         errorStr = "baton tx not a issue or transfer tx";
         return false;
@@ -2406,33 +2408,44 @@ bool MarmaraValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction 
 
     for (int32_t i = 0; i < tx.vout.size(); i++)
     {
-        CPubKey opretpk;
-        CScript opret;
-        CMarmaraActivatedOpretChecker activatedChecker;
-        CMarmaraLockInLoopOpretChecker lockinloopChecker;
 
-        // temp simple check for opret presence
-        if (get_either_opret(&activatedChecker, tx, i, opret, opretpk)) 
+        if (tx.vout[i].scriptPubKey.IsPayToCryptoCondition())
         {
-            CPubKey pk;
-            int32_t h, uh;
+            CPubKey opretpk;
+            CScript opret;
+            CMarmaraActivatedOpretChecker activatedChecker;
+            CMarmaraLockInLoopOpretChecker lockinloopChecker( CHECK_ONLY_CCOPRET, 1 );  // loop vouts cc data have only ver==1
 
-            uint8_t funcid = MarmaraDecodeCoinbaseOpret(opret, pk, h, uh);
-            funcIds.insert(funcid);
-        }
-        else if (get_either_opret(&lockinloopChecker, tx, i, opret, opretpk))
-        {
-            struct SMarmaraCreditLoopOpret loopData;
-            MarmaraDecodeLoopOpret(opret, loopData);
-            funcIds.insert(loopData.lastfuncid);
+            // just get opreturn funcid
+            if (get_either_opret(&activatedChecker, tx, i, opret, opretpk)) 
+            {
+                CPubKey pk;
+                int32_t h, uh;
+
+                uint8_t funcid = MarmaraDecodeCoinbaseOpret(opret, pk, h, uh);
+                funcIds.insert(funcid);
+            }
+            else if (get_either_opret(&lockinloopChecker, tx, i, opret, opretpk))
+            {
+                struct SMarmaraCreditLoopOpret loopData;
+                MarmaraDecodeLoopOpret(opret, loopData, MARMARA_VERSION_ANY);
+                funcIds.insert(loopData.lastfuncid);
+            }
         }
 
         // release coin opret support:
-        if (i == tx.vout.size() - 1)    {
-            uint8_t version;
-            uint8_t funcid = MarmaraDecodeReleaseOpret(tx.vout[i].scriptPubKey, version);
-            if (funcid != 0)
-                funcIds.insert(funcid);
+        if (i == tx.vout.size() - 1)    
+        {
+            struct SMarmaraCreditLoopOpret loopData;
+            if (MarmaraDecodeLoopOpret(tx.vout[i].scriptPubKey, loopData, MARMARA_VERSION_ANY) != 0)  // decode either version, later it will be checked
+                funcIds.insert(loopData.lastfuncid);
+            else 
+            {
+                uint8_t version;
+                uint8_t funcid = MarmaraDecodeReleaseOpret(tx.vout[i].scriptPubKey, version, 1);
+                if (funcid != 0)
+                    funcIds.insert(funcid);
+            }
         }
     }
 
@@ -2642,7 +2655,7 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
 
             // for stake tx check only cc opret, in last-vout opret there is pos data:
             CMarmaraActivatedOpretChecker activatedChecker;
-            CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET);
+            CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET, 1);
 
             if (get_either_opret(&activatedChecker, staketx, 0, opret, opretpk))  // if stake tx has activatd vout
             {
@@ -2703,7 +2716,7 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
             else if (get_either_opret(&lockinloopChecker, staketx, 0, opret, opretpk))  //if stake tx has locked in loop vout
             {               
                 SMarmaraCreditLoopOpret loopdata;
-                MarmaraDecodeLoopOpret(opret, loopdata);  //get loop createtxid to monitor when the loop is settled to switch from 3x to 1x
+                MarmaraDecodeLoopOpret(opret, loopdata, MARMARA_VERSION_ANY);  //get loop createtxid to monitor when the loop is settled to switch from 3x to 1x
 
                 CScript coinbaseOpret;
 
@@ -2712,7 +2725,7 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
                     SMarmaraCreditLoopOpret loopcrdata;
                     // always set 3x coinbase
                     // add mature hight to coinbase to track if loop is settled
-                    get_loop_creation_data(loopdata.createtxid, loopcrdata);
+                    get_loop_creation_data(loopdata.createtxid, loopcrdata, MARMARA_VERSION_ANY);  // allow both loop version 1.1 or 1.2
                     coinbaseOpret = MarmaraEncodeCoinbaseOpretExt(2, MARMARA_COINBASE_3X, opretpk, nHeight, loopcrdata.matures);
                 }
                 else
@@ -2749,7 +2762,7 @@ CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &def
                 CPubKey opretpk;
 
                 CMarmaraActivatedOpretChecker activatedChecker;
-                CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET);
+                CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET, 1);
 
                 if (get_either_opret(&activatedChecker, staketx, 0, opret, opretpk))
                 {
@@ -2793,7 +2806,7 @@ vuint8_t  MarmaraGetPubkeyFromSpk(const CScript &spk)
         if (GetCCOpReturnData(spk, opret))
         {
             CMarmaraActivatedOpretChecker activatedChecker;
-            CMarmaraLockInLoopOpretChecker lclChecker;
+            CMarmaraLockInLoopOpretChecker lclChecker(CHECK_ONLY_CCOPRET, 1);
 
             if (activatedChecker.CheckOpret(opret, opretpk))
                 vretpk = vuint8_t(opretpk.begin(), opretpk.end());
@@ -3033,7 +3046,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
 
         // for stake tx check only cc opret, in last-vout opret there is pos data:
         CMarmaraActivatedOpretChecker activatedChecker;          
-        CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET);
+        CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET, 1);
 
         if (get_either_opret(&activatedChecker, staketx, 0, opret, opretpk))
         {
@@ -3069,7 +3082,7 @@ int32_t MarmaraValidateStakeTx(const char *destaddr, const CScript &vintxOpret, 
             }
             
             struct SMarmaraCreditLoopOpret loopData;
-            MarmaraDecodeLoopOpret(opret, loopData);
+            MarmaraDecodeLoopOpret(opret, loopData, 1);  // loop vouts have only ver 1
             CPubKey createtxidPk = CCtxidaddr_tweak(NULL, loopData.createtxid);
             GetCCaddress1of2(cp, pkInOpretAddr, Marmarapk, createtxidPk);
 
@@ -3324,7 +3337,7 @@ static void EnumLockedInLoop(T func, const CPubKey &pk)
                 {
                     struct SMarmaraCreditLoopOpret loopData;
                     // get createtxid from the issuance tx
-                    if (MarmaraDecodeLoopOpret(isssuancetx.vout.back().scriptPubKey, loopData) == MARMARA_ISSUE)
+                    if (MarmaraDecodeLoopOpret(isssuancetx.vout.back().scriptPubKey, loopData, MARMARA_VERSION_ANY) == MARMARA_ISSUE)  // allow both versions
                     {
                         char loopaddr[KOMODO_ADDRESS_BUFSIZE];
                         std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > loopOutputs;
@@ -3366,7 +3379,7 @@ static void EnumLockedInLoop(T func, const CPubKey &pk)
 
                                         // get pk from cc opret or last vout opret
                                         // use pk only from cc opret (which marks vout with owner), do not use the last vout opret if no cc opret somehow
-                                        CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET);
+                                        CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET, 1);  // loop vouts have only ver 1
                                         if (get_either_opret(&lockinloopChecker, looptx, nvout, opret, pk_in_opret))
                                         {
                                             if (!pk.IsValid() || pk == pk_in_opret)   // check pk in opret
@@ -3466,7 +3479,7 @@ int32_t MarmaraGetStakeMultiplier(const CTransaction & staketx, int32_t nvout)
     CScript opret;
     CPubKey opretpk;
     CMarmaraActivatedOpretChecker activatedChecker;                
-    CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET);        // for stake tx check only cc opret, in last-vout opret there is pos data
+    CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET, 1);        // for stake tx check only cc opret, in last-vout opret there is pos data
 
     if (nvout >= 0 && nvout < staketx.vout.size()) // check boundary
     {
@@ -3478,7 +3491,7 @@ int32_t MarmaraGetStakeMultiplier(const CTransaction & staketx, int32_t nvout)
                 LOGSTREAMFN("marmara", CCLOG_DEBUG3, stream << "check locked-in-loop opret okay, pk=" << HexStr(opretpk) << std::endl);
 
                 struct SMarmaraCreditLoopOpret loopData;
-                if (MarmaraDecodeLoopOpret(opret, loopData) != 0)
+                if (MarmaraDecodeLoopOpret(opret, loopData, MARMARA_VERSION_ANY) != 0)
                 {
                     //LOGSTREAMFN("marmara", CCLOG_DEBUG3, stream << "decode LCL opret okay" << std::endl);
 
@@ -3723,7 +3736,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx, int32_
         CPubKey mypk = pubkey2pk(Mypubkey());  // no spending from mypk or any change to it is supposed, it is used just as FinalizeCCTx requires such param
         CPubKey opretpk;
         CMarmaraActivatedOpretChecker activatedChecker;
-        CMarmaraLockInLoopOpretChecker lockinloopChecker;
+        CMarmaraLockInLoopOpretChecker lockinloopChecker(CHECK_ONLY_CCOPRET, 1);
 
         if (get_either_opret(&activatedChecker, vintx, mstaketx.vin[0].prevout.n, vintxOpret, opretpk))  // note: opret should be ONLY in vintx ccvout
         {
@@ -3789,7 +3802,7 @@ int32_t MarmaraSignature(uint8_t *utxosig, CMutableTransaction &mstaketx, int32_
             // sign lock-in-loop utxo
 
             struct SMarmaraCreditLoopOpret loopData;
-            MarmaraDecodeLoopOpret(vintxOpret, loopData);
+            MarmaraDecodeLoopOpret(vintxOpret, loopData, 1);  // stake tx cc data has only ver 1
 
             CPubKey createtxidPk = CCtxidaddr_tweak(NULL, loopData.createtxid);
 
@@ -3861,13 +3874,13 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
         uint256 hashBlock;
         struct SMarmaraCreditLoopOpret loopData;
 
-        if( get_loop_creation_data(creditloop[0], loopData) == 0 )
+        if( get_loop_creation_data(creditloop[0], loopData, MARMARA_VERSION_ANY) == 0 )
         {
             if (myGetTransaction(batontxid, batontx, hashBlock) && !hashBlock.IsNull() && batontx.vout.size() > 1)
             {
                 uint8_t funcid;
 
-                if ((funcid = MarmaraDecodeLoopOpret(batontx.vout.back().scriptPubKey, loopData)) != 0) // update loopData with the baton opret
+                if ((funcid = MarmaraDecodeLoopOpret(batontx.vout.back().scriptPubKey, loopData, MARMARA_VERSION_ANY)) != 0) // update loopData with the baton opret
                 {
                     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 
@@ -4061,9 +4074,9 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
                 if (!issuancetx.IsCoinBase() && issuancetx.vout.size() > 2 && issuancetx.vout.back().nValue == 0 /*has opreturn?*/)
                 {
                     struct SMarmaraCreditLoopOpret loopData;
-                    if (MarmaraDecodeLoopOpret(issuancetx.vout.back().scriptPubKey, loopData) == MARMARA_ISSUE)
+                    if (MarmaraDecodeLoopOpret(issuancetx.vout.back().scriptPubKey, loopData, MARMARA_VERSION_ANY) == MARMARA_ISSUE)
                     {
-                        if (get_loop_creation_data(loopData.createtxid, loopData) >= 0)
+                        if (get_loop_creation_data(loopData.createtxid, loopData, MARMARA_VERSION_ANY) >= 0)
                         {
                             LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "found issuance tx txid=" << issuancetxid.GetHex() << std::endl);
                             n++;
@@ -4089,7 +4102,7 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
                                     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "found settle tx for issueancetxid=" << issuancetxid.GetHex() << std::endl);
 
                                     if (myGetTransaction(settletxid, settletx, hashBlock) /*&& !hashBlock.IsNull()*/ && settletx.vout.size() > 1 &&
-                                        (funcid = MarmaraDecodeLoopOpret(settletx.vout.back().scriptPubKey, loopData)) != 0)
+                                        (funcid = MarmaraDecodeLoopOpret(settletx.vout.back().scriptPubKey, loopData, MARMARA_VERSION_ANY)) != 0)
                                     {
                                         closed.push_back(issuancetxid);
                                         totalclosed += loopData.amount;
@@ -4106,7 +4119,7 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
                                     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "found baton tx for issueancetxid=" << issuancetxid.GetHex() << std::endl);
 
                                     if (myGetTransaction(batontxid, batontx, hashBlock) /*&& !hashBlock.IsNull()*/ && batontx.vout.size() > 1 &&
-                                        (funcid = MarmaraDecodeLoopOpret(batontx.vout.back().scriptPubKey, loopData)) != 0)
+                                        (funcid = MarmaraDecodeLoopOpret(batontx.vout.back().scriptPubKey, loopData, MARMARA_VERSION_ANY)) != 0)
                                     {
                                         issuances.push_back(issuancetxid);
                                         totalopen += loopData.amount;
@@ -4223,8 +4236,8 @@ UniValue MarmaraReceive(const CPubKey &remotepk, int64_t txfee, const CPubKey &s
     }
     else
     {
-        if (get_create_txid(createtxid, batontxid) < 0)
-            errorstr = "cant get createtxid from batontxid";
+        if (get_create_txid(createtxid, batontxid, version) < 0)
+            errorstr = "cant get createtxid from batontxid (check version)";
     }
 
     if (createtxid != zeroid) 
@@ -4234,15 +4247,15 @@ UniValue MarmaraReceive(const CPubKey &remotepk, int64_t txfee, const CPubKey &s
         uint256 hashBlock;
         struct SMarmaraCreditLoopOpret loopData;
 
-        if (get_loop_creation_data(createtxid, loopData) < 0)
+        if (get_loop_creation_data(createtxid, loopData, version) < 0)
             errorstr = "cannot get loop creation data";
         else if (!myGetTransaction(batontxid, looptx, hashBlock) ||
             hashBlock.IsNull() ||  // not in mempool
             looptx.vout.size() < 1 ||
-            MarmaraDecodeLoopOpret(looptx.vout.back().scriptPubKey, loopData) == 0)
+            MarmaraDecodeLoopOpret(looptx.vout.back().scriptPubKey, loopData, version) == 0)
         {
-            LOGSTREAMFN("marmara", CCLOG_INFO, stream << "cant get looptx.GetHash()=" << looptx.GetHash().GetHex() << " looptx.vout.size()=" << looptx.vout.size() << std::endl);
-            errorstr = "cant load previous loop tx or tx in mempool or cant decode tx opreturn data";
+            LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "cant get looptx.GetHash()=" << looptx.GetHash().GetHex() << " looptx.vout.size()=" << looptx.vout.size() << " version=" << (int)loopData.version << std::endl);
+            errorstr = "cant load previous loop tx or tx in mempool or cant decode tx opreturn data (check version)";
         }
         else if (senderpk != loopData.pk)
             errorstr = "current baton holder does not match the requested sender pk";
@@ -4316,7 +4329,7 @@ static int32_t redistribute_lcl_remainder(CMutableTransaction &mtx, struct CCcon
         return 0;
 
     if (myGetTransaction(createtxid, createtx, hashBlock) && createtx.vout.size() > 1 &&
-        MarmaraDecodeLoopOpret(createtx.vout.back().scriptPubKey, loopData) != 0)  // get amount value
+        MarmaraDecodeLoopOpret(createtx.vout.back().scriptPubKey, loopData, 1) != 0)  // get amount value, redistribute_lcl_remainder is only for ver 1.1
     {
         char lockInLoop1of2addr[KOMODO_ADDRESS_BUFSIZE];
         CPubKey createtxidPk = CCtxidaddr_tweak(NULL, createtxid);
@@ -4430,13 +4443,13 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
         errorStr = "cannot send baton to self";  // check it here
     else if (!myGetTransaction(requesttxid, dummytx, hashBlock) || hashBlock.IsNull())
         errorStr = "can't get requesttxid (requesttxid might be still in mempool)";
-    else if (get_create_txid(createtxid, requesttxid) < 0)
-        errorStr = "can't get createtxid from requesttxid";
-    else if (check_request_tx(requesttxid, receiverpk, funcid, errorStr))
+    else if (get_create_txid(createtxid, requesttxid, version) < 0)
+        errorStr = "can't get createtxid from requesttxid (check version)";
+    else if (check_request_tx(requesttxid, receiverpk, funcid, version, errorStr))
     {
         struct SMarmaraCreditLoopOpret loopData;
 
-        if (get_loop_creation_data(createtxid, loopData) >= 0)
+        if (get_loop_creation_data(createtxid, loopData, version) >= 0)
         {
             if (version != loopData.version)    {
                 errorStr = "incompatible loop version";
@@ -4584,6 +4597,9 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
             }
 
             CScript opret;
+            // NOTE: for loops version 1.2 (endorser do not add coins to loop and simply transfer the baton)
+            // we add version==2 to the last vout opreturn
+            // but loop vout cc vdata still has version==1  
             if (funcid == MARMARA_ISSUE)
                 opret = MarmaraEncodeLoopIssuerOpret(version, createtxid, receiverpk, optParams.autoSettlement, optParams.autoInsurance, optParams.avalCount, optParams.disputeExpiresOffset, optParams.escrowOn, optParams.blockageAmount);
             else
@@ -4647,7 +4663,7 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
     cp = CCinit(&C, EVAL_MARMARA);
     if ((n = MarmaraGetbatontxid(creditloop, batontxid, txid)) > 0)
     {
-        if (get_loop_creation_data(creditloop[0], loopData) == 0)
+        if (get_loop_creation_data(creditloop[0], loopData, MARMARA_VERSION_ANY) == 0)
         {
             uint256 issuetxid, settletxid, lasttxid;
             int32_t vini, height;
@@ -4683,8 +4699,9 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                 GetCCaddress(cp, myCCaddr, vmypk);
                 result.push_back(Pair("myCCaddress", myCCaddr));
 
-                if ((funcid = MarmaraDecodeLoopOpret(lasttx.vout.back().scriptPubKey, loopData)) != 0)
+                if ((funcid = MarmaraDecodeLoopOpret(lasttx.vout.back().scriptPubKey, loopData, MARMARA_VERSION_ANY)) != 0)
                 {
+                    result.push_back(Pair("version", (int)loopData.version));
                     std::string sfuncid(1, (char)funcid);
                     result.push_back(Pair("funcid", sfuncid));
                     result.push_back(Pair("currency", loopData.currency));
@@ -4782,11 +4799,12 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                 if (myGetTransaction(looptxids[i], lasttx, hashBlock) != 0 && lasttx.vout.size() > 1)
                 {
                     //uint256 createtxid = zeroid;
-                    if ((funcid = MarmaraDecodeLoopOpret(lasttx.vout.back().scriptPubKey, loopData)) != 0)
+                    if ((funcid = MarmaraDecodeLoopOpret(lasttx.vout.back().scriptPubKey, loopData, MARMARA_VERSION_ANY)) != 0)
                     {
                         char normaladdr[KOMODO_ADDRESS_BUFSIZE], ccaddr[KOMODO_ADDRESS_BUFSIZE], vout0addr[KOMODO_ADDRESS_BUFSIZE];
 
                         UniValue obj(UniValue::VOBJ);
+                        obj.push_back(Pair("version", (int)loopData.version));
                         obj.push_back(Pair("txid", looptxids[i].GetHex()));
                         std::string sfuncid(1, (char)funcid);
                         obj.push_back(Pair("funcid", sfuncid));
@@ -4846,8 +4864,9 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
     else if (n == 0)
     {
         // output info of createtx if only createtx exists
-        if (get_loop_creation_data(txid, loopData) == 0)
+        if (get_loop_creation_data(txid, loopData, MARMARA_VERSION_ANY) == 0)
         {
+            result.push_back(Pair("version", loopData.version));
             std::string sfuncid(1, (char)loopData.lastfuncid);
             result.push_back(Pair("funcid", sfuncid));
             result.push_back(Pair("currency", loopData.currency));
@@ -5428,11 +5447,12 @@ UniValue MarmaraReceiveList(const CPubKey &pk)
             if (!tx.IsCoinBase() && tx.vout.size() > 1 && (tx.vout[0].nValue == MARMARA_CREATETX_AMOUNT || tx.vout[0].nValue == MARMARA_BATON_AMOUNT))
             {
                 SMarmaraCreditLoopOpret loopData;
-                uint8_t funcid = MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData);
+                uint8_t funcid = MarmaraDecodeLoopOpret(tx.vout.back().scriptPubKey, loopData, MARMARA_VERSION_ANY);
                 LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << " MarmaraDecodeLoopOpret funcid=" << (int)funcid << std::endl);
                 if (funcid == MARMARA_CREATELOOP || funcid == MARMARA_REQUEST)    {
                     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << " adding txid=" << txid.GetHex() << std::endl);
                     UniValue info(UniValue::VOBJ);
+                    info.push_back(Pair("version", (int)loopData.version));
                     info.push_back(Pair("txid", txid.GetHex()));
                     info.push_back(Pair("funcid", std::string(1, funcid)));
                     if (funcid == MARMARA_CREATELOOP)   {
@@ -5529,7 +5549,7 @@ UniValue MarmaraPoSStat(int32_t beginHeight, int32_t endHeight)
                 if (stakeTx.vout[0].scriptPubKey.IsPayToCryptoCondition()) 
                 {
                     CMarmaraActivatedOpretChecker activatedChecker;
-                    CMarmaraLockInLoopOpretChecker lclChecker(CHECK_ONLY_CCOPRET);
+                    CMarmaraLockInLoopOpretChecker lclChecker(CHECK_ONLY_CCOPRET, MARMARA_VERSION_ANY);
                     CScript opret;
                     CPubKey opretpk;
                     vscript_t vopret;
@@ -5618,7 +5638,7 @@ static void decode_marmara_opret_to_univalue(const CScript &opret, UniValue &uni
         sprintf(seval, "0x%02X", (int)evalcode);
         univout.push_back(Pair("eval", seval));
     }
-    if (MarmaraDecodeLoopOpret(opret, loopData) != 0)
+    if (MarmaraDecodeLoopOpret(opret, loopData, MARMARA_VERSION_ANY) != 0)
     {
         univout.push_back(Pair("funcid", std::string(1, loopData.lastfuncid)));
         if (loopData.lastfuncid == MARMARA_CREATELOOP)
@@ -5695,7 +5715,7 @@ static void decode_marmara_opret_to_univalue(const CScript &opret, UniValue &uni
         if (ver == 2)
             univout.push_back(Pair("matureHeight", matureht));
     }
-    else if ((funcid = MarmaraDecodeReleaseOpret(opret, ver)) != 0)
+    else if ((funcid = MarmaraDecodeReleaseOpret(opret, ver, MARMARA_VERSION_ANY)) != 0)
     {
         univout.push_back(Pair("version", (int)ver));
         univout.push_back(Pair("funcid", std::string(1, funcid)));
