@@ -3938,7 +3938,7 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                     mtx.vin.push_back(CTxIn(issuetxid, MARMARA_OPENCLOSE_VOUT, CScript())); // spend vout2 marker - close the loop
 
                     // add tx fee from mypubkey
-                    if (AddNormalinputs2(mtx, txfee, 4) < txfee) {  // TODO: in the previous code txfee was taken from 1of2 address
+                    if (AddNormalinputs2(mtx, txfee, 0x10000) < txfee) {  // TODO: in the previous code txfee was taken from 1of2 address
                         result.push_back(Pair("result", "error"));
                         result.push_back(Pair("error", "cant add normal inputs for txfee"));
                         return(result);
@@ -4000,6 +4000,7 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                             result.push_back(Pair("warning", "insufficient funds in loop, partial settlement"));
                             result.push_back(Pair("hex", rawtx));
                             result.push_back(Pair("remaining", ValueFromAmount(remaining)));
+                            settlementTx = mtx;
                         }
                     }
                     else
