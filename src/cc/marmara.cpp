@@ -3981,7 +3981,7 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                     {
                         int64_t remaining = loopData.amount - lclAmount;
 
-                        LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "trying to partial settle loop, initial amount=" << loopData.amount << " actual amount=" << lclAmount << std::endl);
+                        LOGSTREAMFN("marmara", CCLOG_INFO, stream << "trying to partial settle loop, initial amount=" << loopData.amount << " actual amount=" << lclAmount << std::endl);
                         mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(CCtxidaddr_tweak(NULL, loopData.createtxid))) << OP_CHECKSIG)); // failure marker
 
                         // TODO: seems this was supposed that txfee should been taken from 1of2 address?
