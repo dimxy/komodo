@@ -4142,7 +4142,7 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
                 }
             }
             else
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "cant get tx on marmara marker addr" << (is in mempool=" << hashBlock.IsNull() << ") " txid=" << issuancetxid.GetHex() << std::endl);
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "cant get tx on marmara marker addr" << " (is in mempool=" << hashBlock.IsNull() << ") " << " txid=" << issuancetxid.GetHex() << std::endl);
         }
     }
     return(n);
