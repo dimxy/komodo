@@ -774,7 +774,7 @@ bool IsMarmaraActivatedVout(const CTransaction &tx, int32_t nvout, CPubKey &pk_i
 
 bool IsMarmaraLockedInLoopVout(const CTransaction &tx, int32_t nvout, CPubKey &pk_in_opret,  uint256 &createtxid)
 {
-    CMarmaraLockInLoopOpretChecker lclOpretChecker(CHECK_ONLY_CCOPRET, MARMARA_OPRET_VERSION_DEFAULT);  // for cc data ver is always 1
+    CMarmaraLockInLoopOpretChecker lclOpretChecker(CHECK_ONLY_CCOPRET, MARMARA_OPRET_VERSION_DEFAULT);  // for cc vout data ver is always 1
     CScript opret;
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_MARMARA);
@@ -2070,11 +2070,11 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
     CAmount settledAmount = 0L;
     if (settletx.vout.size() > 0)
     {
-        if (!settletx.vout[0].scriptPubKey.IsPayToCryptoCondition())  // normals
+        if (!settletx.vout[MARMARA_SETTLE_VOUT].scriptPubKey.IsPayToCryptoCondition())  // normals
         {
-            if (settletx.vout[0] == CTxOut(settletx.vout[0].nValue, CScript() << ParseHex(HexStr(batonLoopData.pk)) << OP_CHECKSIG))
+            if (settletx.vout[MARMARA_SETTLE_VOUT] == CTxOut(settletx.vout[MARMARA_SETTLE_VOUT].nValue, CScript() << ParseHex(HexStr(batonLoopData.pk)) << OP_CHECKSIG))
             {
-                settledAmount = settletx.vout[0].nValue;
+                settledAmount = settletx.vout[MARMARA_SETTLE_VOUT].nValue;
             }
         }
     }
@@ -3979,15 +3979,16 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                     }
                     else if (lclAmount > 0)
                     {
-                        int64_t remaining = loopData.amount - lclAmount;
+                        CAmount remaining = loopData.amount - lclAmount;
 
                         LOGSTREAMFN("marmara", CCLOG_INFO, stream << "trying to partial settle loop, initial amount=" << loopData.amount << " actual amount=" << lclAmount << std::endl);
-                        mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(CCtxidaddr_tweak(NULL, loopData.createtxid))) << OP_CHECKSIG)); // failure marker
-
+                        
                         // TODO: seems this was supposed that txfee should been taken from 1of2 address?
                         //if (refamount - remaining > 3 * txfee)
                         //    mtx.vout.push_back(CTxOut(refamount - remaining - 2 * txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
-                        mtx.vout.push_back(CTxOut(loopData.amount - remaining - txfee, CScript() << ParseHex(HexStr(loopData.pk)) << OP_CHECKSIG));
+                        mtx.vout.push_back(CTxOut(lclAmount /*- txfee*/, CScript() << ParseHex(HexStr(loopData.pk)) << OP_CHECKSIG)); // MARMARA_SETTLE_VOUT is 0
+
+                        //mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(CCtxidaddr_tweak(NULL, loopData.createtxid))) << OP_CHECKSIG)); // failure marker
 
                         rawtx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, MarmaraEncodeLoopSettlementOpret(loopData.version, false, loopData.createtxid, loopData.pk, -remaining), false);  //some remainder left
                         if (rawtx.empty()) {
