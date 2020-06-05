@@ -2367,7 +2367,7 @@ static bool check_release_tx(const CTransaction &tx, std::string &errorStr)
     }
 
     // check change to self:
-    if (inputpks != outputpks)     {
+    if (outputpks.size() > 0 && inputpks != outputpks)     {
         errorStr = "cc change should go to self pk";
         return false;
     }
@@ -3551,7 +3551,7 @@ int32_t MarmaraGetStakeMultiplier(const CTransaction & staketx, int32_t nvout)
 
                             if (height >= MARMARA_POS_IMPROVEMENTS_HEIGHT)
                             {
-                                uint8_t version;
+                                uint8_t version = 0;
                                 int32_t h, uh, matureht = 0;
                                 CPubKey opretpk;
 
