@@ -2942,6 +2942,7 @@ int32_t MarmaraValidateCoinbase(int32_t height, const CTransaction &tx, std::str
 const int32_t MARMARA_STAKE_TX_OK = 1;
 const int32_t MARMARA_STAKE_TX_BAD = 0;
 
+// for even block check coinbase pk matches stake tx opret pk and coinbase address == staketx address
 bool check_pos_coinbase_opret(const CTransaction &coinbase, const CPubKey &staketx_opretpk, int32_t height)
 {
     // pos improvements rules for lcl stake tx:
@@ -5388,8 +5389,8 @@ std::string MarmaraUnlockActivatedCoins(CAmount amount)
 
         std::vector<CPubKey> pubkeys;
         CAmount inputs = AddMarmaraCCInputs(IsMarmaraActivatedVout, mtx, pubkeys, activated1of2addr, amount, MARMARA_VINS);
-        if (inputs <= 0) {
-            CCerror = "no activated inputs added";
+        if (inputs < amount) {
+            CCerror = "insufficient activated coins";
             return std::string();
         }
 
