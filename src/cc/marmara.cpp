@@ -4071,7 +4071,7 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
         if (vout == nVoutMarker)
         {
             LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "checking tx as marker on marmara addr txid=" << issuancetxid.GetHex() << " vout=" << vout << std::endl);
-            if (myGetTransaction(issuancetxid, issuancetx, hashBlock) && !hashBlock.IsNull())  /* enume issuance only in blocks */
+            if (myGetTransaction(issuancetxid, issuancetx, hashBlock) && !hashBlock.IsNull())  /* enum issuance txns only in blocks */
             {
                 if (!issuancetx.IsCoinBase() && issuancetx.vout.size() > 2 && issuancetx.vout.back().nValue == 0 /*has opreturn?*/)
                 {
@@ -4142,7 +4142,7 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, int64_t &totalopen, std::v
                 }
             }
             else
-                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "cant get tx on marmara marker addr" << /*"(is in mempool=" << hashBlock.IsNull() << ")*/ " txid=" << issuancetxid.GetHex() << std::endl);
+                LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "cant get tx on marmara marker addr" << (is in mempool=" << hashBlock.IsNull() << ") " txid=" << issuancetxid.GetHex() << std::endl);
         }
     }
     return(n);
