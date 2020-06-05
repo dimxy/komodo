@@ -427,7 +427,7 @@ uint8_t MarmaraDecodeLoopOpret(const CScript scriptPubKey, struct SMarmaraCredit
             return funcid;  
         }
         else
-            LOGSTREAMFN("marmara", CCLOG_ERROR, stream << "not marmara opret, evalcode=" << (int)evalcode << std::endl);
+            LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "not marmara opret, evalcode=" << (int)evalcode << std::endl);
     }
     else
         LOGSTREAMFN("marmara", CCLOG_DEBUG3, stream << "opret too small=" << HexStr(vopret) << std::endl);
