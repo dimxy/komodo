@@ -3656,7 +3656,7 @@ UniValue MarmaraLock(const CPubKey &remotepk, int64_t txfee, int64_t amount, con
             // try to add value and txfee separately: 
             mtx.vin.clear();
             inputsum = AddNormalinputs(mtx, mypk, val, CC_MAXVINS / 2, isRemote);
-            inputsum += AddNormalinputs(mtx, mypk, txfee, 5, isRemote);
+            inputsum += AddNormalinputs(mtx, mypk, txfee, MARMARA_VINS, isRemote);
         }*/
     //}
     //fprintf(stderr,"%s added normal inputs=%.8f required val+txfee=%.8f\n", logFuncName, (double)inputsum/COIN,(double)(val+txfee)/COIN);
@@ -3953,7 +3953,7 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                     mtx.vin.push_back(CTxIn(issuetxid, MARMARA_OPENCLOSE_VOUT, CScript())); // spend vout2 marker - close the loop
 
                     // add tx fee from mypubkey
-                    if (AddNormalinputs2(mtx, txfee, 0x10000) < txfee) {  // TODO: in the previous code txfee was taken from 1of2 address
+                    if (AddNormalinputs2(mtx, txfee, MARMARA_VINS) < txfee) {  // TODO: in the previous code txfee was taken from 1of2 address
                         result.push_back(Pair("result", "error"));
                         result.push_back(Pair("error", "cant add normal inputs for txfee"));
                         return(result);
@@ -4287,7 +4287,7 @@ UniValue MarmaraReceive(const CPubKey &remotepk, int64_t txfee, const CPubKey &s
             requestFee = MARMARA_BATON_AMOUNT;
         else 
             requestFee = MARMARA_CREATETX_AMOUNT;  // fee value 20000 for easy identification (?)
-        if (AddNormalinputsRemote(mtx, mypk, requestFee + txfee, 1) > 0)  // always add only from mypk to ensure no false credit request!
+        if (AddNormalinputsRemote(mtx, mypk, requestFee + txfee, MARMARA_VINS) > 0)  // always add only from mypk to ensure no false credit request!
         {
             CScript opret;
 
@@ -4529,7 +4529,7 @@ UniValue MarmaraIssue(const CPubKey &remotepk, int64_t txfee, uint8_t funcid, co
 
             if (funcid == MARMARA_ISSUE)  // add two more txfee for marmaraissue
             {
-                if (AddNormalinputs(mtx, mypk, txfee + MARMARA_LOOP_MARKER_AMOUNT, 0x10000, isRemote) <= 0)     {
+                if (AddNormalinputs(mtx, mypk, txfee + MARMARA_LOOP_MARKER_AMOUNT, MARMARA_VINS, isRemote) <= 0)     {
                     errorStr = "dont have enough normal inputs for txfee";
                     result.push_back(Pair("result", "error"));
                     result.push_back(Pair("error", errorStr));
@@ -5325,7 +5325,7 @@ std::string MarmaraReleaseActivatedCoins(CWallet *pwalletMain, const std::string
 
     int32_t maxvins = 128;
 
-    if (AddNormalinputs(mtx, mypk, txfee, 5) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, MARMARA_VINS) > 0)
     {
         CAmount total = 0LL;
         for (const auto &a : activated)
@@ -5400,7 +5400,7 @@ std::string MarmaraUnlockActivatedCoins(CAmount amount)
     CPubKey mypk = pubkey2pk(Mypubkey());
     CPubKey marmarapk = GetUnspendable(cp, NULL);
 
-    if (AddNormalinputs(mtx, mypk, txfee, 0x10000) > 0)
+    if (AddNormalinputs(mtx, mypk, txfee, MARMARA_VINS) > 0)
     {
         char activated1of2addr[KOMODO_ADDRESS_BUFSIZE];
         CMarmaraActivatedOpretChecker activatedChecker;
