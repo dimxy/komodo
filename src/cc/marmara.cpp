@@ -1143,6 +1143,20 @@ static int32_t get_loop_creation_data(uint256 createtxid, struct SMarmaraCreditL
     return(-1);
 }
 
+static int32_t get_block_height(uint256 hashBlock)
+{
+
+    BlockMap::iterator mi = mapBlockIndex.find(hashBlock);
+    if (mi != mapBlockIndex.end() && (*mi).second) {
+        CBlockIndex* pindex = (*mi).second;
+        if (chainActive.Contains(pindex)) {
+            return pindex->GetHeight();
+        }
+    }
+
+    return -1;
+}
+
 // consensus code:
 
 // check total loop amount in tx and redistributed back amount (only for version 1.1):
@@ -4723,7 +4737,7 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                         result.push_back(Pair("settlement", settletxid.GetHex()));
                         result.push_back(Pair("createtxid", creditloop[0].GetHex()));
                         result.push_back(Pair("remainder", ValueFromAmount(loopData.remaining)));
-                        result.push_back(Pair("settled", static_cast<int64_t>(loopData.matures)));
+                        //result.push_back(Pair("settled", static_cast<int64_t>(loopData.matures)));  // used true "height" instead
                         result.push_back(Pair("pubkey", HexStr(loopData.pk)));
                         Getscriptaddress(normaladdr, CScript() << ParseHex(HexStr(loopData.pk)) << OP_CHECKSIG);
                         result.push_back(Pair("settledToNormalAddress", normaladdr));
@@ -4742,7 +4756,7 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                         result.push_back(Pair("settlement", settletxid.GetHex()));
                         result.push_back(Pair("createtxid", creditloop[0].GetHex()));
                         result.push_back(Pair("remainder", ValueFromAmount(loopData.remaining)));
-                        result.push_back(Pair("settled", static_cast<int64_t>(loopData.matures)));
+                        //result.push_back(Pair("settled", static_cast<int64_t>(loopData.matures))); // used true "height" instead
                         Getscriptaddress(vout0addr, lasttx.vout[0].scriptPubKey);
                         result.push_back(Pair("txidaddr", vout0addr));  //TODO: why 'txidaddr'?
                         if (lasttx.vout.size() > 1)
@@ -4771,6 +4785,8 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                         else
                             result.push_back(Pair("ismine", static_cast<int64_t>(0)));
                     }
+                    result.push_back(Pair("height", static_cast<int64_t>(get_block_height(hashBlock))));
+
                 }
                 else
                 {
@@ -4829,17 +4845,18 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                             GetCCaddress(cp, ccaddr, loopData.pk);
                             obj.push_back(Pair("receiverCCAddress", ccaddr));
                         }
+                        obj.push_back(Pair("height", static_cast<int64_t>(get_block_height(hashBlock))));
                         Getscriptaddress(vout0addr, lasttx.vout[0].scriptPubKey);
                         /*if (strcmp(vout0addr, normaladdr) != 0)  
                         {
                             obj.push_back(Pair("incorrect-vout0address", vout0addr));
                             numerrs++;
                         }*/
-                        if (i == 0 && isSettledOk)  // why isSettledOk checked?..
+                        /*if (i == 0 && isSettledOk)  // why isSettledOk checked?..
                         {
                             result.push_back(Pair("amount", ValueFromAmount(loopData.amount)));
                             result.push_back(Pair("matures", static_cast<int64_t>(loopData.matures)));
-                        }
+                        }*/
                         /* not relevant now as we do not copy params to new oprets
                         if (createtxid != refcreatetxid || amount != refamount || matures != refmatures || currency != refcurrency)
                         {
