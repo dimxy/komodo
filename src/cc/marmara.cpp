@@ -5023,6 +5023,7 @@ UniValue MarmaraInfo(const CPubKey &refpk, int32_t firstheight, int32_t lastheig
     char mynormaladdr[KOMODO_ADDRESS_BUFSIZE];
     char activated1of2addr[KOMODO_ADDRESS_BUFSIZE];
     char myccaddr[KOMODO_ADDRESS_BUFSIZE];
+    bool isRemote = false;
     
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_MARMARA);
@@ -5036,7 +5037,11 @@ UniValue MarmaraInfo(const CPubKey &refpk, int32_t firstheight, int32_t lastheig
 
         Getscriptaddress(mynormaladdr, CScript() << ParseHex(HexStr(vrefpk)) << OP_CHECKSIG);
         result.push_back(Pair("myNormalAddress", mynormaladdr));
-        result.push_back(Pair("myNormalAmount", ValueFromAmount(CCaddress_balance(mynormaladdr, 0))));
+        result.push_back(Pair("myPubkeyNormalAmount", ValueFromAmount(CCaddress_balance(mynormaladdr, 0)))); 
+        if (!isRemote && pwalletMain && pwalletMain->HaveKey(refpk.GetID())) {
+            LOCK2(cs_main, pwalletMain->cs_wallet);
+            result.push_back(Pair("myWalletNormalAmount", ValueFromAmount(pwalletMain->GetBalance())));
+        }
 
         GetCCaddress1of2(cp, activated1of2addr, Marmarapk, vrefpk);
         result.push_back(Pair("myCCActivatedAddress", activated1of2addr));
