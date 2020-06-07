@@ -686,9 +686,10 @@ int64_t AddNormalinputsLocal(CMutableTransaction &mtx,CPubKey mypk,int64_t total
     utxos = (struct CC_utxo *)calloc(CC_MAXVINS,sizeof(*utxos));
     if ( maxinputs > CC_MAXVINS )
         maxinputs = CC_MAXVINS;
-    if ( maxinputs > 0 )
+    /*if ( maxinputs > 0 )
         threshold = total/maxinputs;
-    else threshold = total;
+    else threshold = total;*/
+    threshold = 1;  // allow to use any utxo in marmara
     sum = 0;
     BOOST_FOREACH(const COutput& out, vecOutputs)
     {
@@ -786,9 +787,10 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
     utxos = (struct CC_utxo *)calloc(CC_MAXVINS,sizeof(*utxos));
     if ( maxinputs > CC_MAXVINS )
         maxinputs = CC_MAXVINS;
-    if ( maxinputs > 0 )
+    /*if ( maxinputs > 0 )
         threshold = total/maxinputs;
-    else threshold = total;
+    else threshold = total; */
+    threshold = 1;  // allow to use any utxo in marmara
     sum = 0;
     Getscriptaddress(coinaddr,CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
     SetCCunspents(unspentOutputs,coinaddr,false);
