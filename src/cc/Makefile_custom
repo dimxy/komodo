@@ -15,10 +15,11 @@ TARGET_DARWIN = customcc.dylib
 TARGET_WIN = customcc.dll
 SOURCES = cclib.cpp
 #HEADERS = $(shell echo ../cryptoconditions/include/*.h) -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/
+HEADERS = CCinclude.h
 
 all: $(TARGET)
 
-$(TARGET): $(SOURCES)
+$(TARGET): $(SOURCES) $(HEADERS)
 	$(info Building cclib to src/)
 ifeq ($(OS),Darwin)
 	$(CC_DARWIN) $(CFLAGS_DARWIN) $(DEBUGFLAGS) -o $(TARGET_DARWIN) -c $(SOURCES)
