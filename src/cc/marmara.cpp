@@ -4737,7 +4737,7 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                         result.push_back(Pair("settlement", settletxid.GetHex()));
                         result.push_back(Pair("createtxid", creditloop[0].GetHex()));
                         result.push_back(Pair("remainder", ValueFromAmount(loopData.remaining)));
-                        //result.push_back(Pair("settled", static_cast<int64_t>(loopData.matures)));  // used true "height" instead
+                        result.push_back(Pair("matures", static_cast<int64_t>(loopData.matures)));  // used true "height" instead
                         result.push_back(Pair("pubkey", HexStr(loopData.pk)));
                         Getscriptaddress(normaladdr, CScript() << ParseHex(HexStr(loopData.pk)) << OP_CHECKSIG);
                         result.push_back(Pair("settledToNormalAddress", normaladdr));
@@ -4756,7 +4756,7 @@ UniValue MarmaraCreditloop(const CPubKey & remotepk, uint256 txid)
                         result.push_back(Pair("settlement", settletxid.GetHex()));
                         result.push_back(Pair("createtxid", creditloop[0].GetHex()));
                         result.push_back(Pair("remainder", ValueFromAmount(loopData.remaining)));
-                        //result.push_back(Pair("settled", static_cast<int64_t>(loopData.matures))); // used true "height" instead
+                        result.push_back(Pair("matures", static_cast<int64_t>(loopData.matures))); // used true "height" instead
                         Getscriptaddress(vout0addr, lasttx.vout[0].scriptPubKey);
                         result.push_back(Pair("txidaddr", vout0addr));  //TODO: why 'txidaddr'?
                         if (lasttx.vout.size() > 1)
