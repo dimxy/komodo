@@ -2441,6 +2441,137 @@ void KogsAdvertisedList(std::vector<KogsAdvertising> &adlist)
     FindAdvertisings(zeroid, adtxid, nvout, adlist);
 }
 
+// refid is either some id added for reference or the prev commit txid
+UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t startNum, std::vector<uint256> hashes)
+{
+    const CAmount txfee = 10000;
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
+    {
+        struct CCcontract_info *cp, C;
+        cp = CCinit(&C, EVAL_KOGS);
+        //CPubKey kogsPk = GetUnspendable(cp, NULL);
+        CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
+        
+        CScript opret;
+        uint8_t evalcode = EVAL_KOGS;
+        uint8_t funcid = 'Q';
+        uint8_t version = 1;
+
+        for(int32_t i = 0; i < hashes.size(); i ++)
+        {
+            // add random 'commit' vout with its number 'startNum+i' 
+            opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version << gameid << startNum+i << hashes[i]);
+            vscript_t vopret;
+            GetOpReturnData(opret, vopret);
+            std::vector<vscript_t> vData { vopret };
+            mtx.vout.push_back(MakeCC1of2vout(EVAL_TOKENS, 1, gametxidPk, mypk, &vData)); // vout to gameid
+        }
+
+        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, CScript()); 
+        if (ResultHasTx(sigData))
+        {
+            return sigData; 
+        }
+        else
+        {
+            CCerror = "can't create tx";
+            return NullUniValue;
+        }
+    }
+    CCerror = "could not find normal inputs for 2 txfee";
+    return NullUniValue; 
+}
+
+// add random values whose hashes were committed previously
+// check if values match to their hashes
+UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t startNum, std::vector<int32_t> randoms, const std::vector<CPubKey> &pks)
+{
+    const CAmount  txfee = 10000;
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());  // we have mypk in the wallet, no remote call for baton
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    // check all pubkeys committed:
+
+    uint8_t kogspriv[32];
+    char game1of2addr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey kogsPk = GetUnspendable(cp, kogspriv);
+    CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
+    GetCCaddress1of2(cp, game1of2addr, GetUnspendable(cp, NULL), mypk); 
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+    SetCCunspentsWithMempool(addressUnspents, game1of2addr, true);
+
+    std::map<int32_t, std::vector<CPubKey>> mpkscommitted;
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it != addressUnspents.end(); it ++)   
+    {
+        CTransaction tx;
+        uint256 hashBlock;
+        if (myGetTransaction(it->first.txhash, tx, hashBlock))  
+        {
+            CScript ccdata;
+            MyGetCCopretV2(tx.vout[it->first.index].scriptPubKey, ccdata);
+            uint8_t funcid, evalcode, version;
+            int32_t num;
+            uint256 gameidOpret, hash;
+            vuint8_t vData;
+
+            GetOpreturnData(ccdata, vData);
+
+            if (E_UNMARSHAL(vData, ss >> evalcode; ss >> funcid; ss >> version; ss >> gameidOpret; ss >> i; ss >> hash;) &&
+                funcid == 'Q' && evalcode == EVAL_KOGS && version == 1 && gameid == gameidOpret)
+            {
+                for (auto const &pk : pks)
+                    if (TotalPubkeyNormalInputs(tx, pk) > 0)
+                        mpkscommitted[i].insert(pk);
+            }
+            else 
+            {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse ccdata funcid=" << (int)funcid << " evalcode=" << (int)evalcode << " version=" << (int)version << " gameid=" << gameidOpret.GetHex() << std::endl);
+            }
+        }
+    }
+
+    for(auto const &m : mpkscommitted)  {
+        if (pks != m.second)    {
+            CCerror = "not all pubkeys committed randoms yet for num=" + std::to_string(m.first);
+            return NullUniValue;
+        }
+    }
+
+    // spend my previous vout and reveal randoms:
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
+    {
+        for (auto const & pk : pks) 
+            mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, pk)); // vout to 
+
+        CScript opret;
+        uint8_t evalcode = EVAL_KOGS;
+        uint8_t funcid = 'T';
+        uint8_t version = 1;
+        opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid  << version << gameid << randoms);
+        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
+        if (ResultHasTx(sigData))
+        {
+            return sigData; 
+        }
+        else
+        {
+            CCerror = "can't create tx";
+            return NullUniValue;
+        }
+    }
+    CCerror = "could not find normal inputs for 2 txfee";
+    return NullUniValue; 
+}
+
 
 static bool IsGameObjectDeleted(uint256 tokenid)
 {
