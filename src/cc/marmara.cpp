@@ -5037,7 +5037,7 @@ UniValue MarmaraInfo(const CPubKey &refpk, int32_t firstheight, int32_t lastheig
 
         Getscriptaddress(mynormaladdr, CScript() << ParseHex(HexStr(vrefpk)) << OP_CHECKSIG);
         result.push_back(Pair("myNormalAddress", mynormaladdr));
-        result.push_back(Pair("myPubkeyNormalAmount", ValueFromAmount(CCaddress_balance(mynormaladdr, 0)))); 
+        result.push_back(Pair("myPubkeyNormalAmount", ValueFromAmount(CCaddress_balance_mempool(mynormaladdr, 0)))); 
         if (!isRemote && pwalletMain && pwalletMain->HaveKey(refpk.GetID())) { // show wallet balance if refpk is mine
             LOCK2(cs_main, pwalletMain->cs_wallet);
             result.push_back(Pair("myWalletNormalAmount", ValueFromAmount(pwalletMain->GetBalance())));
@@ -5046,11 +5046,11 @@ UniValue MarmaraInfo(const CPubKey &refpk, int32_t firstheight, int32_t lastheig
         GetCCaddress1of2(cp, activated1of2addr, Marmarapk, vrefpk);
         result.push_back(Pair("myCCActivatedAddress", activated1of2addr));
         result.push_back(Pair("myActivatedAmount", ValueFromAmount(AddMarmaraCCInputs(IsMarmaraActivatedVout, mtx, pubkeys, activated1of2addr, 0, MARMARA_VINS))));
-        result.push_back(Pair("myTotalAmountOnActivatedAddress", ValueFromAmount(CCaddress_balance(activated1of2addr, 1))));
+        result.push_back(Pair("myTotalAmountOnActivatedAddress", ValueFromAmount(CCaddress_balance_mempool(activated1of2addr, 1))));
 
         GetCCaddress(cp, myccaddr, vrefpk);
         result.push_back(Pair("myCCAddress", myccaddr));
-        result.push_back(Pair("myCCBalance", ValueFromAmount(CCaddress_balance(myccaddr, 1))));
+        result.push_back(Pair("myCCBalance", ValueFromAmount(CCaddress_balance_mempool(myccaddr, 1))));
     }
 
     // calc lock-in-loops amount for refpk:

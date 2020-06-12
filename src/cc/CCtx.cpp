@@ -427,6 +427,60 @@ void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentVa
 void NSPV_CCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &txids,char *coinaddr,bool ccflag);
 void NSPV_CCtxids(std::vector<uint256> &txids,char *coinaddr,bool ccflag, uint8_t evalcode,uint256 filtertxid, uint8_t func);
 
+// set cc or normal unspents from mempool
+static void AddCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC)
+{
+    // lock mempool
+    //ENTER_CRITICAL_SECTION(cs_main);
+    ENTER_CRITICAL_SECTION(mempool.cs);
+
+    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
+        mi != mempool.mapTx.end(); ++mi)
+    {
+        const CTransaction& memtx = mi->GetTx();
+        for (int32_t i = 0; i < memtx.vout.size(); i++)
+        {
+            if (isCC && memtx.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !memtx.vout[i].scriptPubKey.IsPayToCryptoCondition())
+            {
+                uint256 dummytxid;
+                int32_t dummyvout;
+                if (!myIsutxo_spentinmempool(dummytxid, dummyvout, memtx.GetHash(), i))
+                {
+                    char voutaddr[64];
+                    Getscriptaddress(voutaddr, memtx.vout[i].scriptPubKey);
+                    if (strcmp(voutaddr, destaddr) == 0)
+                    {
+                        uint160 hashBytes;
+                        std::string addrstr(destaddr);
+                        CBitcoinAddress address(addrstr);
+                        int type;
+
+                        if (address.GetIndexKey(hashBytes, type, isCC) == 0)
+                            continue;
+
+                        // create unspent output key value pair
+                        CAddressUnspentKey key;
+                        CAddressUnspentValue value;
+
+                        key.type = type;
+                        key.hashBytes = hashBytes;
+                        key.txhash = memtx.GetHash();
+                        key.index = i;
+
+                        value.satoshis = memtx.vout[i].nValue;
+                        value.blockHeight = 0;
+                        value.script = memtx.vout[i].scriptPubKey;
+
+                        unspentOutputs.push_back(std::make_pair(key, value));
+                    }
+                }
+            }
+        }
+    }
+    LEAVE_CRITICAL_SECTION(mempool.cs);
+    //LEAVE_CRITICAL_SECTION(cs_main);
+}
+
 void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool ccflag)
 {
     int32_t type=0,i,n; char *ptr; std::string addrstr; uint160 hashBytes; std::vector<std::pair<uint160, int> > addresses;
@@ -450,6 +504,27 @@ void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValu
             return;
     }
 }
+
+// version of SetCCunspents with support of looking utxos in mempool and checking that utxos are not spent in mempool too
+void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag)
+{
+    SetCCunspents(unspentOutputs, coinaddr, ccflag);
+
+    // remove utxos spent in mempool
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); )
+    {
+        uint256 dummytxid;
+        int32_t dummyvout;
+        if (myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) {
+            //std::cerr << __func__ << " erasing spent in mempool txid=" << it->first.txhash.GetHex() << " index=" << it->first.index << " spenttxid=" << dummytxid.GetHex() << std::endl;
+            it = unspentOutputs.erase(it);
+        }
+        else
+            it++;
+    }
+    AddCCunspentsInMempool(unspentOutputs, coinaddr, ccflag);
+}
+
 
 void SetCCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,char *coinaddr,bool ccflag)
 {
@@ -567,6 +642,17 @@ int64_t CCaddress_balance(char *coinaddr,int32_t CCflag)
 {
     int64_t sum = 0; std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
     SetCCunspents(unspentOutputs,coinaddr,CCflag!=0?true:false);
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
+    {
+        sum += it->second.satoshis;
+    }
+    return(sum);
+}
+
+int64_t CCaddress_balance_mempool(char *coinaddr,int32_t CCflag)
+{
+    int64_t sum = 0; std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+    SetCCunspentsWithMempool(unspentOutputs,coinaddr,CCflag!=0?true:false);
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
         // dimxy: to show correct balance need to exclude spent in mempool

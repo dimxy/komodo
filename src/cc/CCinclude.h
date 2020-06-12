@@ -391,6 +391,11 @@ CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
 /// @param CCflag if non-zero then address is a cryptocondition address, if false - normal address
 int64_t CCaddress_balance(char *coinaddr,int32_t CCflag);
 
+/// CCaddress_balance_mempool returns amount of outputs on an address, looking into mempool and checking if utxo not spent in mempool
+/// @param coinaddr address to search outputs on
+/// @param CCflag if non-zero then address is a cryptocondition address, if false - normal address
+int64_t CCaddress_balance_mempool(char *coinaddr,int32_t CCflag);
+
 /// Creates a bitcoin address from a transaction id. This address can never be spent
 /// @param[out] txidaddr returned address created from txid value 
 /// @param txid transaction id
