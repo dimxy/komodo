@@ -638,24 +638,16 @@ int32_t CCgetspenttxid(uint256 &spenttxid,int32_t &vini,int32_t &height,uint256 
     return(0);
 }
 
-int64_t CCaddress_balance(char *coinaddr,int32_t CCflag)
+int64_t CCaddress_balance(char *coinaddr,int32_t CCflag, bool mempool)
 {
     int64_t sum = 0; std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
-    SetCCunspents(unspentOutputs,coinaddr,CCflag!=0?true:false);
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
-    {
-        sum += it->second.satoshis;
-    }
-    return(sum);
-}
+    if (!mempool)
+        SetCCunspents(unspentOutputs,coinaddr,CCflag!=0?true:false);
+    else
+        SetCCunspentsWithMempool(unspentOutputs,coinaddr,CCflag!=0?true:false);
 
-int64_t CCaddress_balance_mempool(char *coinaddr,int32_t CCflag)
-{
-    int64_t sum = 0; std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
-    SetCCunspentsWithMempool(unspentOutputs,coinaddr,CCflag!=0?true:false);
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
-        // dimxy: to show correct balance need to exclude spent in mempool
         uint256 dummytxid;
         int32_t dummyvout;
         if (myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index) == false)
