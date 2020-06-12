@@ -3912,13 +3912,13 @@ UniValue MarmaraSettlement(int64_t txfee, uint256 refbatontxid, CTransaction &se
                         result.push_back(Pair("error", "cant settle immature creditloop"));
                         return(result);
                     }
-                    else if ((loopData.matures & 1) == 0)
+                    /*else if ((loopData.matures & 1) == 0)
                     {
                         // discontinued:
                         //result.push_back(Pair("result", "error"));
                         //result.push_back(Pair("error", "cant automatic settle even maturity heights"));
                         //return(result);
-                    }
+                    }*/
                     else if (numDebtors < 1)
                     {
                         result.push_back(Pair("result", "error"));
@@ -4189,7 +4189,7 @@ void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & settle
         CTransaction settlementtx;
         //TODO: temp UniValue result legacy code, change to remove UniValue
 
-        if (chainActive.LastTip()->GetHeight() >= matures)   //check height if matured 
+        if (chainActive.LastTip()->GetHeight() >= matures + 5)   //check height if matured 
         {
             LOGSTREAM("marmara", CCLOG_DEBUG2, stream << funcname << " " << "miner calling settlement for batontxid=" << batontxid.GetHex() << std::endl);
 
