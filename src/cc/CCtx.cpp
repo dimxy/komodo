@@ -569,7 +569,11 @@ int64_t CCaddress_balance(char *coinaddr,int32_t CCflag)
     SetCCunspents(unspentOutputs,coinaddr,CCflag!=0?true:false);
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
-        sum += it->second.satoshis;
+        // dimxy: to show correct balance need to exclude spent in mempool
+        uint256 dummytxid;
+        int32_t dummyvout;
+        if (myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index) == false)
+            sum += it->second.satoshis;
     }
     return(sum);
 }

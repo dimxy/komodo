@@ -5038,7 +5038,7 @@ UniValue MarmaraInfo(const CPubKey &refpk, int32_t firstheight, int32_t lastheig
         Getscriptaddress(mynormaladdr, CScript() << ParseHex(HexStr(vrefpk)) << OP_CHECKSIG);
         result.push_back(Pair("myNormalAddress", mynormaladdr));
         result.push_back(Pair("myPubkeyNormalAmount", ValueFromAmount(CCaddress_balance(mynormaladdr, 0)))); 
-        if (!isRemote && pwalletMain && pwalletMain->HaveKey(refpk.GetID())) {
+        if (!isRemote && pwalletMain && pwalletMain->HaveKey(refpk.GetID())) { // show wallet balance if refpk is mine
             LOCK2(cs_main, pwalletMain->cs_wallet);
             result.push_back(Pair("myWalletNormalAmount", ValueFromAmount(pwalletMain->GetBalance())));
         }
