@@ -1453,6 +1453,11 @@ static uint256 GetWinner(const KogsBaton *pbaton)
     return winner;
 }
 
+static uint256 get_random(uint256 gameid, int32_t num)
+{
+
+}
+
 // creates new baton object, manages stack according to slam data
 static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayer, KogsSlamParams *pSlamparam, KogsBaton &newbaton, const KogsBaseObject *pInitBaton)
 {
