@@ -670,6 +670,7 @@ struct KogsBaton : public KogsBaseObject {
     std::vector<uint256> playerids;
     std::vector<uint256> kogsInStack;
     std::vector<std::pair<uint256, uint256>> kogsFlipped;
+    uint256 randomtxid;
     int32_t randomHeightRange, randomStrengthRange;
     int32_t armHeight, armStrength;
     uint8_t isFinished;
@@ -695,6 +696,7 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(playerids);
             READWRITE(kogsInStack);
             READWRITE(kogsFlipped);
+            READWRITE(randomtxid);
             READWRITE(randomHeightRange);
             READWRITE(randomStrengthRange);
             READWRITE(armHeight);

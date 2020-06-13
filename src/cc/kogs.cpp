@@ -1453,8 +1453,97 @@ static uint256 GetWinner(const KogsBaton *pbaton)
     return winner;
 }
 
-static uint256 get_random(uint256 gameid, int32_t num)
+void get_random_txns(uint256 gameid, int32_t num, std::set<CTransaction> &hashes, std::set<CTransaction> &randoms)
 {
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    // check all pubkeys committed:
+
+    char game1of2addr[KOMODO_ADDRESS_BUFSIZE];
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
+    CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
+    GetCCaddress1of2(cp, game1of2addr, kogsPk, gametxidPk); 
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+    SetCCunspentsWithMempool(addressUnspents, game1of2addr, true);
+
+    hashes.clear();
+    randoms.clear();
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it != addressUnspents.end(); it ++)   
+    {
+        CTransaction rndtx;
+        uint256 hashBlock;
+        if (std::find_if(randoms.begin(), randoms.end(), [&](const CTransaction &tx) { return tx.GetHash() == it->first.txhash; }) != randoms.end() 
+            || myGetTransaction(it->first.txhash, rndtx, hashBlock))  
+        {
+            CScript ccdata;
+            MyGetCCopretV2(rndtx.vout[it->first.index].scriptPubKey, ccdata);
+            uint8_t funcid, evalcode, version;
+            int32_t numOpret, r;
+            uint256 gameidOpret;
+            vuint8_t vData;
+
+            GetOpReturnData(ccdata, vData);
+
+            if (E_UNMARSHAL(vData, ss >> evalcode; ss >> funcid; ss >> version; ss >> gameidOpret; ss >> numOpret; ss >> r) &&
+                funcid == 'T' && evalcode == EVAL_KOGS && version == 1 && gameid == gameidOpret)
+            {   
+                if (num == numOpret)
+                {
+                    for (auto const &vin : rndtx.vin)  {
+                        if (cp->ismyvin(vin.scriptSig)) {
+                            CTransaction hashtx;
+                            uint256 hashBlock;
+                            if (std::find_if(hashes.begin(), hashes.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; }) != hashes.end())
+                                if (myGetTransaction(vin.prevout.hash, hashtx, hashBlock))  // get tx with commit hash for random
+                                    hashes.insert(hashtx);          // add tx hash 
+                            break;
+                        }
+                    }
+                    randoms.insert(rndtx);
+                }
+            }
+            else 
+            {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse ccdata funcid=" << (int)funcid << " evalcode=" << (int)evalcode << " version=" << (int)version << " gameid=" << gameidOpret.GetHex() << std::endl);
+            }
+        }
+    }
+}
+
+static int32_t get_random_value(const std::set<CTransaction> &hashes, const std::set<CTransaction> &randoms, std::set<CPubKey> pks, uint256 gameid, int32_t num)
+{
+    std::vector<uint256> hashes;
+    std::vector<int32_t> randoms;
+    std::set<CPubKey> txpks;
+
+    for(auto const &p : randoms)    {
+        CScript ccdata;
+        MyGetCCopretV2(p.first.vout[0].scriptPubKey, ccdata);
+        uint8_t funcid, evalcode, version;
+        int32_t numOpret, r;
+        uint256 gameidOpret;
+        vuint8_t vData;
+
+        GetOpReturnData(ccdata, vData);
+
+        if (E_UNMARSHAL(vData, ss >> evalcode; ss >> funcid; ss >> version; ss >> gameidOpret; ss >> numOpret; ss >> r) &&
+            funcid == 'T' && evalcode == EVAL_KOGS && version == 1 && gameid == gameidOpret)
+        {   
+            if (num == numOpret)
+            {
+                for (auto const &vin : tx.vin)  {
+                    if (cp->ismyvin(vin.scriptSig)) {
+                        CTransaction hashtx;
+                        uint256 hashBlock;
+                        if (myGetTransaction(vin.prevout.hash, hashtx, hashBlock))  // get tx with random commit hash:
+                            randoms.push_back(std::make_pair(hashtx, tx));          // add txns with hash and random itself
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
 }
 
@@ -2529,11 +2618,11 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     std::map<int32_t, std::set<CPubKey>> mpkscommitted;
     std::map<int32_t, std::pair<uint256, int32_t>> mvintxns;
 
+    CTransaction tx;  // cached tx
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it != addressUnspents.end(); it ++)   
     {
-        CTransaction tx;
         uint256 hashBlock;
-        if (myGetTransaction(it->first.txhash, tx, hashBlock))  
+        if (tx.GetHash() == it->first.txhash || myGetTransaction(it->first.txhash, tx, hashBlock))  // use cached tx
         {
             CScript ccdata;
             MyGetCCopretV2(tx.vout[it->first.index].scriptPubKey, ccdata);
@@ -2616,51 +2705,9 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     return NullUniValue; 
 }
 
-UniValue KogsGetRandomTxns(const CPubKey &remotepk, uint256 gameid, int32_t num, std::vector<CTransaction> &txns)
+UniValue KogsGetRandomTxns(const CPubKey &remotepk, uint256 gameid, int32_t num, std::vector<std::pair<CTransaction, CTransaction>> &txns)
 {
-    struct CCcontract_info *cp, C;
-    cp = CCinit(&C, EVAL_KOGS);
-
-    // check all pubkeys committed:
-
-    uint8_t kogspriv[32];
-    char game1of2addr[KOMODO_ADDRESS_BUFSIZE];
-    CPubKey kogsPk = GetUnspendable(cp, kogspriv);
-    CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
-    GetCCaddress1of2(cp, game1of2addr, kogsPk, gametxidPk); 
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-    SetCCunspentsWithMempool(addressUnspents, game1of2addr, true);
-
-    txns.clear();
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it != addressUnspents.end(); it ++)   
-    {
-        CTransaction tx;
-        uint256 hashBlock;
-        if (myGetTransaction(it->first.txhash, tx, hashBlock))  
-        {
-            CScript ccdata;
-            MyGetCCopretV2(tx.vout[it->first.index].scriptPubKey, ccdata);
-            uint8_t funcid, evalcode, version;
-            int32_t numOpret, r;
-            uint256 gameidOpret;
-            vuint8_t vData;
-
-            GetOpReturnData(ccdata, vData);
-
-            if (E_UNMARSHAL(vData, ss >> evalcode; ss >> funcid; ss >> version; ss >> gameidOpret; ss >> numOpret; ss >> r) &&
-                funcid == 'T' && evalcode == EVAL_KOGS && version == 1 && gameid == gameidOpret)
-            {   
-                if (num == numOpret)
-                {
-                    txns.push_back(tx);
-                }
-            }
-            else 
-            {
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse ccdata funcid=" << (int)funcid << " evalcode=" << (int)evalcode << " version=" << (int)version << " gameid=" << gameidOpret.GetHex() << std::endl);
-            }
-        }
-    }
+    get_random_txns(gameid, num, txns);
 }
 
 
