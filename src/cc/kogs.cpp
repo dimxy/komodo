@@ -1453,7 +1453,54 @@ static uint256 GetWinner(const KogsBaton *pbaton)
     return winner;
 }
 
-void get_random_txns(uint256 gameid, int32_t num, std::set<CTransaction> &hashes, std::set<CTransaction> &randoms)
+CScript KogsEncodeRandomHashOpreturn(uint256 gameid, int32_t num, uint256 rhash)
+{
+    CScript opret;
+    uint8_t evalcode = EVAL_KOGS;
+    uint8_t funcid = KOGSID_RANDOMHASH;
+    uint8_t version = 1;
+    opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version << gameid << num << rhash);
+    return opret;
+}
+
+CScript KogsEncodeRandomValueOpreturn(uint256 gameid, int32_t num, int32_t r)
+{
+    CScript opret;
+    uint8_t evalcode = EVAL_KOGS;
+    uint8_t funcid = KOGSID_RANDOMVALUE;
+    uint8_t version = 1;
+    opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version << gameid << num << r);
+    return opret;
+}
+
+uint8_t KogsDecodeRandomHashOpreturn(CScript opreturn, uint256 &gameid, int32_t &num, uint256 &rhash)
+{
+    uint8_t funcid, evalcode, version;
+    vuint8_t vData;
+    GetOpReturnData(opreturn, vData);
+
+    if (vData.size() > 0)
+        if (E_UNMARSHAL(vData, ss >> evalcode; ss >> funcid; ss >> version; ss >> gameid; ss >> num; ss >> rhash) &&
+            funcid == KOGSID_RANDOMHASH && evalcode == EVAL_KOGS && version == 1)
+            return funcid;
+    return 0;
+}
+
+uint8_t KogsDecodeRandomValueOpreturn(CScript opreturn, uint256 &gameid, int32_t &num, int32_t &r)
+{
+    uint8_t funcid, evalcode, version;
+    vuint8_t vData;
+    GetOpReturnData(opreturn, vData);
+
+    if (vData.size() > 0)
+        if (E_UNMARSHAL(vData, ss >> evalcode; ss >> funcid; ss >> version; ss >> gameid; ss >> num; ss >> r) &&
+            funcid == KOGSID_RANDOMVALUE && evalcode == EVAL_KOGS && version == 1)
+            return funcid;
+    return 0;
+}
+
+// get two sets of transactions, with committed hashes and with actual randoms, for the gameid and turns' interval [startNum...endNum]
+void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::set<CTransaction> &hashes, std::set<CTransaction> &randoms)
 {
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -1473,78 +1520,112 @@ void get_random_txns(uint256 gameid, int32_t num, std::set<CTransaction> &hashes
     {
         CTransaction rndtx;
         uint256 hashBlock;
+        // check if tx already added to randoms tx set 
         if (std::find_if(randoms.begin(), randoms.end(), [&](const CTransaction &tx) { return tx.GetHash() == it->first.txhash; }) != randoms.end() 
             || myGetTransaction(it->first.txhash, rndtx, hashBlock))  
         {
             CScript ccdata;
             MyGetCCopretV2(rndtx.vout[it->first.index].scriptPubKey, ccdata);
-            uint8_t funcid, evalcode, version;
             int32_t numOpret, r;
             uint256 gameidOpret;
-            vuint8_t vData;
 
-            GetOpReturnData(ccdata, vData);
+            if (KogsDecodeRandomValueOpreturn(ccdata, gameidOpret, numOpret, r) && gameid == gameidOpret && numOpret >= startNum && numOpret <= endNum)
+            {    
+                for (auto const &vin : rndtx.vin)  {
+                    if (cp->ismyvin(vin.scriptSig)) {
+                        CTransaction hashtx;
+                        uint256 hashBlock;
+                        // check if tx already added to hashes tx set
+                        if (std::find_if(hashes.begin(), hashes.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; }) != hashes.end())
+                        {
+                            if (myGetTransaction(vin.prevout.hash, hashtx, hashBlock))  // get tx with random hash 
+                            {
+                                CScript ccdatavin;
+                                MyGetCCopretV2(hashtx.vout[vin.prevout.n].scriptPubKey, ccdatavin);
+                                int32_t numOpretVin;
+                                uint256 gameidOpretVin, rhash;
 
-            if (E_UNMARSHAL(vData, ss >> evalcode; ss >> funcid; ss >> version; ss >> gameidOpret; ss >> numOpret; ss >> r) &&
-                funcid == 'T' && evalcode == EVAL_KOGS && version == 1 && gameid == gameidOpret)
-            {   
-                if (num == numOpret)
-                {
-                    for (auto const &vin : rndtx.vin)  {
-                        if (cp->ismyvin(vin.scriptSig)) {
-                            CTransaction hashtx;
-                            uint256 hashBlock;
-                            if (std::find_if(hashes.begin(), hashes.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; }) != hashes.end())
-                                if (myGetTransaction(vin.prevout.hash, hashtx, hashBlock))  // get tx with commit hash for random
-                                    hashes.insert(hashtx);          // add tx hash 
-                            break;
+                                if (KogsDecodeRandomHashOpreturn(ccdatavin, gameidOpretVin, numOpretVin, rhash) && gameid == gameidOpretVin && numOpret == numOpretVin)
+                                {
+                                    hashes.insert(hashtx);          // add tx with random hash 
+                                    break;
+                                }
+                            }
                         }
                     }
-                    randoms.insert(rndtx);
                 }
+                randoms.insert(rndtx);  //add random tx
             }
             else 
             {
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse ccdata funcid=" << (int)funcid << " evalcode=" << (int)evalcode << " version=" << (int)version << " gameid=" << gameidOpret.GetHex() << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse ccdata for rndtx=" << rndtx.GetHash().GetHex() << std::endl);
             }
         }
     }
 }
 
-static int32_t get_random_value(const std::set<CTransaction> &hashes, const std::set<CTransaction> &randoms, std::set<CPubKey> pks, uint256 gameid, int32_t num)
+
+// get random value from several values created by several pubkeys, checking randoms match the commited hashes   
+static int32_t get_random_value(const std::set<CTransaction> &hashTxns, const std::set<CTransaction> &randomTxns, const std::set<CPubKey> &pks, uint256 gameid, int32_t num)
 {
-    std::vector<uint256> hashes;
-    std::vector<int32_t> randoms;
     std::set<CPubKey> txpks;
+    int32_t result = 0;
 
-    for(auto const &p : randoms)    {
-        CScript ccdata;
-        MyGetCCopretV2(p.first.vout[0].scriptPubKey, ccdata);
-        uint8_t funcid, evalcode, version;
-        int32_t numOpret, r;
-        uint256 gameidOpret;
-        vuint8_t vData;
+    for(auto const &rndtx : randomTxns)    
+    {
+        for(auto const &rndvout : rndtx.vout) 
+        {
+            CScript ccdata;
+            MyGetCCopretV2(rndvout.scriptPubKey, ccdata); // get cc 
+            int32_t numOpret, r;
+            uint256 gameidOpret;
 
-        GetOpReturnData(ccdata, vData);
+            if (KogsDecodeRandomValueOpreturn(ccdata, gameidOpret, numOpret, r) != 0 && gameid == gameidOpret && num == numOpret)
+            {   
+                // find hash tx and check hash for random r
+                for (auto const &vin : rndtx.vin)  
+                {
+                    if (IsCCInput(vin.scriptSig)) 
+                    {
+                        // find vin hash tx:
+                        auto hashtxIt = std::find_if(hashTxns.begin(), hashTxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; });
+                        if (hashtxIt != hashTxns.end())
+                        {
+                            CScript ccdatavin;
+                            MyGetCCopretV2(hashtxIt->vout[vin.prevout.n].scriptPubKey, ccdatavin);
+                            int32_t numOpretVin;
+                            uint256 gameidOpretVin, rhash;
 
-        if (E_UNMARSHAL(vData, ss >> evalcode; ss >> funcid; ss >> version; ss >> gameidOpret; ss >> numOpret; ss >> r) &&
-            funcid == 'T' && evalcode == EVAL_KOGS && version == 1 && gameid == gameidOpret)
-        {   
-            if (num == numOpret)
-            {
-                for (auto const &vin : tx.vin)  {
-                    if (cp->ismyvin(vin.scriptSig)) {
-                        CTransaction hashtx;
-                        uint256 hashBlock;
-                        if (myGetTransaction(vin.prevout.hash, hashtx, hashBlock))  // get tx with random commit hash:
-                            randoms.push_back(std::make_pair(hashtx, tx));          // add txns with hash and random itself
-                        break;
+                            if (KogsDecodeRandomHashOpreturn(ccdata, gameidOpretVin, numOpretVin, rhash) != 0 && gameid == gameidOpretVin && num == numOpretVin)
+                            {   
+                                uint256 checkHash;
+                                calc_random_hash(gameid, num, r, checkHash);
+                                if (checkHash != rhash)  { // check hash for random r
+                                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "hash does not match random for randomtxid=" << rndtx.GetHash().GetHex() <<  " for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
+                                    return -1;
+                                }
+                                for (const auto &pk : pks)
+                                    if (TotalPubkeyNormalInputs(*hashtxIt, pk) > 0)
+                                        txpks.insert(pk);       // store pk who created random
+
+                                result ^= r;  // calc result random as xor
+                            }
+                        }
                     }
                 }
             }
         }
     }
+    if (txpks != pks)   {
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "random pks do not match for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
+        return -1;
+    }
 
+    if (result == 0)    {
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "did not find randoms for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
+        return -1;
+    }
+    return result;
 }
 
 // creates new baton object, manages stack according to slam data
@@ -1571,28 +1652,55 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
 	if (pPrevObj->objectType == KOGSID_GAME)  // first turn
 	{
 		KogsGame *pgame = (KogsGame *)pPrevObj;
+
+        // check players and save for various uses
+        for (auto const &playerid : pgame->playerids)  {
+            KogsBaseObject *pBase = LoadGameObject(playerid);
+            if (pBase && pBase->objectType == KOGSID_PLAYER)
+                newbaton.spPlayers.push_back( std::shared_ptr<KogsPlayer>((KogsPlayer*)pBase) );
+            else {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "incorrect player=" << playerid.GetHex() << " gameid=" << pgame->creationtxid.GetHex() << std::endl);
+                return false;
+            }
+        }
+
 		if (pgame->playerids.size() < 2)
 		{
 			LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "playerids.size incorrect=" << pgame->playerids.size() << " pPrevObj creationtxid=" << pPrevObj->creationtxid.GetHex() << std::endl);
 			return false;
 		}
+
+        // get player pubkeys to verify randoms:
+        std::set<CPubKey> playerpks;
+        for (auto const &spPlayer : newbaton.spPlayers)
+            playerpks.insert(spPlayer->encOrigPk);
+
 		// randomly select whose turn is the first:
-        if (pInitBaton == nullptr)
-		    nextturn = rand() % pgame->playerids.size();
+        if (pInitBaton == nullptr)      {
+            
+            int32_t r = get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, pgame->creationtxid, 0);
+            if (r < 0)
+                return false;
+		    // nextturn = rand() % pgame->playerids.size();
+            nextturn = r % pgame->playerids.size();
+        }
         else
+        {
+            for ()
             nextturn = ((KogsBaton*)pInitBaton)->nextturn; // validate
+        }
 		playerids = pgame->playerids;
 		gameid = pPrevObj->creationtxid;
 		gameconfigid = pgame->gameconfigid;
 
-        // check all players in the first baton
         for (auto const &playerid : playerids)  {
-            std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerid) );
+            /*std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerid) );
             if (spPlayer == nullptr || spPlayer->objectType != KOGSID_PLAYER)   {
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "incorrect player=" << playerid.GetHex() << std::endl);
                 return false;
-            }
-                
+            }*/
+          
+            // check player advertisings
             uint256 adtxid;
             int32_t advout;
             std::vector<KogsAdvertising> adlist;
@@ -1607,6 +1715,17 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
 	{
         KogsBaton *pPrevBaton = (KogsBaton *)pPrevObj;
         gameid = pPrevBaton->gameid;
+
+        // load and save players for various uses
+        for (auto const &playerid : pPrevBaton->playerids)  {
+            KogsBaseObject *pBase = LoadGameObject(playerid);
+            if (pBase && pBase->objectType == KOGSID_PLAYER)
+                newbaton.spPlayers.push_back( std::shared_ptr<KogsPlayer>((KogsPlayer*)pBase) );
+            else {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "incorrect player=" << playerid.GetHex() << " gameid=" << gameid.GetHex() << std::endl);
+                return false;
+            }
+        }
 
         if (pPrevBaton && pPrevBaton->objectType == KOGSID_BATON)
         {
@@ -2563,16 +2682,11 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         cp = CCinit(&C, EVAL_KOGS);
         //CPubKey kogsPk = GetUnspendable(cp, NULL);
         CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
-        
-        CScript opret;
-        uint8_t evalcode = EVAL_KOGS;
-        uint8_t funcid = 'Q';
-        uint8_t version = 1;
-
+    
         for(int32_t i = 0; i < hashes.size(); i ++)
         {
             // add random 'commit' vout with its number 'startNum+i' 
-            opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version << gameid << startNum+i << hashes[i]);
+            CScript opret = KogsEncodeRandomHashOpreturn(gameid, startNum+i, hashes[i]);
             vscript_t vopret;
             GetOpReturnData(opret, vopret);
             std::vector<vscript_t> vData { vopret };
@@ -2626,15 +2740,10 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         {
             CScript ccdata;
             MyGetCCopretV2(tx.vout[it->first.index].scriptPubKey, ccdata);
-            uint8_t funcid, evalcode, version;
             int32_t num;
             uint256 gameidOpret, hash;
-            vuint8_t vData;
 
-            GetOpReturnData(ccdata, vData);
-
-            if (E_UNMARSHAL(vData, ss >> evalcode; ss >> funcid; ss >> version; ss >> gameidOpret; ss >> num; ss >> hash) &&
-                funcid == 'Q' && evalcode == EVAL_KOGS && version == 1 && gameid == gameidOpret)
+            if (KogsDecodeRandomHashOpreturn(ccdata, gameidOpret, num, hash) != 0 && gameid == gameidOpret)
             {   
                 if (num >= startNum && num < startNum + randoms.size())
                 {
@@ -2654,7 +2763,7 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
             }
             else 
             {
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse ccdata funcid=" << (int)funcid << " evalcode=" << (int)evalcode << " version=" << (int)version << " gameid=" << gameidOpret.GetHex() << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse random hash for tx=" << tx.GetHash().GetHex() << std::endl);
             }
         }
     }
@@ -2673,11 +2782,8 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         int32_t i = startNum;
         for (auto const & r : randoms) 
         {
-             CScript opret;
-            uint8_t evalcode = EVAL_KOGS;
-            uint8_t funcid = 'T';
-            uint8_t version = 1;
-            opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version << gameid << i << r);
+            CScript opret;
+            opret = KogsEncodeRandomValueOpreturn(gameid, i, r);
             vscript_t vopret;
             GetOpReturnData(opret, vopret);
             std::vector<vscript_t> vData { vopret };
@@ -2705,9 +2811,10 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     return NullUniValue; 
 }
 
-UniValue KogsGetRandomTxns(const CPubKey &remotepk, uint256 gameid, int32_t num, std::vector<std::pair<CTransaction, CTransaction>> &txns)
+UniValue KogsGetRandomTxns(const CPubKey &remotepk, uint256 gameid, int32_t num)
 {
-    get_random_txns(gameid, num, txns);
+    std::set<CTransaction> hashTxns, randomTxns;
+    get_random_txns(gameid, num, hashTxns, randomTxns);
 }
 
 

@@ -39,7 +39,9 @@ enum kogids : uint8_t {
     KOGSID_ADDTOCONTAINER = 'H',
     KOGSID_REMOVEFROMCONTAINER = 'J',
     KOGSID_ADDTOGAME = 'X',
-    KOGSID_REMOVEFROMGAME = 'Y'
+    KOGSID_REMOVEFROMGAME = 'Y',
+    KOGSID_RANDOMHASH = 'Q',
+    KOGSID_RANDOMVALUE = 'T'
 };
 
 const uint8_t KOGS_MIN_VERSION = 1;
@@ -761,6 +763,10 @@ struct KogsBaton : public KogsBaseObject {
 
         return false;
     }
+
+    // for internal use:
+    std::vector< std::shared_ptr<KogsPlayer> > spPlayers; 
+    std::set<CTransaction> hashtxns, randomtxns;
 };
 
 // slam parameters sent by player
