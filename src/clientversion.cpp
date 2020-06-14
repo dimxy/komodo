@@ -40,7 +40,7 @@ const std::string CLIENT_NAME = GetArg("-clientname", "MagicBean");
 /**
  * Client version number
  */
-#define CLIENT_VERSION_SUFFIX "(hf1)"
+#define CLIENT_VERSION_SUFFIX "(hf2)"
 
 
 /**
