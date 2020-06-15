@@ -2353,6 +2353,9 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
                 return error("%s: txid mismatch on disk=%s param=%s", __func__, txOut.GetHash().GetHex().c_str(), hash.GetHex().c_str());   //dimxy added
             return true;
         }
+        else {
+            LogPrintf("%s could not find txid=%s\n" , __func__, hash.GetHex());
+        }
     }
 
     if (fAllowSlow) { // use coin database to locate block that contains transaction, and scan it
