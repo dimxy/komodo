@@ -963,7 +963,7 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& remotep
             "sends slam data to the chain, triggers reloading kogs in the stack\n" "\n");
     }
 
-    KogsSlamParams slamparams;
+    KogsSlamData slamparams;
 
     slamparams.gameid = Parseuint256(params[0].get_str().c_str());
     if (slamparams.gameid.IsNull())
@@ -1013,7 +1013,7 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& remotep
     EnsureWalletIsAvailable(false);
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
-    UniValue sigData = KogsCreateSlamParams(remotepk, slamparams);
+    UniValue sigData = KogsCreateSlamData(remotepk, slamparams);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -1847,6 +1847,9 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogscreatefirstbaton",    &kogscreatefirstbaton,          true },
     { "kogs",         "kogsadvertisedplayerlist",    &kogsadvertisedplayerlist,          true },
     { "kogs",         "kogsstopadvertiseplayer",    &kogsstopadvertiseplayer,          true },
+    { "kogs",         "kogscommitrandom",    &kogscommitrandom,          true },
+    { "kogs",         "kogsrevealrandom",    &kogsrevealrandom,          true },
+
     { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
     { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true },
     { "kogs",         "kogsdecodetxdata",         &kogs_decodetxdata,          true },

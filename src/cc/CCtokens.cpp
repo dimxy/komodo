@@ -166,7 +166,7 @@ void FilterOutTokensUnspendablePk(const std::vector<CPubKey> &sourcePubkeys, std
 
 // TODO: move it to CCutils.cpp
 // get OP_DROP data:
-bool MyGetCCopretV2(const CScript &scriptPubKey, CScript &opret)
+bool MyGetCCDropV2(const CScript &scriptPubKey, CScript &opret)
 {
     std::vector<std::vector<unsigned char>> vParams;
     CScript dummy; 
@@ -377,7 +377,7 @@ static int64_t CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, a
 
         CScript opret;
         bool isLastVoutOpret;
-        if (MyGetCCopretV2(tx.vout[v].scriptPubKey, opret))
+        if (MyGetCCDropV2(tx.vout[v].scriptPubKey, opret))
         {
             isLastVoutOpret = false;    
         }

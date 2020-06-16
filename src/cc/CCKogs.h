@@ -18,6 +18,7 @@
 
 #include <memory.h>
 #include <map>
+#include <unordered_set>
 #include "CCinclude.h"
 #include "CCtokens.h"
 #include "../wallet/crypter.h"
@@ -661,6 +662,17 @@ struct KogsContainer : public KogsBaseObject {
     }
 };
 
+
+/*class CComparableTransaction : public CTransaction {
+public:
+    //CComparableTransaction & operator=(const CTransaction &tx) { (*this) = tx; return (*this); }
+    bool operator==(const CComparableTransaction &tx) { return (*this).GetHash() == tx.GetHash(); }
+    bool operator!=(const CComparableTransaction &tx) { return (*this).GetHash() != tx.GetHash(); }
+};
+
+typedef uint256 CComparableTransactionHasher(const CComparableTransaction &tx);*/
+
+
 // baton
 struct KogsBaton : public KogsBaseObject {
     
@@ -672,9 +684,12 @@ struct KogsBaton : public KogsBaseObject {
     std::vector<uint256> playerids;
     std::vector<uint256> kogsInStack;
     std::vector<std::pair<uint256, uint256>> kogsFlipped;
+    
     uint256 randomtxid;
     int32_t randomHeightRange, randomStrengthRange;
     int32_t armHeight, armStrength;
+    std::vector<CTransaction> hashtxns, randomtxns;
+
     uint8_t isFinished;
     uint256 winnerid;
 
@@ -703,6 +718,40 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(randomStrengthRange);
             READWRITE(armHeight);
             READWRITE(armStrength);
+            READWRITE(armStrength);
+
+            // read/write hash txns:
+            if (ser_action.ForRead()) {
+                int32_t hashtxnsSize;
+                READWRITE(hashtxnsSize);
+                hashtxns.clear();
+                while (hashtxnsSize-- > 0) {
+                    CTransaction hashtx;
+                    READWRITE(hashtx);
+                    hashtxns.push_back(hashtx);
+                }
+            }
+            else {
+                for (auto & hashtx : hashtxns)
+                    READWRITE(hashtx);
+            }
+
+            // read/write random txns:
+            if (ser_action.ForRead()) {
+                int32_t randomtxnsSize;
+                READWRITE(randomtxnsSize);
+                randomtxns.clear();
+                while (randomtxnsSize-- > 0) {
+                    CTransaction randomtx;
+                    READWRITE(randomtx);
+                    hashtxns.push_back(randomtx);
+                }
+            }
+            else {
+                for (auto & randomtx : randomtxns)
+                    READWRITE(randomtx);
+            }
+
             READWRITE(isFinished);
             if (!isFinished) {
                 READWRITE(nextturn);
@@ -766,11 +815,10 @@ struct KogsBaton : public KogsBaseObject {
 
     // for internal use:
     std::vector< std::shared_ptr<KogsPlayer> > spPlayers; 
-    std::set<CTransaction> hashtxns, randomtxns;
 };
 
 // slam parameters sent by player
-struct KogsSlamParams {
+struct KogsSlamData {
 
     uint256 gameid;
     uint256 playerid;
@@ -1166,7 +1214,7 @@ public:
         struct KogsPlayer *r;
         struct KogsGame *g;
         struct KogsBaton *b;
-        struct KogsSlamParams *sp;
+        struct KogsSlamData *sp;
         struct KogsGameFinished *e;
         struct KogsAdvertising *a;
         struct KogsContainerOps *co;
@@ -1293,7 +1341,7 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
 std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid, const std::set<uint256> &tokenids);
 void KogsDepositedTokenList(uint256 gameid, std::vector<uint256> &tokenids, uint8_t objectType);
 UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid);
-UniValue KogsCreateSlamParams(const CPubKey &remotepk, KogsSlamParams &newslamparams);
+UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newslamparams);
 UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout);
 UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid);
 void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool onlymy, KogsObjectFilterBase *pFilter, std::vector<uint256> &tokenids);
