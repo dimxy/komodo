@@ -859,8 +859,10 @@ int32_t komodo_isPoS(CBlock *pblock, int32_t height,CTxDestination *addressout)
                         // MarmaraValidateStakeTx does all required checks for stake tx:
                         int32_t marmara_validate_staketx = MarmaraValidateStakeTx(destaddr, prevTxOpret, pblock->vtx[n - 1], pblock->vtx[0], height);
                         LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "ht=" << height << " (HF) MarmaraValidateStakeTx returned=" << marmara_validate_staketx << std::endl);
-                        if (marmara_validate_staketx == 0)
+                        if (marmara_validate_staketx == 0)  {
+                            LogPrintf("%s stake tx invalid for block %s ht %d\n", __func__, pblock->GetHash().GetHex().c_str(), height);
                             return 0;  // bad stake tx
+                        }
                         // continue with DecodeStakingOpRet...
                         // end marmara code
                     }
