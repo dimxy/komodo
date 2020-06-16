@@ -8118,7 +8118,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         CInv inv(MSG_BLOCK, block.GetHash());
         LogPrint("net", "received block %s peer=%d\n", inv.hash.ToString(), pfrom->id);
-        LogPrintf("received block %s peer=%d\n", inv.hash.ToString(), pfrom->id);  // extra logging in marmara
+        LogPrintf("received block %s peer=%d connections=%d\n", inv.hash.ToString(), pfrom->id, vNodes.size());  // extra logging in marmara
 
         pfrom->AddInventoryKnown(inv);
 
