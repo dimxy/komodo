@@ -207,8 +207,7 @@ public:
         try {
             CDataStream ssValue(strValue.data(), strValue.data() + strValue.size(), SER_DISK, CLIENT_VERSION);
             ssValue >> value;
-        } catch (const std::exception&e) {
-            LogPrintf("%s exception in CDataStream = %s\n" , __func__, e.what());
+        } catch (const std::exception&) {
             return false;
         }
         return true;

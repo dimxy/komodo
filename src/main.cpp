@@ -1396,7 +1396,7 @@ bool CheckTransaction(uint32_t tiptime,const CTransaction& tx, CValidationState 
                 {
                     static uint32_t counter;
                     if ( counter++ < 100 )
-                        printf("MEMPOOL: banned tx.%d being used at ht.%d vout.%d\n",k,(int32_t)chainActive.Tip()->GetHeight(),j);
+                        LogPrintf("MEMPOOL: banned tx.%d being used at ht.%d vout.%d\n",k,(int32_t)chainActive.Tip()->GetHeight(),j);
                     return(false);
                 }
             }
@@ -2352,9 +2352,6 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
                 //return error("%s: txid mismatch", __func__);
                 return error("%s: txid mismatch on disk=%s param=%s", __func__, txOut.GetHash().GetHex().c_str(), hash.GetHex().c_str());   //dimxy added
             return true;
-        }
-        else {
-            LogPrintf("%s could not find txid=%s\n" , __func__, hash.GetHex());
         }
     }
 
