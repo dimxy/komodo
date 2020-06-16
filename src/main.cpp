@@ -3880,7 +3880,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     if (fSpentIndex)
         if (!pblocktree->UpdateSpentIndex(spentIndex))
-            return AbortNode(state, "Failed to write transaction index");
+            return AbortNode(state, "Failed to write spent index");
 
     if (fTimestampIndex)
     {
