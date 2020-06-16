@@ -2045,14 +2045,14 @@ void static BitcoinMiner()
                                 return(false);
                         }
                         uint256 tmp = B.GetHash();
-                        fprintf(stderr, "[%s:%d] mined block %s\n", ASSETCHAINS_SYMBOL, Mining_height, B.GetHash().GetHex().c_str());
+                        LogPrintf("[%s:%d] mined block %s\n", ASSETCHAINS_SYMBOL, Mining_height, B.GetHash().GetHex().c_str());
                     }
                     CValidationState state;
                     ENTER_CRITICAL_SECTION(cs_main);
                     if ( !TestBlockValidity(state,B, chainActive.LastTip(), true, false))
                     {
                         h = UintToArith256(B.GetHash());
-                        fprintf(stderr,"%s Invalid block mined, try again, reason %s\n", B.GetHash().GetHex().c_str(), state.GetRejectReason().c_str());
+                        LogPrintf("%s Invalid block mined, try again, reason %s\n", B.GetHash().GetHex().c_str(), state.GetRejectReason().c_str());
                         // LogPrintf("%s Invalid block mined, try again, reason %s\n", B.GetHash().GetHex().c_str(), state.GetRejectReason().c_str());
                         gotinvalid = 1;
                         LEAVE_CRITICAL_SECTION(cs_main);
