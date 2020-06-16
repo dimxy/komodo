@@ -1456,7 +1456,7 @@ static uint256 GetWinner(const KogsBaton *pbaton)
 // multiple player random value support:
 
 // get commit hash for random plus random id (gameid + num)
-static void calc_random_hash(uint256 gameid, int32_t num, int32_t rnd, uint256 &hash)
+static void calc_random_hash(uint256 gameid, int32_t num, uint32_t rnd, uint256 &hash)
 {
     uint8_t hashBuf[sizeof(uint256) + sizeof(int32_t) + sizeof(int32_t)];
 
@@ -1477,7 +1477,7 @@ CScript KogsEncodeRandomHashOpreturn(uint256 gameid, int32_t num, uint256 rhash)
     return opret;
 }
 
-CScript KogsEncodeRandomValueOpreturn(uint256 gameid, int32_t num, int32_t r)
+CScript KogsEncodeRandomValueOpreturn(uint256 gameid, int32_t num, uint32_t r)
 {
     CScript opret;
     uint8_t evalcode = EVAL_KOGS;
@@ -1500,7 +1500,7 @@ uint8_t KogsDecodeRandomHashOpreturn(CScript opreturn, uint256 &gameid, int32_t 
     return 0;
 }
 
-uint8_t KogsDecodeRandomValueOpreturn(CScript opreturn, uint256 &gameid, int32_t &num, int32_t &r)
+uint8_t KogsDecodeRandomValueOpreturn(CScript opreturn, uint256 &gameid, int32_t &num, uint32_t &r)
 {
     uint8_t funcid, evalcode, version;
     vuint8_t vData;
@@ -1541,7 +1541,8 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
         {
             CScript ccdata;
             MyGetCCDropV2(rndtx.vout[it->first.index].scriptPubKey, ccdata);
-            int32_t numOpret, r;
+            int32_t numOpret;
+            uint32_t r;
             uint256 gameidOpret;
 
             if (KogsDecodeRandomValueOpreturn(ccdata, gameidOpret, numOpret, r) && gameid == gameidOpret && numOpret >= startNum && numOpret <= endNum)
@@ -1583,10 +1584,10 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
 
 
 // get random value from several values created by several pubkeys, checking randoms match the commited hashes   
-static int32_t get_random_value(const std::vector<CTransaction> &hashTxns, const std::vector<CTransaction> &randomTxns, const std::set<CPubKey> &pks, uint256 gameid, int32_t num)
+static uint32_t get_random_value(const std::vector<CTransaction> &hashTxns, const std::vector<CTransaction> &randomTxns, const std::set<CPubKey> &pks, uint256 gameid, int32_t num)
 {
     std::set<CPubKey> txpks;
-    int32_t result = 0;
+    uint32_t result = 0;
 
     for(auto const &rndtx : randomTxns)    
     {
@@ -1594,7 +1595,8 @@ static int32_t get_random_value(const std::vector<CTransaction> &hashTxns, const
         {
             CScript ccdata;
             MyGetCCDropV2(rndvout.scriptPubKey, ccdata); // get cc 
-            int32_t numOpret, r;
+            int32_t numOpret;
+            uint32_t r;
             uint256 gameidOpret;
 
             if (KogsDecodeRandomValueOpreturn(ccdata, gameidOpret, numOpret, r) != 0 && gameid == gameidOpret && num == numOpret)
@@ -1619,7 +1621,7 @@ static int32_t get_random_value(const std::vector<CTransaction> &hashTxns, const
                                 calc_random_hash(gameid, num, r, checkHash);
                                 if (checkHash != rhash)  { // check hash for random r
                                     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "hash does not match random for randomtxid=" << rndtx.GetHash().GetHex() <<  " for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
-                                    return -1;
+                                    return 0;
                                 }
                                 for (const auto &pk : pks)
                                     if (TotalPubkeyNormalInputs(*hashtxIt, pk) > 0)
@@ -1635,12 +1637,12 @@ static int32_t get_random_value(const std::vector<CTransaction> &hashTxns, const
     }
     if (txpks != pks)   {
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "random pks do not match for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
-        return -1;
+        return 0;
     }
 
     if (result == 0)    {
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "did not find randoms for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
-        return -1;
+        return 0;
     }
     return result;
 }
@@ -1695,8 +1697,8 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
 		// randomly select whose turn is the first:
         if (pInitBaton == nullptr)      {
             
-            int32_t r = get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, pgame->creationtxid, 0);
-            if (r < 0)
+            uint32_t r = get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, pgame->creationtxid, 0);
+            if (r == 0)
                 return false;
 		    // nextturn = rand() % pgame->playerids.size();
             nextturn = r % pgame->playerids.size();
@@ -1705,8 +1707,8 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         {
             //nextturn = ((KogsBaton*)pInitBaton)->nextturn; // validate
             // validate random value:
-            int32_t r = get_random_value(pInitBaton->hashtxns, pInitBaton->randomtxns, playerpks, pgame->creationtxid, 0);
-            if (r < 0)
+            uint32_t r = get_random_value(pInitBaton->hashtxns, pInitBaton->randomtxns, playerpks, pgame->creationtxid, 0);
+            if (r == 0)
                 return false;
             nextturn = r % pgame->playerids.size();
         }
@@ -2679,8 +2681,8 @@ void KogsAdvertisedList(std::vector<KogsAdvertising> &adlist)
     FindAdvertisings(zeroid, adtxid, nvout, adlist);
 }
 
-// refid is either some id added for reference or the prev commit txid
-UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t startNum, std::vector<uint256> hashes)
+// create tx with hash of gameid, num and random value (a vout created for each random) 
+UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t startNum, const std::vector<uint32_t> &randoms)
 {
     const CAmount txfee = 10000;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -2696,10 +2698,12 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         //CPubKey kogsPk = GetUnspendable(cp, NULL);
         CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
     
-        for(int32_t i = 0; i < hashes.size(); i ++)
+        for(int32_t i = 0; i < randoms.size(); i ++)
         {
             // add random 'commit' vout with its number 'startNum+i' 
-            CScript opret = KogsEncodeRandomHashOpreturn(gameid, startNum+i, hashes[i]);
+            uint256 hash;
+            calc_random_hash(gameid, startNum + i, randoms[i], hash);  // get hash with gameid num and random value
+            CScript opret = KogsEncodeRandomHashOpreturn(gameid, startNum+i, hash);
             vscript_t vopret;
             GetOpReturnData(opret, vopret);
             std::vector<vscript_t> vData { vopret };
@@ -2721,9 +2725,10 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     return NullUniValue; 
 }
 
-// add random values whose hashes were committed previously
+// create tx with random values whose hashes were committed previously
 // check if values match to their hashes
-UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t startNum, std::vector<int32_t> randoms, const std::set<CPubKey> &pks)
+// check all the pubkeys committed their hashes before revealing
+UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t startNum, const std::vector<uint32_t> &randoms)
 {
     const CAmount  txfee = 10000;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -2732,7 +2737,18 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    // check all pubkeys committed:
+    std::shared_ptr<KogsBaseObject> spGame( LoadGameObject(gameid) );
+    if (spGame == nullptr || spGame->objectType != KOGSID_GAME)    {
+        CCerror = "can't load game";
+        return NullUniValue;
+    }
+    KogsGame *pGame = (KogsGame*)spGame.get();
+    std::set<CPubKey> pks;
+    // collect player pks:
+    for(auto const &playerid : pGame->playerids)    {
+        std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerid) );
+        pks.insert(spPlayer->encOrigPk);
+    }
 
     uint8_t kogspriv[32];
     char game1of2addr[KOMODO_ADDRESS_BUFSIZE];
@@ -2746,6 +2762,7 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     std::map<int32_t, std::pair<uint256, int32_t>> mvintxns;
 
     CTransaction tx;  // cached tx
+    // iterate over commit tx for the gameid
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it ++)   
     {
         uint256 hashBlock;
@@ -2767,11 +2784,12 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
                         return NullUniValue;
                     }
 
-                    for (auto const &pk : pks)
+                    for (auto const &pk : pks) {
                         if (TotalPubkeyNormalInputs(tx, pk) > 0)    {
                             mpkscommitted[num].insert(pk);  // store pk that made commit
                             mvintxns[num] = std::make_pair(it->first.txhash, it->first.index); // store utxo with commit hash
                         }
+                    }
                 }
             }
             else 

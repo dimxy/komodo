@@ -40,8 +40,8 @@
 //#include "zcash/zip32.h"
 //#include "notaries_staked.h"
 
-#include "sync_ext.h"
 #include "../wallet/crypter.h"
+#include "sync_ext.h"
 
 #include "cc/CCinclude.h"
 #include "cc/CCKogs.h"
@@ -1481,7 +1481,6 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
                 newadplayer.gameOpts += KOGS_OPTS_PLAYFORKEEPS;
             if (val.getValStr() == opt_playforwages)
                 newadplayer.gameOpts += KOGS_OPTS_PLAYFORWAGES;
-
         }
     }
     else
@@ -1590,6 +1589,78 @@ UniValue kogscreatefirstbaton(const UniValue& params, bool fHelp, const CPubKey&
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsCreateFirstBaton(remotepk, gameid);
+    RETURN_IF_ERROR(CCerror);
+
+    result = sigData;
+    result.push_back(std::make_pair("result", "success"));
+    return result;
+}
+
+// rpc kogscommitrandoms impl (store hashes committing to guessed randoms)
+UniValue kogscommitrandoms(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
+    CCerror.clear();
+
+    if (fHelp || (params.size() < 3))
+    {
+        throw runtime_error(
+            "kogscommitrandoms gameid startnum rnd1 rnd2...\n"
+            "create a tx with randoms' hashes\n" "\n");
+    }
+
+    uint256 gameid = Parseuint256(params[0].get_str().c_str());
+    int32_t startNum = atoi(params[1].get_str().c_str());
+
+    std::vector<uint32_t> rnds;
+    for (int i = 2; i < params.size(); i ++) {
+        int64_t rnd = atoi(params[i].get_str().c_str());
+        if (rnd < 0 || rnd > RAND_MAX)
+            return MakeResultError("invalid random");
+        rnds.push_back((uint32_t)rnd);
+    }
+
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+
+    UniValue sigData = KogsCommitRandoms(remotepk, gameid, startNum, rnds);
+    RETURN_IF_ERROR(CCerror);
+
+    result = sigData;
+    result.push_back(std::make_pair("result", "success"));
+    return result;
+}
+
+// rpc kogsrevealrandoms impl (reveal random values)
+UniValue kogsrevealrandoms(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
+    CCerror.clear();
+
+    if (fHelp || (params.size() < 3))
+    {
+        throw runtime_error(
+            "kogsrevealrandoms gameid startnum rnd1 rnd2...\n"
+            "create a tx with randoms' values for previously commited hashes\n" "\n");
+    }
+
+    uint256 gameid = Parseuint256(params[0].get_str().c_str());
+    int32_t startNum = atoi(params[1].get_str().c_str());
+
+    std::vector<uint32_t> rnds;
+    for (int i = 2; i < params.size(); i ++) {
+        int64_t rnd = atoi(params[i].get_str().c_str());
+        if (rnd < 0 || rnd > RAND_MAX)
+            return MakeResultError("invalid random");
+        rnds.push_back((uint32_t)rnd);
+    }
+
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+
+    UniValue sigData = KogsRevealRandoms(remotepk, gameid, startNum, rnds);
     RETURN_IF_ERROR(CCerror);
 
     result = sigData;
@@ -1847,8 +1918,8 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogscreatefirstbaton",    &kogscreatefirstbaton,          true },
     { "kogs",         "kogsadvertisedplayerlist",    &kogsadvertisedplayerlist,          true },
     { "kogs",         "kogsstopadvertiseplayer",    &kogsstopadvertiseplayer,          true },
-    { "kogs",         "kogscommitrandom",    &kogscommitrandom,          true },
-    { "kogs",         "kogsrevealrandom",    &kogsrevealrandom,          true },
+    { "kogs",         "kogscommitrandoms",    &kogscommitrandoms,          true },
+    { "kogs",         "kogsrevealrandoms",    &kogsrevealrandoms,          true },
 
     { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
     { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true },

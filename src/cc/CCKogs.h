@@ -685,7 +685,6 @@ struct KogsBaton : public KogsBaseObject {
     std::vector<uint256> kogsInStack;
     std::vector<std::pair<uint256, uint256>> kogsFlipped;
     
-    uint256 randomtxid;
     int32_t randomHeightRange, randomStrengthRange;
     int32_t armHeight, armStrength;
     std::vector<CTransaction> hashtxns, randomtxns;
@@ -713,7 +712,6 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(playerids);
             READWRITE(kogsInStack);
             READWRITE(kogsFlipped);
-            READWRITE(randomtxid);
             READWRITE(randomHeightRange);
             READWRITE(randomStrengthRange);
             READWRITE(armHeight);
@@ -1350,6 +1348,8 @@ UniValue KogsObjectInfo(uint256 gameobjectid);
 UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &newad);
 void KogsAdvertisedList(std::vector<KogsAdvertising> &adlist);
 UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId);
+UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t startNum, const std::vector<uint32_t> &randoms);
+UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t startNum, const std::vector<uint32_t> &randoms);
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 
