@@ -1668,6 +1668,32 @@ UniValue kogsrevealrandoms(const UniValue& params, bool fHelp, const CPubKey& re
     return result;
 }
 
+// rpc kogsgetrandom impl (get combined random value for game)
+UniValue kogsgetrandom(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    CCerror.clear();
+
+    if (fHelp || (params.size() != 2))
+    {
+        throw runtime_error(
+            "kogsgetrandom gameid startnum\n"
+            "get random for gameid and num\n" "\n");
+    }
+
+    uint256 gameid = Parseuint256(params[0].get_str().c_str());
+    int32_t num = atoi(params[1].get_str().c_str());
+
+    // lock wallet if this is not a remote call
+    EnsureWalletIsAvailable(false);
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+
+    UniValue result = KogsGetRandom(remotepk, gameid, num);
+    RETURN_IF_ERROR(CCerror);
+
+    result.push_back(std::make_pair("result", "success"));
+    return result;
+}
+
 // rpc kogsbalance impl (with accounting for mempool tx)
 UniValue kogsbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
@@ -1920,6 +1946,7 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogsstopadvertiseplayer",    &kogsstopadvertiseplayer,          true },
     { "kogs",         "kogscommitrandoms",    &kogscommitrandoms,          true },
     { "kogs",         "kogsrevealrandoms",    &kogsrevealrandoms,          true },
+    { "kogs",         "kogsgetrandom",    &kogsgetrandom,          true },
 
     { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
     { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true },

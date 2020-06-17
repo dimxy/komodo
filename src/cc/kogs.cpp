@@ -1539,8 +1539,8 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
         CTransaction rndtx;
         uint256 hashBlock;
         // check if tx already added to randoms tx set 
-        if (std::find_if(randomtxns.begin(), randomtxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == it->first.txhash; }) != randomtxns.end() 
-            || myGetTransaction(it->first.txhash, rndtx, hashBlock))  
+        if (std::find_if(randomtxns.begin(), randomtxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == it->first.txhash; }) == randomtxns.end() 
+            && myGetTransaction(it->first.txhash, rndtx, hashBlock))  
         {
             std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(rndtx, it->first.index) );
             if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMVALUE)
@@ -1554,20 +1554,18 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
                             CTransaction hashtx;
                             uint256 hashBlock;
                             // check if tx already added to hashes tx set
-                            if (std::find_if(hashtxns.begin(), hashtxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; }) != hashtxns.end())
+                            if (std::find_if(hashtxns.begin(), hashtxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; }) == hashtxns.end()
+                                && myGetTransaction(vin.prevout.hash, hashtx, hashBlock))  // get tx with random hash 
                             {
-                                if (myGetTransaction(vin.prevout.hash, hashtx, hashBlock))  // get tx with random hash 
-                                {
-                                    std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(rndtx, it->first.index) );
-                                    if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMHASH)
-                                    {   
-                                        KogsRandomCommit *pRndCommit = (KogsRandomCommit *)spBaseObj.get();
-                                        // check if the vin refers to a commit hash tx
-                                        if (gameid == pRndCommit->gameid && pRndValue->num == pRndCommit->num)
-                                        {
-                                            hashtxns.push_back(hashtx);          // add tx with random hash 
-                                            break;
-                                        }
+                                std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(hashtx, vin.prevout.n) );
+                                if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMHASH)
+                                {   
+                                    KogsRandomCommit *pRndCommit = (KogsRandomCommit *)spBaseObj.get();
+                                    // check if the vin refers to a commit hash tx
+                                    if (gameid == pRndCommit->gameid && pRndValue->num == pRndCommit->num)
+                                    {
+                                        hashtxns.push_back(hashtx);          // add tx with random hash 
+                                        break;
                                     }
                                 }
                             }
@@ -2871,12 +2869,38 @@ std::cerr << std::endl;
     return NullUniValue; 
 }
 
-/*UniValue KogsGetRandomTxns(const CPubKey &remotepk, uint256 gameid, int32_t num)
+UniValue KogsGetRandom(const CPubKey &remotepk, uint256 gameid, int32_t num)
 {
-    std::set<CComparableTransaction> hashTxns, randomTxns;
+    std::shared_ptr<KogsBaseObject> spGame( LoadGameObject(gameid) );
+    if (spGame == nullptr || spGame->objectType != KOGSID_GAME)    {
+        CCerror = "can't load game";
+        return NullUniValue;
+    }
+    KogsGame *pGame = (KogsGame*)spGame.get();
+    std::set<CPubKey> pks;
+    // collect player pks:
+    for(auto const &playerid : pGame->playerids)    {
+        std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerid) );
+        pks.insert(spPlayer->encOrigPk);
+    }
+
+    std::vector<CTransaction> hashTxns, randomTxns;
     get_random_txns(gameid, num, num, hashTxns, randomTxns);
-    return NullUniValue;
-}*/
+    if (hashTxns.size() == 0 || randomTxns.size() == 0) {
+        CCerror = "could not get txns";
+        return NullUniValue;
+    }
+
+    uint32_t r = get_random_value(hashTxns, randomTxns, pks, gameid, num);
+    if (r == 0) {
+        CCerror = "could not get random value";
+        return NullUniValue;
+    }
+    UniValue result(UniValue::VOBJ);
+    result.push_back(std::make_pair("random", (int64_t)r));
+
+    return result;
+}
 
 
 static bool IsGameObjectDeleted(uint256 tokenid)

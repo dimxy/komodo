@@ -1473,6 +1473,7 @@ void KogsAdvertisedList(std::vector<KogsAdvertising> &adlist);
 UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId);
 UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t startNum, const std::vector<uint32_t> &randoms);
 UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t startNum, const std::vector<uint32_t> &randoms);
+UniValue KogsGetRandom(const CPubKey &remotepk, uint256 gameid, int32_t num);
 
 bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 
