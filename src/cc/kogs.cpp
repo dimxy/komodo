@@ -2705,11 +2705,16 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
             KogsRandomCommit rndCommit(gameid, startNum + i, hash);
             KogsEnclosure enc;  
             enc.vdata = rndCommit.Marshal();
-            std::vector<vscript_t> vData { enc.vdata };
+            std::vector<vscript_t> vData { enc.EncodeOpret() };
             mtx.vout.push_back(MakeCC1of2vout(EVAL_KOGS, 1, gametxidPk, mypk, &vData)); // vout to gameid+mypk
         }
 
-        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, CScript()); 
+        KogsRandomCommit rndCommit; //create empty RandomCommit with objectType
+        KogsEnclosure enc;  
+        enc.vdata = rndCommit.Marshal();
+        CScript opret;
+        opret << OP_RETURN << enc.EncodeOpret(); // create last vout opret to pass validation
+        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret); 
         if (ResultHasTx(sigData))
         {
             return sigData; 
@@ -2823,12 +2828,11 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         int32_t i = startNum;
         for (auto const & r : randoms) 
         {
-            CScript opret;
             KogsRandomValue rndValue(gameid, startNum + i, r);
             KogsEnclosure enc;  
             enc.vdata = rndValue.Marshal();
-            std::vector<vscript_t> vData { enc.vdata };
-            mtx.vout.push_back(MakeCC1of2vout(EVAL_TOKENS, 1, kogsPk, gametxidPk, &vData)); // vout to globalpk+gameid
+            std::vector<vscript_t> vData { enc.EncodeOpret() };
+            mtx.vout.push_back(MakeCC1of2vout(EVAL_KOGS, 1, kogsPk, gametxidPk, &vData)); // vout to globalpk+gameid
             i ++;
         }
 
@@ -2837,7 +2841,12 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         CCAddVintxCond(cp, probeCond, NULL);  // NULL means 'use myprivkey'
         cc_free(probeCond);
 
-        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, CScript()); 
+        KogsRandomValue rndValue;
+        KogsEnclosure enc;  
+        enc.vdata = rndValue.Marshal();
+        CScript opret;
+        opret << OP_RETURN << enc.EncodeOpret(); // create last vout opret to pass validation
+        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret); 
         if (ResultHasTx(sigData))
         {
             return sigData; 
