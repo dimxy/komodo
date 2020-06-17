@@ -2762,7 +2762,6 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     // check that all game pks committed their hashes:
     for (auto const &pk : pks)
     {
-
         char game1of2addr[KOMODO_ADDRESS_BUFSIZE];
         GetCCaddress1of2(cp, game1of2addr, gametxidPk, pk); 
         std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
@@ -2795,7 +2794,8 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
                         }
                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "adding committed pk=" << HexStr(pk) << " num=" << num << " gameid=" << gameid.GetHex() << std::endl);
                         mpkscommitted[num].insert(pk);  // store pk that made commit
-                        mvintxns[num] = std::make_pair(it->first.txhash, it->first.index); // store utxo with commit hash
+                        if (pk == mypk)
+                            mvintxns[num] = std::make_pair(it->first.txhash, it->first.index); // store utxo with commit hash
                     }
                 }
                 else 
@@ -2821,9 +2821,13 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         }
     }
 
-    // spend my previous vout and reveal randoms:
     if (AddNormalinputsRemote(mtx, mypk, 2*txfee, 0x10000) > 0)
     {
+        // spend commit vouts
+        for(auto const &m : mvintxns)  
+            mtx.vin.push_back(CTxIn(m.second.first, m.second.second, CScript()));
+
+        // add vout revealing randoms
         int32_t i = startNum;
         for (auto const & r : randoms) 
         {
