@@ -471,7 +471,7 @@ static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creati
 
 static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, int32_t nvout)
 {
-    CScript opret;
+    CScript ccdata;
     vscript_t vopret;
 
     if (tx.vout.size() < 1) {
@@ -483,8 +483,8 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
         return nullptr;
     }
 
-    if (MyGetCCDropV2(tx.vout[nvout].scriptPubKey, opret)) 
-        GetOpReturnData(opret, vopret);
+    if (MyGetCCDropV2(tx.vout[nvout].scriptPubKey, ccdata)) 
+        GetOpReturnData(ccdata, vopret);
     else
         GetOpReturnData(tx.vout.back().scriptPubKey, vopret);
         
@@ -550,8 +550,11 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
         KogsEnclosure enc;
 
         // parse kogs enclosure:
-        if (KogsEnclosure::DecodeLastOpret(tx, enc))   // finds THE FIRST and LATEST TX and gets data from the oprets
+        if (KogsEnclosure::DecodeLastOpret(vopret, enc))   // finds THE FIRST and LATEST TX and gets data from the oprets
         {
+            if (enc.funcId == 'c')
+                enc.creationtxid = tx.GetHash();
+
             uint8_t objectType;
 
             if (!KogsBaseObject::DecodeObjectHeader(enc.vdata, objectType)) {
@@ -2693,7 +2696,6 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     {
         struct CCcontract_info *cp, C;
         cp = CCinit(&C, EVAL_KOGS);
-        //CPubKey kogsPk = GetUnspendable(cp, NULL);
         CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
     
         for(int32_t i = 0; i < randoms.size(); i ++)
@@ -2705,6 +2707,10 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
             KogsRandomCommit rndCommit(gameid, startNum + i, hash);
             KogsEnclosure enc;  
             enc.vdata = rndCommit.Marshal();
+            //CScript opret;
+            //opret << OP_RETURN << enc.EncodeOpret();
+            //vscript_t data;
+            //GetOpReturnData(opret, data);
             std::vector<vscript_t> vData { enc.EncodeOpret() };
             mtx.vout.push_back(MakeCC1of2vout(EVAL_KOGS, 1, gametxidPk, mypk, &vData)); // vout to gameid+mypk
         }
@@ -2725,7 +2731,7 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
             return NullUniValue;
         }
     }
-    CCerror = "could not find normal inputs for 2 txfee";
+    CCerror = "could not find normal inputs for txfee";
     return NullUniValue; 
 }
 
@@ -2778,10 +2784,14 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
             if (tx.GetHash() == it->first.txhash || myGetTransaction(it->first.txhash, tx, hashBlock))  // use cached tx
             {
                 std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(tx, it->first.index) );
-
+std::cerr << __func__ << " parsed tx=" << tx.GetHash().GetHex() << " vout=" << it->first.index;
+if (spBaseObj == nullptr) std::cerr << " spobj==null";
+else std::cerr << " spobj type=" << spBaseObj->objectType;
+std::cerr << std::endl;
                 if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMHASH)
                 {   
                     KogsRandomCommit *pRndCommit = (KogsRandomCommit *)spBaseObj.get();
+                    std::cerr << __func__ << " pRndCommit->gameid=" << pRndCommit->gameid.GetHex() << " pRndCommit->num=" << pRndCommit->num << " pRndCommit->hash=" << pRndCommit->hash.GetHex() << std::endl;
                     if (pRndCommit->gameid == gameid && pRndCommit->num >= startNum && pRndCommit->num < startNum + randoms.size())
                     {
                         uint256 checkHash;
@@ -2798,7 +2808,7 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
                 }
                 else 
                 {
-                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse random hash for tx=" << tx.GetHash().GetHex() << std::endl);
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse random hash for tx=" << tx.GetHash().GetHex() << " vout=" << it->first.index << std::endl);
                 }
             }
         }
@@ -3295,6 +3305,8 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         KogsAdvertising *adobj;
         KogsContainerOps *coobj;
         KogsGameOps *goobj;
+        KogsRandomCommit *rc;
+        KogsRandomValue *rv;
 
     case KOGSID_KOG:
     case KOGSID_SLAMMER:
@@ -3426,6 +3438,25 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         goobj = (KogsGameOps*)pobj;
         info.push_back(std::make_pair("gameid", goobj->gameid.GetHex()));
         break;
+
+    case KOGSID_RANDOMHASH:
+        rc = (KogsRandomCommit*)pobj;
+        if (!rc->gameid.IsNull())   {
+            info.push_back(std::make_pair("gameid", rc->gameid.GetHex()));
+            info.push_back(std::make_pair("num", (int64_t)rc->num));
+            info.push_back(std::make_pair("hash", rc->hash.GetHex()));
+        }
+        break;
+
+    case KOGSID_RANDOMVALUE:
+        rv = (KogsRandomValue*)pobj;
+        if (!rv->gameid.IsNull())   {
+            info.push_back(std::make_pair("gameid", rv->gameid.GetHex()));
+            info.push_back(std::make_pair("num", (int64_t)rv->num));
+            info.push_back(std::make_pair("random", (int64_t)rv->r));
+        }
+        break;
+
     default:
         err.push_back(std::make_pair("result", "error"));
         err.push_back(std::make_pair("error", "unsupported objectType: " + std::string(1, (char)pobj->objectType)));

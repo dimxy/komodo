@@ -530,19 +530,19 @@ struct KogsEnclosure {
     }
 
     vscript_t EncodeOpret() const { return E_MARSHAL(ss << (*this)); };
-    static bool DecodeLastOpret(const CTransaction &tx, KogsEnclosure &enc)
+    static bool DecodeLastOpret(const vscript_t &v, KogsEnclosure &enc)
     {
-        vscript_t v;
+        //vscript_t v;
         bool result = false;
 
-        if (tx.vout.size() > 0)
-        {
-            GetOpReturnData(tx.vout.back().scriptPubKey, v);
+        //if (tx.vout.size() > 0)
+        //{
+            //GetOpReturnData(tx.vout.back().scriptPubKey, v);
             result = E_UNMARSHAL(v, ss >> enc);
             if (result)
             {
-                if (enc.funcId == 'c')
-                    enc.creationtxid = tx.GetHash();
+                //if (enc.funcId == 'c')
+                //    enc.creationtxid = tx.GetHash();
 
                 uint8_t evalcode = (uint8_t)0;
                 uint8_t objectType = (uint8_t)0;
@@ -551,7 +551,7 @@ struct KogsEnclosure {
                 E_UNMARSHAL(enc.vdata, ss >> evalcode; ss >> objectType; ss >> version);
                 if (evalcode != EVAL_KOGS || !KogsIsObjectVersionSupported(objectType, version))
                 {
-                    LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "not kog evalcode (" << (int)evalcode << ") or incorrect version (" << (int)version << ") objectType=" << funcIdToPrint(objectType) << " for txid=" << tx.GetHash().GetHex() << std::endl);
+                    LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "not kog evalcode (" << (int)evalcode << ") or incorrect version (" << (int)version << ") objectType=" << funcIdToPrint(objectType) << /*" for txid=" << tx.GetHash().GetHex() << */ std::endl);
                     return false;
                 }
 
@@ -592,9 +592,9 @@ struct KogsEnclosure {
                 }
                 */
             }
-        }
-        else
-            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsEnclosure" << " " << "no opret in enclosure tx" << std::endl);
+        //}
+        //else
+        //    LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "KogsEnclosure" << " " << "no opret in enclosure tx" << std::endl);
         return result;
     }
 
@@ -1230,6 +1230,8 @@ struct KogsRandomCommit : public KogsBaseObject {
         {
             LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not player objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
         }
+        std::cerr << __func__ << " ForRead()=" << ser_action.ForRead() << " evalcode=" << evalcode << "(" << (int)evalcode << ")" << " objectType=" << objectType << "(" << (int)objectType << ")" << " ver=" << (int)version << " gameid=" << gameid.GetHex() << std::endl;
+
     }
 
     virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
@@ -1241,6 +1243,7 @@ struct KogsRandomCommit : public KogsBaseObject {
         nameId = "g_cm";
         descriptionId = "";
         objectType = KOGSID_RANDOMHASH;
+        num = 0;
     }
     KogsRandomCommit(uint256 _gameid, int32_t _num, uint256 _hash) : KogsBaseObject()
     {
@@ -1294,6 +1297,8 @@ struct KogsRandomValue : public KogsBaseObject {
         nameId = "g_cv";
         descriptionId = "";
         objectType = KOGSID_RANDOMVALUE;
+        num = 0;
+        r = 0;
     }
 
     KogsRandomValue(uint256 _gameid, int32_t _num, uint32_t _r) : KogsBaseObject()
