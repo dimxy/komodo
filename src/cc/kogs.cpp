@@ -2801,6 +2801,7 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
 
     // check all pks committed
     for(auto const &m : mpkscommitted)  {
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "m.first=" << m.first << " m.second.size()=" << m.second.size() << " gameid=" << gameid.GetHex() << std::endl);
         if (pks != m.second)    {
             CCerror = "not all pubkeys committed randoms yet for num=" + std::to_string(m.first);
             return NullUniValue;
