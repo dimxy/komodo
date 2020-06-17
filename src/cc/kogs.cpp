@@ -2761,7 +2761,6 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     }
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "player pks.size()=" << pks.size() << " startNum=" << startNum << " randoms.size()=" << randoms.size() << " gameid=" << gameid.GetHex() << std::endl);
 
-
     uint8_t kogspriv[32];
     CPubKey kogsPk = GetUnspendable(cp, kogspriv);
     CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
@@ -2796,14 +2795,15 @@ std::cerr << std::endl;
                     {
                         uint256 checkHash;
                         calc_random_hash(gameid, pRndCommit->num, randoms[pRndCommit->num], checkHash);
-                        if (checkHash != pRndCommit->hash)  {
-                            CCerror = "hash does not match random value for num=" + std::to_string(pRndCommit->num);
-                            return NullUniValue;
+                        if (checkHash == pRndCommit->hash)  
+                        {   
+                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "adding committed pk=" << HexStr(pk) << " num=" << pRndCommit->num << " gameid=" << gameid.GetHex() << std::endl);
+                            mpkscommitted[pRndCommit->num].insert(pk);  // store pk that made commit
+                            if (pk == mypk)
+                                mvintxns[pRndCommit->num] = std::make_pair(it->first.txhash, it->first.index); // store utxo with commit hash
                         }
-                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "adding committed pk=" << HexStr(pk) << " num=" << pRndCommit->num << " gameid=" << gameid.GetHex() << std::endl);
-                        mpkscommitted[pRndCommit->num].insert(pk);  // store pk that made commit
-                        if (pk == mypk)
-                            mvintxns[pRndCommit->num] = std::make_pair(it->first.txhash, it->first.index); // store utxo with commit hash
+                        else
+                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "hash does not match random for commit txid=" << tx.GetHash().GetHex() << " vout=" << it->first.index << " num=" << pRndCommit->num << " gameid=" << gameid.GetHex() << std::endl);
                     }
                 }
                 else 
@@ -2815,7 +2815,7 @@ std::cerr << std::endl;
     }
 
     if (mpkscommitted.size() != randoms.size()) {
-        CCerror = "no pubkeys found for committed randoms";
+        CCerror = "no committed randoms found";
         return NullUniValue;
     }
 
