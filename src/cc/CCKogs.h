@@ -1153,6 +1153,7 @@ struct KogsGameOps : public KogsBaseObject {
     }
 };
 
+
 // object storing data for player advertising and stopping advertising
 struct KogsAdOps : public KogsBaseObject {
 
@@ -1199,6 +1200,113 @@ struct KogsAdOps : public KogsBaseObject {
     }
 };
 
+// committed random hash
+struct KogsRandomCommit : public KogsBaseObject {
+
+    uint256 gameid;
+    int32_t num;        // turn's number
+    uint256 hash;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {  // clear to zeros to indicate if could not read
+            evalcode = 0;
+            objectType = 0;
+            version = 0;
+        }
+        READWRITE(evalcode);
+        READWRITE(objectType);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && KogsIsObjectVersionSupported(objectType, version))
+        {
+            READWRITE(gameid);
+            READWRITE(num);
+            READWRITE(hash);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not player objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
+    virtual bool Unmarshal(vscript_t v) {
+        return E_UNMARSHAL(v, ss >> (*this));
+    }
+    KogsRandomCommit() : KogsBaseObject()
+    {
+        nameId = "g_cm";
+        descriptionId = "";
+        objectType = KOGSID_RANDOMHASH;
+    }
+    KogsRandomCommit(uint256 _gameid, int32_t _num, uint256 _hash) : KogsBaseObject()
+    {
+        nameId = "g_cm";
+        descriptionId = "";
+        objectType = KOGSID_RANDOMHASH;
+        gameid = _gameid;
+        num = _num;
+        hash = _hash;
+    }
+};
+
+// releaved player random value
+struct KogsRandomValue : public KogsBaseObject {
+
+    uint256 gameid;
+    int32_t num;        // turn's number
+    uint32_t r;
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action)
+    {
+        if (ser_action.ForRead()) {  // clear to zeros to indicate if could not read
+            evalcode = 0;
+            objectType = 0;
+            version = 0;
+        }
+        READWRITE(evalcode);
+        READWRITE(objectType);
+        READWRITE(version);
+        if (evalcode == EVAL_KOGS && KogsIsObjectVersionSupported(objectType, version))
+        {
+            READWRITE(gameid);
+            READWRITE(num);
+            READWRITE(r);
+        }
+        else
+        {
+            LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not player objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
+        }
+    }
+
+    virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
+    virtual bool Unmarshal(vscript_t v) {
+        return E_UNMARSHAL(v, ss >> (*this));
+    }
+    KogsRandomValue() : KogsBaseObject()
+    {
+        nameId = "g_cv";
+        descriptionId = "";
+        objectType = KOGSID_RANDOMVALUE;
+    }
+
+    KogsRandomValue(uint256 _gameid, int32_t _num, uint32_t _r) : KogsBaseObject()
+    {
+        nameId = "g_cv";
+        descriptionId = "";
+        objectType = KOGSID_RANDOMVALUE;
+        gameid = _gameid;
+        num = _num;
+        r = _r;
+    }
+};
+
 // simple factory for Kogs game objects
 class KogsFactory
 {
@@ -1218,6 +1326,8 @@ public:
         struct KogsContainerOps *co;
         struct KogsGameOps *go;
         struct KogsAdOps *ao;
+        struct KogsRandomCommit *rc;
+        struct KogsRandomValue *rv;
 
         switch (objectType)
         {
@@ -1274,7 +1384,15 @@ public:
 
         case KOGSID_STOPADVERTISING:
             ao = new KogsAdOps(objectType);
-            return (KogsBaseObject*)ao;          
+            return (KogsBaseObject*)ao; 
+
+        case KOGSID_RANDOMHASH:
+            rc = new KogsRandomCommit();
+            return (KogsBaseObject*)rc; 
+
+        case KOGSID_RANDOMVALUE:
+            rv = new KogsRandomValue();
+            return (KogsBaseObject*)rv; 
 
         default:
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "requested to create unsupported objectType=" << (int)objectType << std::endl);

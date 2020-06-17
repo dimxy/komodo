@@ -1467,7 +1467,7 @@ static void calc_random_hash(uint256 gameid, int32_t num, uint32_t rnd, uint256 
     vcalc_sha256(0, (uint8_t*)&hash, hashBuf, sizeof(hashBuf));
 }
 
-CScript KogsEncodeRandomHashOpreturn(uint256 gameid, int32_t num, uint256 rhash)
+/*CScript KogsEncodeRandomHashOpreturn(uint256 gameid, int32_t num, uint256 rhash)
 {
     CScript opret;
     uint8_t evalcode = EVAL_KOGS;
@@ -1511,7 +1511,7 @@ uint8_t KogsDecodeRandomValueOpreturn(CScript opreturn, uint256 &gameid, int32_t
             funcid == KOGSID_RANDOMVALUE && evalcode == EVAL_KOGS && version == 1)
             return funcid;
     return 0;
-}
+}*/
 
 // collects two sets of transactions, with committed hashes and with actual randoms, 
 // for the gameid and turn number interval [startNum...endNum]
@@ -1539,40 +1539,39 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
         if (std::find_if(randomtxns.begin(), randomtxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == it->first.txhash; }) != randomtxns.end() 
             || myGetTransaction(it->first.txhash, rndtx, hashBlock))  
         {
-            CScript ccdata;
-            MyGetCCDropV2(rndtx.vout[it->first.index].scriptPubKey, ccdata);
-            int32_t numOpret;
-            uint32_t r;
-            uint256 gameidOpret;
-
-            if (KogsDecodeRandomValueOpreturn(ccdata, gameidOpret, numOpret, r) && gameid == gameidOpret && numOpret >= startNum && numOpret <= endNum)
-            {    
-                // colect all commit txns for this random tx
-                for (auto const &vin : rndtx.vin)  {
-                    if (cp->ismyvin(vin.scriptSig)) {
-                        CTransaction hashtx;
-                        uint256 hashBlock;
-                        // check if tx already added to hashes tx set
-                        if (std::find_if(hashtxns.begin(), hashtxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; }) != hashtxns.end())
-                        {
-                            if (myGetTransaction(vin.prevout.hash, hashtx, hashBlock))  // get tx with random hash 
+            std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(rndtx, it->first.index) );
+            if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMVALUE)
+            {   
+                KogsRandomValue *pRndValue = (KogsRandomValue *)spBaseObj.get();
+                if (gameid == pRndValue->gameid && pRndValue->num >= startNum && pRndValue->num <= endNum)
+                {    
+                    // collect all commit txns for this random tx
+                    for (auto const &vin : rndtx.vin)  {
+                        if (cp->ismyvin(vin.scriptSig)) {
+                            CTransaction hashtx;
+                            uint256 hashBlock;
+                            // check if tx already added to hashes tx set
+                            if (std::find_if(hashtxns.begin(), hashtxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; }) != hashtxns.end())
                             {
-                                CScript ccdatavin;
-                                MyGetCCDropV2(hashtx.vout[vin.prevout.n].scriptPubKey, ccdatavin);
-                                int32_t numOpretVin;
-                                uint256 gameidOpretVin, rhash;
-
-                                // check if the vin refers to a commit hash tx
-                                if (KogsDecodeRandomHashOpreturn(ccdatavin, gameidOpretVin, numOpretVin, rhash) && gameid == gameidOpretVin && numOpret == numOpretVin)
+                                if (myGetTransaction(vin.prevout.hash, hashtx, hashBlock))  // get tx with random hash 
                                 {
-                                    hashtxns.push_back(hashtx);          // add tx with random hash 
-                                    break;
+                                    std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(rndtx, it->first.index) );
+                                    if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMHASH)
+                                    {   
+                                        KogsRandomCommit *pRndCommit = (KogsRandomCommit *)spBaseObj.get();
+                                        // check if the vin refers to a commit hash tx
+                                        if (gameid == pRndCommit->gameid && pRndValue->num == pRndCommit->num)
+                                        {
+                                            hashtxns.push_back(hashtx);          // add tx with random hash 
+                                            break;
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
+                    randomtxns.push_back(rndtx);  //add random tx
                 }
-                randomtxns.push_back(rndtx);  //add random tx
             }
             else 
             {
@@ -1591,43 +1590,42 @@ static uint32_t get_random_value(const std::vector<CTransaction> &hashTxns, cons
 
     for(auto const &rndtx : randomTxns)    
     {
-        for(auto const &rndvout : rndtx.vout) 
+        for(int32_t i = 0; i < rndtx.vout.size(); i ++) 
         {
-            CScript ccdata;
-            MyGetCCDropV2(rndvout.scriptPubKey, ccdata); // get cc 
-            int32_t numOpret;
-            uint32_t r;
-            uint256 gameidOpret;
-
-            if (KogsDecodeRandomValueOpreturn(ccdata, gameidOpret, numOpret, r) != 0 && gameid == gameidOpret && num == numOpret)
+            std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(rndtx, i) );
+            if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMVALUE)
             {   
-                // find hash tx and check hash for random r
-                for (auto const &vin : rndtx.vin)  
-                {
-                    if (IsCCInput(vin.scriptSig)) 
+                KogsRandomValue *pRndValue = (KogsRandomValue *)spBaseObj.get();
+                if (gameid == pRndValue->gameid && pRndValue->num == num)
+                {   
+                    // find hash tx and check hash for random r
+                    for (auto const &vin : rndtx.vin)  
                     {
-                        // find vin hash tx:
-                        auto hashtxIt = std::find_if(hashTxns.begin(), hashTxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; });
-                        if (hashtxIt != hashTxns.end())
+                        if (IsCCInput(vin.scriptSig)) 
                         {
-                            CScript ccdatavin;
-                            MyGetCCDropV2(hashtxIt->vout[vin.prevout.n].scriptPubKey, ccdatavin);
-                            int32_t numOpretVin;
-                            uint256 gameidOpretVin, rhash;
+                            // find vin hash tx:
+                            auto hashtxIt = std::find_if(hashTxns.begin(), hashTxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; });
+                            if (hashtxIt != hashTxns.end())
+                            {
+                                std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(*hashtxIt, vin.prevout.n) );
+                                if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMHASH)
+                                {   
+                                    KogsRandomCommit *pRndCommit = (KogsRandomCommit *)spBaseObj.get();
+                                    if (gameid == pRndCommit->gameid && num == pRndCommit->num)
+                                    {   
+                                        uint256 checkHash;
+                                        calc_random_hash(gameid, num, pRndValue->r, checkHash);
+                                        if (checkHash != pRndCommit->hash)  { // check hash for random r
+                                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "hash does not match random for randomtxid=" << rndtx.GetHash().GetHex() <<  " for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
+                                            return 0;
+                                        }
+                                        for (const auto &pk : pks)
+                                            if (TotalPubkeyNormalInputs(*hashtxIt, pk) > 0)
+                                                txpks.insert(pk);       // store pk who created random
 
-                            if (KogsDecodeRandomHashOpreturn(ccdata, gameidOpretVin, numOpretVin, rhash) != 0 && gameid == gameidOpretVin && num == numOpretVin)
-                            {   
-                                uint256 checkHash;
-                                calc_random_hash(gameid, num, r, checkHash);
-                                if (checkHash != rhash)  { // check hash for random r
-                                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "hash does not match random for randomtxid=" << rndtx.GetHash().GetHex() <<  " for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
-                                    return 0;
+                                        result ^= pRndValue->r;  // calc result random as xor
+                                    }
                                 }
-                                for (const auto &pk : pks)
-                                    if (TotalPubkeyNormalInputs(*hashtxIt, pk) > 0)
-                                        txpks.insert(pk);       // store pk who created random
-
-                                result ^= r;  // calc result random as xor
                             }
                         }
                     }
@@ -2703,10 +2701,11 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
             // add random 'commit' vout with its number 'startNum+i' 
             uint256 hash;
             calc_random_hash(gameid, startNum + i, randoms[i], hash);  // get hash with gameid num and random value
-            CScript opret = KogsEncodeRandomHashOpreturn(gameid, startNum+i, hash);
-            vscript_t vopret;
-            GetOpReturnData(opret, vopret);
-            std::vector<vscript_t> vData { vopret };
+
+            KogsRandomCommit rndCommit(gameid, startNum + i, hash);
+            KogsEnclosure enc;  
+            enc.vdata = rndCommit.Marshal();
+            std::vector<vscript_t> vData { enc.vdata };
             mtx.vout.push_back(MakeCC1of2vout(EVAL_KOGS, 1, gametxidPk, mypk, &vData)); // vout to gameid+mypk
         }
 
@@ -2767,42 +2766,35 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
         SetCCunspentsWithMempool(addressUnspents, game1of2addr, true);
 
-        std::cerr << __func__ << " pk=" << HexStr(pk) << " game1of2addr=" << game1of2addr << " addressUnspents.size()=" << addressUnspents.size() << std::endl;
-
         CTransaction tx;  // cached tx
         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it ++)   
         {
-            std::cerr << __func__ << " pk=" << HexStr(pk) << " it->first.txhash=" << it->first.txhash.GetHex() << " it->first.index=" << it->first.index << std::endl;
-
             uint256 hashBlock;
             if (tx.GetHash() == it->first.txhash || myGetTransaction(it->first.txhash, tx, hashBlock))  // use cached tx
             {
-                CScript ccdata;
-                MyGetCCDropV2(tx.vout[it->first.index].scriptPubKey, ccdata);
-                int32_t num;
-                uint256 gameidOpret, hash;
+                std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(tx, it->first.index) );
 
-                if (KogsDecodeRandomHashOpreturn(ccdata, gameidOpret, num, hash) != 0 && gameid == gameidOpret)
+                if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMHASH)
                 {   
-                    if (num >= startNum && num < startNum + randoms.size())
+                    KogsRandomCommit *pRndCommit = (KogsRandomCommit *)spBaseObj.get();
+                    if (pRndCommit->gameid == gameid && pRndCommit->num >= startNum && pRndCommit->num < startNum + randoms.size())
                     {
                         uint256 checkHash;
-                        calc_random_hash(gameid, num, randoms[num], checkHash);
-                        if (checkHash != hash)  {
-                            CCerror = "hash does not match random value for num=" + std::to_string(num);
+                        calc_random_hash(gameid, pRndCommit->num, randoms[pRndCommit->num], checkHash);
+                        if (checkHash != pRndCommit->hash)  {
+                            CCerror = "hash does not match random value for num=" + std::to_string(pRndCommit->num);
                             return NullUniValue;
                         }
-                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "adding committed pk=" << HexStr(pk) << " num=" << num << " gameid=" << gameid.GetHex() << std::endl);
-                        mpkscommitted[num].insert(pk);  // store pk that made commit
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "adding committed pk=" << HexStr(pk) << " num=" << pRndCommit->num << " gameid=" << gameid.GetHex() << std::endl);
+                        mpkscommitted[pRndCommit->num].insert(pk);  // store pk that made commit
                         if (pk == mypk)
-                            mvintxns[num] = std::make_pair(it->first.txhash, it->first.index); // store utxo with commit hash
+                            mvintxns[pRndCommit->num] = std::make_pair(it->first.txhash, it->first.index); // store utxo with commit hash
                     }
                 }
                 else 
                 {
                     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse random hash for tx=" << tx.GetHash().GetHex() << std::endl);
                 }
-                std::cerr << __func__ << " gameidOpret=" << gameidOpret.GetHex() << " num=" << num << std::endl;
             }
         }
     }
@@ -2832,10 +2824,10 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         for (auto const & r : randoms) 
         {
             CScript opret;
-            opret = KogsEncodeRandomValueOpreturn(gameid, i, r);
-            vscript_t vopret;
-            GetOpReturnData(opret, vopret);
-            std::vector<vscript_t> vData { vopret };
+            KogsRandomValue rndValue(gameid, startNum + i, r);
+            KogsEnclosure enc;  
+            enc.vdata = rndValue.Marshal();
+            std::vector<vscript_t> vData { enc.vdata };
             mtx.vout.push_back(MakeCC1of2vout(EVAL_TOKENS, 1, kogsPk, gametxidPk, &vData)); // vout to globalpk+gameid
             i ++;
         }
@@ -4308,7 +4300,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 	std::string errorStr;
 
     //return true;
-    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY14") == 0 && chainActive.Height() <= 744)
+    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY14") == 0 && chainActive.Height() <= 745)
         return true;
     //if (strcmp(ASSETCHAINS_SYMBOL, "RFOXLIKE") == 0 && chainActive.Height() <= 84638)
     //    return true;
@@ -4385,7 +4377,10 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
                     if (!check_ops_on_game_addr(cp, (KogsGameOps*)pBaseObj, tx, errorStr))
                         return log_and_return_error(eval, "invalid oper with game: " + errorStr, tx);
                     else
-                        return true;			
+                        return true;
+                case KOGSID_RANDOMHASH:
+                case KOGSID_RANDOMVALUE:
+                    return true;  // caller would check			
                 default:
                     return log_and_return_error(eval, "invalid object type", tx);
             }
