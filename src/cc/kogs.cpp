@@ -1156,8 +1156,78 @@ static int getRange(const std::vector<KogsSlamRange> &range, int32_t val)
     return -1;
 }
 
+// get commit hash for random plus random id (gameid + num)
+static void calc_random_hash(uint256 gameid, int32_t num, uint32_t rnd, uint256 &hash)
+{
+    uint8_t hashBuf[sizeof(uint256) + sizeof(int32_t) + sizeof(int32_t)];
+
+    memcpy(hashBuf, &gameid, sizeof(uint256));
+    memcpy(hashBuf + sizeof(uint256), &num, sizeof(int32_t));
+    memcpy(hashBuf + sizeof(uint256) + sizeof(int32_t), &rnd, sizeof(int32_t));
+
+    vcalc_sha256(0, (uint8_t*)&hash, hashBuf, sizeof(hashBuf));
+}
+
+// get random value from several values created by several pubkeys, checking randoms match the commited hashes   
+static bool get_random_value(const std::vector<CTransaction> &hashTxns, const std::vector<CTransaction> &randomTxns, const std::set<CPubKey> &pks, uint256 gameid, int32_t num, uint32_t &result)
+{
+    std::set<CPubKey> txpks;
+    result = 0;
+
+    for(auto const &rndtx : randomTxns)    
+    {
+        for(int32_t i = 0; i < rndtx.vout.size(); i ++) 
+        {
+            std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(rndtx, i) );
+            if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMVALUE)
+            {   
+                KogsRandomValue *pRndValue = (KogsRandomValue *)spBaseObj.get();
+                if (gameid == pRndValue->gameid && pRndValue->num == num)
+                {   
+                    // find hash tx and check hash for random r
+                    for (auto const &vin : rndtx.vin)  
+                    {
+                        if (IsCCInput(vin.scriptSig)) 
+                        {
+                            // find vin hash tx:
+                            auto hashtxIt = std::find_if(hashTxns.begin(), hashTxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; });
+                            if (hashtxIt != hashTxns.end())
+                            {
+                                std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(*hashtxIt, vin.prevout.n) );
+                                if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMHASH)
+                                {   
+                                    KogsRandomCommit *pRndCommit = (KogsRandomCommit *)spBaseObj.get();
+                                    if (gameid == pRndCommit->gameid && num == pRndCommit->num)
+                                    {   
+                                        uint256 checkHash;
+                                        calc_random_hash(gameid, num, pRndValue->r, checkHash);
+                                        if (checkHash != pRndCommit->hash)  { // check hash for random r
+                                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "hash does not match random for randomtxid=" << rndtx.GetHash().GetHex() <<  " for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
+                                            return false;
+                                        }
+                                        for (const auto &pk : pks)
+                                            if (TotalPubkeyNormalInputs(*hashtxIt, pk) > 0)
+                                                txpks.insert(pk);       // store pk who created random
+
+                                        result ^= pRndValue->r;  // calc result random as xor
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (txpks != pks)   {
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "random pks do not match for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
+        return false;
+    }
+    return true;
+}
+
 // flip kogs based on slam data and height and strength ranges
-static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, const KogsBaseObject *pInitBaton)
+static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, const KogsBaton *pInitBaton)
 {
     std::vector<KogsSlamRange> heightRanges = heightRangesDefault;
     std::vector<KogsSlamRange> strengthRanges = strengthRangesDefault;
@@ -1175,16 +1245,37 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "slamparam out of range: iheight=" << iheight << " heightRanges.size=" << heightRanges.size() << " istrength=" << istrength  << " strengthRanges.size=" << strengthRanges.size() << std::endl);
         return false;
     }
+
+     // get player pubkeys to verify randoms:
+    std::set<CPubKey> playerpks;
+    for (auto const &spPlayer : newbaton.spPlayers)
+        playerpks.insert(spPlayer->encOrigPk);
+        
     // calc percentage of flipped based on height or ranges
+    uint32_t randomHeightRange, randomStrengthRange;
     if (pInitBaton == nullptr)  {
         // make random range offset
-        newbaton.randomHeightRange = rand();
-        newbaton.randomStrengthRange = rand();  
+        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, newbaton.prevturncount*2+1, randomHeightRange)) {
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+1 << std::endl);
+            return false;
+        }
+        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, newbaton.prevturncount*2+2, randomStrengthRange)) {
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+2 << std::endl);
+            return false;  
+        }
     }
     else {
         // use randoms existing in the validated baton or gamefinished to make test baton for validation
-        newbaton.randomHeightRange = ((KogsBaton*)pInitBaton)->randomHeightRange;
-        newbaton.randomStrengthRange = ((KogsBaton*)pInitBaton)->randomStrengthRange;
+        if (!get_random_value(pInitBaton->hashtxns, pInitBaton->randomtxns, playerpks, newbaton.gameid, pInitBaton->prevturncount*2+1, randomHeightRange)) {
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+1 << std::endl);
+            return false;
+        }
+        if (!get_random_value(pInitBaton->hashtxns, pInitBaton->randomtxns, playerpks, newbaton.gameid, pInitBaton->prevturncount*2+2, randomStrengthRange))  {
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+2 << std::endl);
+            return false; 
+        }
+        // newbaton.randomHeightRange = ((KogsBaton*)pInitBaton)->randomHeightRange;
+        // newbaton.randomStrengthRange = ((KogsBaton*)pInitBaton)->randomStrengthRange;
     }
     int heightFract = heightRanges[iheight].left + newbaton.randomHeightRange % (heightRanges[iheight].right - heightRanges[iheight].left);
     int strengthFract = strengthRanges[istrength].left + newbaton.randomStrengthRange % (strengthRanges[istrength].right - strengthRanges[istrength].left);
@@ -1308,7 +1399,7 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
     return true;
 }
 
-static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *prevbaton, KogsBaton &newbaton, const KogsBaseObject *pInitBaton)
+static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *prevbaton, KogsBaton &newbaton, const KogsBaton *pInitBaton)
 {   
     if (prevbaton == nullptr) // check for internal logic error
     {
@@ -1458,18 +1549,6 @@ static uint256 GetWinner(const KogsBaton *pbaton)
 
 // multiple player random value support:
 
-// get commit hash for random plus random id (gameid + num)
-static void calc_random_hash(uint256 gameid, int32_t num, uint32_t rnd, uint256 &hash)
-{
-    uint8_t hashBuf[sizeof(uint256) + sizeof(int32_t) + sizeof(int32_t)];
-
-    memcpy(hashBuf, &gameid, sizeof(uint256));
-    memcpy(hashBuf + sizeof(uint256), &num, sizeof(int32_t));
-    memcpy(hashBuf + sizeof(uint256) + sizeof(int32_t), &rnd, sizeof(int32_t));
-
-    vcalc_sha256(0, (uint8_t*)&hash, hashBuf, sizeof(hashBuf));
-}
-
 /*CScript KogsEncodeRandomHashOpreturn(uint256 gameid, int32_t num, uint256 rhash)
 {
     CScript opret;
@@ -1583,68 +1662,7 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
 }
 
 
-// get random value from several values created by several pubkeys, checking randoms match the commited hashes   
-static uint32_t get_random_value(const std::vector<CTransaction> &hashTxns, const std::vector<CTransaction> &randomTxns, const std::set<CPubKey> &pks, uint256 gameid, int32_t num)
-{
-    std::set<CPubKey> txpks;
-    uint32_t result = 0;
 
-    for(auto const &rndtx : randomTxns)    
-    {
-        for(int32_t i = 0; i < rndtx.vout.size(); i ++) 
-        {
-            std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(rndtx, i) );
-            if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMVALUE)
-            {   
-                KogsRandomValue *pRndValue = (KogsRandomValue *)spBaseObj.get();
-                if (gameid == pRndValue->gameid && pRndValue->num == num)
-                {   
-                    // find hash tx and check hash for random r
-                    for (auto const &vin : rndtx.vin)  
-                    {
-                        if (IsCCInput(vin.scriptSig)) 
-                        {
-                            // find vin hash tx:
-                            auto hashtxIt = std::find_if(hashTxns.begin(), hashTxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; });
-                            if (hashtxIt != hashTxns.end())
-                            {
-                                std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(*hashtxIt, vin.prevout.n) );
-                                if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMHASH)
-                                {   
-                                    KogsRandomCommit *pRndCommit = (KogsRandomCommit *)spBaseObj.get();
-                                    if (gameid == pRndCommit->gameid && num == pRndCommit->num)
-                                    {   
-                                        uint256 checkHash;
-                                        calc_random_hash(gameid, num, pRndValue->r, checkHash);
-                                        if (checkHash != pRndCommit->hash)  { // check hash for random r
-                                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "hash does not match random for randomtxid=" << rndtx.GetHash().GetHex() <<  " for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
-                                            return 0;
-                                        }
-                                        for (const auto &pk : pks)
-                                            if (TotalPubkeyNormalInputs(*hashtxIt, pk) > 0)
-                                                txpks.insert(pk);       // store pk who created random
-
-                                        result ^= pRndValue->r;  // calc result random as xor
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    if (txpks != pks)   {
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "random pks do not match for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
-        return 0;
-    }
-
-    if (result == 0)    {
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "did not find randoms for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
-        return 0;
-    }
-    return result;
-}
 
 // creates new baton object, manages stack according to slam data
 static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayer, KogsSlamData *pSlamparam, KogsBaton &newbaton, const KogsBaton *pInitBaton)
@@ -1694,11 +1712,13 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
             playerpks.insert(spPlayer->encOrigPk);
 
 		// randomly select whose turn is the first:
-        if (pInitBaton == nullptr)      {
-            
-            uint32_t r = get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, pgame->creationtxid, 0);
-            if (r == 0)
+        if (pInitBaton == nullptr)      
+        {    
+            uint32_t r;
+            if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, pgame->creationtxid, 0, r))  {
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << pgame->creationtxid.GetHex() << " num=" << 0 << std::endl);
                 return false;
+            }
 		    // nextturn = rand() % pgame->playerids.size();
             nextturn = r % pgame->playerids.size();
         }
@@ -1706,9 +1726,11 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         {
             //nextturn = ((KogsBaton*)pInitBaton)->nextturn; // validate
             // validate random value:
-            uint32_t r = get_random_value(pInitBaton->hashtxns, pInitBaton->randomtxns, playerpks, pgame->creationtxid, 0);
-            if (r == 0)
+            uint32_t r;
+            if (!get_random_value(pInitBaton->hashtxns, pInitBaton->randomtxns, playerpks, pgame->creationtxid, 0, r))  {
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << pgame->creationtxid.GetHex() << " num=" << 0 << std::endl);
                 return false;
+            }
             nextturn = r % pgame->playerids.size();
         }
 		playerids = pgame->playerids;
@@ -1996,6 +2018,11 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
         uint256 dummygameid;
 
         get_random_txns(gameid, 0, 0, newbaton.hashtxns, newbaton.randomtxns);  // add txns with random hashes and values
+        if (newbaton.hashtxns.size() == 0 || newbaton.randomtxns.size() == 0)
+        {
+            CCerror = "no commit or random txns";
+            return NullUniValue;
+        }
         if (CreateNewBaton(spPrevObj.get(), dummygameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr))
         {    
             const int32_t batonvout = 2;
@@ -2612,6 +2639,11 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
         KogsBaton* pbaton = (KogsBaton*)spPrevBaton.get();
 
         get_random_txns(newSlamData.gameid, pbaton->prevturncount*2+1, pbaton->prevturncount*2+2, newbaton.hashtxns, newbaton.randomtxns);  // add txns with random hashes and values
+        if (newbaton.hashtxns.size() == 0 || newbaton.randomtxns.size() == 0)
+        {
+            CCerror = "no commit or random txns";
+            return NullUniValue;
+        }
         if (CreateNewBaton(spPrevBaton.get(), dummygameid, spGameConfig, spPlayer, &newSlamData, newbaton, nullptr))
         {    
             const int32_t batonvout = 0;
@@ -2891,8 +2923,8 @@ UniValue KogsGetRandom(const CPubKey &remotepk, uint256 gameid, int32_t num)
         return NullUniValue;
     }
 
-    uint32_t r = get_random_value(hashTxns, randomTxns, pks, gameid, num);
-    if (r == 0) {
+    uint32_t r;
+    if (!get_random_value(hashTxns, randomTxns, pks, gameid, num, r))  {
         CCerror = "could not get random value";
         return NullUniValue;
     }
