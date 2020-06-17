@@ -2749,6 +2749,8 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerid) );
         pks.insert(spPlayer->encOrigPk);
     }
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "player pks.size()=" << pks.size() << " startNum=" << startNum << " randoms.size()=" << randoms.size() << " gameid=" << gameid.GetHex() << std::endl);
+
 
     uint8_t kogspriv[32];
     char game1of2addr[KOMODO_ADDRESS_BUFSIZE];
@@ -2797,6 +2799,11 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse random hash for tx=" << tx.GetHash().GetHex() << std::endl);
             }
         }
+    }
+
+    if (mpkscommitted.size() != randoms.size()) {
+        CCerror = "no pubkeys found for committed randoms";
+        return NullUniValue;
     }
 
     // check all pks committed
