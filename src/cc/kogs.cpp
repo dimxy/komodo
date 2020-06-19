@@ -3503,6 +3503,10 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
             info.push_back(std::make_pair("gameconfigid", batonobj->gameconfigid.GetHex()));
             info.push_back(std::make_pair("nextplayerid", batonobj->playerids[batonobj->nextturn].GetHex()));
             info.push_back(std::make_pair("nextturn", batonobj->nextturn));
+            info.push_back(std::make_pair("turncount", batonobj->prevturncount));
+            info.push_back(std::make_pair("ArmHeight", batonobj->armHeight));
+            info.push_back(std::make_pair("ArmStrength", batonobj->armStrength));
+
             for (const auto &t : batonobj->kogsInStack)
                 infotokenids.push_back(t.GetHex());
             info.push_back(std::make_pair("kogsInStack", infotokenids));
