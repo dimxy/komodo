@@ -1219,6 +1219,9 @@ static bool get_random_value(const std::vector<CTransaction> &hashTxns, const st
             }
         }
     }
+
+    for( auto pk : txpks) std::cerr << __func__ << " txpks=" << HexStr(pk) << std::endl;
+
     if (txpks != pks)   {
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "random pks do not match for gameid=" << gameid.GetHex() << " num=" << num << std::endl);
         return false;
@@ -1726,6 +1729,8 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         std::set<CPubKey> playerpks;
         for (auto const &spPlayer : newbaton.spPlayers)
             playerpks.insert(spPlayer->encOrigPk);
+
+        for( auto pk : playerpks) std::cerr << __func__ << " playerpk=" << HexStr(pk) << std::endl;
 
 		// randomly select whose turn is the first:
         if (pInitBaton == nullptr)      
