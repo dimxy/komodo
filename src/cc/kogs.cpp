@@ -1265,12 +1265,27 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
         }
     }
     else {
-        // use randoms existing in the validated baton or gamefinished to make test baton for validation
-        if (!get_random_value(pInitBaton->hashtxns, pInitBaton->randomtxns, playerpks, newbaton.gameid, pInitBaton->prevturncount*2+1, randomHeightRange)) {
+        // load randoms from txids in the validated baton
+        std::vector<CTransaction> randomtxns;
+        for (auto const &txid : pInitBaton->randomtxids)    {
+            CTransaction tx;
+            uint256 hashBlock;
+            if (myGetTransaction(txid, tx, hashBlock))
+                randomtxns.push_back(tx);
+        }
+        std::vector<CTransaction> hashtxns;
+        for (auto const &txid : pInitBaton->hashtxids)    {
+            CTransaction tx;
+            uint256 hashBlock;
+            if (myGetTransaction(txid, tx, hashBlock))
+                hashtxns.push_back(tx);
+        }
+        
+        if (!get_random_value(hashtxns, randomtxns, playerpks, newbaton.gameid, pInitBaton->prevturncount*2+1, randomHeightRange)) {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+1 << std::endl);
             return false;
         }
-        if (!get_random_value(pInitBaton->hashtxns, pInitBaton->randomtxns, playerpks, newbaton.gameid, pInitBaton->prevturncount*2+2, randomStrengthRange))  {
+        if (!get_random_value(hashtxns, randomtxns, playerpks, newbaton.gameid, pInitBaton->prevturncount*2+2, randomStrengthRange))  {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+2 << std::endl);
             return false; 
         }
@@ -1725,9 +1740,27 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         else
         {
             //nextturn = ((KogsBaton*)pInitBaton)->nextturn; // validate
+
+            // load random txns:
+            std::vector<CTransaction> randomtxns;
+            for (auto const &txid : pInitBaton->randomtxids)    {
+                CTransaction tx;
+                uint256 hashBlock;
+                if (myGetTransaction(txid, tx, hashBlock))
+                    randomtxns.push_back(tx);
+            }
+            // load hash txns
+            std::vector<CTransaction> hashtxns;
+            for (auto const &txid : pInitBaton->hashtxids)    {
+                CTransaction tx;
+                uint256 hashBlock;
+                if (myGetTransaction(txid, tx, hashBlock))
+                    hashtxns.push_back(tx);
+            }
+
             // validate random value:
             uint32_t r;
-            if (!get_random_value(pInitBaton->hashtxns, pInitBaton->randomtxns, playerpks, pgame->creationtxid, 0, r))  {
+            if (!get_random_value(hashtxns, randomtxns, playerpks, pgame->creationtxid, 0, r))  {
                 LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << pgame->creationtxid.GetHex() << " num=" << 0 << std::endl);
                 return false;
             }

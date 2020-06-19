@@ -688,6 +688,8 @@ struct KogsBaton : public KogsBaseObject {
     int32_t randomHeightRange, randomStrengthRange;
     int32_t armHeight, armStrength;
     std::vector<CTransaction> hashtxns, randomtxns;
+    std::vector<uint256> hashtxids, randomtxids;
+
 
     uint8_t isFinished;
     uint256 winnerid;
@@ -724,14 +726,16 @@ struct KogsBaton : public KogsBaseObject {
                 READWRITE(hashtxnsSize);
                 hashtxns.clear();
                 while (hashtxnsSize-- > 0) {
-                    CTransaction hashtx;
-                    READWRITE(hashtx);
-                    hashtxns.push_back(hashtx);
+                    uint256 txid;
+                    READWRITE(txid);
+                    hashtxids.push_back(txid);
                 }
             }
             else {
-                for (auto & hashtx : hashtxns)
-                    READWRITE(hashtx);
+                for (const auto & hashtx : hashtxns)  {
+                    uint256 txid = hashtx.GetHash();
+                    READWRITE(txid);
+                }
             }
 
             // read/write random txns:
@@ -740,14 +744,16 @@ struct KogsBaton : public KogsBaseObject {
                 READWRITE(randomtxnsSize);
                 randomtxns.clear();
                 while (randomtxnsSize-- > 0) {
-                    CTransaction randomtx;
-                    READWRITE(randomtx);
-                    hashtxns.push_back(randomtx);
+                    uint256 txid;
+                    READWRITE(txid);
+                    hashtxids.push_back(txid);
                 }
             }
             else {
-                for (auto & randomtx : randomtxns)
-                    READWRITE(randomtx);
+                for (const auto & randomtx : randomtxns)  {
+                    uint256 txid = randomtx.GetHash();
+                    READWRITE(txid);
+                }
             }
 
             READWRITE(isFinished);
