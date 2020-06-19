@@ -40,6 +40,7 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     { "kogsslammerlist", true }, { "kogscontainerlist", true }, { "kogsplayerlist", true }, { "kogsgameconfiglist", true },
     { "kogsgamelist", true }, { "kogsremoveobject", true }, { "kogsslamdata",  true }, { "kogsobjectinfo", true }, { "kogsadvertiseplayer", true },{ "kogsstopadvertiseplayer", true }, { "kogsadvertisedplayerlist", true },
     { "kogsbalance", true }, { "kogsdeposittokens", true }, { "kogsdepositedslammerlist", true }, { "kogsclaimdepositedtoken", true }, { "kogscreatefirstbaton", true },
+    { "kogscommitrandoms", true },   { "kogsrevealrandoms", true },
     // tokens:
     { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokencancelask", true }, { "tokencancelbid", true }, 
     { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false }
