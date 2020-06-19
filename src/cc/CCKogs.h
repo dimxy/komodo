@@ -686,7 +686,7 @@ struct KogsBaton : public KogsBaseObject {
     std::vector<std::pair<uint256, uint256>> kogsFlipped;
     
     //int32_t randomHeightRange, randomStrengthRange;
-    //int32_t armHeight, armStrength;
+    int32_t armHeight, armStrength;
     std::vector<CTransaction> hashtxns, randomtxns;
     std::vector<uint256> hashtxids, randomtxids;
 
@@ -716,8 +716,8 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(kogsFlipped);
             // READWRITE(randomHeightRange);
             // READWRITE(randomStrengthRange);
-            // READWRITE(armHeight);
-            // READWRITE(armStrength);
+            READWRITE(armHeight);
+            READWRITE(armStrength);
 
             // read/write hash txids:
             int32_t hashtxnsSize;
@@ -787,7 +787,7 @@ struct KogsBaton : public KogsBaseObject {
         nextturn = 0;
         prevturncount = 0;
         armHeight = armStrength = 0;
-        randomHeightRange = randomStrengthRange = 0;
+        //randomHeightRange = randomStrengthRange = 0;
         isFinished = 0;
     }
 

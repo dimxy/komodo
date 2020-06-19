@@ -1296,8 +1296,8 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
         // newbaton.randomHeightRange = ((KogsBaton*)pInitBaton)->randomHeightRange;
         // newbaton.randomStrengthRange = ((KogsBaton*)pInitBaton)->randomStrengthRange;
     }
-    int heightFract = heightRanges[iheight].left + newbaton.randomHeightRange % (heightRanges[iheight].right - heightRanges[iheight].left);
-    int strengthFract = strengthRanges[istrength].left + newbaton.randomStrengthRange % (strengthRanges[istrength].right - strengthRanges[istrength].left);
+    int heightFract = heightRanges[iheight].left + randomHeightRange % (heightRanges[iheight].right - heightRanges[iheight].left);
+    int strengthFract = strengthRanges[istrength].left + randomStrengthRange % (strengthRanges[istrength].right - strengthRanges[istrength].left);
     int totalFract = heightFract + strengthFract;
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "heightFract=" << heightFract << " strengthFract=" << strengthFract << std::endl);
@@ -3405,7 +3405,6 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         KogsGameOps *goobj;
         KogsRandomCommit *rc;
         KogsRandomValue *rv;
-        UniValue hashtxids(UniValue::VARR), randomtxids(UniValue::VARR);
 
     case KOGSID_KOG:
     case KOGSID_SLAMMER:
@@ -3494,27 +3493,32 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         break;*/
 
     case KOGSID_BATON:
-        batonobj = (KogsBaton*)pobj;
-        info.push_back(std::make_pair("gameid", batonobj->gameid.GetHex()));
-        info.push_back(std::make_pair("gameconfigid", batonobj->gameconfigid.GetHex()));
-        info.push_back(std::make_pair("nextplayerid", batonobj->playerids[batonobj->nextturn].GetHex()));
-        info.push_back(std::make_pair("nextturn", batonobj->nextturn));
-        for (const auto &t : batonobj->kogsInStack)
-            infotokenids.push_back(t.GetHex());
-        info.push_back(std::make_pair("kogsInStack", infotokenids));
-        for (const auto &f : batonobj->kogsFlipped)
         {
-            UniValue elem(UniValue::VOBJ);
-            elem.push_back(std::make_pair(f.first.GetHex(), f.second.GetHex()));
-            flipped.push_back(elem);
-        }
-        info.push_back(std::make_pair("kogsFlipped", flipped));
-        for (const auto &t : batonobj->hashtxids)
-            hashtxids.push_back(t.GetHex());
-        info.push_back(std::make_pair("hashtxids", hashtxids));
-        for (const auto &t : batonobj->randomtxids)
-            randomtxids.push_back(t.GetHex());
-        info.push_back(std::make_pair("randomtxids", randomtxids));        
+            UniValue hashtxids(UniValue::VARR);
+            UniValue randomtxids(UniValue::VARR);
+
+            batonobj = (KogsBaton*)pobj;
+            info.push_back(std::make_pair("gameid", batonobj->gameid.GetHex()));
+            info.push_back(std::make_pair("gameconfigid", batonobj->gameconfigid.GetHex()));
+            info.push_back(std::make_pair("nextplayerid", batonobj->playerids[batonobj->nextturn].GetHex()));
+            info.push_back(std::make_pair("nextturn", batonobj->nextturn));
+            for (const auto &t : batonobj->kogsInStack)
+                infotokenids.push_back(t.GetHex());
+            info.push_back(std::make_pair("kogsInStack", infotokenids));
+            for (const auto &f : batonobj->kogsFlipped)
+            {
+                UniValue elem(UniValue::VOBJ);
+                elem.push_back(std::make_pair(f.first.GetHex(), f.second.GetHex()));
+                flipped.push_back(elem);
+            }
+            info.push_back(std::make_pair("kogsFlipped", flipped));
+            for (const auto &t : batonobj->hashtxids)
+                hashtxids.push_back(t.GetHex());
+            info.push_back(std::make_pair("hashtxids", hashtxids));
+            for (const auto &t : batonobj->randomtxids)
+                randomtxids.push_back(t.GetHex());
+            info.push_back(std::make_pair("randomtxids", randomtxids));    
+        }    
         break;  
 
 /*    case KOGSID_SLAMPARAMS:
