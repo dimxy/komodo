@@ -1883,6 +1883,7 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         // create gamefinished object:
 		newbaton.isFinished = 1;
 		newbaton.winnerid = GetWinner(&newbaton);
+        std::cerr << __func__ << " winner=" << newbaton.winnerid << std::endl;
         return true;
 	}
 	return true;

@@ -802,14 +802,13 @@ struct KogsBaton : public KogsBaseObject {
         std::set<uint256> set2(kogsInStack.begin(), kogsInStack.end());
         if (set1 != set2)
             return true;
+        
+        if (baton.nextturn != nextturn ||
+//          baton.nextplayerid != nextplayerid ||
+            baton.prevturncount != prevturncount)
+            return true; 
 
-        if (!isFinished)    {
-            if (baton.nextturn != nextturn ||
-//                baton.nextplayerid != nextplayerid ||
-                baton.prevturncount != prevturncount)
-                return true; 
-        }
-        else {
+        if (isFinished)    {
             if (baton.winnerid != winnerid)
                 return true;
         }
