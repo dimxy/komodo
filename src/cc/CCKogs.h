@@ -758,15 +758,10 @@ struct KogsBaton : public KogsBaseObject {
                     READWRITE(txid);
                 }
             }
-
+            READWRITE(nextturn);
+            READWRITE(prevturncount);
             READWRITE(isFinished);
-            if (!isFinished) {
-                READWRITE(nextturn);
-                READWRITE(prevturncount);
-//                READWRITE(nextplayerid);
-            } else {
-                READWRITE(nextturn);
-                READWRITE(prevturncount);
+            if (isFinished) {
                 READWRITE(winnerid);
             }
         }
