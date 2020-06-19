@@ -1265,7 +1265,7 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
         }
     }
     else {
-        // load randoms from txids in the validated baton
+        // load random txns from txids in the validated baton
         std::vector<CTransaction> randomtxns;
         for (auto const &txid : pInitBaton->randomtxids)    {
             CTransaction tx;
@@ -1273,6 +1273,7 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
             if (myGetTransaction(txid, tx, hashBlock))
                 randomtxns.push_back(tx);
         }
+        // load hash txns from txids in the validated baton
         std::vector<CTransaction> hashtxns;
         for (auto const &txid : pInitBaton->hashtxids)    {
             CTransaction tx;

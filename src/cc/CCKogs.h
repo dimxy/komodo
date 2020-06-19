@@ -714,17 +714,16 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(playerids);
             READWRITE(kogsInStack);
             READWRITE(kogsFlipped);
-            READWRITE(randomHeightRange);
-            READWRITE(randomStrengthRange);
-            READWRITE(armHeight);
-            READWRITE(armStrength);
-            READWRITE(armStrength);
+            // READWRITE(randomHeightRange);
+            // READWRITE(randomStrengthRange);
+            // READWRITE(armHeight);
+            // READWRITE(armStrength);
 
             // read/write hash txns:
+            int32_t hashtxnsSize;
             if (ser_action.ForRead()) {
-                int32_t hashtxnsSize;
                 READWRITE(hashtxnsSize);
-                hashtxns.clear();
+                hashtxids.clear();
                 while (hashtxnsSize-- > 0) {
                     uint256 txid;
                     READWRITE(txid);
@@ -732,6 +731,8 @@ struct KogsBaton : public KogsBaseObject {
                 }
             }
             else {
+                hashtxnsSize = hashtxns.size();
+                READWRITE(hashtxnsSize);
                 for (const auto & hashtx : hashtxns)  {
                     uint256 txid = hashtx.GetHash();
                     READWRITE(txid);
@@ -739,10 +740,10 @@ struct KogsBaton : public KogsBaseObject {
             }
 
             // read/write random txns:
+            int32_t randomtxnsSize;
             if (ser_action.ForRead()) {
-                int32_t randomtxnsSize;
                 READWRITE(randomtxnsSize);
-                randomtxns.clear();
+                randomtxids.clear();
                 while (randomtxnsSize-- > 0) {
                     uint256 txid;
                     READWRITE(txid);
@@ -750,6 +751,8 @@ struct KogsBaton : public KogsBaseObject {
                 }
             }
             else {
+                randomtxnsSize = randomtxns.size();
+                READWRITE(randomtxnsSize);
                 for (const auto & randomtx : randomtxns)  {
                     uint256 txid = randomtx.GetHash();
                     READWRITE(txid);
