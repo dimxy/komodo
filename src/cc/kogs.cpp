@@ -2803,11 +2803,14 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     {
         char game1of2addr[KOMODO_ADDRESS_BUFSIZE];
         GetCCaddress1of2(cp, game1of2addr, gametxidPk, pk); 
-        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-        SetCCunspentsWithMempool(addressUnspents, game1of2addr, true);
+        //std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+        // SetCCunspentsWithMempool(addressUnspents, game1of2addr, true);
+        std::vector<std::pair<CAddressIndexKey, CAmount> > addressOutputs;
+        SetCCtxidsWithMempool(addressOutputs, game1of2addr, true);   // use SetCCtxidsWithMempool as commit utxo might be spent by another reveal tx
 
         CTransaction tx;  // cached tx
-        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it ++)   
+        //for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it ++)   
+        for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressOutputs.begin(); it != addressOutputs.end(); it ++)   
         {
             uint256 hashBlock;
             if (tx.GetHash() == it->first.txhash || myGetTransaction(it->first.txhash, tx, hashBlock))  // use cached tx

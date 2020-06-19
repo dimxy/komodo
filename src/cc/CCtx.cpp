@@ -487,7 +487,6 @@ void NSPV_CCtxids(std::vector<uint256> &txids,char *coinaddr,bool ccflag, uint8_
 static void AddCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC)
 {
     // lock mempool
-    //ENTER_CRITICAL_SECTION(cs_main);
     ENTER_CRITICAL_SECTION(mempool.cs);
 
     for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
@@ -534,7 +533,51 @@ static void AddCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAd
         }
     }
     LEAVE_CRITICAL_SECTION(mempool.cs);
-    //LEAVE_CRITICAL_SECTION(cs_main);
+}
+
+// set cc or normal txids from mempool
+static void AddCCtxidsInMempool(std::vector<std::pair<CAddressIndexKey, CAmount> > &outputs, char *destaddr, bool isCC)
+{
+    // lock mempool
+    ENTER_CRITICAL_SECTION(mempool.cs);
+
+    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
+        mi != mempool.mapTx.end(); ++mi)
+    {
+        const CTransaction& memtx = mi->GetTx();
+        for (int32_t i = 0; i < memtx.vout.size(); i++)
+        {
+            if (isCC && memtx.vout[i].scriptPubKey.IsPayToCryptoCondition() || 
+                !isCC && !memtx.vout[i].scriptPubKey.IsPayToCryptoCondition())
+            {
+                char voutaddr[KOMODO_ADDRESS_BUFSIZE];
+                Getscriptaddress(voutaddr, memtx.vout[i].scriptPubKey);
+                if (strcmp(voutaddr, destaddr) == 0)
+                {
+                    uint160 hashBytes;
+                    std::string addrstr(destaddr);
+                    CBitcoinAddress address(addrstr);
+                    int type;
+
+                    if (address.GetIndexKey(hashBytes, type, isCC) == 0)
+                        continue;
+
+                    // create address output key value pair
+                    CAddressIndexKey key;
+                    CAmount value;
+
+                    key.type = type;
+                    key.hashBytes = hashBytes;
+                    key.txhash = memtx.GetHash();
+                    key.index = i;
+
+                    value = memtx.vout[i].nValue;
+                    outputs.push_back(std::make_pair(key, value));
+                }
+            }
+        }
+    }
+    LEAVE_CRITICAL_SECTION(mempool.cs);
 }
 
 void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool ccflag)
@@ -632,6 +675,13 @@ void SetCCtxids(std::vector<uint256> &txids,char *coinaddr,bool ccflag, uint8_t 
             if ((amount==0 && it1->second>=0) || (amount>0 && it1->second==amount)) txids.push_back(it1->first.txhash);
         }
     } 
+}
+
+// SetCCtxids with mempool lookup
+void SetCCtxidsWithMempool(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,char *coinaddr, bool ccflag)
+{
+    SetCCtxids(addressIndex, coinaddr, ccflag);
+    AddCCtxidsInMempool(addressIndex, coinaddr, ccflag);
 }
 
 int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCflag)

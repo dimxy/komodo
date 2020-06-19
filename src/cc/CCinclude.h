@@ -817,6 +817,12 @@ void SetCCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex
 /// @param func funcid for which outputs will be filtered
 void SetCCtxids(std::vector<uint256> &txids,char *coinaddr,bool ccflag, uint8_t evalcode, int64_t amount, uint256 filtertxid, uint8_t func);
 
+/// SetCCtxidsWithMempool returns a vector of all outputs on an address also looking in mempool
+/// @param[out] addressIndex vector of pairs of address index key and amount
+/// @param coinaddr address where the unspent outputs are searched
+/// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
+void SetCCtxidsWithMempool(std::vector<std::pair<CAddressIndexKey, CAmount> > &addressIndex,char *coinaddr, bool ccflag);
+
 /// In NSPV mode adds normal (not cc) inputs to the transaction object vin array for the specified total amount using available utxos on mypk's TX_PUBKEY address
 /// @param mtx mutable transaction object
 /// @param mypk pubkey to make TX_PUBKEY address from
