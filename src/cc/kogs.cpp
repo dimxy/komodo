@@ -1883,7 +1883,7 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         // create gamefinished object:
 		newbaton.isFinished = 1;
 		newbaton.winnerid = GetWinner(&newbaton);
-        std::cerr << __func__ << " winner=" << newbaton.winnerid << std::endl;
+        std::cerr << __func__ << " winner=" << newbaton.winnerid.GetHex() << std::endl;
         return true;
 	}
 	return true;
@@ -3519,7 +3519,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
             for (const auto &t : batonobj->randomtxids)
                 randomtxids.push_back(t.GetHex());
             info.push_back(std::make_pair("randomtxids", randomtxids));    
-            info.push_back(std::make_pair("isFinished", batonobj->isFinished ? "1" : "0"));    
+            info.push_back(std::make_pair("finished", (batonobj->isFinished ? std::string("true") : std::string("false"))));
             if (batonobj->isFinished)
                 info.push_back(std::make_pair("WinnerId", batonobj->winnerid.GetHex()));    
         }    
