@@ -3519,6 +3519,9 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
             for (const auto &t : batonobj->randomtxids)
                 randomtxids.push_back(t.GetHex());
             info.push_back(std::make_pair("randomtxids", randomtxids));    
+            info.push_back(std::make_pair("isFinished", batonobj->isFinished ? "1" : "0"));    
+            if (batonobj->isFinished)
+                info.push_back(std::make_pair("WinnerId", batonobj->winnerid.GetHex()));    
         }    
         break;  
 
