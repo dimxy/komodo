@@ -3405,6 +3405,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         KogsGameOps *goobj;
         KogsRandomCommit *rc;
         KogsRandomValue *rv;
+        UniValue hashtxids(UniValue::VARR), randomstxids(UniValue::VARR);
 
     case KOGSID_KOG:
     case KOGSID_SLAMMER:
@@ -3499,9 +3500,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         info.push_back(std::make_pair("nextplayerid", batonobj->playerids[batonobj->nextturn].GetHex()));
         info.push_back(std::make_pair("nextturn", batonobj->nextturn));
         for (const auto &t : batonobj->kogsInStack)
-        {
             infotokenids.push_back(t.GetHex());
-        }
         info.push_back(std::make_pair("kogsInStack", infotokenids));
         for (const auto &f : batonobj->kogsFlipped)
         {
@@ -3510,6 +3509,12 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
             flipped.push_back(elem);
         }
         info.push_back(std::make_pair("kogsFlipped", flipped));
+        for (const auto &t : batonobj->hashtxids)
+            hashtxids.push_back(t.GetHex());
+        info.push_back(std::make_pair("hashtxids", hashtxids));
+        for (const auto &t : batonobj->randomtxids)
+            randomtxids.push_back(t.GetHex());
+        info.push_back(std::make_pair("randomtxids", randomtxids));        
         break;  
 
 /*    case KOGSID_SLAMPARAMS:
