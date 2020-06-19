@@ -1159,11 +1159,11 @@ static int getRange(const std::vector<KogsSlamRange> &range, int32_t val)
 // get commit hash for random plus random id (gameid + num)
 static void calc_random_hash(uint256 gameid, int32_t num, uint32_t rnd, uint256 &hash)
 {
-    uint8_t hashBuf[sizeof(uint256) + sizeof(int32_t) + sizeof(int32_t)];
+    uint8_t hashBuf[sizeof(uint256) + sizeof(int32_t) + sizeof(uint32_t)];
 
     memcpy(hashBuf, &gameid, sizeof(uint256));
     memcpy(hashBuf + sizeof(uint256), &num, sizeof(int32_t));
-    memcpy(hashBuf + sizeof(uint256) + sizeof(int32_t), &rnd, sizeof(int32_t));
+    memcpy(hashBuf + sizeof(uint256) + sizeof(int32_t), &rnd, sizeof(uint32_t));
 
     vcalc_sha256(0, (uint8_t*)&hash, hashBuf, sizeof(hashBuf));
 }
@@ -2856,27 +2856,30 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
             if (tx.GetHash() == it->first.txhash || myGetTransaction(it->first.txhash, tx, hashBlock))  // use cached tx
             {
                 std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(tx, it->first.index) );
-std::cerr << __func__ << " parsed tx=" << tx.GetHash().GetHex() << " vout=" << it->first.index;
-if (spBaseObj == nullptr) std::cerr << " spobj==null";
-else std::cerr << " spobj type=" << spBaseObj->objectType;
-std::cerr << std::endl;
+//std::cerr << __func__ << " parsed tx=" << tx.GetHash().GetHex() << " vout=" << it->first.index;
+//if (spBaseObj == nullptr) std::cerr << " spobj==null";
+//else std::cerr << " spobj type=" << spBaseObj->objectType;
+//std::cerr << std::endl;
                 if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMHASH)
                 {   
                     KogsRandomCommit *pRndCommit = (KogsRandomCommit *)spBaseObj.get();
                     std::cerr << __func__ << " pRndCommit->gameid=" << pRndCommit->gameid.GetHex() << " pRndCommit->num=" << pRndCommit->num << " pRndCommit->hash=" << pRndCommit->hash.GetHex() << std::endl;
                     if (pRndCommit->gameid == gameid && pRndCommit->num >= startNum && pRndCommit->num < startNum + randoms.size())
                     {
-                        uint256 checkHash;
-                        calc_random_hash(gameid, pRndCommit->num, randoms[pRndCommit->num], checkHash);
-                        if (checkHash == pRndCommit->hash)  
-                        {   
-                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "adding committed pk=" << HexStr(pk) << " num=" << pRndCommit->num << " gameid=" << gameid.GetHex() << std::endl);
-                            mpkscommitted[pRndCommit->num].insert(pk);  // store pk that made commit
-                            if (pk == mypk)
+                        mpkscommitted[pRndCommit->num].insert(pk);  // store pk that made commit
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "adding committed pk=" << HexStr(pk) << " num=" << pRndCommit->num << " gameid=" << gameid.GetHex() << std::endl);
+                        if (pk == mypk)
+                        {
+                            uint256 checkHash;
+                            calc_random_hash(gameid, pRndCommit->num, randoms[pRndCommit->num], checkHash);
+                            if (checkHash == pRndCommit->hash)  
+                            {   
+                                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found random committed tx=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " num=" << pRndCommit->num << " gameid=" << gameid.GetHex() << std::endl);
                                 mvintxns[pRndCommit->num] = std::make_pair(it->first.txhash, it->first.index); // store utxo with commit hash
+                            }
+                            else
+                                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "hash does not match random for commit txid=" << tx.GetHash().GetHex() << " vout=" << it->first.index << " num=" << pRndCommit->num << " gameid=" << gameid.GetHex() << std::endl);
                         }
-                        else
-                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "hash does not match random for commit txid=" << tx.GetHash().GetHex() << " vout=" << it->first.index << " num=" << pRndCommit->num << " gameid=" << gameid.GetHex() << std::endl);
                     }
                 }
                 else 
