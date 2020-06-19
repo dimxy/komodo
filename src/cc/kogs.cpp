@@ -3405,7 +3405,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
         KogsGameOps *goobj;
         KogsRandomCommit *rc;
         KogsRandomValue *rv;
-        UniValue hashtxids(UniValue::VARR), randomstxids(UniValue::VARR);
+        UniValue hashtxids(UniValue::VARR), randomtxids(UniValue::VARR);
 
     case KOGSID_KOG:
     case KOGSID_SLAMMER:
