@@ -427,6 +427,47 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject 
     return NullUniValue;
 }
 
+// create game tx 
+static UniValue CreateGameTx(const CPubKey &remotepk, const KogsGame *gameobj, const std::set<CPubKey> &pks)
+{
+    const CAmount  txfee = 10000;
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+
+    bool isRemote = IS_REMOTE(remotepk);
+    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_KOGS);
+
+    KogsEnclosure enc(mypk);  //'zeroid' means 'for creation'
+
+    enc.vdata = gameobj->Marshal();
+    enc.name = gameobj->nameId;
+    enc.description = gameobj->descriptionId;
+
+    CAmount normals = txfee + KOGS_NFT_MARKER_AMOUNT + KOGS_BATON_AMOUNT;
+
+    if (AddNormalinputsRemote(mtx, mypk, normals, 0x10000) > 0)   // use remote version to add inputs from mypk
+    {
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_NFT_MARKER_AMOUNT, GetUnspendable(cp, NULL)));  // kogs cc marker
+        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, mypk)); // send initially to self to create the first baton later
+        for(auto const &pk : pks)   
+            mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, pk)); // send small amount to each player to create random commit txns 
+        
+        CScript opret;
+        opret << OP_RETURN << enc.EncodeOpret();
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret);
+        if (ResultHasTx(sigData))
+            return sigData;
+        else
+            CCerror = "can't finalize or sign tx";
+    }
+    else
+        CCerror = "can't find normals for 2 txfee";
+    return NullUniValue;
+}
+
 static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creationtxid, vuint8_t &vorigpubkey, std::string &name, std::string &description, std::vector<vscript_t> &oprets)
 {
     uint256 tokenid;
@@ -1680,9 +1721,6 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
     }
 }
 
-
-
-
 // creates new baton object, manages stack according to slam data
 static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayer, KogsSlamData *pSlamparam, KogsBaton &newbaton, const KogsBaton *pInitBaton)
 {
@@ -1889,7 +1927,13 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
 	return true;
 }
 
-
+static bool has_ccvin(struct CCcontract_info *cp, const CTransaction &tx)
+{
+    for (auto const &vin : tx.vin)
+        if (cp->ismyvin(vin.scriptSig))
+            return true;
+    return false;
+}
 
 // RPC implementations:
 
@@ -2023,7 +2067,8 @@ UniValue KogsStartGame(const CPubKey &remotepk, const KogsGame &newgame)
         return NullUniValue;
     }
 
-    // check if all players advertised:
+    // check if all players advertised and get pks:
+    std::set<CPubKey> pks;
     for (auto const &playerid : newgame.playerids) 
     {
         uint256 adtxid;
@@ -2040,9 +2085,10 @@ UniValue KogsStartGame(const CPubKey &remotepk, const KogsGame &newgame)
             CCerror = "playerid did not advertise itself: " + playerid.GetHex();
             return NullUniValue;
         }
+        pks.insert(spPlayer->encOrigPk);
     }
 
-    return CreateEnclosureTx(remotepk, &newgame, false, BATON_SELF);
+    return CreateGameTx(remotepk, &newgame, pks);
 }
 
 UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
@@ -2762,11 +2808,29 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
+    CTransaction gametx;
+    uint256 hashBlock;
+    if (!myGetTransaction(gameid, gametx, hashBlock))   {
+        CCerror = "can't load gameid tx";
+        return NullUniValue;
+    }
+    
+    std::shared_ptr<KogsBaseObject> spGameObj(LoadGameObject(gameid));
+    if (spGameObj == nullptr || spGameObj->objectType != KOGSID_GAME) {
+        CCerror = "can't load gameid tx";
+        return NullUniValue;
+    }
+
     if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
     {
         struct CCcontract_info *cp, C;
         cp = CCinit(&C, EVAL_KOGS);
         CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
+
+        for (int32_t i = 3; i < spGameObj->tx.vout.size()-1; i ++)
+            if (IsEqualScriptPubKeys(spGameObj->tx.vout[i].scriptPubKey, MakeTokensCC1vout(EVAL_KOGS, 1, mypk).scriptPubKey))
+                // spend mypk vout for init commit tx:
+                mtx.vin.push_back(CTxIn(gameid, i, CScript()));
     
         for(int32_t i = 0; i < randoms.size(); i ++)
         {
@@ -2848,12 +2912,13 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         std::vector<std::pair<CAddressIndexKey, CAmount> > addressOutputs;
         SetCCtxidsWithMempool(addressOutputs, game1of2addr, true);   // use SetCCtxidsWithMempool as commit utxo might be spent by another reveal tx
 
-        CTransaction tx;  // cached tx
+        CTransaction tx;  // cached commit tx
         //for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it ++)   
         for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressOutputs.begin(); it != addressOutputs.end(); it ++)   
         {
             uint256 hashBlock;
-            if (tx.GetHash() == it->first.txhash || myGetTransaction(it->first.txhash, tx, hashBlock))  // use cached tx
+            // also check the commit tx has ccvin
+            if (tx.GetHash() == it->first.txhash || (myGetTransaction(it->first.txhash, tx, hashBlock) && has_ccvin(cp, tx)))  // use cached tx if loaded
             {
                 std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(tx, it->first.index) );
 //std::cerr << __func__ << " parsed tx=" << tx.GetHash().GetHex() << " vout=" << it->first.index;
@@ -2863,7 +2928,7 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
                 if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMHASH)
                 {   
                     KogsRandomCommit *pRndCommit = (KogsRandomCommit *)spBaseObj.get();
-                    std::cerr << __func__ << " pRndCommit->gameid=" << pRndCommit->gameid.GetHex() << " pRndCommit->num=" << pRndCommit->num << " pRndCommit->hash=" << pRndCommit->hash.GetHex() << std::endl;
+                    //std::cerr << __func__ << " pRndCommit->gameid=" << pRndCommit->gameid.GetHex() << " pRndCommit->num=" << pRndCommit->num << " pRndCommit->hash=" << pRndCommit->hash.GetHex() << std::endl;
                     if (pRndCommit->gameid == gameid && pRndCommit->num >= startNum && pRndCommit->num < startNum + randoms.size())
                     {
                         mpkscommitted[pRndCommit->num].insert(pk);  // store pk that made commit
@@ -2891,13 +2956,13 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     }
 
     if (mpkscommitted.size() != randoms.size()) {
-        CCerror = "no committed randoms found";
+        CCerror = "no valid committed random txns found";
         return NullUniValue;
     }
 
     // check all pks committed
     for(auto const &m : mpkscommitted)  {
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "m.first=" << m.first << " m.second.size()=" << m.second.size() << " gameid=" << gameid.GetHex() << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "for num=" << m.first << " committed pubkeys size=" << m.second.size() << " gameid=" << gameid.GetHex() << std::endl);
         if (pks != m.second)    {
             CCerror = "not all pubkeys committed randoms yet for num=" + std::to_string(m.first);
             return NullUniValue;
