@@ -2828,7 +2828,7 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
 
         for (int32_t i = 3; i < spGameObj->tx.vout.size()-1; i ++)
-            if (IsEqualScriptPubKeys(spGameObj->tx.vout[i].scriptPubKey, MakeTokensCC1vout(EVAL_KOGS, 1, mypk).scriptPubKey))
+            if (IsEqualScriptPubKeys(spGameObj->tx.vout[i].scriptPubKey, MakeCC1vout(EVAL_KOGS, 1, mypk).scriptPubKey))
                 // spend mypk vout for init commit tx:
                 mtx.vin.push_back(CTxIn(gameid, i, CScript()));
     
