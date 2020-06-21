@@ -695,7 +695,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
 
 // add game finished vout
 // called by a player
-static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &mtx, struct CCcontract_info *cp, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pbaton, const CPubKey &destpk, CScript &opret)
+static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &mtx, struct CCcontract_info *cpTokens, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pbaton, const CPubKey &destpk, CScript &opret)
 {
     const CAmount  txfee = 10000;
     //CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -713,12 +713,15 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     for (auto const &rndUtxo : randomUtxos)
         mtx.vin.push_back(CTxIn(rndUtxo.first, rndUtxo.second));  // spend  random utxos used in this baton
     
-    // add probe 1of2 cc to
     uint8_t kogspriv[32];
-    CPubKey kogsPk = GetUnspendable(cp, kogspriv);
+    struct CCcontract_info *cpKogs, CKogs;
+    cpTokens = CCinit(&CKogs, EVAL_KOGS);
+    CPubKey kogsPk = GetUnspendable(cpKogs, kogspriv);
     CPubKey gametxidPk = CCtxidaddr_tweak(NULL, pbaton->gameid);
+
+    // add probe 1of2 kogs gameid cc to the signing cp
     CC *probeCond1of2 = MakeCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
-    CCAddVintxCond(cp, probeCond1of2, kogspriv);
+    CCAddVintxCond(cpTokens, probeCond1of2, kogspriv);
     cc_free(probeCond1of2);
 
     mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // TODO where to send finish baton?
@@ -731,7 +734,7 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
 
     // add probe to spend baton from mypk
     CC* probeCond = MakeCCcond1(EVAL_KOGS, mypk);
-    CCAddVintxCond(cp, probeCond, NULL);
+    CCAddVintxCond(cpTokens, probeCond, NULL);
     cc_free(probeCond);
 
 
