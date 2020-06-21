@@ -711,7 +711,9 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
 
     for (auto const &rndUtxo : randomUtxos)
-        mtx.vin.push_back(CTxIn(rndUtxo.first, rndUtxo.second));  // spend used in this baton utxos
+        mtx.vin.push_back(CTxIn(rndUtxo.first, rndUtxo.second));  // spend  random utxos used in this baton
+    
+    // add probe 1of2 cc to
     uint8_t kogspriv[32];
     CPubKey kogsPk = GetUnspendable(cp, kogspriv);
     CPubKey gametxidPk = CCtxidaddr_tweak(NULL, pbaton->gameid);
@@ -4165,8 +4167,8 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
         gameid = pBaton->gameid;
 
         // check source game 1of2 addr is correct:
-        if (!check_valid_1of2_spent(tx, gameid, ccvin+1, tx.vin.size()-1))
-            return errorStr = "bad 1of2 game addr spent", false;
+        //if (!check_valid_1of2_spent(tx, gameid, ccvin+1, tx.vin.size()-1))
+        //    return errorStr = "bad 1of2 game addr spent", false;
 
         // get pubkeys that have deposited containers and slammers to the game address:
         std::vector<std::shared_ptr<KogsContainer>> spcontainers;
@@ -4238,9 +4240,15 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
     else
     {
         // for baton check no disallowed spendings from the global address:
-        if (check_globalpk_spendings(cp, tx, ccvin+1, tx.vin.size()-1))
-            return errorStr = "invalid globalpk spendings", false;
+        //if (check_globalpk_spendings(cp, tx, ccvin+1, tx.vin.size()-1))
+        //    return errorStr = "invalid globalpk spendings", false;
     }
+
+    // check source game 1of2 addr is correct:
+    // 1of2 spending of deposited container and slammers
+    // 1of2 spending of random txns
+    if (!check_valid_1of2_spent(tx, gameid, ccvin+1, tx.vin.size()-1))
+        return errorStr = "bad 1of2 game addr spent", false;
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "validated okay" << std::endl); 
 	return true;
