@@ -4047,7 +4047,8 @@ static KogsBaseObject *get_last_baton(uint256 gameid)
 }
 
 // check that tx spends correct 1of2 txid addr
-static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid, int32_t start, int32_t end)
+// return start param reset to the bad vin
+static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid, int32_t &start, int32_t end, uint8_t evalcode)
 {
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -4056,22 +4057,25 @@ static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid, int32_t
     CPubKey txidPk = CCtxidaddr_tweak(NULL, txid);
 
     char txid1of2addr[KOMODO_ADDRESS_BUFSIZE];
-    GetTokensCCaddress1of2(cp, txid1of2addr, kogsPk, txidPk);
+    if (evalcode == EVAL_TOKENS)
+        GetTokensCCaddress1of2(cp, txid1of2addr, kogsPk, txidPk);
+    else
+        GetCCaddress1of2(cp, txid1of2addr, kogsPk, txidPk);
 
-    for (int32_t i = start; i <= end; i ++)  
+    for (; start < end; start ++)  
     {
-        if (cp->ismyvin(tx.vin[i].scriptSig))     
+        if (cp->ismyvin(tx.vin[start].scriptSig))     
         {
-            if (check_signing_pubkey(tx.vin[i].scriptSig) == kogsPk)  
+            if (check_signing_pubkey(tx.vin[start].scriptSig) == kogsPk)  
             {                
                 CTransaction vintx;
                 uint256 hashBlock;
-                if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock))   {
+                if (myGetTransaction(tx.vin[start].prevout.hash, vintx, hashBlock))   {
                     char prevaddr[KOMODO_ADDRESS_BUFSIZE];
-                    Getscriptaddress(prevaddr, vintx.vout[tx.vin[i].prevout.n].scriptPubKey);
+                    Getscriptaddress(prevaddr, vintx.vout[tx.vin[start].prevout.n].scriptPubKey);
                     //std::cerr << __func__ << " prevaddr=" << prevaddr << " txid1of2addr=" << txid1of2addr << std::endl;
                     if (strcmp(prevaddr, txid1of2addr) != 0)
-                        return false;
+                        return;
                 }
                 else    {
                     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load prevtx for txid=" << txid.GetHex() << std::endl);
@@ -4080,7 +4084,6 @@ static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid, int32_t
             }
         }
     }
-    return true;
 }
 
 // check kog or slammer
@@ -4173,7 +4176,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
         // get pubkeys that have deposited containers and slammers to the game address:
         std::vector<std::shared_ptr<KogsContainer>> spcontainers;
         std::vector<std::shared_ptr<KogsMatchObject>> spslammers;
-        ListDepositedTokenids(gameid, spcontainers, spslammers, false);
+        ListDepositedTokenids(gameid, spcontainers, spslammers, false);tt
         std::map<uint256, CPubKey> origpks;
         for (auto const &c : spcontainers)    {
             std::vector<CPubKey> vpks;
@@ -4247,7 +4250,10 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
     // check source game 1of2 addr is correct:
     // 1of2 spending of deposited container and slammers
     // 1of2 spending of random txns
-    if (!check_valid_1of2_spent(tx, gameid, ccvin+1, tx.vin.size()-1))
+    int32_t basevin = ccvin+1;
+    check_valid_1of2_spent(tx, gameid, basevin, tx.vin.size(), EVAL_KOGS);  // check random txns
+    check_valid_1of2_spent(tx, gameid, basevin, tx.vin.size(), EVAL_TOKENS);  // check nft txns
+    if (basevin != tx.vin.size())
         return errorStr = "bad 1of2 game addr spent", false;
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "validated okay" << std::endl); 
@@ -4357,7 +4363,9 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 	else if (pContOps->objectType == KOGSID_REMOVEFROMCONTAINER) {
 
         // check source container 1of2 addr is correct:
-        if (!check_valid_1of2_spent(tx, pContOps->containerid, 0, tx.vin.size()-1))
+        int32_t basevin = 0;
+        check_valid_1of2_spent(tx, pContOps->containerid, basevin, tx.vin.size(), EVAL_TOKENS);
+        if (basevin != tx.vin.size())
             return errorStr = "bad 1of2 container addr spent", false;
 
 		// check all removed tokens go to the same pk
@@ -4419,7 +4427,9 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
 	if (pGameOps->objectType == KOGSID_REMOVEFROMGAME)	
     {
         // check source game 1of2 addr is correct and matched gameid:
-        if (!check_valid_1of2_spent(tx, pGameOps->gameid, 0, tx.vin.size()-1))
+        int32_t basevin = 0;
+        check_valid_1of2_spent(tx, pGameOps->gameid, basevin, tx.vin.size(), EVAL_TOKENS);
+        if (basevin != tx.vin.size())
             return errorStr = "bad 1of2 game addr spent", false;
 
         // get pubkeys that deposited containers and slammers to the game address:
