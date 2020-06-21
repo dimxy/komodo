@@ -4048,7 +4048,7 @@ static KogsBaseObject *get_last_baton(uint256 gameid)
 
 // check that tx spends correct 1of2 txid addr
 // return start param reset to the bad vin
-static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid, int32_t &start, int32_t end, uint8_t evalcode)
+static void check_valid_1of2_spent(const CTransaction &tx, uint256 txid, int32_t &start, int32_t end, uint8_t evalcode)
 {
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
@@ -4079,7 +4079,7 @@ static bool check_valid_1of2_spent(const CTransaction &tx, uint256 txid, int32_t
                 }
                 else    {
                     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load prevtx for txid=" << txid.GetHex() << std::endl);
-                    return false;
+                    return;
                 }
             }
         }
