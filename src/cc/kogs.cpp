@@ -1692,12 +1692,12 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
     CPubKey kogsPk = GetUnspendable(cp, NULL);
     CPubKey gametxidPk = CCtxidaddr_tweak(NULL, gameid);
     GetCCaddress1of2(cp, game1of2addr, kogsPk, gametxidPk); 
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-    SetCCunspentsWithMempool(addressUnspents, game1of2addr, true);
+    std::vector<std::pair<CAddressIndexKey, CAmount> > addressOutputs;
+    SetCCtxidsWithMempool(addressOutputs, game1of2addr, true);
 
     hashtxns.clear();
     randomtxns.clear();
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it ++)   
+    for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressOutputs.begin(); it != addressOutputs.end(); it ++)   
     {
         CTransaction rndtx;
         uint256 hashBlock;
