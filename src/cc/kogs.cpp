@@ -715,7 +715,7 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     
     uint8_t kogspriv[32];
     struct CCcontract_info *cpKogs, CKogs;
-    cpTokens = CCinit(&CKogs, EVAL_KOGS);
+    cpKogs = CCinit(&CKogs, EVAL_KOGS);
     CPubKey kogsPk = GetUnspendable(cpKogs, kogspriv);
     CPubKey gametxidPk = CCtxidaddr_tweak(NULL, pbaton->gameid);
 
