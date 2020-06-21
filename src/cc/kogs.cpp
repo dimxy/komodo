@@ -809,7 +809,7 @@ static bool AddTransferBackTokensVouts(const CPubKey &mypk, CMutableTransaction 
 
 // create baton tx to pass turn to the next player
 // called by a player
-static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk)
+static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaseObject *pbaton, const CPubKey &destpk)
 {
     const CAmount  txfee = 10000;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -826,6 +826,10 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
     if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
     {
         mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
+
+        for (auto const &rndUtxo : randomUtxos)
+            mtx.vin.push_back(CTxIn(rndUtxo.first, rndUtxo.second));  // spend used in this baton utxos
+
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
 
         CScript opret;
@@ -1210,7 +1214,8 @@ static void calc_random_hash(uint256 gameid, int32_t num, uint32_t rnd, uint256 
 }
 
 // get random value from several values created by several pubkeys, checking randoms match the commited hashes   
-static bool get_random_value(const std::vector<CTransaction> &hashTxns, const std::vector<CTransaction> &randomTxns, const std::set<CPubKey> &pks, uint256 gameid, int32_t num, uint32_t &result)
+// returns xor-ed random and utxos it is build from 
+static bool get_random_value(const std::vector<CTransaction> &hashTxns, const std::vector<CTransaction> &randomTxns, const std::set<CPubKey> &pks, uint256 gameid, int32_t num, uint32_t &result, std::vector<std::pair<uint256, int32_t>> &randomUtxos)
 {
     std::set<CPubKey> txpks;
     result = 0;
@@ -1251,6 +1256,7 @@ static bool get_random_value(const std::vector<CTransaction> &hashTxns, const st
                                                 txpks.insert(pk);       // store pk who created random
 
                                         result ^= pRndValue->r;  // calc result random as xor
+                                        randomUtxos.push_back(std::make_pair(rndtx.GetHash(), i)); // store utxo
                                     }
                                 }
                             }
@@ -1271,7 +1277,7 @@ static bool get_random_value(const std::vector<CTransaction> &hashTxns, const st
 }
 
 // flip kogs based on slam data and height and strength ranges
-static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, const KogsBaton *pInitBaton)
+static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, const KogsBaton *pInitBaton, std::vector<std::pair<uint256, int32_t>> &randomUtxos)
 {
     std::vector<KogsSlamRange> heightRanges = heightRangesDefault;
     std::vector<KogsSlamRange> strengthRanges = strengthRangesDefault;
@@ -1299,11 +1305,11 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
     uint32_t randomHeightRange, randomStrengthRange;
     if (pInitBaton == nullptr)  {
         // make random range offset
-        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, newbaton.prevturncount*2+1, randomHeightRange)) {
+        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, newbaton.prevturncount*2+1, randomHeightRange, randomUtxos)) {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+1 << std::endl);
             return false;
         }
-        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, newbaton.prevturncount*2+2, randomStrengthRange)) {
+        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, newbaton.prevturncount*2+2, randomStrengthRange, randomUtxos)) {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+2 << std::endl);
             return false;  
         }
@@ -1326,11 +1332,11 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
                 hashtxns.push_back(tx);
         }
         
-        if (!get_random_value(hashtxns, randomtxns, playerpks, newbaton.gameid, pInitBaton->prevturncount*2+1, randomHeightRange)) {
+        if (!get_random_value(hashtxns, randomtxns, playerpks, newbaton.gameid, pInitBaton->prevturncount*2+1, randomHeightRange, randomUtxos)) {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+1 << std::endl);
             return false;
         }
-        if (!get_random_value(hashtxns, randomtxns, playerpks, newbaton.gameid, pInitBaton->prevturncount*2+2, randomStrengthRange))  {
+        if (!get_random_value(hashtxns, randomtxns, playerpks, newbaton.gameid, pInitBaton->prevturncount*2+2, randomStrengthRange, randomUtxos))  {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+2 << std::endl);
             return false; 
         }
@@ -1459,7 +1465,7 @@ static bool AddKogsToStack(const KogsGameConfig &gameconfig, KogsBaton &baton, c
     return true;
 }
 
-static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *prevbaton, KogsBaton &newbaton, const KogsBaton *pInitBaton)
+static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *prevbaton, KogsBaton &newbaton, const KogsBaton *pInitBaton, std::vector<std::pair<uint256, int32_t>> &randomUtxos)
 {   
     if (prevbaton == nullptr) // check for internal logic error
     {
@@ -1574,7 +1580,7 @@ static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *
 
     if (prevbaton->objectType == KOGSID_BATON)  // should be slam data in new baton
     {
-        if (!FlipKogs(gameconfig, newbaton, pInitBaton))   // before the call newbaton must contain the prev baton state 
+        if (!FlipKogs(gameconfig, newbaton, pInitBaton, randomUtxos))   // before the call newbaton must contain the prev baton state 
             return false;
     }
     if (IsSufficientContainers)
@@ -1722,7 +1728,7 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
 }
 
 // creates new baton object, manages stack according to slam data
-static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayer, KogsSlamData *pSlamparam, KogsBaton &newbaton, const KogsBaton *pInitBaton)
+static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayer, KogsSlamData *pSlamparam, KogsBaton &newbaton, const KogsBaton *pInitBaton, std::vector<std::pair<uint256, int32_t>> &randomUtxos)
 {
 	int32_t nextturn;
 	int32_t turncount = 0;
@@ -1774,7 +1780,7 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         if (pInitBaton == nullptr)      
         {    
             uint32_t r;
-            if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, pgame->creationtxid, 0, r))  {
+            if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, pgame->creationtxid, 0, r, randomUtxos))  {
                 LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << pgame->creationtxid.GetHex() << " num=" << 0 << std::endl);
                 return false;
             }
@@ -1804,7 +1810,7 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
 
             // validate random value:
             uint32_t r;
-            if (!get_random_value(hashtxns, randomtxns, playerpks, pgame->creationtxid, 0, r))  {
+            if (!get_random_value(hashtxns, randomtxns, playerpks, pgame->creationtxid, 0, r, randomUtxos))  {
                 LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << pgame->creationtxid.GetHex() << " num=" << 0 << std::endl);
                 return false;
             }
@@ -1909,7 +1915,7 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         return false;
     }
 
-	bool bBatonCreated = ManageStack(*spGameConfig.get(), pPrevObj, newbaton, pInitBaton);
+	bool bBatonCreated = ManageStack(*spGameConfig.get(), pPrevObj, newbaton, pInitBaton, randomUtxos);
 	if (!bBatonCreated) {
 		LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "baton not created for gameid=" << gameid.GetHex() << std::endl);
 		return false;
@@ -2109,13 +2115,14 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
             CCerror = "no commit or random txns";
             return NullUniValue;
         }
-        if (CreateNewBaton(spPrevObj.get(), dummygameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr))
+        std::vector<std::pair<uint256, int32_t>> randomUtxos;
+        if (CreateNewBaton(spPrevObj.get(), dummygameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos))
         {    
             const int32_t batonvout = 2;
 
             UniValue sigData;
             if (!newbaton.isFinished)
-                sigData = CreateBatonTx(remotepk, spPrevObj->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+                sigData = CreateBatonTx(remotepk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             else
                 sigData = CreateGameFinishedTx(remotepk, spPrevObj->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
@@ -2730,13 +2737,14 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
             CCerror = "no commit or random txns";
             return NullUniValue;
         }
-        if (CreateNewBaton(spPrevBaton.get(), dummygameid, spGameConfig, spPlayer, &newSlamData, newbaton, nullptr))
+        std::vector<std::pair<uint256, int32_t>> randomUtxos;
+        if (CreateNewBaton(spPrevBaton.get(), dummygameid, spGameConfig, spPlayer, &newSlamData, newbaton, nullptr, randomUtxos))
         {    
             const int32_t batonvout = 0;
 
             UniValue sigData;
             if (!newbaton.isFinished)
-                sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+                sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             else
                 sigData = CreateGameFinishedTx(remotepk, spPrevBaton->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
@@ -3035,7 +3043,8 @@ UniValue KogsGetRandom(const CPubKey &remotepk, uint256 gameid, int32_t num)
     }
 
     uint32_t r;
-    if (!get_random_value(hashTxns, randomTxns, pks, gameid, num, r))  {
+    std::vector<std::pair<uint256, int32_t>> randomUtxos;
+    if (!get_random_value(hashTxns, randomTxns, pks, gameid, num, r, randomUtxos))  {
         CCerror = "could not get random value";
         return NullUniValue;
     }
@@ -3721,8 +3730,9 @@ return;
 				//KogsGameFinished gamefinished;
 				uint256 gameid;
 				//bool bGameFinished;
+                std::vector<std::pair<uint256, int32_t>> randomUtxos;
 
-				if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr))
+				if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos))
 					continue;
 
                 // first requirement: finish the game if turncount == player.size * maxTurns and send kogs to the winners
@@ -3763,7 +3773,7 @@ return;
                 else
                 {
                     // game not finished - send baton:
-                    CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+                    CTransaction batontx = CreateBatonTx(it->first.txhash, it->first.index, randomUtxos, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
                     if (!batontx.IsNull() && IsTxSigned(batontx))
                     {
                         LOGSTREAMFN("kogs", CCLOG_INFO, stream << "created baton txid=" << batontx.GetHash().GetHex() << " to next playerid=" << newbaton.nextplayerid.GetHex() << std::endl);
@@ -4107,7 +4117,8 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
 
     // create test baton object using validated object as an init object (with the stored random data)
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating test baton"  << std::endl);
-    if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, testBaton, pBaton))
+    std::vector<std::pair<uint256, int32_t>> randomUtxos;
+    if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, testBaton, pBaton, randomUtxos))
         return errorStr = "could not create test baton", false;
 
     if (testBaton != *pBaton)   

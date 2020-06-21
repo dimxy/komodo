@@ -663,16 +663,6 @@ struct KogsContainer : public KogsBaseObject {
 };
 
 
-/*class CComparableTransaction : public CTransaction {
-public:
-    //CComparableTransaction & operator=(const CTransaction &tx) { (*this) = tx; return (*this); }
-    bool operator==(const CComparableTransaction &tx) { return (*this).GetHash() == tx.GetHash(); }
-    bool operator!=(const CComparableTransaction &tx) { return (*this).GetHash() != tx.GetHash(); }
-};
-
-typedef uint256 CComparableTransactionHasher(const CComparableTransaction &tx);*/
-
-
 // baton
 struct KogsBaton : public KogsBaseObject {
     
@@ -1235,8 +1225,7 @@ struct KogsRandomCommit : public KogsBaseObject {
         {
             LOGSTREAM("kogs", CCLOG_DEBUG1, stream << "incorrect kogs evalcode=" << (int)evalcode << " or not player objectType=" << (char)objectType << " or unsupported version=" << (int)version << std::endl);
         }
-        std::cerr << __func__ << " ForRead()=" << ser_action.ForRead() << " evalcode=" << evalcode << "(" << (int)evalcode << ")" << " objectType=" << objectType << "(" << (int)objectType << ")" << " ver=" << (int)version << " gameid=" << gameid.GetHex() << std::endl;
-
+        //std::cerr << __func__ << " ForRead()=" << ser_action.ForRead() << " evalcode=" << evalcode << "(" << (int)evalcode << ")" << " objectType=" << objectType << "(" << (int)objectType << ")" << " ver=" << (int)version << " gameid=" << gameid.GetHex() << std::endl;
     }
 
     virtual vscript_t Marshal() const { return E_MARSHAL(ss << (*this)); }
