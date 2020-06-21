@@ -695,7 +695,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
 
 // add game finished vout
 // called by a player
-static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &mtx, struct CCcontract_info *cp, uint256 prevtxid, int32_t prevn, const KogsBaseObject *pbaton, const CPubKey &destpk, CScript &opret)
+static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &mtx, struct CCcontract_info *cp, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pbaton, const CPubKey &destpk, CScript &opret)
 {
     const CAmount  txfee = 10000;
     //CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -709,6 +709,16 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     //if (AddNormalinputs(mtx, minerpk, txfee, 0x10000, false) > 0)
     //{
     mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
+
+    for (auto const &rndUtxo : randomUtxos)
+        mtx.vin.push_back(CTxIn(rndUtxo.first, rndUtxo.second));  // spend used in this baton utxos
+    uint8_t kogspriv[32];
+    CPubKey kogsPk = GetUnspendable(cp, kogspriv);
+    CPubKey gametxidPk = CCtxidaddr_tweak(NULL, pbaton->gameid);
+    CC *probeCond1of2 = MakeCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
+    CCAddVintxCond(cp, probeCond1of2, kogspriv);
+    cc_free(probeCond1of2);
+
     mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // TODO where to send finish baton?
 
     // add probe cc and kogs priv to spend from kogs global pk
@@ -809,7 +819,7 @@ static bool AddTransferBackTokensVouts(const CPubKey &mypk, CMutableTransaction 
 
 // create baton tx to pass turn to the next player
 // called by a player
-static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaseObject *pbaton, const CPubKey &destpk)
+static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pbaton, const CPubKey &destpk)
 {
     const CAmount  txfee = 10000;
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -829,6 +839,12 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
 
         for (auto const &rndUtxo : randomUtxos)
             mtx.vin.push_back(CTxIn(rndUtxo.first, rndUtxo.second));  // spend used in this baton utxos
+        uint8_t kogspriv[32];
+        CPubKey kogsPk = GetUnspendable(cp, kogspriv);
+        CPubKey gametxidPk = CCtxidaddr_tweak(NULL, pbaton->gameid);
+        CC *probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
+        CCAddVintxCond(cp, probeCond, kogspriv);
+        cc_free(probeCond);
 
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
 
@@ -903,7 +919,7 @@ static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<Ko
     }
 }
 
-static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const KogsBaton *pBaton, const CPubKey &destpk)
+static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pBaton, const CPubKey &destpk)
 {
     CMutableTransaction mtx;
     struct CCcontract_info *cpTokens, CTokens;
@@ -920,7 +936,7 @@ static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, pBaton->gameid);
     CScript opret;
-    AddGameFinishedInOuts(remotepk, mtx, cpTokens, prevtxid, prevn, pBaton, gametxidPk, opret);  // send game finished baton to unspendable addr
+    AddGameFinishedInOuts(remotepk, mtx, cpTokens, prevtxid, prevn, randomUtxos, pBaton, gametxidPk, opret);  // send game finished baton to unspendable addr
 
     if (AddTransferBackTokensVouts(remotepk, mtx, cpTokens, pBaton->gameid, spcontainers, spslammers, transferContainerTxns))
     {
@@ -2124,7 +2140,7 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
             if (!newbaton.isFinished)
                 sigData = CreateBatonTx(remotepk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             else
-                sigData = CreateGameFinishedTx(remotepk, spPrevObj->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+                sigData = CreateGameFinishedTx(remotepk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
                 return sigData;
@@ -2746,7 +2762,7 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
             if (!newbaton.isFinished)
                 sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             else
-                sigData = CreateGameFinishedTx(remotepk, spPrevBaton->creationtxid, batonvout, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+                sigData = CreateGameFinishedTx(remotepk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
                 return sigData;
@@ -3754,7 +3770,7 @@ return;
                     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
                     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
                     CScript opret;
-                    AddGameFinishedInOuts(mypk, mtx, cpTokens, it->first.txhash, it->first.index, &newbaton, gametxidPk, opret);  // send game finished baton to unspendable addr
+                    AddGameFinishedInOuts(mypk, mtx, cpTokens, it->first.txhash, it->first.index, randomUtxos, &newbaton, gametxidPk, opret);  // send game finished baton to unspendable addr
 
                     if (AddTransferBackTokensVouts(mypk, mtx, cpTokens, gameid, spcontainers, spslammers, transferContainerTxns))
                     {
