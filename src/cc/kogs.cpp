@@ -1742,7 +1742,7 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
             }
             else 
             {
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse ccdata for rndtx=" << rndtx.GetHash().GetHex() << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse ccdata for rndtx=" << rndtx.GetHash().GetHex() << " vout=" << it->first.index << std::endl);
             }
         }
     }
