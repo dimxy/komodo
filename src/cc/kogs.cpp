@@ -1703,12 +1703,22 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
     for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressOutputs.begin(); it != addressOutputs.end(); it ++)   
     {
         CTransaction rndtx;
+        const CTransaction *prndtx = nullptr;
         uint256 hashBlock;
         // check if tx already added to randoms tx set 
-        if (std::find_if(randomtxns.begin(), randomtxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == it->first.txhash; }) == randomtxns.end() 
-            && myGetTransaction(it->first.txhash, rndtx, hashBlock))  
+        std::vector<CTransaction>::const_iterator rndtxIt = std::find_if(randomtxns.begin(), randomtxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == it->first.txhash; });
+        if (rndtxIt == randomtxns.end())    {
+            if (myGetTransaction(it->first.txhash, rndtx, hashBlock))
+                prndtx = &rndtx;  
+            else 
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load tx it->first.txhash=" << it->first.txhash.GetHex() << std::endl);
+        }
+        else
+            prndtx = &(*rndtxIt);  // use cached tx
+
+        if (prndtx != nullptr)
         {
-            std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(rndtx, it->first.index) );
+            std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(*prndtx, it->first.index) );
             if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMVALUE)
             {   
                 KogsRandomValue *pRndValue = (KogsRandomValue *)spBaseObj.get();
@@ -1716,28 +1726,45 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
                 {    
                     // collect all commit txns for this random tx
                     for (auto const &vin : rndtx.vin)  {
-                        if (cp->ismyvin(vin.scriptSig)) {
+                        if (cp->ismyvin(vin.scriptSig)) 
+                        {
                             CTransaction hashtx;
+                            const CTransaction *phashtx = nullptr;
                             uint256 hashBlock;
                             // check if tx already added to hashes tx set
-                            if (std::find_if(hashtxns.begin(), hashtxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; }) == hashtxns.end()
-                                && myGetTransaction(vin.prevout.hash, hashtx, hashBlock))  // get tx with random hash 
+                            std::vector<CTransaction>::const_iterator hashtxIt = std::find_if(hashtxns.begin(), hashtxns.end(), [&](const CTransaction &tx) { return tx.GetHash() == vin.prevout.hash; });
+                            if (hashtxIt == hashtxns.end()) {
+                                if (myGetTransaction(vin.prevout.hash, hashtx, hashBlock))  // get tx with random hash 
+                                    phashtx = &hashtx;
+                                else
+                                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load tx vin.prevout.hash=" << vin.prevout.hash.GetHex() << std::endl);
+                            }
+                            else
+                                phashtx = &(*hashtxIt);
+
+                            if (phashtx != nullptr)
                             {
-                                std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(hashtx, vin.prevout.n) );
+                                std::shared_ptr<KogsBaseObject> spBaseObj( DecodeGameObjectOpreturn(*phashtx, vin.prevout.n) );
                                 if (spBaseObj != nullptr && spBaseObj->objectType == KOGSID_RANDOMHASH)
                                 {   
                                     KogsRandomCommit *pRndCommit = (KogsRandomCommit *)spBaseObj.get();
                                     // check if the vin refers to a commit hash tx
                                     if (gameid == pRndCommit->gameid && pRndValue->num == pRndCommit->num)
                                     {
-                                        hashtxns.push_back(hashtx);          // add tx with random hash 
+                                        if (!hashtx.IsNull())
+                                            hashtxns.push_back(hashtx);          // add tx with random hash 
                                         break;
                                     }
+                                }
+                                else
+                                {
+                                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't parse ccdata for hashtx=" << hashtx.GetHash().GetHex() << " vout=" << vin.prevout.n << std::endl);
                                 }
                             }
                         }
                     }
-                    randomtxns.push_back(rndtx);  //add random tx
+                    if (!rndtx.IsNull())
+                        randomtxns.push_back(rndtx);  //add new loaded random tx
                 }
             }
             else 
