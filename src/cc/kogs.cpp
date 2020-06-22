@@ -706,7 +706,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
 
 // add game finished vout
 // called by a player
-static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &mtx, struct CCcontract_info *cpTokens, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pbaton, const CPubKey &destpk, CScript &opret)
+static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &mtx, struct CCcontract_info *cpTokens, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pbaton, CScript &opret, bool force)
 {
     const CAmount  txfee = 10000;
     //CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -745,7 +745,7 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
 
     // add probe to spend baton from mypk
     CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, mypk);
-    CCAddVintxCond(cpTokens, probeCond, NULL);
+    CCAddVintxCond(cpTokens, probeCond, force ? kogspriv : NULL);  // use myprivkey if not forcing finish of the stalled game
     cc_free(probeCond);
 
 
