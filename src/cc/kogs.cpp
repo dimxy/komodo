@@ -2779,18 +2779,18 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
 
-    //char my1of2ccaddr[KOMODO_ADDRESS_BUFSIZE];
+    char my1of2ccaddr[KOMODO_ADDRESS_BUFSIZE];
     char myccaddr[KOMODO_ADDRESS_BUFSIZE];
     bool isRemote = IS_REMOTE(remotepk);
     CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
-    //GetCCaddress1of2(cp, my1of2ccaddr, GetUnspendable(cp, NULL), mypk); // use 1of2 now
-    GetCCaddress(cp, myccaddr, mypk);
+    GetCCaddress1of2(cp, my1of2ccaddr, GetUnspendable(cp, NULL), mypk); // use 1of2 now
+    //GetCCaddress(cp, myccaddr, mypk);
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "finding 'my turn' baton on mypk" << std::endl);
 
     // find my baton for this game:
     std::shared_ptr<KogsBaseObject> spPrevBaton;
-    SetCCunspentsWithMempool(addressUnspents, myccaddr, true);    // look for baton on my cc addr 
+    SetCCunspentsWithMempool(addressUnspents, my1of2ccaddr, true);    // look for baton on my cc addr 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         uint256 dummytxid;
@@ -3789,7 +3789,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
         static bool warnedMypk = false;
         if (!warnedMypk) {
             warnedMypk = true;
-            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "no -pubkey on this node, can't not create baton transactions" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no -pubkey on this node, can't not create baton transactions" << std::endl);
         }
         return;
     }
