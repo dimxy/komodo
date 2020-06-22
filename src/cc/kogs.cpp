@@ -956,7 +956,7 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
     return NullUniValue; 
 }
 
-static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pBaton, const CPubKey &destpk)
+static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pBaton)
 {
     CMutableTransaction mtx;
     struct CCcontract_info *cpTokens, CTokens;
@@ -1810,7 +1810,7 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
 // creates new baton object, manages stack according to slam data
 static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayer, KogsSlamData *pSlamparam, KogsBaton &newbaton, const KogsBaton *pInitBaton, std::vector<std::pair<uint256, int32_t>> &randomUtxos, bool forceFinish)
 {
-	int32_t nextturn;
+	int32_t nextturn = 0;
 	int32_t turncount = 0;
 
     if (pPrevObj == nullptr)    
@@ -1963,24 +1963,27 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
                 return false;
             }*/
         }
+    }
 
-        // check gameconfig is valid
-        std::shared_ptr<KogsBaseObject> spGameConfig( LoadGameObject(gameconfigid) );
-        if (spGameConfig ==nullptr || spGameConfig->objectType != KOGSID_GAMECONFIG)
+    // load game config:
+    KogsBaseObject *pGameConfig = LoadGameObject(gameconfigid);
+    if (pGameConfig == nullptr || pGameConfig->objectType != KOGSID_GAMECONFIG)
+    {
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "bad prev baton for gameid=" << gameid.GetHex() << " can't load gameconfig with id=" << gameconfigid.GetHex() << std::endl);
+        return false;
+    }
+    spGameConfig.reset((KogsGameConfig*)pGameConfig);
+
+    if (!forceFinish)
+    {
+        // load next player:
+        KogsBaseObject *pPlayer = LoadGameObject(playerids[nextturn]);
+        if (pPlayer == nullptr || pPlayer->objectType != KOGSID_PLAYER)
         {
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "skipped prev baton for gameid=" << gameid.GetHex() << " can't load gameconfig with id=" << gameconfigid.GetHex() << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "bad prev baton for gameid=" << gameid.GetHex() << " can't load player with id=" << playerids[nextturn].GetHex() << std::endl);
             return false;
         }
-        //spGameConfig.reset((KogsGameConfig*)pGameConfig);
-
-        // check next player is valid:
-        std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerids[nextturn]) );
-        if (spPlayer == nullptr || spPlayer->objectType != KOGSID_PLAYER)
-        {
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "skipped prev baton for gameid=" << gameid.GetHex() << " can't load player with id=" << playerids[nextturn].GetHex() << std::endl);
-            return false;
-        }
-        //spPlayer.reset((KogsPlayer*)pPlayer);
+        spPlayer.reset((KogsPlayer*)pPlayer);
     }
 
     // create the next baton
@@ -2218,7 +2221,7 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
             if (!newbaton.isFinished)
                 sigData = CreateBatonTx(remotepk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk, true);  // send baton to player pubkey;
             else
-                sigData = CreateGameFinishedTx(remotepk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+                sigData = CreateGameFinishedTx(remotepk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
                 return sigData;
@@ -2845,7 +2848,7 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
             if (!newbaton.isFinished)
                 sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk, false);  // send baton to player pubkey;
             else
-                sigData = CreateGameFinishedTx(remotepk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+                sigData = CreateGameFinishedTx(remotepk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
                 return sigData;
@@ -3848,7 +3851,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating autofinish baton for stalled game=" << gameid.GetHex() << std::endl);
 
                         const int32_t batonvout = (spPrevObj->objectType == KOGSID_GAME) ? 0 : 2;
-                        UniValue sigData = CreateGameFinishedTx(mypk, spPrevObj->creationtxid, it->first.index, randomUtxos, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
+                        UniValue sigData = CreateGameFinishedTx(mypk, spPrevObj->creationtxid, it->first.index, randomUtxos, &newbaton);  // send baton to player pubkey;
 
                         std::string hextx = ResultGetTx(sigData);
                         if (!hextx.empty())
