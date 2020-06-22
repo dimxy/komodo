@@ -3833,7 +3833,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
             LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "found baton utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spPrevObj->objectType=" << (int)(spPrevObj != nullptr ? spPrevObj->objectType : 0) << std::endl);
             if (spPrevObj.get() != nullptr && (spPrevObj->objectType == KOGSID_GAME || spPrevObj->objectType == KOGSID_BATON))
             {
-                if (IsGameStalled(spPrevObj->creationtxid))
+                uint256 gameid = (spPrevObj->objectType == KOGSID_GAME) ? spPrevObj->creationtxid : ((KogsBaton*)spPrevObj.get())->gameid;
+
+                if (IsGameStalled(gameid))
                 {
                     std::shared_ptr<KogsGameConfig> spGameConfig;
                     std::shared_ptr<KogsPlayer> spPlayer;
