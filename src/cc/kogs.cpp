@@ -907,12 +907,14 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
             for (auto const &spcontainer : spcontainers)  {
                 int32_t i = spcontainer->tx.vout.size();
                 while (--i >= 0 && !spcontainer->tx.vout[i].scriptPubKey.IsPayToCryptoCondition());   // find last cc vout
-                mtx.vin.push_back(CTxIn(spcontainer->tx.GetHash(), i));  
+                if (std::find(mtx.vin.begin(), mtx.vin.end(), CTxIn(spcontainer->tx.GetHash(), i)) == mtx.vin.end()) // check if not added already
+                    mtx.vin.push_back(CTxIn(spcontainer->tx.GetHash(), i));  
             }
             for (auto const &spslammer : spslammers)    {
                 int32_t i = spslammer->tx.vout.size();
                 while (--i >= 0 && !spslammer->tx.vout[i].scriptPubKey.IsPayToCryptoCondition()); // find last cc vout:
-                mtx.vin.push_back(CTxIn(spslammer->tx.GetHash(), i));  
+                if (std::find(mtx.vin.begin(), mtx.vin.end(), CTxIn(spslammer->tx.GetHash(), i)) == mtx.vin.end()) // check if not added already
+                    mtx.vin.push_back(CTxIn(spslammer->tx.GetHash(), i));  
             }
         }
 
