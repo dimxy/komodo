@@ -933,8 +933,13 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
         uint8_t kogspriv[32];
         CPubKey kogsPk = GetUnspendable(cp, kogspriv);
         CPubKey gametxidPk = CCtxidaddr_tweak(NULL, pbaton->gameid);
-        CC *probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
-        CCAddVintxCond(cp, probeCond, kogspriv);
+        CC *probeCond1of2 = MakeCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
+        CCAddVintxCond(cp, probeCond1of2, kogspriv);
+        cc_free(probeCond1of2);
+
+        // add probe to spend baton from mypk
+        CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, mypk);
+        CCAddVintxCond(cp, probeCond, NULL);  // use myprivkey if not forcing finish of the stalled game
         cc_free(probeCond);
 
         mtx.vout.push_back(MakeCC1of2vout(EVAL_KOGS, KOGS_BATON_AMOUNT, kogsPk, destpk)); // baton to indicate whose turn is now, globalpk to allow autofinish stalled games
