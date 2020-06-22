@@ -72,7 +72,7 @@ inline bool KogsIsObjectVersionSupported(uint8_t objectType, uint8_t version) { 
 #define KOGS_OPTS_PLAYFORFUN     0x20
 #define KOGS_OPTS_PLAYFORWAGES   0x40
 
-#define KOGS_TIME_STALLED 60 // sec
+#define KOGS_TIME_STALLED 120 // sec
 
 const char opt_playforkeeps[] = "playforkeeps";
 const char opt_playforfun[] =   "playforfun";
