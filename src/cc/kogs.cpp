@@ -735,7 +735,7 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     CCAddVintxCond(cpTokens, probeCond1of2, kogspriv);
     cc_free(probeCond1of2);
 
-    mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // TODO where to send finish baton?
+    //mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // TODO where to send finish baton?
 
     // add probe cc and kogs priv to spend from kogs global pk
     //struct CCcontract_info *cpKogs, C;
@@ -744,7 +744,7 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     //CPubKey kogsPk = GetUnspendable(cpKogs, kogspriv);
 
     // add probe to spend baton from mypk
-    CC* probeCond = MakeCCcond1of2(EVAL_KOGS, gametxidPk, mypk);
+    CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, mypk);
     CCAddVintxCond(cpTokens, probeCond, NULL);
     cc_free(probeCond);
 
