@@ -956,7 +956,7 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
     return NullUniValue; 
 }
 
-static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pBaton)
+static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pBaton, bool force)
 {
     CMutableTransaction mtx;
     struct CCcontract_info *cpTokens, CTokens;
@@ -973,7 +973,7 @@ static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, 
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, pBaton->gameid);
     CScript opret;
-    AddGameFinishedInOuts(remotepk, mtx, cpTokens, prevtxid, prevn, randomUtxos, pBaton, gametxidPk, opret);  // send game finished baton to unspendable addr
+    AddGameFinishedInOuts(remotepk, mtx, cpTokens, prevtxid, prevn, randomUtxos, pBaton, opret, force);  // send game finished baton to unspendable addr
 
     if (AddTransferBackTokensVouts(remotepk, mtx, cpTokens, pBaton->gameid, spcontainers, spslammers, transferContainerTxns))
     {
@@ -2221,7 +2221,7 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
             if (!newbaton.isFinished)
                 sigData = CreateBatonTx(remotepk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk, true);  // send baton to player pubkey;
             else
-                sigData = CreateGameFinishedTx(remotepk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton);  // send baton to player pubkey;
+                sigData = CreateGameFinishedTx(remotepk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, false);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
                 return sigData;
@@ -2848,7 +2848,7 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
             if (!newbaton.isFinished)
                 sigData = CreateBatonTx(remotepk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, spPlayer->encOrigPk, false);  // send baton to player pubkey;
             else
-                sigData = CreateGameFinishedTx(remotepk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton);  // send baton to player pubkey;
+                sigData = CreateGameFinishedTx(remotepk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, false);  // send baton to player pubkey;
             if (ResultHasTx(sigData))
             {
                 return sigData;
@@ -3851,7 +3851,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating autofinish baton for stalled game=" << gameid.GetHex() << std::endl);
 
                         const int32_t batonvout = (spPrevObj->objectType == KOGSID_GAME) ? 0 : 2;
-                        UniValue sigData = CreateGameFinishedTx(mypk, spPrevObj->creationtxid, it->first.index, randomUtxos, &newbaton);  // send baton to player pubkey;
+                        UniValue sigData = CreateGameFinishedTx(mypk, spPrevObj->creationtxid, it->first.index, randomUtxos, &newbaton, true);  // send baton to player pubkey;
 
                         std::string hextx = ResultGetTx(sigData);
                         if (!hextx.empty())
