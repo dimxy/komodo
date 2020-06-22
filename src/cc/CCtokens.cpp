@@ -1367,7 +1367,7 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
     // TODO maybe add also opret blobs form vintx
     // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
     UniValue sigData = FinalizeCCTxExt(isRemote, mask, cp, mtx, mypk, txfee, opret); 
-    LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "mtx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl);
+    LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "mtx=" << HexStr(E_MARSHAL(ss << mtx)) << " isRemote=" << isRemote << " mypk=" << HexStr(mypk) << std::endl);
     if (ResultHasTx(sigData)) {
         LockUtxoInMemory::AddInMemoryTransaction(mtx);  // to be able to spend mtx change
         return sigData;
