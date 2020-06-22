@@ -904,10 +904,16 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
             std::vector<std::shared_ptr<KogsContainer>> spcontainers;
             std::vector<std::shared_ptr<KogsMatchObject>> spslammers;
             ListDepositedTokenids(pbaton->gameid, spcontainers, spslammers, false);
-            for (auto const &spcontainer : spcontainers)
-                mtx.vin.push_back(CTxIn(spcontainer->tx.GetHash(), spcontainer->tx.vout.size()-2));  
-            for (auto const &spslammer : spslammers)
-                mtx.vin.push_back(CTxIn(spslammer->tx.GetHash(), spslammer->tx.vout.size()-2));  
+            for (auto const &spcontainer : spcontainers)  {
+                int32_t i = spcontainer->tx.vout.size() - 1;
+                while (--i >= 0 && spcontainer->tx.vout[i].scriptPubKey.IsPayToCryptoCondition());   // find last cc vout
+                mtx.vin.push_back(CTxIn(spcontainer->tx.GetHash(), i));  
+            }
+            for (auto const &spslammer : spslammers)    {
+                int32_t i = spslammer->tx.vout.size() - 1;
+                while (--i >= 0 && spslammer->tx.vout[i].scriptPubKey.IsPayToCryptoCondition()); // find last cc vout:
+                mtx.vin.push_back(CTxIn(spslammer->tx.GetHash(), i));  
+            }
         }
 
         // add probeCond to spend from 1of2:
