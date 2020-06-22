@@ -328,6 +328,16 @@ static bool IsGameFinished(const KogsGameConfig &gameconfig, const KogsBaton *pb
     return  pbaton->prevturncount > 0 && pbaton->kogsInStack.empty() || pbaton->prevturncount >= pbaton->playerids.size() * gameconfig.maxTurns;
 }
 
+// checks if game timeouted with no moves
+// note ast baton should be passed as param (no check of that)
+static bool IsGameStalled(uint256 batontxid)
+{
+    int32_t nblocks;
+    if (CCduration(nblocks, batontxid) >= KOGS_TIME_STALLED)
+        return true;
+    else
+        return false;
+}
 // create game object NFT by calling token cc function
 static UniValue CreateGameObjectNFT(const CPubKey &remotepk, const struct KogsBaseObject *baseobj)
 {
@@ -438,6 +448,7 @@ static UniValue CreateGameTx(const CPubKey &remotepk, const KogsGame *gameobj, c
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, EVAL_KOGS);
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
 
     KogsEnclosure enc(mypk);  //'zeroid' means 'for creation'
 
@@ -451,7 +462,7 @@ static UniValue CreateGameTx(const CPubKey &remotepk, const KogsGame *gameobj, c
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_NFT_MARKER_AMOUNT, GetUnspendable(cp, NULL)));  // kogs cc marker
-        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, mypk)); // send initially to self to create the first baton later
+        mtx.vout.push_back(MakeCC1of2vout(EVAL_KOGS, KOGS_BATON_AMOUNT, kogsPk, mypk)); // send initially to self to create the first baton later, send also to kogsPk to allow autofinish stalled games
         for(auto const &pk : pks)   
             mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, pk)); // send small amount to each player to create random commit txns 
         
@@ -918,7 +929,7 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
             }
         }
 
-        // add probeCond to spend from 1of2:
+        // add probeCond to spend from a number of 1of2 outputs: the prev baton, random txns, deposited txns for the first baton
         uint8_t kogspriv[32];
         CPubKey kogsPk = GetUnspendable(cp, kogspriv);
         CPubKey gametxidPk = CCtxidaddr_tweak(NULL, pbaton->gameid);
@@ -926,7 +937,7 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
         CCAddVintxCond(cp, probeCond, kogspriv);
         cc_free(probeCond);
 
-        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, destpk)); // baton to indicate whose turn is now
+        mtx.vout.push_back(MakeCC1of2vout(EVAL_KOGS, KOGS_BATON_AMOUNT, kogsPk, destpk)); // baton to indicate whose turn is now, globalpk to allow autofinish stalled games
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
@@ -1797,7 +1808,7 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
 }
 
 // creates new baton object, manages stack according to slam data
-static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayer, KogsSlamData *pSlamparam, KogsBaton &newbaton, const KogsBaton *pInitBaton, std::vector<std::pair<uint256, int32_t>> &randomUtxos)
+static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayer, KogsSlamData *pSlamparam, KogsBaton &newbaton, const KogsBaton *pInitBaton, std::vector<std::pair<uint256, int32_t>> &randomUtxos, bool forceFinish)
 {
 	int32_t nextturn;
 	int32_t turncount = 0;
@@ -1991,7 +2002,7 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
 	}
 
     // check if the current slam finishes the game
-    if (IsGameFinished(*spGameConfig.get(), &newbaton))
+    if (forceFinish || IsGameFinished(*spGameConfig.get(), &newbaton))
     {  
         // create gamefinished object:
 		newbaton.isFinished = 1;
@@ -2185,7 +2196,7 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
             return NullUniValue;
         }
         std::vector<std::pair<uint256, int32_t>> randomUtxos;
-        if (CreateNewBaton(spPrevObj.get(), dummygameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos))
+        if (CreateNewBaton(spPrevObj.get(), dummygameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos, false))
         {    
             const int32_t batonvout = 2;
 
@@ -2812,7 +2823,7 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
             return NullUniValue;
         }
         std::vector<std::pair<uint256, int32_t>> randomUtxos;
-        if (CreateNewBaton(spPrevBaton.get(), dummygameid, spGameConfig, spPlayer, &newSlamData, newbaton, nullptr, randomUtxos))
+        if (CreateNewBaton(spPrevBaton.get(), dummygameid, spGameConfig, spPlayer, &newSlamData, newbaton, nullptr, randomUtxos, false))
         {    
             const int32_t batonvout = 0;
 
@@ -3757,8 +3768,6 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     int txbatons = 0;
     int txtransfers = 0;
 
-return;
-
     if (mypk.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) {
         static bool warnedMypk = false;
         if (!warnedMypk) {
@@ -3779,11 +3788,14 @@ return;
     LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "listing all games with batons" << std::endl);
 
     //srand(time(NULL));  // TODO check srand already called in init()
+    std::vector<std::pair<uint256, CTransaction>> myTransactions;
+    std::vector<uint256> badBatons;
 
     LockUtxoInMemory lockutxos;  // lock in memory tx inputs to prevent from subsequent adding
 
     // find all games with unspent batons:
-    SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr
+    // SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr
+    SetCCunspents(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on the global cc addr, only confirmed for autofinish might be checked
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)
     {
         uint256 dummytxid;
@@ -3792,56 +3804,53 @@ return;
         // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
         if (it->second.satoshis == KOGS_BATON_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*/) // picking game or slamparam utxos with markers=20000
         {
+            if (std::find(badBatons.begin(), badBatons.end(), it->first.txhash) != badBatons.end())  // check if in bad batons list
+                continue;
+
             std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
             LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "found baton utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spPrevObj->objectType=" << (int)(spPrevObj != nullptr ? spPrevObj->objectType : 0) << std::endl);
-            if (spPrevObj.get() != nullptr)
+            if (spPrevObj.get() != nullptr && (spPrevObj->objectType == KOGSID_GAME || spPrevObj->objectType == KOGSID_BATON))
             {
-				std::vector<CTransaction> myTransactions;
-				std::shared_ptr<KogsGameConfig> spGameConfig;
-				std::shared_ptr<KogsPlayer> spPlayer;
-				std::shared_ptr<KogsBaton> spPrevBaton;
-				KogsBaton newbaton;
-				//KogsGameFinished gamefinished;
-				uint256 gameid;
-				//bool bGameFinished;
-                std::vector<std::pair<uint256, int32_t>> randomUtxos;
+                if (IsGameStalled(spPrevObj->creationtxid))
+                {
+                    std::shared_ptr<KogsGameConfig> spGameConfig;
+                    std::shared_ptr<KogsPlayer> spPlayer;
+                    std::shared_ptr<KogsBaton> spPrevBaton;
+                    KogsBaton newbaton;
+                    //KogsGameFinished gamefinished;
+                    uint256 gameid;
+                    //bool bGameFinished;
+                    std::vector<std::pair<uint256, int32_t>> randomUtxos;
 
-				if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos))
-					continue;
+                    if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos, true))    {
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not create autofinish baton=" << " for gameid=" << gameid.GetHex() << std::endl);
+                        continue;
+                    }
 
-                // first requirement: finish the game if turncount == player.size * maxTurns and send kogs to the winners
-                // my addition: finish if stack is empty
-                if (newbaton.isFinished)
-                {                            
-                    LOGSTREAMFN("kogs", CCLOG_INFO, stream << "either stack empty=" << spPrevBaton->kogsInStack.empty() << " or all reached max turns, total turns=" << spPrevBaton->prevturncount << ", starting to finish game=" << gameid.GetHex() << std::endl);
+                    // first requirement: finish the game if turncount == player.size * maxTurns and send kogs to the winners
+                    // my addition: finish if stack is empty
+                    if (newbaton.isFinished)
+                    {                            
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating autofinish baton for stalled game=" << gameid.GetHex() << std::endl);
 
-                    CMutableTransaction mtx;
-                    struct CCcontract_info *cpTokens, CTokens;
-                    cpTokens = CCinit(&CTokens, EVAL_TOKENS);
+                        const int32_t batonvout = (spPrevObj->objectType == KOGSID_GAME) ? 0 : 2;
+                        UniValue sigData = CreateGameFinishedTx(mypk, spPrevObj->creationtxid, it->first.index, randomUtxos, &newbaton, spPlayer->encOrigPk);  // send baton to player pubkey;
 
-                    TokenBeginTransferTx(mtx, cpTokens, mypk, 10000);
-                    std::vector<CTransaction> transferContainerTxns;
-                    std::vector<std::shared_ptr<KogsContainer>> spcontainers;
-                    std::vector<std::shared_ptr<KogsMatchObject>> spslammers;
-                    ListDepositedTokenids(gameid, spcontainers, spslammers, false);
-                        
-                    char txidaddr[KOMODO_ADDRESS_BUFSIZE];
-                    CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, gameid);
-                    CScript opret;
-                    AddGameFinishedInOuts(mypk, mtx, cpTokens, it->first.txhash, it->first.index, randomUtxos, &newbaton, gametxidPk, opret);  // send game finished baton to unspendable addr
-
-                    if (AddTransferBackTokensVouts(mypk, mtx, cpTokens, gameid, spcontainers, spslammers, transferContainerTxns))
-                    {
-                        UniValue finalizeResult = TokenFinalizeTransferTx(mtx, cpTokens, CPubKey(), 10000, opret);
-                        if (!ResultIsError(finalizeResult)) {
-                            myTransactions.push_back(mtx);
-                            txtransfers++;
+                        std::string hextx = ResultGetTx(sigData);
+                        if (!hextx.empty())
+                        {
+                            CMutableTransaction mtx;
+                            if (E_UNMARSHAL(ParseHex(hextx), ss >> mtx))
+                            {
+                                myTransactions.push_back(std::make_pair(it->first.txhash, mtx));
+                                txtransfers++;
+                            }
+                            else
+                                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not parse autofinish hextx=" << hextx << " for gameid=" << gameid.GetHex() << std::endl);
                         }
                         else
-                            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error finalizing tx for gameid=" << gameid.GetHex() << " error=" << ResultGetError(finalizeResult) << std::endl);
+                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(sigData) << " signing auto-finish tx for gameid=" << gameid.GetHex() << std::endl);
                     }
-                    else
-                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error adding transfer container vouts for gameid=" << gameid.GetHex() << std::endl);
                 }
                 /* no batons are created by nodes any more
                 else
@@ -3860,31 +3869,32 @@ return;
                     } 
                 } */
                 
-                for (const auto &tx : myTransactions)
-                {
-                    std::string hextx = HexStr(E_MARSHAL(ss << tx));
-                    UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
-                    txparam.setStr(hextx);
-                    rpcparams.push_back(txparam);
-                    try {
-                        sendrawtransaction(rpcparams, false, mypk);  // NOTE: throws error!
-                    }
-                    catch (std::runtime_error error)
-                    {
-                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("cant send transaction: bad parameters: ") + error.what() << std::endl);
-                    }
-                    catch (UniValue error)
-                    {
-                        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("error: can't send tx: ") + hextx + " error: " + ResultGetError(error) << " (" << error["code"].get_int()<< " " << error["message"].getValStr() << ")" << std::endl);
-                    }
-                }
             }
             else
                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spPrevObj.get() ? std::string("incorrect objectType=") + std::string(1, (char)spPrevObj->objectType) : std::string("nullptr")) << std::endl);
         }
     }
 
-    LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "created batons=" << txbatons << " created container transfers=" << txtransfers << std::endl);
+    for (const auto &pair : myTransactions)
+    {
+        std::string hextx = HexStr(E_MARSHAL(ss << pair.second));
+        UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
+        txparam.setStr(hextx);
+        rpcparams.push_back(txparam);
+        try {
+            sendrawtransaction(rpcparams, false, mypk);  // NOTE: throws error!
+        }
+        catch (std::runtime_error error)
+        {
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("cant send transaction: bad parameters: ") + error.what() << std::endl);
+            badBatons.push_back(pair.first);
+        }
+        catch (UniValue error)
+        {
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("error: can't send tx: ") + hextx + " error: " + ResultGetError(error) << " (" << error["code"].get_int()<< " " << error["message"].getValStr() << ")" << std::endl);
+            badBatons.push_back(pair.first);
+        }
+    }
 }
 
 // decode kogs tx utils
@@ -4169,8 +4179,8 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
     //bool bGameFinished;
 
     // find first cc vin
-    int32_t ccvin;
-    for (ccvin = 0; ccvin < tx.vin.size(); ccvin ++)
+    int32_t ccvin = 0;
+    for (; ccvin < tx.vin.size(); ccvin ++)
         if (cp->ismyvin(tx.vin[ccvin].scriptSig))   
             break;
     if (ccvin == tx.vin.size())
@@ -4186,6 +4196,16 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
             return errorStr = "incorrect strength or height value", false;
     }
 
+    // check if spent with global pk
+    CPubKey kogsPk = GetUnspendable(cp, NULL);
+    if (check_signing_pubkey(tx.vin[ccvin].scriptSig) == kogsPk)    {
+        // spending with kogspk allowed for autofinishing of the stalled games:
+        if (IsGameStalled(tx.vin[ccvin].prevout.hash)) 
+            return errorStr = "game is not time-out yet", false;
+        if (!pBaton->isFinished)
+            return errorStr = "for auto finishing games a finish baton is required", false;
+    }
+
     //CTransaction prevtx;
     //uint256 hashBlock;
     //if (!myGetTransaction(tx.vin[ccvin].prevout.hash, prevtx, hashBlock) || prevtx.vout[tx.vin[ccvin].prevout.n].nValue != KOGS_BATON_AMOUNT)
@@ -4195,7 +4215,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
     // create test baton object using validated object as an init object (with the stored random data)
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating test baton"  << std::endl);
     std::vector<std::pair<uint256, int32_t>> randomUtxos;
-    if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, testBaton, pBaton, randomUtxos))
+    if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, testBaton, pBaton, randomUtxos, false))
         return errorStr = "could not create test baton", false;
 
     if (testBaton != *pBaton)   
