@@ -744,7 +744,7 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     //CPubKey kogsPk = GetUnspendable(cpKogs, kogspriv);
 
     // add probe to spend baton from mypk
-    CC* probeCond = MakeCCcond1(EVAL_KOGS, mypk);
+    CC* probeCond = MakeCCcond1of2(EVAL_KOGS, gametxidPk, mypk);
     CCAddVintxCond(cpTokens, probeCond, NULL);
     cc_free(probeCond);
 
@@ -781,7 +781,7 @@ static bool AddTransferBackTokensVouts(const CPubKey &mypk, CMutableTransaction 
     GetTokensCCaddress1of2(cpKogs, tokensrcaddr, kogsPk, gametxidPk);  // get 1of2 address for game
 
     // iterate over containers and slammers non-mempool tx and extract senders pubkeys from cc vins
-    std::vector< std::pair<uint256, CPubKey>> tokenspks;
+    std::vector< std::pair<uint256, CPubKey> > tokenspks;
     tokenspks.reserve(containers.size() + slammers.size());
     for (auto const &c : containers)    {
         std::vector<CPubKey> vpks;
@@ -3789,13 +3789,13 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
         static bool warnedMypk = false;
         if (!warnedMypk) {
             warnedMypk = true;
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no -pubkey on this node, can't not create baton transactions" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "no -pubkey on this node, can't not create baton transactions" << std::endl);
         }
         return;
     }
 
     if (!CheckSysPubKey())   { // only syspk can create miner txns
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "cannot create batons with not the sys pubkey or sys pubkey not set" << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "cannot create batons with not the sys pubkey or sys pubkey not set" << std::endl);
         return;
     }
 
