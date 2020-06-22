@@ -330,7 +330,7 @@ static bool IsGameFinished(const KogsGameConfig &gameconfig, const KogsBaton *pb
 
 // checks if game timeouted with no moves
 // note ast baton should be passed as param (no check of that)
-static bool IsGameStalled(uint256 batontxid)
+static bool IsBatonStalled(uint256 batontxid)
 {
     int32_t nblocks;
     if (CCduration(nblocks, batontxid) >= KOGS_TIME_STALLED)
@@ -3833,9 +3833,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
             LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "found baton utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spPrevObj->objectType=" << (int)(spPrevObj != nullptr ? spPrevObj->objectType : 0) << std::endl);
             if (spPrevObj.get() != nullptr && (spPrevObj->objectType == KOGSID_GAME || spPrevObj->objectType == KOGSID_BATON))
             {
-                uint256 gameid = (spPrevObj->objectType == KOGSID_GAME) ? spPrevObj->creationtxid : ((KogsBaton*)spPrevObj.get())->gameid;
-
-                if (IsGameStalled(gameid))
+                if (IsBatonStalled(spPrevObj->creationtxid))
                 {
                     std::shared_ptr<KogsGameConfig> spGameConfig;
                     std::shared_ptr<KogsPlayer> spPlayer;
@@ -3858,7 +3856,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating autofinish baton for stalled game=" << gameid.GetHex() << std::endl);
 
                         const int32_t batonvout = (spPrevObj->objectType == KOGSID_GAME) ? 0 : 2;
-                        UniValue sigData = CreateGameFinishedTx(mypk, spPrevObj->creationtxid, it->first.index, randomUtxos, &newbaton, true);  // send baton to player pubkey;
+                        UniValue sigData = CreateGameFinishedTx(mypk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
 
                         std::string hextx = ResultGetTx(sigData);
                         if (!hextx.empty())
@@ -4224,7 +4222,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
     CPubKey kogsPk = GetUnspendable(cp, NULL);
     if (check_signing_pubkey(tx.vin[ccvin].scriptSig) == kogsPk)    {
         // spending with kogspk allowed for autofinishing of the stalled games:
-        if (IsGameStalled(tx.vin[ccvin].prevout.hash)) 
+        if (IsBatonStalled(tx.vin[ccvin].prevout.hash)) 
             return errorStr = "game is not time-out yet", false;
         if (!pBaton->isFinished)
             return errorStr = "for auto finishing games a finish baton is required", false;
