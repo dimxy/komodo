@@ -3840,8 +3840,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
         // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
         if (it->second.satoshis == KOGS_NFT_MARKER_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*/) // picking game or slamparam utxos with markers=20000
         {
-            if (std::find(badGames.begin(), badGames.end(), it->first.txhash) != badGames.end())  // check if in bad game list
-                continue;
+            //if (std::find(badGames.begin(), badGames.end(), it->first.txhash) != badGames.end())  // check if in bad game list
+            //    continue;
 
             std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
             LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "found game marker utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spPrevObj->objectType=" << (int)(spPrevObj != nullptr ? spPrevObj->objectType : 0) << std::endl);
@@ -3908,7 +3908,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 
             }
             else
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load object: " << (spPrevObj.get() ? std::string("incorrect objectType=") + std::string(1, (char)spPrevObj->objectType) : std::string("nullptr")) << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load or not a game object: " << (spPrevObj.get() ? std::string("incorrect objectType=") + std::string(1, (char)spPrevObj->objectType) : std::string("nullptr")) << std::endl);
         }
     }
 
