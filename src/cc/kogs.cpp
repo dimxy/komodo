@@ -3871,10 +3871,10 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating autofinish baton for stalled game=" << gameid.GetHex() << std::endl);
 
                         const int32_t batonvout = (spPrevObj->objectType == KOGSID_GAME) ? 0 : 2;
-                        UniValue sigData = CreateGameFinishedTx(mypk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
+                        UniValue sigres = CreateGameFinishedTx(mypk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
 
-                        std::string hextx = ResultGetTx(sigData);
-                        if (!hextx.empty())
+                        std::string hextx = ResultGetTx(sigres);
+                        if (!hextx.empty() && ResultGetError(sigres).empty())
                         {
                             CMutableTransaction mtx;
                             if (E_UNMARSHAL(ParseHex(hextx), ss >> mtx))
@@ -3886,7 +3886,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                                 LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not parse autofinish hextx=" << hextx << " for gameid=" << gameid.GetHex() << std::endl);
                         }
                         else
-                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(sigData) << " signing auto-finish tx for gameid=" << gameid.GetHex() << std::endl);
+                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(sigres) << " signing auto-finish tx for gameid=" << gameid.GetHex() << std::endl);
                     }
                 }
                 /* no batons are created by nodes any more
