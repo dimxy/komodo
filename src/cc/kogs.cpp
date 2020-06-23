@@ -322,6 +322,20 @@ static bool IsTxSigned(const CTransaction &tx)
     return true;
 }
 
+static uint256 GetLastBaton(uint256 gameid)
+{
+    uint256 batontxid = gameid, starttxid = gameid;
+    int32_t nvout = 2, vini, height;  // vout for gameid
+    
+    // browse the sequence of slamparam and baton txns: 
+    while (CCgetspenttxid(batontxid, vini, height, starttxid, nvout) == 0)
+    {
+        nvout = 0;
+        starttxid = batontxid;
+    }
+    return batontxid;
+}
+
 // checks if game finished
 static bool IsGameFinished(const KogsGameConfig &gameconfig, const KogsBaton *pbaton) 
 { 
@@ -3433,36 +3447,36 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found baton objectType=" << (char)spobj->objectType << " txid=" << batontxid.GetHex() << std::endl);
         batons.push_back(batontxid);
 
-        if (spobj->objectType == KOGSID_BATON)
+        //if (spobj->objectType == KOGSID_BATON)
+        //{
+        KogsBaton *pbaton = (KogsBaton *)spobj.get();
+        prevTurn = nextTurn;
+
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "pbaton->kogsInStack=" << pbaton->kogsInStack.size() << " pbaton->kogFlipped=" << pbaton->kogsFlipped.size() << std::endl);
+
+        // for the first turn prevturn is (-1)
+        // and no won kogs yet:
+        if (prevTurn >= 0)  // there was a turn already
         {
-            KogsBaton *pbaton = (KogsBaton *)spobj.get();
-            prevTurn = nextTurn;
-
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "pbaton->kogsInStack=" << pbaton->kogsInStack.size() << " pbaton->kogFlipped=" << pbaton->kogsFlipped.size() << std::endl);
-
-            // for the first turn prevturn is (-1)
-            // and no won kogs yet:
-            if (prevTurn >= 0)  // there was a turn already
-            {
-                //if (wonkogs.find(pbaton->playerids[prevTurn]) == wonkogs.end())
-                //    wonkogs[pbaton->playerids[prevTurn]] = 0;  // init map value
-                //wonkogs[pbaton->playerids[prevTurn]] += pbaton->kogsFlipped.size
-                prevPlayerid = pbaton->playerids[prevTurn];
-            }
-            prevFlipped = pbaton->kogsFlipped;
-            kogsInStack = pbaton->kogsInStack;
-            nvout = 0;  // baton tx's next baton vout
-            if (pbaton->isFinished) {
-                winnerid = pbaton->winnerid;
-                isFinished = true;
-                nextTurn = -1;
-                break;
-            }
-            else {
-                nextTurn = pbaton->nextturn;
-                nextPlayerid = pbaton->playerids[nextTurn];
-            }
+            //if (wonkogs.find(pbaton->playerids[prevTurn]) == wonkogs.end())
+            //    wonkogs[pbaton->playerids[prevTurn]] = 0;  // init map value
+            //wonkogs[pbaton->playerids[prevTurn]] += pbaton->kogsFlipped.size
+            prevPlayerid = pbaton->playerids[prevTurn];
         }
+        prevFlipped = pbaton->kogsFlipped;
+        kogsInStack = pbaton->kogsInStack;
+        nvout = 0;  // baton tx's next baton vout
+        if (pbaton->isFinished) {
+            winnerid = pbaton->winnerid;
+            isFinished = true;
+            nextTurn = -1;
+            break;
+        }
+        else {
+            nextTurn = pbaton->nextturn;
+            nextPlayerid = pbaton->playerids[nextTurn];
+        }
+        //}
         /*else if (spobj->objectType == KOGSID_SLAMPARAMS)
         {
             nvout = 0;  // slamparams tx's next baton vout
@@ -3830,9 +3844,10 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 continue;
 
             std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
-            LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "found baton utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spPrevObj->objectType=" << (int)(spPrevObj != nullptr ? spPrevObj->objectType : 0) << std::endl);
-            if (spPrevObj.get() != nullptr && (spPrevObj->objectType == KOGSID_GAME || spPrevObj->objectType == KOGSID_BATON))
+            LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "found game marker utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spPrevObj->objectType=" << (int)(spPrevObj != nullptr ? spPrevObj->objectType : 0) << std::endl);
+            if (spPrevObj.get() != nullptr && spPrevObj->objectType == KOGSID_GAME)
             {
+                uint256 batontxid = GetLastBaton(spPrevObj->creationtxid);
                 if (IsBatonStalled(spPrevObj->creationtxid))
                 {
                     std::shared_ptr<KogsGameConfig> spGameConfig;
