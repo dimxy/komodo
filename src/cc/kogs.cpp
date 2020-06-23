@@ -774,6 +774,7 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
             LOGSTREAMFN("kogs", CCLOG_INFO, stream << "internal logic error game=" << pbaton->gameid.GetHex() << std::endl);
             return;   // internal logic error
         }
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "usepk for autofinish=" << HexStr(usepk) << std::endl);
     }
 
     // add probe to spend baton from mypk
@@ -2039,7 +2040,7 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
 	newbaton.prevturncount = turncount;  
 	newbaton.gameid = gameid;
 	newbaton.gameconfigid = gameconfigid;
-    
+
     if (!forceFinish)
     {
         if (pSlamparam != nullptr)  {
@@ -3871,7 +3872,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
             //    continue;
 
             std::shared_ptr<KogsBaseObject> spGameBase(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
-            LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "checking gameobject marker utxo txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spGameBase->objectType=" << (int)(spGameBase != nullptr ? spGameBase->objectType : 0) << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "checking gameobject marker txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spGameBase->objectType=" << (int)(spGameBase != nullptr ? spGameBase->objectType : 0) << std::endl);
 
             if (spGameBase.get() != nullptr && spGameBase->objectType == KOGSID_GAME)
             {
@@ -3888,7 +3889,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     std::vector<std::pair<uint256, int32_t>> randomUtxos;
 
                     if (!CreateNewBaton(spPrevBaton.get(), gameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos, true))    {
-                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not create autofinish baton for gameid=" << gameid.GetHex() << std::endl);
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not create autofinish baton for gameid=" << spGameBase->creationtxid.GetHex() << std::endl);
                         continue;
                     }
 
