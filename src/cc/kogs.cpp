@@ -3868,8 +3868,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
         // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
         if (it->second.satoshis == KOGS_NFT_MARKER_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*/) // picking game or slamparam utxos with markers=20000
         {
-            //if (std::find(badGames.begin(), badGames.end(), it->first.txhash) != badGames.end())  // check if in bad game list
-            //    continue;
+            // prevent trying to autofinish games with errors more and more
+            if (std::find(badGames.begin(), badGames.end(), it->first.txhash) != badGames.end())  // check if in bad game list
+                continue;
 
             std::shared_ptr<KogsBaseObject> spGameBase(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
             LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "checking gameobject marker txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spGameBase->objectType=" << (int)(spGameBase != nullptr ? spGameBase->objectType : 0) << std::endl);
@@ -3900,7 +3901,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating autofinish baton tx for stalled game=" << gameid.GetHex() << std::endl);
 
                         const int32_t batonvout = (spPrevBaton->objectType == KOGSID_GAME) ? 0 : 2;
-                        UniValue sigres = CreateGameFinishedTx(mypk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
+                        UniValue sigres = CreateGameFinishedTx(CPubKey(), spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
 
                         std::string hextx = ResultGetTx(sigres);
                         if (!hextx.empty() && ResultGetError(sigres).empty())    
