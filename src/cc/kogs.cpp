@@ -4261,7 +4261,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
     CPubKey kogsPk = GetUnspendable(cp, NULL);
     if (check_signing_pubkey(tx.vin[ccvin].scriptSig) == kogsPk)    {
         // spending with kogspk allowed for autofinishing of the stalled games:
-        if (IsBatonStalled(tx.vin[ccvin].prevout.hash)) 
+        if (!IsBatonStalled(tx.vin[ccvin].prevout.hash)) 
             return errorStr = "game is not time-out yet", false;
         if (!pBaton->isFinished)
             return errorStr = "for auto finishing games a finish baton is required", false;
