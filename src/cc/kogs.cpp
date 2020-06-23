@@ -1001,11 +1001,14 @@ static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, 
             return sigData;
         }
         else
+        {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error finalizing tx for gameid=" << pBaton->gameid.GetHex() << " error=" << ResultGetError(sigData) << std::endl);
+            return MakeResultError("could not finalize tx " + ResultGetError(sigData));
+        }
     }
     else
         LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error adding transfer container vouts for gameid=" << pBaton->gameid.GetHex() << std::endl);
-    return NullUniValue;
+    return MakeResultError("could not add token vouts");
 }
 
 
@@ -3844,7 +3847,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
             //    continue;
 
             std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
-            LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "found game marker utxo" << " txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spPrevObj->objectType=" << (int)(spPrevObj != nullptr ? spPrevObj->objectType : 0) << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "checking gameobject marker utxo txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spPrevObj->objectType=" << (int)(spPrevObj != nullptr ? spPrevObj->objectType : 0) << std::endl);
+
             if (spPrevObj.get() != nullptr && spPrevObj->objectType == KOGSID_GAME)
             {
                 uint256 batontxid = GetLastBaton(spPrevObj->creationtxid);
@@ -3860,7 +3864,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     std::vector<std::pair<uint256, int32_t>> randomUtxos;
 
                     if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos, true))    {
-                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not create autofinish baton=" << " for gameid=" << gameid.GetHex() << std::endl);
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not create autofinish baton for gameid=" << gameid.GetHex() << std::endl);
                         continue;
                     }
 
@@ -3868,7 +3872,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     // my addition: finish if stack is empty
                     if (newbaton.isFinished)
                     {                            
-                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating autofinish baton for stalled game=" << gameid.GetHex() << std::endl);
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating autofinish baton tx for stalled game=" << gameid.GetHex() << std::endl);
 
                         const int32_t batonvout = (spPrevObj->objectType == KOGSID_GAME) ? 0 : 2;
                         UniValue sigres = CreateGameFinishedTx(mypk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
