@@ -4257,6 +4257,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
             return errorStr = "incorrect strength or height value", false;
     }
 
+    bool forceFinish = false;
     // check if spent with global pk
     CPubKey kogsPk = GetUnspendable(cp, NULL);
     if (check_signing_pubkey(tx.vin[ccvin].scriptSig) == kogsPk)    {
@@ -4265,6 +4266,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
             return errorStr = "game is not time-out yet", false;
         if (!pBaton->isFinished)
             return errorStr = "for auto finishing games a finish baton is required", false;
+        forceFinish = true;
     }
 
     //CTransaction prevtx;
@@ -4276,7 +4278,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
     // create test baton object using validated object as an init object (with the stored random data)
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating test baton"  << std::endl);
     std::vector<std::pair<uint256, int32_t>> randomUtxos;
-    if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, testBaton, pBaton, randomUtxos, false))
+    if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, testBaton, pBaton, randomUtxos, forceFinish))
         return errorStr = "could not create test baton", false;
 
     if (testBaton != *pBaton)   
