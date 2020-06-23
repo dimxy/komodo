@@ -3906,8 +3906,10 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         std::string hextx = ResultGetTx(sigres);
                         if (!hextx.empty() && ResultGetError(sigres).empty())    
                             myTransactions.push_back(std::make_pair(it->first.txhash, hextx));
-                        else
-                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(sigres) << " signing auto-finish tx for gameid=" << gameid.GetHex() << std::endl);
+                        else {
+                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(sigres) << " signing auto-finish tx for gameid=" << gameid.GetHex() << " tx=" << hextx << std::endl);
+                            badGames.push_back(gameid);
+                        }
                     }
                 }
                 /* no batons are created by nodes any more
