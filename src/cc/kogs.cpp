@@ -3853,7 +3853,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
     //srand(time(NULL));  // TODO check srand already called in init()
     std::vector<std::pair<uint256, std::string>> myTransactions;
-    std::vector<uint256> badGames; // list of games that could not be finished
+    
+    static std::vector<uint256> badGames; // static list of games that could not be finished due to errors (not to waste resources and print logs each loop)
 
     LockUtxoInMemory lockutxos;  // lock in memory tx inputs to prevent from subsequent adding
 
@@ -3900,7 +3901,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     {                            
                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating autofinish baton tx for stalled game=" << gameid.GetHex() << std::endl);
 
-                        const int32_t batonvout = (spPrevBaton->objectType == KOGSID_GAME) ? 0 : 2;
+                        const int32_t batonvout = (spPrevBaton->objectType == KOGSID_GAME) ? 2 : 0;
                         UniValue sigres = CreateGameFinishedTx(CPubKey(), spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
 
                         std::string hextx = ResultGetTx(sigres);
@@ -3908,7 +3909,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                             myTransactions.push_back(std::make_pair(it->first.txhash, hextx));
                         else {
                             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(sigres) << " signing auto-finish tx for gameid=" << gameid.GetHex() << std::endl);
-                            badGames.push_back(gameid);
+                            badGames.push_back(it->first.txhash);
                         }
                     }
                 }
