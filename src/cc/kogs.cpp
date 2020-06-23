@@ -760,12 +760,19 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     if (forceFinish)
     {
         // get last player pk to build baton 1of2 
-        if (pbaton->prevPlayerId.IsNull())
-            usepk = pbaton->encOrigPk; // get first baton creator (aka game creator) 
+        if (pbaton->prevPlayerId.IsNull()) {
+            std::shared_ptr<KogsBaseObject> spGame(LoadGameObject(pbaton->gameid));
+            if (spGame != nullptr)
+                usepk = spGame->encOrigPk; // get first baton creator (aka game creator) 
+        }
         else {
             std::shared_ptr<KogsBaseObject> spLastPlayer(LoadGameObject(pbaton->prevPlayerId));
             if (spLastPlayer != nullptr)
                 usepk = spLastPlayer->encOrigPk;  // use baton owner pk
+        }
+        if (!usepk.IsValid())   {
+            LOGSTREAMFN("kogs", CCLOG_INFO, stream << "internal logic error game=" << pbaton->gameid.GetHex() << std::endl);
+            return;   // internal logic error
         }
     }
 
@@ -3859,24 +3866,24 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
             //if (std::find(badGames.begin(), badGames.end(), it->first.txhash) != badGames.end())  // check if in bad game list
             //    continue;
 
-            std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
-            LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "checking gameobject marker utxo txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spPrevObj->objectType=" << (int)(spPrevObj != nullptr ? spPrevObj->objectType : 0) << std::endl);
+            std::shared_ptr<KogsBaseObject> spGameBase(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
+            LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "checking gameobject marker utxo txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spGameBase->objectType=" << (int)(spGameBase != nullptr ? spGameBase->objectType : 0) << std::endl);
 
-            if (spPrevObj.get() != nullptr && spPrevObj->objectType == KOGSID_GAME)
+            if (spGameBase.get() != nullptr && spGameBase->objectType == KOGSID_GAME)
             {
-                uint256 batontxid = GetLastBaton(spPrevObj->creationtxid);
+                uint256 batontxid = GetLastBaton(spGameBase->creationtxid);
                 if (IsBatonStalled(batontxid))
                 {
                     std::shared_ptr<KogsGameConfig> spGameConfig;
                     std::shared_ptr<KogsPlayer> spPlayer;
-                    std::shared_ptr<KogsBaton> spPrevBaton;
+                    std::shared_ptr<KogsBaseObject> spPrevBaton ( LoadGameObject(batontxid) );
                     KogsBaton newbaton;
                     //KogsGameFinished gamefinished;
                     uint256 gameid;
                     //bool bGameFinished;
                     std::vector<std::pair<uint256, int32_t>> randomUtxos;
 
-                    if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos, true))    {
+                    if (!CreateNewBaton(spPrevBaton.get(), gameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos, true))    {
                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not create autofinish baton for gameid=" << gameid.GetHex() << std::endl);
                         continue;
                     }
@@ -3887,8 +3894,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     {                            
                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating autofinish baton tx for stalled game=" << gameid.GetHex() << std::endl);
 
-                        const int32_t batonvout = (spPrevObj->objectType == KOGSID_GAME) ? 0 : 2;
-                        UniValue sigres = CreateGameFinishedTx(mypk, spPrevObj->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
+                        const int32_t batonvout = (spPrevBaton->objectType == KOGSID_GAME) ? 0 : 2;
+                        UniValue sigres = CreateGameFinishedTx(mypk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
 
                         std::string hextx = ResultGetTx(sigres);
                         if (!hextx.empty() && ResultGetError(sigres).empty())
