@@ -488,12 +488,12 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
 
     if ( strHex.size() > 0 )
         result.push_back(Pair(JSON_HEXTX, strHex));
-    else {
-        result.push_back(Pair(JSON_HEXTX, "0"));
-    }
+    else 
+        result.push_back(Pair(JSON_HEXTX, "0"));  // maybe better return empty string plus sigError
     if (!sigError.empty())
         result.push_back(Pair(JSON_ERROR, sigError));
-    if (sigData.size() > 0) result.push_back(Pair(JSON_SIGDATA,sigData));
+    if (sigData.size() > 0) 
+        result.push_back(Pair(JSON_SIGDATA, sigData));  // for remote signing
     return result;
 }
 
