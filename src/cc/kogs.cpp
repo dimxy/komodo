@@ -3848,7 +3848,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
             if (spPrevObj.get() != nullptr && spPrevObj->objectType == KOGSID_GAME)
             {
                 uint256 batontxid = GetLastBaton(spPrevObj->creationtxid);
-                if (IsBatonStalled(spPrevObj->creationtxid))
+                if (IsBatonStalled(batontxid))
                 {
                     std::shared_ptr<KogsGameConfig> spGameConfig;
                     std::shared_ptr<KogsPlayer> spPlayer;
