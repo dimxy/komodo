@@ -686,6 +686,8 @@ struct KogsBaton : public KogsBaseObject {
     uint8_t isFinished;
     uint256 winnerid;
 
+    CPubKey prevpk;
+
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>

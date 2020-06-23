@@ -720,7 +720,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid)
 
 // add game finished vout
 // called by a player
-static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &mtx, struct CCcontract_info *cpTokens, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pbaton, CScript &opret, bool force)
+static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &mtx, struct CCcontract_info *cpTokens, uint256 prevtxid, int32_t prevn, const std::vector<std::pair<uint256, int32_t>> &randomUtxos, const KogsBaton *pbaton, CScript &opret, bool forceFinish)
 {
     const CAmount  txfee = 10000;
     //CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
@@ -758,8 +758,8 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     //CPubKey kogsPk = GetUnspendable(cpKogs, kogspriv);
 
     // add probe to spend baton from mypk
-    CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, mypk);
-    CCAddVintxCond(cpTokens, probeCond, force ? kogspriv : NULL);  // use myprivkey if not forcing finish of the stalled game
+    CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, forceFinish ? mypk : pbaton->prevpk);  //if force autofinish get the baton creator pk
+    CCAddVintxCond(cpTokens, probeCond, forceFinish ? NULL : kogspriv);  // use myprivkey if not forcing finish of the stalled game
     cc_free(probeCond);
 
 
@@ -1000,8 +1000,7 @@ static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, 
         if (!ResultIsError(sigData)) {
             return sigData;
         }
-        else
-        {
+        else        {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error finalizing tx for gameid=" << pBaton->gameid.GetHex() << " error=" << ResultGetError(sigData) << std::endl);
             return MakeResultError("could not finalize tx " + ResultGetError(sigData));
         }
@@ -1856,6 +1855,8 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         playerids = pgame->playerids;
 		gameid = pPrevObj->creationtxid;
 		gameconfigid = pgame->gameconfigid;
+
+        newbaton.prevpk = pPrevObj->encOrigPk;
     }
     else 
     {
@@ -1865,6 +1866,8 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         kogsInStack = pPrevBaton->kogsInStack;
         kogsFlipped = pPrevBaton->kogsFlipped;
         gameconfigid = pPrevBaton->gameconfigid;
+
+        newbaton.prevpk = pPrevBaton->encOrigPk;
     }
 
     if (!forceFinish)  // if forceFinish is true finish for any way
@@ -1875,9 +1878,9 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
 
             // check players and save for various uses
             for (auto const &playerid : pgame->playerids)  {
-                KogsBaseObject *pBase = LoadGameObject(playerid);
-                if (pBase && pBase->objectType == KOGSID_PLAYER)
-                    newbaton.spPlayers.push_back( std::shared_ptr<KogsPlayer>((KogsPlayer*)pBase) );
+                KogsBaseObject *pPlayerBase = LoadGameObject(playerid);
+                if (pPlayerBase && pPlayerBase->objectType == KOGSID_PLAYER)
+                    newbaton.spPlayers.push_back( std::shared_ptr<KogsPlayer>((KogsPlayer*)pPlayerBase) );
                 else {
                     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "incorrect player=" << playerid.GetHex() << " gameid=" << pgame->creationtxid.GetHex() << std::endl);
                     return false;
