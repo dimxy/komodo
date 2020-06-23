@@ -756,9 +756,21 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     //cpKogs = CCinit(&C, EVAL_KOGS);
     //uint8_t kogspriv[32];
     //CPubKey kogsPk = GetUnspendable(cpKogs, kogspriv);
+    CPubKey usepk;
+    if (forceFinish)
+    {
+        // get last player pk to build baton 1of2 
+        if (pbaton->prevPlayerId.IsNull())
+            usepk = pbaton->encOrigPk; // get first baton creator (aka game creator) 
+        else {
+            std::shared_ptr<KogsBaseObject> spLastPlayer(LoadGameObject(pbaton->prevPlayerId));
+            if (spLastPlayer != nullptr)
+                usepk = spLastPlayer->encOrigPk;  // use baton owner pk
+        }
+    }
 
     // add probe to spend baton from mypk
-    CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, !forceFinish ? mypk : pbaton->prevpk);  //if force autofinish get the baton creator pk
+    CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, !forceFinish ? mypk : usepk);  //if force autofinish get the baton creator pk
     CCAddVintxCond(cpTokens, probeCond, !forceFinish ? NULL : kogspriv);  // use myprivkey if not forcing finish of the stalled game
     cc_free(probeCond);
 
@@ -1855,8 +1867,6 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         playerids = pgame->playerids;
 		gameid = pPrevObj->creationtxid;
 		gameconfigid = pgame->gameconfigid;
-
-        newbaton.prevpk = pPrevObj->encOrigPk;
     }
     else 
     {
@@ -1867,7 +1877,7 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         kogsFlipped = pPrevBaton->kogsFlipped;
         gameconfigid = pPrevBaton->gameconfigid;
 
-        newbaton.prevpk = pPrevBaton->encOrigPk;
+        newbaton.prevPlayerId = pPrevBaton->playerids[pPrevBaton->nextturn];
     }
 
     if (!forceFinish)  // if forceFinish is true finish for any way

@@ -686,7 +686,7 @@ struct KogsBaton : public KogsBaseObject {
     uint8_t isFinished;
     uint256 winnerid;
 
-    CPubKey prevpk;
+    uint256 prevPlayerId;
 
     ADD_SERIALIZE_METHODS;
 
