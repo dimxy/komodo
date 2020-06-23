@@ -1375,7 +1375,7 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
     else 
     {
         CCerror = "could not finalize tx";
-        return MakeResultError("cannot finalize tx");;
+        return MakeResultError("cannot finalize tx " + ResultGetError(sigData));
     }
 }
 
