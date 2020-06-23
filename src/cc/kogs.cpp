@@ -422,7 +422,7 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject 
     if (batonType)
         normals += KOGS_BATON_AMOUNT;
 
-    if (AddNormalinputsRemote(mtx, mypk, normals, 0x10000) > 0)   // use remote version to add inputs from mypk
+    if (AddNormalinputsRemote(mtx, mypk, normals, 0x10000, true) > 0)   // use remote version to add inputs from mypk
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_NFT_MARKER_AMOUNT, GetUnspendable(cp, NULL)));  // kogs cc marker
@@ -472,7 +472,7 @@ static UniValue CreateGameTx(const CPubKey &remotepk, const KogsGame *gameobj, c
 
     CAmount normals = txfee + KOGS_NFT_MARKER_AMOUNT + KOGS_BATON_AMOUNT;
 
-    if (AddNormalinputsRemote(mtx, mypk, normals, 0x10000) > 0)   // use remote version to add inputs from mypk
+    if (AddNormalinputsRemote(mtx, mypk, normals, 0x10000, true) > 0)   // use remote version to add inputs from mypk
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_NFT_MARKER_AMOUNT, GetUnspendable(cp, NULL)));  // kogs cc marker
@@ -937,7 +937,7 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
     enc.name = pbaton->nameId;
     enc.description = pbaton->descriptionId;
 
-    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, true) > 0)
     {
         mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev game or slamparam baton
 
@@ -1160,7 +1160,7 @@ static void ListContainerKogs(uint256 containerid, std::vector<uint256> &tokenid
 
     mtx.vin.push_back(CTxIn(prevtxid, prevn));  // spend the prev baton
 
-    if (AddNormalinputsRemote(mtx, mypk, 3*txfee, 0x10000) > 0)  //use remote version to spend from mypk
+    if (AddNormalinputsRemote(mtx, mypk, 3*txfee, 0x10000, true) > 0)  //use remote version to spend from mypk
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, GetUnspendable(cp, NULL))); // marker to find batons
 
@@ -1200,7 +1200,7 @@ static UniValue CreateAdvertisingTx(const CPubKey &remotepk, const KogsAdvertisi
     enc.name = ad.nameId;
     enc.description = ad.descriptionId;
 
-    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)   // add always from mypk because it will be checked who signed this advertising tx
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, true) > 0)   // add always from mypk because it will be checked who signed this advertising tx
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_ADVERISING_AMOUNT, GetUnspendable(cp, NULL))); // baton for miner to indicate the slam data added
 
@@ -2984,7 +2984,7 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         return NullUniValue;
     }
 
-    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, true) > 0)
     {
         struct CCcontract_info *cp, C;
         cp = CCinit(&C, EVAL_KOGS);
@@ -3132,7 +3132,7 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         }
     }
 
-    if (AddNormalinputsRemote(mtx, mypk, 2*txfee, 0x10000) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, 2*txfee, 0x10000, true) > 0)
     {
         // spend commit vouts
         for(auto const &m : mvintxns)  
@@ -3315,7 +3315,7 @@ UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid)
 
     cp = CCinit(&C, EVAL_TOKENS);
 
-    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, true) > 0)
     {
         if (AddTokenCCInputs(cp, mtx, mypk, tokenid, 1, 1, true) > 0)
         {
@@ -3363,7 +3363,7 @@ UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout)
 
     cp = CCinit(&C, EVAL_KOGS);
 
-    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, true) > 0)
     {
         mtx.vin.push_back(CTxIn(txid, nvout));
         mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
@@ -3418,7 +3418,7 @@ UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId)
 
     cp = CCinit(&C, EVAL_KOGS);
 
-    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, true) > 0)
     {
         mtx.vin.push_back(CTxIn(adtxid, advout));   // spend advertising marker:
         mtx.vout.push_back(CTxOut(KOGS_ADVERISING_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));

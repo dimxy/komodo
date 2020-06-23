@@ -96,15 +96,15 @@ This allows the contract transaction functions to create the appropriate vins an
 
 By using -addressindex=1, it allows tracking of all the CC addresses
 */
-std::string FinalizeCCTx(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys, bool bAlwaysAddChange)
+std::string FinalizeCCTx(uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, bool bAlwaysAddChange)
 {
-    UniValue sigData = FinalizeCCTxExt(false, CCmask, cp, mtx, mypk, txfee, opret, pubkeys, bAlwaysAddChange);
+    UniValue sigData = FinalizeCCTxExt(false, CCmask, cp, mtx, mypk, txfee, opret, bAlwaysAddChange);
     return sigData[JSON_HEXTX].getValStr();
 }
 
 
 // extended version that supports signInfo object with conds to vins map for remote cc calls
-UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, std::vector<CPubKey> pubkeys, bool bAlwaysAddChange)
+UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret, bool bAlwaysAddChange)
 {
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTransaction vintx; std::string hex; CPubKey globalpk; uint256 hashBlock; uint64_t mask=0,nmask=0,vinimask=0;
@@ -361,22 +361,6 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                 else
                 {
                     flag = 0;
-                    if ( pubkeys != NULL_pubkeys )
-                    {
-                        char coinaddr[64];
-                        GetCCaddress1of2(cp,coinaddr,globalpk,pubkeys[i]);
-                        //fprintf(stderr,"%s + %s -> %s vs %s\n",HexStr(globalpk).c_str(),HexStr(pubkeys[i]).c_str(),coinaddr,destaddr);
-                        if ( strcmp(destaddr,coinaddr) == 0 )
-                        {
-                            privkey = cp->CCpriv;
-                            if ( othercond4 != 0 )
-                                cc_free(othercond4);
-                            othercond4 = MakeCCcond1of2(cp->evalcode,globalpk,pubkeys[i]);
-                            cond = othercond4;
-                            flag = 1;
-                        }
-                    } //else  privkey = myprivkey;
-
                     if (flag == 0)
                     {
                         // use vector of dest addresses and conds to probe vintxconds
