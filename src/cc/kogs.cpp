@@ -758,8 +758,8 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     //CPubKey kogsPk = GetUnspendable(cpKogs, kogspriv);
 
     // add probe to spend baton from mypk
-    CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, forceFinish ? mypk : pbaton->prevpk);  //if force autofinish get the baton creator pk
-    CCAddVintxCond(cpTokens, probeCond, forceFinish ? NULL : kogspriv);  // use myprivkey if not forcing finish of the stalled game
+    CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, !forceFinish ? mypk : pbaton->prevpk);  //if force autofinish get the baton creator pk
+    CCAddVintxCond(cpTokens, probeCond, !forceFinish ? NULL : kogspriv);  // use myprivkey if not forcing finish of the stalled game
     cc_free(probeCond);
 
 
