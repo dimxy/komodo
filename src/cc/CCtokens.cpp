@@ -1206,7 +1206,7 @@ UniValue CreateTokenExt(const CPubKey &remotepk, int64_t txfee, int64_t tokensup
         //std::cerr << "mtx.before=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
         //std::cerr << "mtx.hash before=" << mtx.GetHash().GetHex() << std::endl;
 
-		sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRetV1(vscript_t(mypk.begin(), mypk.end()), name, description, { nonfungibleData }));
+		sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenCreateOpRetV1(vscript_t(mypk.begin(), mypk.end()), name, description, { nonfungibleData }), false);
 
         //std::cerr << "mtx.after=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
         //std::cerr << "mtx.hash after=" << mtx.GetHash().GetHex() << std::endl;
@@ -1366,7 +1366,7 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
 
     // TODO maybe add also opret blobs form vintx
     // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
-    UniValue sigData = FinalizeCCTxExt(isRemote, mask, cp, mtx, mypk, txfee, opret); 
+    UniValue sigData = FinalizeCCTxExt(isRemote, mask, cp, mtx, mypk, txfee, opret, false); 
     LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "mtx=" << HexStr(E_MARSHAL(ss << mtx)) << " isRemote=" << isRemote << " mypk=" << HexStr(mypk) << std::endl);
     if (ResultHasTx(sigData)) {
         LockUtxoInMemory::AddInMemoryTransaction(mtx);  // to be able to spend mtx change
@@ -1460,7 +1460,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
 
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
-			UniValue sigData = FinalizeCCTxExt(isRemote, mask, cp, mtx, mypk, txfee, EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, {} )); 
+			UniValue sigData = FinalizeCCTxExt(isRemote, mask, cp, mtx, mypk, txfee, EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, {} ), false); 
             if (!ResultHasTx(sigData))
                 CCerror = "could not finalize tx";
             else // for use in-memory utxo:
@@ -1534,7 +1534,7 @@ UniValue TokenTransferSpk(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
             for (auto p : probeconds)
                 CCAddVintxCond(cp, p.first, p.second);
 
-            UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vscript_t())));
+            UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenOpRet(tokenid, voutPubkeys, std::make_pair((uint8_t)0, vscript_t())), false);
             if (!ResultHasTx(sigData))
                 CCerror = "could not finalize tx";
             return sigData;

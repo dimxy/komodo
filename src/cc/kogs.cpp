@@ -440,7 +440,7 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject 
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
-        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret);
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret, false);
         if (ResultHasTx(sigData))
             return sigData;
         else
@@ -482,7 +482,7 @@ static UniValue CreateGameTx(const CPubKey &remotepk, const KogsGame *gameobj, c
         
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
-        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret);
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret, false);
         if (ResultHasTx(sigData))
             return sigData;
         else
@@ -785,7 +785,7 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
 
     //CScript opret;
     opret << OP_RETURN << enc.EncodeOpret();  // create opreturn
-        /*std::string hextx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
+        /*std::string hextx = FinalizeCCTx(0, cp, mtx, minerpk, txfee, opret, false);  // TODO why was destpk here (instead of minerpk)?
         if (hextx.empty())
         {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
@@ -980,7 +980,7 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
-        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
+        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret, false);  // TODO why was destpk here (instead of minerpk)?
         if (ResultHasTx(sigData))
         {
             return sigData; 
@@ -1166,7 +1166,7 @@ static void ListContainerKogs(uint256 containerid, std::vector<uint256> &tokenid
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
-        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret);  // TODO why was destpk here (instead of minerpk)?
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret, false);  // TODO why was destpk here (instead of minerpk)?
         if (!ResultHasTx(sigData)) {
             CCerror = "could not finalize or sign slam param transaction";
             return NullUniValue;
@@ -1206,7 +1206,7 @@ static UniValue CreateAdvertisingTx(const CPubKey &remotepk, const KogsAdvertisi
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
-        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret);
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret, false);
         if (!ResultHasTx(sigData)) {
             CCerror = "could not finalize or sign advertising transaction";
             return NullUniValue;
@@ -2393,7 +2393,7 @@ static UniValue SpendEnclosure(const CPubKey &remotepk, int64_t txfee, KogsEnclo
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
-        UniValue sigData = FinalizeCCTxExt(true, 0, cp, mtx, mypk, txfee, opret);
+        UniValue sigData = FinalizeCCTxExt(true, 0, cp, mtx, mypk, txfee, opret, false);
         if (!ResultHasTx(sigData))
         {
             CCerror = strprintf("could not finalize transfer container tx");
@@ -3017,7 +3017,7 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         enc.vdata = rndCommit.Marshal();
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret(); // create last vout opret to pass validation
-        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret); 
+        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret, false); 
         if (ResultHasTx(sigData))
         {
             return sigData; 
@@ -3160,7 +3160,7 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         enc.vdata = rndValue.Marshal();
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret(); // create last vout opret to pass validation
-        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret); 
+        UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret, false); 
         if (ResultHasTx(sigData))
         {
             return sigData; 
@@ -3331,7 +3331,7 @@ UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid)
 
             mtx.vout.push_back(MakeTokensCC1vout(EVAL_KOGS, 1, burnpk));    // burn tokens
             voutPks.push_back(burnpk);
-            UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenOpRetV1(tokenid, voutPks, {}));
+            UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, EncodeTokenOpRetV1(tokenid, voutPks, {}), false);
             if (ResultHasTx(sigData))
                 return sigData;
             else
@@ -3367,7 +3367,7 @@ UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout)
     {
         mtx.vin.push_back(CTxIn(txid, nvout));
         mtx.vout.push_back(CTxOut(txfee, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
-        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, CScript());
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, CScript(), false);
         if (ResultHasTx(sigData))
             return sigData;
         else
@@ -3434,7 +3434,7 @@ UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId)
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
 
-        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret);
+        UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret, false);
         if (ResultHasTx(sigData))
             return sigData;
         else
