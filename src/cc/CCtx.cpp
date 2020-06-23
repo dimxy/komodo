@@ -130,6 +130,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     {
         fprintf(stderr,"FinalizeCCTx: %d is too many vins\n",n);
         result.push_back(Pair(JSON_HEXTX, "0"));
+        result.push_back(Pair(JSON_ERROR, "too many vins"));
         return result;
     }
 
@@ -170,6 +171,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
 
     //Reorder vins so that for multiple normal vins all other except vin0 goes to the end
     //This is a must to avoid hardfork change of validation in every CC, because there could be maximum one normal vin at the begining with current validation.
+    std::string sigError;
     for (i=0; i<n; i++)
     {
         if (i==0 && mtx.vin[i].prevout.n==10e8)
@@ -184,7 +186,8 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
         {
             fprintf(stderr,"vin.%d vout.%d is bigger than vintx.%d or cant load vintx\n",i,mtx.vin[i].prevout.n,(int32_t)vintx.vout.size());
             memset(myprivkey,0,32);
-            return UniValue(UniValue::VOBJ);
+            result.push_back(Pair(JSON_ERROR, "could not load vintx or incorrect utxo referred"));
+            return result;
         }
     }
     if (normalvins>1 && ccvins)
@@ -214,7 +217,10 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
             {                
                 mask |= (1LL << i);
             }
-        } else fprintf(stderr,"FinalizeCCTx couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
+        } else {
+            fprintf(stderr,"FinalizeCCTx couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
+            sigError = std::string("could not load vintx for vin=") + std::to_string(i);
+        }
     }
     nmask = (1LL << n) - 1;
     if ( 0 && (mask & nmask) != (CCmask & nmask) )
@@ -244,8 +250,10 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                         //std::cerr << "mtx.before SignTx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl;
                         //std::cerr << "mtx.hash SignTx before=" << mtx.GetHash().GetHex() << std::endl;
 
-                        if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0)
+                        if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0) {
                             fprintf(stderr, "signing error for vini.%d of %llx\n", i, (long long)vinimask);
+                            sigError = std::string("signing error for vin=") + std::to_string(i);
+                        }
                     }
                     else
                     {
@@ -262,8 +270,10 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                         Getscriptaddress(addr,vintx.vout[utxovout].scriptPubKey);
                         fprintf(stderr,"vout[%d] %.8f -> %s\n",utxovout,dstr(vintx.vout[utxovout].nValue),addr);
                     }
-                    if ( NSPV_SignTx(mtx,i,vintx.vout[utxovout].nValue,vintx.vout[utxovout].scriptPubKey,0) == 0 )
+                    if ( NSPV_SignTx(mtx,i,vintx.vout[utxovout].nValue,vintx.vout[utxovout].scriptPubKey,0) == 0 )  {
                         fprintf(stderr,"NSPV signing error for vini.%d of %llx\n",i,(long long)vinimask);
+                        sigError = std::string("NSPV signing error for vin=") + std::to_string(i);
+                    }
                 }
             }
             else
@@ -393,8 +403,10 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                     if ( flag == 0 )
                     {
                         fprintf(stderr,"CC signing error: vini.%d has unknown CC address.(%s)\n",i,destaddr);
+                        sigError = std::string("CC signing error: unknown address for vin=") + std::to_string(i);
+                        result.push_back(Pair(JSON_ERROR, sigError));
                         memset(myprivkey,0,32);
-                        return sigDataNull;
+                        return result;
                     }
                 }
                 uint256 sighash = SignatureHash(CCPubKey(cond), mtx, i, SIGHASH_ALL,utxovalues[i],consensusBranchId, &txdata);
@@ -421,8 +433,10 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                     else
                     {
                         fprintf(stderr, "vini.%d has CC signing error address.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
+                        sigError = std::string("CC could not sign or no privkey for vin=") + std::to_string(i);
+                        result.push_back(Pair(JSON_ERROR, sigError));
                         memset(myprivkey, 0, sizeof(myprivkey));
-                        return sigDataNull;
+                        return result;
                     }
                 }
                 else   // no privkey locally - remote call
@@ -433,8 +447,10 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                     if (ccjson.empty())
                     {
                         fprintf(stderr, "vini.%d can't serialize CC.(%s) %s\n", i, destaddr, EncodeHexTx(mtx).c_str());
+                        sigError = std::string("CC could serialize cond");
+                        result.push_back(Pair(JSON_ERROR, sigError));
                         memset(myprivkey, 0, sizeof(myprivkey));
-                        return sigDataNull;
+                        return result;
                     }
 
                     AddSigData2UniValue(sigData, i, ccjson, std::string(), vintx.vout[utxovout].nValue, privkey);  // store vin i with scriptPubKey
@@ -475,6 +491,8 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     else {
         result.push_back(Pair(JSON_HEXTX, "0"));
     }
+    if (!sigError.empty())
+        result.push_back(Pair(JSON_ERROR, sigError));
     if (sigData.size() > 0) result.push_back(Pair(JSON_SIGDATA,sigData));
     return result;
 }
