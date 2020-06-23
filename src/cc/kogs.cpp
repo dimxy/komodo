@@ -3932,7 +3932,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 
             }
             else
-                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't load or not a game object: " << (spPrevObj.get() ? std::string("incorrect objectType=") + std::string(1, (char)spPrevObj->objectType) : std::string("nullptr")) << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "can't load or not a game object: " << (spGameBase.get() ? std::string("incorrect objectType=") + std::string(1, (char)spGameBase->objectType) : std::string("nullptr")) << std::endl);
         }
     }
 
