@@ -2039,26 +2039,30 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
 	newbaton.prevturncount = turncount;  
 	newbaton.gameid = gameid;
 	newbaton.gameconfigid = gameconfigid;
-    if (pSlamparam != nullptr)  {
-        newbaton.armHeight = pSlamparam->armHeight;
-        newbaton.armStrength = pSlamparam->armStrength;
-    }
-    else if (pInitBaton != nullptr) {  
-        // set slamparams from validated baton or finished object
-        newbaton.armHeight = ((KogsBaton*)pInitBaton)->armHeight;
-        newbaton.armStrength = ((KogsBaton*)pInitBaton)->armStrength;
-    }
+    
+    if (!forceFinish)
+    {
+        if (pSlamparam != nullptr)  {
+            newbaton.armHeight = pSlamparam->armHeight;
+            newbaton.armStrength = pSlamparam->armStrength;
+        }
+        else if (pInitBaton != nullptr) {  
+            // set slamparams from validated baton or finished object
+            newbaton.armHeight = ((KogsBaton*)pInitBaton)->armHeight;
+            newbaton.armStrength = ((KogsBaton*)pInitBaton)->armStrength;
+        }
 
-    if (pPrevObj->objectType == KOGSID_BATON && pInitBaton == nullptr && pSlamparam == nullptr)  {  // if testbaton is created then slamparams is in pInitBaton
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't create baton, empty slam params, prev txid=" << pPrevObj->creationtxid.GetHex() << std::endl);
-        return false;
-    }
+        if (pPrevObj->objectType == KOGSID_BATON && pInitBaton == nullptr && pSlamparam == nullptr)  {  // if testbaton is created then slamparams is in pInitBaton
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't create baton, empty slam params, prev txid=" << pPrevObj->creationtxid.GetHex() << std::endl);
+            return false;
+        }
 
-	bool bBatonCreated = ManageStack(*spGameConfig.get(), pPrevObj, newbaton, pInitBaton, randomUtxos);
-	if (!bBatonCreated) {
-		LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "baton not created for gameid=" << gameid.GetHex() << std::endl);
-		return false;
-	}
+        bool bBatonCreated = ManageStack(*spGameConfig.get(), pPrevObj, newbaton, pInitBaton, randomUtxos);
+        if (!bBatonCreated) {
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "baton not created for gameid=" << gameid.GetHex() << std::endl);
+            return false;
+        }
+    }
 
     // check if the current slam finishes the game
     if (forceFinish || IsGameFinished(*spGameConfig.get(), &newbaton))
