@@ -3825,7 +3825,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
     //srand(time(NULL));  // TODO check srand already called in init()
     std::vector<std::pair<uint256, CTransaction>> myTransactions;
-    std::vector<uint256> badBatons;
+    std::vector<uint256> badGames; // list of games that could not be finished
 
     LockUtxoInMemory lockutxos;  // lock in memory tx inputs to prevent from subsequent adding
 
@@ -3838,9 +3838,9 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
         int32_t dummyvout;
 
         // its very important to check if the baton not spent in mempool, otherwise we could pick up a previous already spent baton
-        if (it->second.satoshis == KOGS_BATON_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*/) // picking game or slamparam utxos with markers=20000
+        if (it->second.satoshis == KOGS_NFT_MARKER_AMOUNT /*&& !myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)*/) // picking game or slamparam utxos with markers=20000
         {
-            if (std::find(badBatons.begin(), badBatons.end(), it->first.txhash) != badBatons.end())  // check if in bad batons list
+            if (std::find(badGames.begin(), badGames.end(), it->first.txhash) != badGames.end())  // check if in bad game list
                 continue;
 
             std::shared_ptr<KogsBaseObject> spPrevObj(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
@@ -3924,12 +3924,12 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
         catch (std::runtime_error error)
         {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("cant send transaction: bad parameters: ") + error.what() << std::endl);
-            badBatons.push_back(pair.first);
+            badGames.push_back(pair.first);
         }
         catch (UniValue error)
         {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("error: can't send tx: ") + hextx + " error: " + ResultGetError(error) << " (" << error["code"].get_int()<< " " << error["message"].getValStr() << ")" << std::endl);
-            badBatons.push_back(pair.first);
+            badGames.push_back(pair.first);
         }
     }
 }
