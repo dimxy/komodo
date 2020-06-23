@@ -337,7 +337,7 @@ static uint256 GetLastBaton(uint256 gameid)
 }
 
 // checks if game finished
-static bool IsGameFinished(const KogsGameConfig &gameconfig, const KogsBaton *pbaton) 
+static bool ShouldBatonBeFinished(const KogsGameConfig &gameconfig, const KogsBaton *pbaton) 
 { 
     return  pbaton->prevturncount > 0 && pbaton->kogsInStack.empty() || pbaton->prevturncount >= pbaton->playerids.size() * gameconfig.maxTurns;
 }
@@ -1879,6 +1879,12 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
     else 
     {
         KogsBaton *pPrevBaton = (KogsBaton *)pPrevObj;
+
+        if (pPrevBaton->isFinished) {
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "previous baton is finished=" << pPrevObj->creationtxid.GetHex() << std::endl);
+            return false;
+        }
+
         gameid = pPrevBaton->gameid;
         playerids = pPrevBaton->playerids;
         kogsInStack = pPrevBaton->kogsInStack;
@@ -2066,7 +2072,7 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
     }
 
     // check if the current slam finishes the game
-    if (forceFinish || IsGameFinished(*spGameConfig.get(), &newbaton))
+    if (forceFinish || ShouldBatonBeFinished(*spGameConfig.get(), &newbaton))
     {  
         // create gamefinished object:
 		newbaton.isFinished = 1;
@@ -3884,6 +3890,10 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     std::shared_ptr<KogsGameConfig> spGameConfig;
                     std::shared_ptr<KogsPlayer> spPlayer;
                     std::shared_ptr<KogsBaseObject> spPrevBaton ( LoadGameObject(batontxid) );
+                    if (spPrevBaton != nullptr && spPrevBaton->objectType == KOGSID_BATON && ((KogsBaton*)spPrevBaton.get())->isFinished)  {
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "game already finished gameid=" << spGameBase->creationtxid.GetHex() << std::endl);
+                        continue;
+                    }
                     KogsBaton newbaton;
                     //KogsGameFinished gamefinished;
                     uint256 gameid;
