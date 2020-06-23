@@ -3852,7 +3852,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
     LOGSTREAMFN("kogs", CCLOG_DEBUG3, stream << "listing all games with batons" << std::endl);
 
     //srand(time(NULL));  // TODO check srand already called in init()
-    std::vector<std::pair<uint256, CTransaction>> myTransactions;
+    std::vector<std::pair<uint256, std::string>> myTransactions;
     std::vector<uint256> badGames; // list of games that could not be finished
 
     LockUtxoInMemory lockutxos;  // lock in memory tx inputs to prevent from subsequent adding
@@ -3903,17 +3903,8 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         UniValue sigres = CreateGameFinishedTx(mypk, spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
 
                         std::string hextx = ResultGetTx(sigres);
-                        if (!hextx.empty() && ResultGetError(sigres).empty())
-                        {
-                            CMutableTransaction mtx;
-                            if (E_UNMARSHAL(ParseHex(hextx), ss >> mtx))
-                            {
-                                myTransactions.push_back(std::make_pair(it->first.txhash, mtx));
-                                txtransfers++;
-                            }
-                            else
-                                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not parse autofinish hextx=" << hextx << " for gameid=" << gameid.GetHex() << std::endl);
-                        }
+                        if (!hextx.empty() && ResultGetError(sigres).empty())    
+                            myTransactions.push_back(std::make_pair(it->first.txhash, hextx));
                         else
                             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(sigres) << " signing auto-finish tx for gameid=" << gameid.GetHex() << std::endl);
                     }
@@ -3943,21 +3934,21 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
 
     for (const auto &pair : myTransactions)
     {
-        std::string hextx = HexStr(E_MARSHAL(ss << pair.second));
         UniValue rpcparams(UniValue::VARR), txparam(UniValue::VOBJ);
-        txparam.setStr(hextx);
+        txparam.setStr(pair.second);
         rpcparams.push_back(txparam);
         try {
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "for gameid=" << pair.first.GetHex() << " sending tx=" << pair.second << std::endl);
             sendrawtransaction(rpcparams, false, mypk);  // NOTE: throws error!
         }
         catch (std::runtime_error error)
         {
-            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("cant send transaction: bad parameters: ") + error.what() << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "for gameid=" << pair.first.GetHex() << std::string(" can't send transaction: bad parameters: ") + error.what() << std::endl);
             badGames.push_back(pair.first);
         }
         catch (UniValue error)
         {
-            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << std::string("error: can't send tx: ") + hextx + " error: " + ResultGetError(error) << " (" << error["code"].get_int()<< " " << error["message"].getValStr() << ")" << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "for gameid=" << pair.first.GetHex() << std::string(" error: can't send tx: ") + pair.second + " error: " + ResultGetError(error) << " (" << error["code"].get_int()<< " " << error["message"].getValStr() << ")" << std::endl);
             badGames.push_back(pair.first);
         }
     }
