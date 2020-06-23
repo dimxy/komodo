@@ -1021,7 +1021,7 @@ static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, 
             return sigData;
         }
         else        {
-            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error finalizing tx for gameid=" << pBaton->gameid.GetHex() << " error=" << ResultGetError(sigData) << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "error finalizing tx for gameid=" << pBaton->gameid.GetHex() << " error=" << ResultGetError(sigData) << " mtx=" << HexStr(E_MARSHAL(ss << mtx)) << std::endl);
             return MakeResultError("could not finalize tx " + ResultGetError(sigData));
         }
     }
@@ -3907,7 +3907,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         if (!hextx.empty() && ResultGetError(sigres).empty())    
                             myTransactions.push_back(std::make_pair(it->first.txhash, hextx));
                         else {
-                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(sigres) << " signing auto-finish tx for gameid=" << gameid.GetHex() << " tx=" << hextx << std::endl);
+                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(sigres) << " signing auto-finish tx for gameid=" << gameid.GetHex() << std::endl);
                             badGames.push_back(gameid);
                         }
                     }
