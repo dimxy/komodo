@@ -865,7 +865,7 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinput
 /// @param total amount of inputs to add. If total equals to 0 the function does not add inputs but returns amount of all available normal inputs in the wallet
 /// @param maxinputs maximum number of inputs to add
 /// @returns amount of added normal inputs or amount of all normal inputs in the wallet
-int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs);
+int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs, bool mempool = false);
 
 /// CCutxovalue returns amount of an utxo. The function does this without loading the utxo transaction, by using address index only
 /// @param coinaddr address where the utxo is searched

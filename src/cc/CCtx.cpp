@@ -1022,7 +1022,7 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx, int64_t total, int32_t maxinp
 }
 
 // has additional mypk param for nspv calls
-int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs)
+int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs, bool mempool)
 {
     int32_t abovei, belowi, ind, vout, i, n = 0; int64_t sum, threshold, above, below; int64_t remains, nValue, totalinputs = 0; char coinaddr[64]; uint256 txid, hashBlock; CTransaction tx; struct CC_utxo *utxos, *up;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
@@ -1041,7 +1041,11 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
 
     sum = 0;
     Getscriptaddress(coinaddr, CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
-    SetCCunspents(unspentOutputs, coinaddr, false);  // TODO add param to add utxos from mempool too
+    if (!mempool)
+        SetCCunspents(unspentOutputs, coinaddr, false);  // TODO add param to add utxos from mempool too
+    else
+        SetCCunspentsWithMempool(unspentOutputs, coinaddr, false);  // TODO add param to add utxos from mempool too
+
 
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
     {
