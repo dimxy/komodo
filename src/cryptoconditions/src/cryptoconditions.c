@@ -337,3 +337,10 @@ void cc_free(CC *cond) {
         cond->type->free(cond);
     free(cond);
 }
+
+CC* cc_copy(CC *cond) {
+    CC *CCcopy=NULL;
+    if (cond)
+        CCcopy=cond->type->copy(cond);
+    return (CCcopy);
+}

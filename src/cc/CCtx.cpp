@@ -323,10 +323,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                         // use vector of dest addresses and conds to probe vintxconds
                         for (auto &t : cp->CCvintxprobes) {
                             char coinaddr[64];
-
-                            if (vectcond != NULL)
-                                cc_free(vectcond);  // free prev used cond
-                            vectcond = t.CCwrapped.getCC();  // Note: need to cc_free at the function exit
+                            vectcond = t.CCwrapped.get();  // Note: need to cc_free at the function exit
                             if (vectcond != NULL) {
                                 Getscriptaddress(coinaddr, CCPubKey(vectcond));
                                 // std::cerr << __func__ << " destaddr=" << destaddr << " coinaddr=" << coinaddr << std::endl;
@@ -415,8 +412,6 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
     if ( othertokenscond != 0 )
         cc_free(othertokenscond);   
     memset(myprivkey,0,sizeof(myprivkey));
-    if (vectcond != NULL)
-        cc_free(vectcond);  
 
     std::string strHex = EncodeHexTx(mtx);
     if ( strHex.size() > 0 )
@@ -434,7 +429,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
     CTransaction vintx; std::string hex; CPubKey globalpk; uint256 hashBlock; int32_t i,mgret,utxovout,n;
     int64_t utxovalues[CC_MAXVINS],change,totaloutputs=0,totalinputs=0; char destaddr[64],myccaddr[64],globaladdr[64];
-    uint8_t *privkey = NULL, myprivkey[32] = { '\0' }; CC *cond=NULL,*vectcond = NULL;
+    uint8_t *privkey = NULL, myprivkey[32] = { '\0' }; CC *cond=NULL;
     UniValue sigData(UniValue::VARR),result(UniValue::VOBJ); const UniValue sigDataNull = NullUniValue;
 
     globalpk = GetUnspendable(cp,0);
@@ -447,7 +442,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
     }
     if ( (n= mtx.vin.size()) > CC_MAXVINS )
     {
-        fprintf(stderr,"FinalizeCCTx: %d is too many vins\n",n);
+        fprintf(stderr,"FinalizeCCV2Tx: %d is too many vins\n",n);
         result.push_back(Pair(JSON_HEXTX, "0"));
         return result;
     }
@@ -467,7 +462,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
             utxovout = mtx.vin[i].prevout.n;
             utxovalues[i] = vintx.vout[utxovout].nValue;
             totalinputs += utxovalues[i];
-        } else fprintf(stderr,"FinalizeCCTx couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
+        } else fprintf(stderr,"FinalizeCCV2Tx couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
     }
     if ( !(mask & FINALIZECCTX_NO_CHANGE) && totalinputs >= totaloutputs+txfee )
     {
@@ -485,6 +480,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
         if ( (mgret= myGetTransaction(mtx.vin[i].prevout.hash,vintx,hashBlock)) != 0 )
         {
             cond=NULL;
+            privkey=NULL;
             utxovout = mtx.vin[i].prevout.n;
             if ( vintx.vout[utxovout].scriptPubKey.IsPayToCryptoCondition() == 0 )
             {
@@ -533,15 +529,16 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
                     // use vector of dest addresses and conds to probe vintxconds
                     for (auto &t : cp->CCvintxprobes) {
                         char coinaddr[64];
-                        vectcond = t.CCwrapped.getCC();  // Note: need to cc_free at the function exit
-                        if (vectcond != NULL) {
-                            Getscriptaddress(coinaddr, CCPubKey(vectcond,true));
+                        if (t.CCwrapped.get() != NULL) {
+                            CCwrapper anonCond(t.CCwrapped.copy());
+                            CCtoAnon(anonCond.get());
+                            Getscriptaddress(coinaddr, CCPubKey(anonCond.get(),true));
                             if (strcmp(destaddr, coinaddr) == 0) {
                                 if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
                                     privkey = t.CCpriv;
                                 else
                                     privkey = myprivkey;
-                                cond = vectcond;
+                                cond = t.CCwrapped.get();
                                 break;
                             }
                         }
@@ -555,7 +552,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
                 }
                 if (!remote)  // we have privkey in the wallet
                 {
-                    uint256 sighash = SignatureHash(CCPubKey(cond,true), mtx, i, SIGHASH_ALL,utxovalues[i],consensusBranchId, &txdata);
+                    uint256 sighash = SignatureHash(CCPubKey(cond), mtx, i, SIGHASH_ALL,utxovalues[i],consensusBranchId, &txdata);
                     if (cc_signTreeSecp256k1Msg32(cond, privkey, sighash.begin()) != 0)
                     {
                         mtx.vin[i].scriptSig = CCSig(cond);
@@ -581,12 +578,11 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
                     AddSigData2UniValue(sigData, i, ccjson, std::string(), vintx.vout[utxovout].nValue);  // store vin i with scriptPubKey
                 }
             }
-            if (cond != NULL) cc_free(cond);
         }
-        else fprintf(stderr,"FinalizeCCTx2 couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
+        else fprintf(stderr,"FinalizeCCV2Tx couldnt find %s mgret.%d\n",mtx.vin[i].prevout.hash.ToString().c_str(),mgret);
     }
     memset(myprivkey,0,sizeof(myprivkey));
-    for (auto &t : cp->CCvintxprobes) if (t.CCwrapped.getCC() != NULL) cc_free(t.CCwrapped.getCC());
+    //cp->CCvintxprobes.clear();
     
     std::string strHex = EncodeHexTx(mtx);
     if ( strHex.size() > 0 )

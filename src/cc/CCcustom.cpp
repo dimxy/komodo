@@ -25,6 +25,7 @@
 #include "CCHeir.h"
 #include "CCchannels.h"
 #include "CCOracles.h"
+#include "CCOraclesV2.h"
 #include "CCPrices.h"
 #include "CCPegs.h"
 #include "CCMarmara.h"
@@ -265,6 +266,16 @@ uint8_t KogsCCpriv[32] = { 0x9f, 0x9a, 0x85, 0x6d, 0xd9, 0x2b, 0xfe, 0xcb, 0xa1,
 #undef FUNCNAME
 #undef EVALCODE
 
+// OraclesV2
+#define FUNCNAME IsOraclesV2Input
+#define EVALCODE EVAL_ORACLESV2
+const char *OraclesV2CCaddr = "RBPhbiVUoyvDuLc7ZdFHqzar8t8jtQdKC4";
+const char *OraclesV2Normaladdr = "RPKeRunEv8FwfFGxU3SoC1W4gEDgUBqUaS";
+char OraclesV2CChexstr[67] = { "02c03cdb8822daa30241cc137fbbee76ead55d7f92e667df1c8ce56e6e50824386" };
+uint8_t OraclesV2CCpriv[32] = { 0x18, 0x6A, 0xE7, 0x8C, 0x0E, 0x03, 0x3C, 0x5D, 0x6C, 0xE7, 0xE9, 0x8E, 0x0A, 0xCA, 0x94, 0x69, 0x6A, 0xEC, 0x5C, 0x84, 0x09, 0x28, 0xD4, 0x37, 0x17, 0xAF, 0xEF, 0x35, 0x3A, 0x0E, 0x19, 0x3F };
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
 
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
@@ -465,7 +476,14 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
 			cp->validate = KogsValidate;
 			cp->ismyvin = IsKogsInput;
 			break;
-
+        case EVAL_ORACLESV2:
+            strcpy(cp->unspendableCCaddr,OraclesV2CCaddr);
+            strcpy(cp->normaladdr,OraclesV2Normaladdr);
+            strcpy(cp->CChexstr,OraclesV2CChexstr);
+            memcpy(cp->CCpriv,OraclesV2CCpriv,32);
+            cp->validate = OraclesV2Validate;
+            cp->ismyvin = IsOraclesV2Input;
+            break;
         default:
             if ( CClib_initcp(cp,evalcode) < 0 )
                 return(0);

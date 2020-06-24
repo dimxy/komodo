@@ -307,10 +307,18 @@ static void secp256k1Free(CC *cond) {
     }
 }
 
+static CC* secp256k1Copy(const CC* cond)
+{
+    CC *condCopy = cc_new(CC_Secp256k1);
+    condCopy->publicKey=cond->publicKey;
+    condCopy->signature=cond->signature;
+    return (condCopy);
+}
+
 
 static uint32_t secp256k1Subtypes(const CC *cond) {
     return 0;
 }
 
 
-struct CCType CC_Secp256k1Type = { 5, "secp256k1-sha-256", Condition_PR_secp256k1Sha256, 0, &secp256k1Fingerprint, &secp256k1Cost, &secp256k1Subtypes, &secp256k1FromJSON, &secp256k1ToJSON, &secp256k1FromFulfillment, &secp256k1ToFulfillment, &secp256k1IsFulfilled, &secp256k1Free };
+struct CCType CC_Secp256k1Type = { 5, "secp256k1-sha-256", Condition_PR_secp256k1Sha256, 0, &secp256k1Fingerprint, &secp256k1Cost, &secp256k1Subtypes, &secp256k1FromJSON, &secp256k1ToJSON, &secp256k1FromFulfillment, &secp256k1ToFulfillment, &secp256k1IsFulfilled, &secp256k1Free, &secp256k1Copy };

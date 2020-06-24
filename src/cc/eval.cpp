@@ -27,14 +27,14 @@
 #include "core_io.h"
 #include "crosschain.h"
 
-bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn, CCheckCCEvalCodes *evalcodeChecker);
+bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
 char *CClib_name();
 
 Eval* EVAL_TEST = 0;
 struct CCcontract_info CCinfos[0x100];
 extern pthread_mutex_t KOMODO_CC_mutex;
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn,CCheckCCEvalCodes *evalcodeChecker)
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn,std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
 {
     EvalRef eval;
     pthread_mutex_lock(&KOMODO_CC_mutex);
@@ -69,14 +69,14 @@ bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn,CCheckCC
 /*
  * Test the validity of an Eval node
  */
-bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,CCheckCCEvalCodes *evalcodeChecker)
+bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
 {
     struct CCcontract_info *cp;
     if (cond->codeLength == 0)
         return Invalid("empty-eval");
 
     uint8_t ecode = cond->code[0];
-    if (evalcodeChecker!=NULL && evalcodeChecker->CheckEvalCode(txTo.GetHash(),ecode)!=0) return true;
+    if (evalcodeChecker.get()!=NULL && evalcodeChecker->CheckEvalCode(txTo.GetHash(),ecode)!=0) return true;
     if ( ASSETCHAINS_CCDISABLES[ecode] != 0 )
     {
         // check if a height activation has been set. 

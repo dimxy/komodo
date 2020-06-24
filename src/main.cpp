@@ -2064,7 +2064,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         PrecomputedTransactionData txdata(tx);
-        CCheckCCEvalCodes evalcodeChecker;
+        std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker(new CCheckCCEvalCodes());
         if (!ContextualCheckInputs(tx, state, view, true, STANDARD_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId, evalcodeChecker))
         {
             //fprintf(stderr,"accept failure.9\n");
@@ -2909,7 +2909,7 @@ bool ContextualCheckInputs(
                            PrecomputedTransactionData& txdata,
                            const Consensus::Params& consensusParams,
                            uint32_t consensusBranchId,
-                           CCheckCCEvalCodes &evalcodeChecker,
+                           std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker,
                            std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsMint())
@@ -2981,7 +2981,7 @@ bool ContextualCheckOutputs(
                            CValidationState &state,
                            bool fScriptChecks,
                            PrecomputedTransactionData& txdata,
-                           CCheckCCEvalCodes &evalcodeChecker,
+                           std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker,
                            std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsCoinBase())
@@ -3608,7 +3608,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
     }
     CCheckQueueControl<CScriptCheck> control(fExpensiveChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
-    CCheckCCEvalCodes evalcodeChecker;
+    std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker(new CCheckCCEvalCodes());
 
     int64_t nTimeStart = GetTimeMicros();
     CAmount nFees = 0;

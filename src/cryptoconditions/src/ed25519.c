@@ -179,5 +179,13 @@ static uint32_t ed25519Subtypes(const CC *cond) {
     return 0;
 }
 
+static CC* ed25519Copy(const CC* cond)
+{
+    CC *condCopy = cc_new(CC_Ed25519);
+    condCopy->publicKey=cond->publicKey;
+    condCopy->signature=cond->signature;
+    return (condCopy);
+}
 
-struct CCType CC_Ed25519Type = { 4, "ed25519-sha-256", Condition_PR_ed25519Sha256, 0, &ed25519Fingerprint, &ed25519Cost, &ed25519Subtypes, &ed25519FromJSON, &ed25519ToJSON, &ed25519FromFulfillment, &ed25519ToFulfillment, &ed25519IsFulfilled, &ed25519Free };
+
+struct CCType CC_Ed25519Type = { 4, "ed25519-sha-256", Condition_PR_ed25519Sha256, 0, &ed25519Fingerprint, &ed25519Cost, &ed25519Subtypes, &ed25519FromJSON, &ed25519ToJSON, &ed25519FromFulfillment, &ed25519ToFulfillment, &ed25519IsFulfilled, &ed25519Free, &ed25519Copy };

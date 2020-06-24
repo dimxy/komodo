@@ -331,5 +331,16 @@ static void thresholdFree(CC *cond) {
     free(cond->subconditions);
 }
 
+static CC* thresholdCopy(const CC* cond)
+{
+    CC *condCopy = cc_new(CC_Threshold);
+    condCopy->threshold=cond->threshold;
+    condCopy->size=cond->size;
+    condCopy->subconditions = calloc(condCopy->size, sizeof(CC*));
+    for (int i=0; i<cond->size; i++) {
+        condCopy->subconditions[i]=cond->subconditions[i]->type->copy(cond->subconditions[i]);
+    }
+    return (condCopy);
+}
 
-struct CCType CC_ThresholdType = { 2, "threshold-sha-256", Condition_PR_thresholdSha256, &thresholdVisitChildren, &thresholdFingerprint, &thresholdCost, &thresholdSubtypes, &thresholdFromJSON, &thresholdToJSON, &thresholdFromFulfillment, &thresholdToFulfillment, &thresholdIsFulfilled, &thresholdFree };
+struct CCType CC_ThresholdType = { 2, "threshold-sha-256", Condition_PR_thresholdSha256, &thresholdVisitChildren, &thresholdFingerprint, &thresholdCost, &thresholdSubtypes, &thresholdFromJSON, &thresholdToJSON, &thresholdFromFulfillment, &thresholdToFulfillment, &thresholdIsFulfilled, &thresholdFree, &thresholdCopy};

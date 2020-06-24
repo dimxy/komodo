@@ -386,9 +386,8 @@ bool VerifyCoinImport(const CScript& scriptSig, TransactionSignatureChecker& che
         if (evalScript.begin()[0] != EVAL_IMPORTCOIN)
             return false;
         // Ok, all looks good so far...
-        CC *cond = CCNewEval(evalScript);
-        bool out = checker.CheckEvalCondition(cond);
-        cc_free(cond);
+        CCwrapper cond(CCNewEval(evalScript));
+        bool out = checker.CheckEvalCondition(cond.get());
         return out;
     };
 

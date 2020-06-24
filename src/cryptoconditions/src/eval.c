@@ -128,5 +128,14 @@ int cc_verifyEval(const CC *cond, VerifyEval verify, void *context) {
     return cc_visit(cond, visitor);
 }
 
+static CC* evalCopy(const CC* cond)
+{
+    CC *condCopy = cc_new(CC_Eval);
+    condCopy->code = calloc(1, cond->codeLength);
+    memcpy(condCopy->code, cond->code, cond->codeLength);
+    condCopy->codeLength=cond->codeLength;
+    return (condCopy);
+}
 
-struct CCType CC_EvalType = { 15, "eval-sha-256", Condition_PR_evalSha256, 0, &evalFingerprint, &evalCost, &evalSubtypes, &evalFromJSON, &evalToJSON, &evalFromFulfillment, &evalToFulfillment, &evalIsFulfilled, &evalFree };
+
+struct CCType CC_EvalType = { 15, "eval-sha-256", Condition_PR_evalSha256, 0, &evalFingerprint, &evalCost, &evalSubtypes, &evalFromJSON, &evalToJSON, &evalFromFulfillment, &evalToFulfillment, &evalIsFulfilled, &evalFree, &evalCopy };

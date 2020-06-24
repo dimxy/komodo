@@ -121,5 +121,15 @@ static int anonIsFulfilled(const CC *cond) {
     return 0;
 }
 
+static CC* anonCopy(const CC* cond)
+{
+    CC *condCopy = cc_new(CC_Anon);
+    memcpy(condCopy->fingerprint,cond->fingerprint,32);
+    condCopy->cost = cond->cost;
+    condCopy->subtypes = cond->subtypes;
+    condCopy->conditionType = cond->conditionType;
+    return (condCopy);
+}
 
-struct CCType CC_AnonType = { -1, "(anon)", Condition_PR_NOTHING, NULL, &anonFingerprint, &anonCost, &anonSubtypes, &anonFromJSON, &anonToJSON, NULL, &anonFulfillment, &anonIsFulfilled, &anonFree };
+
+struct CCType CC_AnonType = { -1, "(anon)", Condition_PR_NOTHING, NULL, &anonFingerprint, &anonCost, &anonSubtypes, &anonFromJSON, &anonToJSON, NULL, &anonFulfillment, &anonIsFulfilled, &anonFree, &anonCopy };

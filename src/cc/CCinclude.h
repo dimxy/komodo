@@ -137,43 +137,45 @@ struct CC_meta
 };
 /// \endcond
 
-// dimxy
-// class CCWrapper encapsulates and stores cryptocondition encoded in json
+// class CCWrapper encapsulates and stores cryptocondition encoded in shared_ptr
 // stored cc is used as probe in FinalizeCCtx to find vintx cc vout and make matching tx.vin.scriptSig
-class CCwrapper {
+// class CCwrapper {
+// public:
+//     CCwrapper() { }
+//     CCwrapper(CC *cond):cc(cond,[](CC *p) {
+//            cc_free(p);
+//         }) { }
+//     void setCC(CC *cond)
+//     {
+//         std::shared_ptr<CC> tmp(cond,[](CC *p) {
+//            cc_free(p);
+//         });
+//         cc=std::move(tmp);
+//     }
+
+//     CC *getCC() {
+//         return (cc.get());
+//     }
+//     int use_count() const { return cc.use_count(); }
+
+//     ~CCwrapper() { }
+
+// private:
+//     std::shared_ptr<CC> cc;
+// };
+typedef std::shared_ptr<CC> CCW_;
+class CCwrapper : public CCW_
+{
 public:
-    CCwrapper() { }
-
-    void setCC(CC *cond) {
-      
-        if (cond)
-        {
-            char *jsonstr = cc_conditionToJSONString(cond);
-            if (jsonstr) {
-                ccJsonString = jsonstr;
-                free(jsonstr);
-            }
-            //std::cerr << "CCwrapper setCC setting ccJsonString" << std::endl;
-        }
+    CCwrapper() {}
+    CCwrapper(CC* cond):CCW_(cond,[](CC *p) {
+           if (p) cc_free(p);
+        }) {}
+    CCwrapper copy() const
+    {
+        return CCwrapper(cc_copy(this->get()));
     }
-
-    CC *getCC() {
-        char err[1024] = "";
-        CC *cond = NULL;
-        
-        if (!ccJsonString.empty())
-            cond = cc_conditionFromJSONString(ccJsonString.c_str(), err);  // caller, please don't forget to cc_free the returned cond!
-
-        // debug logging if parse not successful:
-        //std::cerr << "CCwrapper ccJsonString=" << ccJsonString << "\nerr=" << err << std::endl;  
-        // if( cond ) std::cerr << "CCwrapper serialized=" << cc_conditionToJSONString(cond) << std::endl;  //see how it is serialized back
-        return cond;
-    }
-
-    ~CCwrapper() { }
-
-private:
-    std::string ccJsonString;
+    friend std::ostream& operator<<(std::ostream& os, const CCwrapper& cc);
 };
 
 // struct with cc and privkey 
@@ -536,6 +538,7 @@ CTxOut MakeCC1vout(uint8_t evalcode,CAmount nValue,CPubKey pk, std::vector<std::
 /// @returns vout object
 CTxOut MakeCC1of2vout(uint8_t evalcode,CAmount nValue,CPubKey pk,CPubKey pk2, std::vector<std::vector<unsigned char>>* vData = NULL);
 
+bool CCtoAnon(const CC *cond);
 
 CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, std::vector<unsigned char> *vData = NULL);
 CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey pk2, std::vector<unsigned char> *vData = NULL);
@@ -610,7 +613,9 @@ int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode);
 /// @returns true if the scriptSig object contains a cryptocondition
 bool IsCCInput(CScript const& scriptSig);
 
+bool myGetTransactionCCV2(struct CCcontract_info const *cp,const uint256 &hash, CTransaction &txOut, uint256 &hashBlock);
 bool IsTxCCV2(struct CCcontract_info const *cp, const CTransaction &tx);
+bool IsTxCCV2Validated(struct CCcontract_info const *cp, uint256 txid);
 
 /// CheckTxFee checks if queried transaction fee value is not less than the actual transaction fee of a real transaction
 /// @param tx transaction object which actual txfee to check
@@ -879,6 +884,15 @@ void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, const uint8_t *priv = 
 
 /// @private
 bool NSPV_SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey,uint32_t nTime);
+
+bool ValidateNormalVins(Eval* eval, const CTransaction& tx,int32_t index);
+
+int32_t oracle_format(uint256 *hashp,int64_t *valp,char *str,uint8_t fmt,uint8_t *data,int32_t offset,int32_t datalen);
+int32_t oracle_parse_data_format(std::vector<uint8_t> data,std::string format);
+int64_t _correlate_price(int64_t *prices,int32_t n,int64_t price);
+int64_t OracleCorrelatedPrice(int32_t height,std::vector <int64_t> origprices);
+int32_t oracleprice_add(std::vector<struct oracleprice_info> &publishers,CPubKey pk,int32_t height,std::vector <uint8_t> data,int32_t maxheight);
+UniValue OracleFormat(uint8_t *data,int32_t datalen,char *format,int32_t formatlen);
 
 /*! \cond INTERNAL */
 // curve25519 and sha256

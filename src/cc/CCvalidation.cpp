@@ -33,6 +33,37 @@ bool ValidateCCtx(const CTransaction& tx, struct CCcontract_info *cp)
     return (false);
 }
 
+
+bool IsTxCCV2(struct CCcontract_info const *cp, const CTransaction &tx)
+{
+    uint256 hashBlock; CTransaction prevtx;
+    for (int i=0;i<tx.vin.size();i++) if (cp->ismyvin(tx.vin[i].scriptSig)) return (true);
+    for (int i=0;i<tx.vout.size();i++) if (tx.vout[i].scriptPubKey.HasEvalcodeCCV2(cp->evalcode)) return (true);
+    return (false);
+}
+
+bool IsTxCCV2Validated(struct CCcontract_info const *cp, uint256 txid)
+{
+    uint256 hashBlock; CTransaction tx;
+    if (myGetTransaction(txid,tx,hashBlock)==0) return (false);
+    return IsTxCCV2(cp,tx);
+}
+
+bool myGetTransactionCCV2(struct CCcontract_info const *cp,const uint256 &hash, CTransaction &txOut, uint256 &hashBlock)
+{
+    if (myGetTransaction(hash,txOut,hashBlock)==0) return (false);
+    if (IsTxCCV2(cp,txOut)==0) return (false);
+    return (true);
+}
+
+bool ValidateNormalVins(Eval* eval, const CTransaction& tx,int32_t index)
+{
+    for (int i=index;i<tx.vin.size();i++)
+        if (IsCCInput(tx.vin[i].scriptSig) != 0 )
+            return eval->Invalid("vin."+std::to_string(i)+" is normal for channel tx!");
+    return (true);
+}
+
 bool ExactAmounts(Eval* eval, const CTransaction &tx, uint64_t txfee)
 {
     CTransaction vinTx; uint256 hashBlock; int32_t i,numvins,numvouts; int64_t inputs=0,outputs=0;

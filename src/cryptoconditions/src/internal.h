@@ -57,6 +57,7 @@ typedef struct CCType {
     Fulfillment_t *(*toFulfillment)(const CC *cond, const FulfillmentFlags flags);
     int (*isFulfilled)(const CC *cond);
     void (*free)(struct CC *cond);
+    CC *(*copy)(const CC *cond);
 } CCType;
 
 

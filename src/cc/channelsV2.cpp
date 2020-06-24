@@ -195,14 +195,6 @@ bool ValidateChannelCloseTx(struct CCcontract_info *cp,Eval* eval, uint256 close
     return (true);
 }
 
-bool ValidateNormalVins(Eval* eval, const CTransaction& tx,int32_t index)
-{
-    for (int i=index;i<tx.vin.size();i++)
-        if (IsCCInput(tx.vin[i].scriptSig) != 0 )
-            return eval->Invalid("vin."+std::to_string(i)+" is normal for channel tx!");
-    return (true);
-}
-
 bool ValidateChannelVin(struct CCcontract_info *cp,Eval* eval, const CTransaction& tx,int32_t index, uint256 opentxid, char* fromaddr,int64_t amount)
 {
     CTransaction prevTx; uint256 hashblock,tokenid,tmp_txid,p3; CPubKey srcpub,destpub; int32_t p1,numvouts;
