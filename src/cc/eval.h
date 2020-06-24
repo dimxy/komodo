@@ -39,6 +39,7 @@
  * Verus EVAL_STAKEGUARD is 0x01
  */
 #define FOREACH_EVAL(EVAL)             \
+        EVAL(EVAL_ORACLESV2, 0xe0) \
         EVAL(EVAL_IMPORTPAYOUT, 0xe1)  \
         EVAL(EVAL_IMPORTCOIN,   0xe2)  \
         EVAL(EVAL_ASSETS,   0xe3)  \
@@ -85,7 +86,7 @@ public:
     /*
      * Test validity of a CC_Eval node
      */
-    virtual bool Dispatch(const CC *cond, const CTransaction &tx, unsigned int nIn, CCheckCCEvalCodes *evalcodeChecker);
+    virtual bool Dispatch(const CC *cond, const CTransaction &tx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
 
     /*
      * Dispute a payout using a VM
@@ -135,7 +136,7 @@ public:
 
 
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, CCheckCCEvalCodes *evalcodeChecker);
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
 
 
 /*
@@ -290,7 +291,7 @@ typedef std::pair<uint256,MerkleBranch> TxProof;
 
 uint256 GetMerkleRoot(const std::vector<uint256>& vLeaves);
 struct CCcontract_info *CCinit(struct CCcontract_info *cp,uint8_t evalcode);
-bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction &tx, unsigned int nIn, CCheckCCEvalCodes *evalcodeChecker);
+bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction &tx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
 
 
 #endif /* CC_EVAL_H */

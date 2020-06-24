@@ -309,6 +309,7 @@ libbitcoin_server_a_SOURCES = \
   cc/heir.cpp \
   cc/old/heir_v0.cpp \
   cc/oracles.cpp \
+  cc/oraclesV2.cpp \
   cc/prices.cpp \
   cc/pegs.cpp \
   cc/marmara.cpp \

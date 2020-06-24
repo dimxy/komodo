@@ -101,8 +101,8 @@ bool makeCCopret(CScript &opret, std::vector<std::vector<unsigned char>> &vData)
 CTxOut MakeCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<std::vector<unsigned char>>* vData)
 {
     CTxOut vout;
-    CC *payoutCond = MakeCCcond1(evalcode, pk);
-    vout = CTxOut(nValue, CCPubKey(payoutCond));
+    CCwrapper payoutCond(MakeCCcond1(evalcode, pk));
+    vout = CTxOut(nValue, CCPubKey(payoutCond.get()));
     if (vData)
     {
         //std::vector<std::vector<unsigned char>> vtmpData = std::vector<std::vector<unsigned char>>(vData->begin(), vData->end());
@@ -111,15 +111,14 @@ CTxOut MakeCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<std
         COptCCParams ccp = COptCCParams(COptCCParams::VERSION, evalcode, 1, 1, vPubKeys, (*vData));
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
-    cc_free(payoutCond);
     return(vout);
 }
 
 CTxOut MakeCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<std::vector<unsigned char>>* vData)
 {
     CTxOut vout;
-    CC *payoutCond = MakeCCcond1of2(evalcode, pk1, pk2);
-    vout = CTxOut(nValue, CCPubKey(payoutCond));
+    CCwrapper payoutCond(MakeCCcond1of2(evalcode, pk1, pk2));
+    vout = CTxOut(nValue, CCPubKey(payoutCond.get()));
     if (vData)
     {
         //std::vector<std::vector<unsigned char>> vtmpData = std::vector<std::vector<unsigned char>>(vData->begin(), vData->end());
@@ -131,34 +130,43 @@ CTxOut MakeCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2
         COptCCParams ccp = COptCCParams(COptCCParams::VERSION, evalcode, 1, 2, vPubKeys, (*vData));
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
-    cc_free(payoutCond);
     return(vout);
 }
 
+bool CCtoAnon(const CC *cond)
+{
+    for (int i=0; i<cond->size;i++)
+            if (cc_typeId(cond->subconditions[i])==CC_Threshold)
+            {
+                cond->subconditions[i]=cc_anon(cond->subconditions[i]);
+                return (true);
+            }
+    return (false);
+}
 
 CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, std::vector<unsigned char> *vData)
 {
     CTxOut vout;
-    CC *payoutCond = MakeCCcond1(evalcode,pk);
-    vout = CTxOut(nValue,CCPubKey(payoutCond,true));
+    CCwrapper payoutCond(MakeCCcond1(evalcode,pk));
+    if (!CCtoAnon(payoutCond.get())) return (vout);
+    vout = CTxOut(nValue,CCPubKey(payoutCond.get(),true));
     if ( vData )
     {
         vout.scriptPubKey << *vData << OP_DROP;
     }
-    cc_free(payoutCond);
     return(vout);
 }
 
 CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey pk2, std::vector<unsigned char> *vData)
 {
     CTxOut vout;
-    CC *payoutCond = MakeCCcond1of2(evalcode,pk1,pk2);
-    vout = CTxOut(nValue,CCPubKey(payoutCond,true));
+    CCwrapper payoutCond(MakeCCcond1of2(evalcode,pk1,pk2));
+    if (!CCtoAnon(payoutCond.get())) return (vout);
+    vout = CTxOut(nValue,CCPubKey(payoutCond.get(),true));
     if ( vData )
     {
         vout.scriptPubKey << *vData << OP_DROP;
     }
-    cc_free(payoutCond);
     return(vout);
 }
 
@@ -176,28 +184,10 @@ CC* GetCryptoCondition(CScript const& scriptSig)
 
 bool IsCCInput(CScript const& scriptSig)
 {
-    CC *cond;
-    if ( (cond= GetCryptoCondition(scriptSig)) == 0 )
+    CCwrapper cond(GetCryptoCondition(scriptSig));
+    if ( cond.get() == 0 )
         return false;
-    cc_free(cond);
     return true;
-}
-
-bool IsTxCCV2(struct CCcontract_info const *cp, const CTransaction &tx)
-{
-    uint256 hashBlock; CTransaction prevtx;
-    for (int i=0;i<tx.vin.size();i++) if (cp->ismyvin(tx.vin[i].scriptSig)) return (true);
-    for (int i=0;i<tx.vout.size();i++) if (tx.vout[i].scriptPubKey.HasEvalcodeCCV2(cp->evalcode)) return (true);
-    return (false);
-}
-
-bool IsTxCCV2Validated(struct CCcontract_info const *cp, uint256 txid)
-{
-    uint256 hashBlock; CTransaction tx;
-    if (myGetTransaction(txid,tx,hashBlock)==0) return (false);
-    for (int i=0;i<tx.vin.size();i++) if (cp->ismyvin(tx.vin[i].scriptSig)) return (true);
-    for (int i=0;i<tx.vout.size();i++) if (tx.vout[i].scriptPubKey.HasEvalcodeCCV2(cp->evalcode)) return (true);
-    return (false);
 }
 
 bool CheckTxFee(const CTransaction &tx, uint64_t txfee, uint32_t height, uint64_t blocktime, int64_t &actualtxfee)
@@ -388,12 +378,12 @@ CPubKey CCCustomtxidaddr(char *txidaddr,uint256 txid,uint8_t taddr,uint8_t prefi
 
 bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk,bool mixed)
 {
-    CC *payoutCond;
+    CCwrapper payoutCond(MakeCCcond1(evalcode,pk));
     destaddr[0] = 0;
-    if ( (payoutCond= MakeCCcond1(evalcode,pk)) != 0 )
+    if (payoutCond.get() != 0 )
     {
-        Getscriptaddress(destaddr,CCPubKey(payoutCond,mixed));
-        cc_free(payoutCond);
+        if (mixed) CCtoAnon(payoutCond.get());
+        Getscriptaddress(destaddr,CCPubKey(payoutCond.get(),mixed));
     }
     return(destaddr[0] != 0);
 }
@@ -408,12 +398,11 @@ bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk,bool mixe
 
 bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
 {
-	CC *payoutCond;
+	CCwrapper payoutCond(MakeTokensCCcond1(evalcode, evalcode2, pk));
 	destaddr[0] = 0;
-	if ((payoutCond = MakeTokensCCcond1(evalcode, evalcode2, pk)) != 0)
+	if (payoutCond.get() != 0)
 	{
-		Getscriptaddress(destaddr, CCPubKey(payoutCond));
-		cc_free(payoutCond);
+		Getscriptaddress(destaddr, CCPubKey(payoutCond.get()));
 	}
 	return(destaddr[0] != 0);
 }
@@ -430,24 +419,23 @@ bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk)
 
 bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2, bool mixed)
 {
-    CC *payoutCond;
+    CCwrapper payoutCond(MakeCCcond1of2(cp->evalcode,pk,pk2));
     destaddr[0] = 0;
-    if ( (payoutCond= MakeCCcond1of2(cp->evalcode,pk,pk2)) != 0 )
+    if ( payoutCond.get() != 0 )
     {
-        Getscriptaddress(destaddr,CCPubKey(payoutCond,mixed));
-        cc_free(payoutCond);
+        if (mixed) CCtoAnon(payoutCond.get());
+        Getscriptaddress(destaddr,CCPubKey(payoutCond.get(),mixed));
     }
     return(destaddr[0] != 0);
 }
 
 bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk, CPubKey pk2)
 {
-	CC *payoutCond;
+	CCwrapper payoutCond(MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeNFT, pk, pk2));
 	destaddr[0] = 0;
-	if ((payoutCond = MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeNFT, pk, pk2)) != 0)  //  if additionalTokensEvalcode2 not set then it is dual-eval cc else three-eval cc
+	if (payoutCond.get() != 0)  //  if additionalTokensEvalcode2 not set then it is dual-eval cc else three-eval cc
 	{
-		Getscriptaddress(destaddr, CCPubKey(payoutCond));
-		cc_free(payoutCond);
+		Getscriptaddress(destaddr, CCPubKey(payoutCond.get()));
 	}
 	return(destaddr[0] != 0);
 }
@@ -913,12 +901,11 @@ CPubKey check_signing_pubkey(CScript scriptSig)
         return r ? 0 : 1;
     };
 
-    CC *cond = GetCryptoCondition(scriptSig);
+    CCwrapper cond(GetCryptoCondition(scriptSig));
 
-    if (cond) {
+    if (cond.get()) {
         CCVisitor visitor = { findEval, (uint8_t*)"", 0, &pubkey };
-        bool out = !cc_visit(cond, visitor);
-        cc_free(cond);
+        bool out = !cc_visit(cond.get(), visitor);
 
         if (pubkey.IsValid()) {
             return pubkey;
@@ -978,7 +965,7 @@ int64_t TotalPubkeyCCInputs(const CTransaction &tx, const CPubKey &pubkey)
     return total;
 }
 
-bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull,const CTransaction &ctx, unsigned int nIn, CCheckCCEvalCodes *evalcodeChecker)
+bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull,const CTransaction &ctx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
 {
     CTransaction createTx; uint256 assetid,assetid2,hashBlock; uint8_t funcid; int32_t height,i,n,from_mempool = 0; int64_t amount; std::vector<uint8_t> origpubkey;
     height = KOMODO_CONNECTING;
@@ -1009,7 +996,7 @@ bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> param
     {
         //fprintf(stderr,"done CC %02x\n",cp->evalcode);
         //cp->prevtxid = txid;
-        if (evalcodeChecker!=NULL) evalcodeChecker->MarkEvalCode(ctx.GetHash(),cp->evalcode);
+        if (evalcodeChecker.get()!=NULL) evalcodeChecker->MarkEvalCode(ctx.GetHash(),cp->evalcode);
         return(true);
     }
     //fprintf(stderr,"invalid CC %02x\n",cp->evalcode);
@@ -1020,7 +1007,7 @@ extern struct CCcontract_info CCinfos[0x100];
 extern std::string MYCCLIBNAME;
 bool CClib_validate(struct CCcontract_info *cp,int32_t height,Eval *eval,const CTransaction tx,unsigned int nIn);
 
-bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn,CCheckCCEvalCodes *evalcodeChecker)
+bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn,std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
 {
     uint8_t evalcode; int32_t height,from_mempool; struct CCcontract_info *cp;
     if ( ASSETCHAINS_CCLIB != MYCCLIBNAME )
@@ -1039,7 +1026,7 @@ bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,co
         height &= ((1<<30) - 1);
     }
     evalcode = cond->code[0];
-    if (evalcodeChecker!=NULL && evalcodeChecker->CheckEvalCode(txTo.GetHash(),evalcode)!=0) return true;
+    if (evalcodeChecker.get()!=NULL && evalcodeChecker->CheckEvalCode(txTo.GetHash(),evalcode)!=0) return true;
     if ( evalcode >= EVAL_FIRSTUSER && evalcode <= EVAL_LASTUSER )
     {
         cp = &CCinfos[(int32_t)evalcode];
@@ -1054,7 +1041,7 @@ bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,co
             return eval->Invalid("Cannot have params");
         else if ( CClib_validate(cp,height,eval,txTo,nIn) != 0 )
         {
-            if (evalcodeChecker!=NULL) evalcodeChecker->MarkEvalCode(txTo.GetHash(),evalcode);
+            if (evalcodeChecker.get()!=NULL) evalcodeChecker->MarkEvalCode(txTo.GetHash(),evalcode);
             return(true);
         }
         return(false); //eval->Invalid("error in CClib_validate");
@@ -1222,12 +1209,233 @@ void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, const uint8_t *priv)
 
     if (cp == NULL) return;
     if (cond == NULL) return;
-    
-    ccprobe.CCwrapped.setCC(cond);
+
+    ccprobe.CCwrapped=std::move(cond);
     if( priv != NULL )
         memcpy(ccprobe.CCpriv, priv, sizeof(ccprobe.CCpriv) / sizeof(ccprobe.CCpriv[0]));
     else
         memset(ccprobe.CCpriv, '\0', sizeof(ccprobe.CCpriv) / sizeof(ccprobe.CCpriv[0]));
 
     cp->CCvintxprobes.push_back(ccprobe);
+}
+
+std::ostream& operator<<(std::ostream& os, const CCwrapper& cc)
+{
+    os << cc_conditionToJSONString(cc.get());
+    return os;
+}
+
+int32_t oracle_format(uint256 *hashp,int64_t *valp,char *str,uint8_t fmt,uint8_t *data,int32_t offset,int32_t datalen)
+{
+    char _str[65]; int32_t sflag = 0,i,val32,len = 0,slen = 0,dlen = 0; uint32_t uval32; uint16_t uval16; int16_t val16; int64_t val = 0; uint64_t uval = 0;
+    *valp = 0;
+    *hashp = zeroid;
+    if ( str != 0 )
+        str[0] = 0;
+    switch ( fmt )
+    {
+        case 's': slen = data[offset++]; break;
+        case 'S': slen = data[offset++]; slen |= ((int32_t)data[offset++] << 8); break;
+        case 'd': dlen = data[offset++]; break;
+        case 'D': dlen = data[offset++]; dlen |= ((int32_t)data[offset++] << 8); break;
+        case 'c': len = 1; sflag = 1; break;
+        case 'C': len = 1; break;
+        case 't': len = 2; sflag = 1; break;
+        case 'T': len = 2; break;
+        case 'i': len = 4; sflag = 1; break;
+        case 'I': len = 4; break;
+        case 'l': len = 8; sflag = 1; break;
+        case 'L': len = 8; break;
+        case 'h': len = 32; break;
+        default: return(-1); break;
+    }
+    if ( slen != 0 )
+    {
+        if ( str != 0 )
+        {
+            if ( slen < IGUANA_MAXSCRIPTSIZE && offset+slen <= datalen )
+            {
+                for (i=0; i<slen; i++)
+                    str[i] = data[offset++];
+                str[i] = 0;
+            } else return(-1);
+        }
+    }
+    else if ( dlen != 0 )
+    {
+        if ( str != 0 )
+        {
+            if ( dlen < IGUANA_MAXSCRIPTSIZE && offset+dlen <= datalen )
+            {
+                for (i=0; i<dlen; i++)
+                    sprintf(&str[i<<1],"%02x",data[offset++]);
+                str[i<<1] = 0;
+            } else return(-1);
+        }
+    }
+    else if ( len != 0 && len+offset <= datalen )
+    {
+        if ( len == 32 )
+        {
+            iguana_rwbignum(0,&data[offset],len,(uint8_t *)hashp);
+            if ( str != 0 )
+                sprintf(str,"%s",uint256_str(_str,*hashp));
+        }
+        else
+        {
+            if ( sflag != 0 )
+            {
+                switch ( len )
+                {
+                    case 1: val = (int8_t)data[offset]; break;
+                    case 2: iguana_rwnum(0,&data[offset],len,(void *)&val16); val = val16; break;
+                    case 4: iguana_rwnum(0,&data[offset],len,(void *)&val32); val = val32; break;
+                    case 8: iguana_rwnum(0,&data[offset],len,(void *)&val); break;
+                }
+                if ( str != 0 )
+                    sprintf(str,"%lld",(long long)val);
+                *valp = val;
+            }
+            else
+            {
+                switch ( len )
+                {
+                    case 1: uval = data[offset]; break;
+                    case 2: iguana_rwnum(0,&data[offset],len,(void *)&uval16); uval = uval16; break;
+                    case 4: iguana_rwnum(0,&data[offset],len,(void *)&uval32); uval = uval32; break;
+                    case 8: iguana_rwnum(0,&data[offset],len,(void *)&uval); break;
+                }
+                if ( str != 0 )
+                    sprintf(str,"%llu",(long long)uval);
+                *valp = (int64_t)uval;
+            }
+        }
+        offset += len;
+    } else return(-1);
+    return(offset);
+}
+
+int32_t oracle_parse_data_format(std::vector<uint8_t> data,std::string format)
+{
+    int64_t offset=0,len=0; char fmt;
+
+    for (int i=0; i<format.size();i++)
+    {
+        fmt=format[i];
+        switch (fmt)
+        {
+            case 's': len = data[offset++]; break;
+            case 'S': len = data[offset++]; len |= ((int32_t)data[offset++] << 8); break;
+            case 'd': len = data[offset++]; break;
+            case 'D': len = data[offset++]; len |= ((int32_t)data[offset++] << 8); break;
+            case 'c': len = 1; break;
+            case 'C': len = 1; break;
+            case 't': len = 2; break;
+            case 'T': len = 2; break;
+            case 'i': len = 4; break;
+            case 'I': len = 4; break;
+            case 'l': len = 8; break;
+            case 'L': len = 8; break;
+            case 'h': len = 32; break;
+            default: return(0); break;
+        }
+        if (len>data.size()-offset) return (0);
+        if (fmt=='S' || fmt=='s')
+        {
+            for (int j=offset;j<offset+len;j++)
+                if (data[j]<32 || data[j]>127) return (0);
+        }
+        offset+=len;
+    }
+    if (offset!=data.size()) return (0);
+    else return (offset);
+}
+
+int64_t _correlate_price(int64_t *prices,int32_t n,int64_t price)
+{
+    int32_t i,count = 0; int64_t diff,threshold = (price >> 8);
+    for (i=0; i<n; i++)
+    {
+        if ( (diff= (price - prices[i])) < 0 )
+            diff = -diff;
+        if ( diff <= threshold )
+            count++;
+    }
+    if ( count < (n >> 1) )
+        return(0);
+    else return(price);
+}
+
+int64_t correlate_price(int32_t height,int64_t *prices,int32_t n)
+{
+    int32_t i,j; int64_t price = 0;
+    if ( n == 1 )
+        return(prices[0]);
+    for (i=0; i<n; i++)
+    {
+        j = (height + i) % n;
+        if ( prices[j] != 0 && (price= _correlate_price(prices,n,prices[j])) != 0 )
+            break;
+    }
+    for (i=0; i<n; i++)
+        fprintf(stderr,"%llu ",(long long)prices[i]);
+    fprintf(stderr,"-> %llu ht.%d\n",(long long)price,height);
+    return(price);
+}
+
+int64_t OracleCorrelatedPrice(int32_t height,std::vector <int64_t> origprices)
+{
+    std::vector <int64_t> sorted; int32_t i,n; int64_t *prices,price;
+    if ( (n= origprices.size()) == 1 )
+        return(origprices[0]);
+    std::sort(origprices.begin(), origprices.end());
+    prices = (int64_t *)calloc(n,sizeof(*prices));
+    i = 0;
+    for (std::vector<int64_t>::const_iterator it=sorted.begin(); it!=sorted.end(); it++)
+        prices[i++] = *it;
+    price = correlate_price(height,prices,i);
+    free(prices);
+    return(price);
+}
+
+int32_t oracleprice_add(std::vector<struct oracleprice_info> &publishers,CPubKey pk,int32_t height,std::vector <uint8_t> data,int32_t maxheight)
+{
+    struct oracleprice_info item; int32_t flag = 0;
+    for (std::vector<struct oracleprice_info>::iterator it=publishers.begin(); it!=publishers.end(); it++)
+    {
+        if ( pk == it->pk )
+        {
+            flag = 1;
+            if ( height > it->height )
+            {
+                it->height = height;
+                it->data = data;
+                return(height);
+            }
+        }
+    }
+    if ( flag == 0 )
+    {
+        item.pk = pk;
+        item.data = data;
+        item.height = height;
+        publishers.push_back(item);
+        return(height);
+    } else return(0);
+}
+
+UniValue OracleFormat(uint8_t *data,int32_t datalen,char *format,int32_t formatlen)
+{
+    UniValue obj(UniValue::VARR); uint256 hash; int32_t i,j=0; int64_t val; char str[IGUANA_MAXSCRIPTSIZE*2+1];
+    for (i=0; i<formatlen && j<datalen; i++)
+    {
+        str[0] = 0;
+        j = oracle_format(&hash,&val,str,format[i],data,j,datalen);
+        obj.push_back(str);
+        if ( j < 0 )
+            break;
+        if ( j >= datalen )
+            break;
+    }
+    return(obj);
 }

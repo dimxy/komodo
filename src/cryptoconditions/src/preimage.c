@@ -85,5 +85,13 @@ static uint32_t preimageSubtypes(const CC *cond) {
     return 0;
 }
 
+static CC* preimageCopy(const CC* cond)
+{
+    CC *condCopy = cc_new(CC_Preimage);
+    condCopy->preimage = calloc(1, cond->preimageLength);
+    memcpy(condCopy->preimage, cond->preimage, cond->preimageLength);
+    condCopy->preimageLength = cond->preimageLength;
+    return (condCopy);
+}
 
-struct CCType CC_PreimageType = { 0, "preimage-sha-256", Condition_PR_preimageSha256, 0, &preimageFingerprint, &preimageCost, &preimageSubtypes, &preimageFromJSON, &preimageToJSON, &preimageFromFulfillment, &preimageToFulfillment, &preimageIsFulfilled, &preimageFree };
+struct CCType CC_PreimageType = { 0, "preimage-sha-256", Condition_PR_preimageSha256, 0, &preimageFingerprint, &preimageCost, &preimageSubtypes, &preimageFromJSON, &preimageToJSON, &preimageFromFulfillment, &preimageToFulfillment, &preimageIsFulfilled, &preimageFree, &preimageCopy };

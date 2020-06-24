@@ -86,22 +86,11 @@ CC* CCNewEval(std::vector<unsigned char> code)
 
 CScript CCPubKey(const CC *cond, bool mixed)
 {
-    unsigned char buf[1000]; size_t len; CC *tmp=NULL,*anon=NULL; int tmpi;
+    unsigned char buf[1000]; size_t len;
     if (mixed)
     {
-        for (int i=0; i<cond->size;i++)
-            if (cc_typeId(cond->subconditions[i])==CC_Threshold)
-            {
-                tmp=cond->subconditions[i];
-                tmpi=i;
-                anon=cc_anon(cond->subconditions[i]);
-                cond->subconditions[i]=anon;
-                break;
-            }
         buf[0]='M';
         len = cc_fulfillmentBinaryMixedMode(cond, buf+1,999)+1;
-        if (tmp!=NULL) cond->subconditions[tmpi]=tmp;
-        if (anon!=NULL) cc_free(anon);
     }
     else len = cc_conditionBinary(cond, buf);
     return CScript() << std::vector<unsigned char>(buf, buf+len) << OP_CHECKCRYPTOCONDITION;

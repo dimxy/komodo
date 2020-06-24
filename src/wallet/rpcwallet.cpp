@@ -5604,6 +5604,7 @@ int32_t verus_staked(CBlock *pBlock, CMutableTransaction &txNew, uint32_t &nBits
 #include "../cc/CClotto.h"
 #include "../cc/CCchannels.h"
 #include "../cc/CCOracles.h"
+#include "../cc/CCOraclesV2.h"
 #include "../cc/CCGateways.h"
 #include "../cc/CCPrices.h"
 #include "../cc/CCHeir.h"
@@ -6043,6 +6044,19 @@ UniValue oraclesaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if ( params.size() == 1 )
         pubkey = ParseHex(params[0].get_str().c_str());
     return(CCaddress(cp,(char *)"Oracles",pubkey));
+}
+
+UniValue oraclesv2address(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    struct CCcontract_info *cp,C; std::vector<unsigned char> pubkey;
+    cp = CCinit(&C,EVAL_ORACLESV2);
+    if ( fHelp || params.size() > 1 )
+        throw runtime_error("oraclesv2address [pubkey]\n");
+    if ( ensure_CCrequirements(cp->evalcode) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    if ( params.size() == 1 )
+        pubkey = ParseHex(params[0].get_str().c_str());
+    return(CCaddress(cp,(char *)"Oracles V2",pubkey));
 }
 
 UniValue pricesaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
@@ -6918,6 +6932,148 @@ UniValue oraclescreate(const UniValue& params, bool fHelp, const CPubKey& mypk)
     description = params[1].get_str();
     format = params[2].get_str();
     result = OracleCreate(mypk,0,name,description,format);
+    if ( result[JSON_HEXTX].getValStr().size() > 0  )
+    {
+        result.push_back(Pair("result", "success"));
+    }
+    Unlock2NSPV(mypk);
+    return(result);
+}
+
+UniValue oraclesv2list(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    if ( fHelp || params.size() > 0 )
+        throw runtime_error("oraclesv2list\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    return(OraclesV2List());
+}
+
+UniValue oraclesv2info(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    uint256 txid;
+    if ( fHelp || params.size() != 1 )
+        throw runtime_error("oraclesv2info oracletxid\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    return(OracleV2Info(txid));
+}
+
+UniValue oraclesv2fund(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); uint256 txid;
+    if ( fHelp || params.size() != 1 )
+        throw runtime_error("oraclesv2fund oracletxid\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    Lock2NSPV(mypk);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    result = OracleV2Fund(mypk,0,txid);
+    if ( result[JSON_HEXTX].getValStr().size() > 0  )
+    {
+        result.push_back(Pair("result", "success"));
+    }
+    Unlock2NSPV(mypk);
+    return(result);
+}
+
+UniValue oraclesv2register(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); uint256 txid; int64_t datafee;
+    if ( fHelp || params.size() != 2 )
+        throw runtime_error("oraclesv2register oracletxid datafee\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    Lock2NSPV(mypk);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    if ( (datafee= atol((char *)params[1].get_str().c_str())) == 0 )
+        datafee = atof((char *)params[1].get_str().c_str()) * COIN + 0.00000000499999;
+    result = OracleV2Register(mypk,0,txid,datafee);
+    if ( result[JSON_HEXTX].getValStr().size() > 0  )
+    {
+        result.push_back(Pair("result", "success"));
+    }
+    Unlock2NSPV(mypk);
+    return(result);
+}
+
+UniValue oraclesv2subscribe(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); uint256 txid; int64_t amount; std::vector<unsigned char> pubkey;
+    if ( fHelp || params.size() != 3 )
+        throw runtime_error("oraclesv2subscribe oracletxid publisher amount\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    Lock2NSPV(mypk);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    pubkey = ParseHex(params[1].get_str().c_str());
+    amount = atof((char *)params[2].get_str().c_str()) * COIN + 0.00000000499999;
+    result = OracleV2Subscribe(mypk,0,txid,pubkey2pk(pubkey),amount);
+    if ( result[JSON_HEXTX].getValStr().size() > 0  )
+    {
+        result.push_back(Pair("result", "success"));
+    }
+    Unlock2NSPV(mypk);
+    return(result);
+}
+
+UniValue oraclesv2sample(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); uint256 oracletxid,txid; int32_t num; char *batonaddr;
+    if ( fHelp || params.size() != 2 )
+        throw runtime_error("oraclesv2sample oracletxid txid\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    oracletxid = Parseuint256((char *)params[0].get_str().c_str());
+    txid = Parseuint256((char *)params[1].get_str().c_str());
+    return(OracleV2DataSample(oracletxid,txid));
+}
+
+UniValue oraclesv2samples(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); uint256 txid; int32_t num; char *batonaddr;
+    if ( fHelp || params.size() != 3 )
+        throw runtime_error("oraclesv2samples oracletxid batonaddress num\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    batonaddr = (char *)params[1].get_str().c_str();
+    num = atoi((char *)params[2].get_str().c_str());
+    return(OracleV2DataSamples(txid,batonaddr,num));
+}
+
+UniValue oraclesv2data(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); uint256 txid; std::vector<unsigned char> data;
+    if ( fHelp || params.size() != 2 )
+        throw runtime_error("oraclesv2data oracletxid hexstr\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    Lock2NSPV(mypk);
+    txid = Parseuint256((char *)params[0].get_str().c_str());
+    data = ParseHex(params[1].get_str().c_str());
+    result = OracleV2Data(mypk,0,txid,data);
+    if ( result[JSON_HEXTX].getValStr().size() > 0  )
+    {
+        result.push_back(Pair("result", "success"));
+    }
+    Unlock2NSPV(mypk);
+    return(result);
+}
+
+UniValue oraclesv2create(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    UniValue result(UniValue::VOBJ); std::string name,description,format;
+    if ( fHelp || params.size() != 3 )
+        throw runtime_error("oraclesv2create name description format\n");
+    if ( ensure_CCrequirements(EVAL_ORACLESV2) < 0 )
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+    Lock2NSPV(mypk);
+    name = params[0].get_str();
+    description = params[1].get_str();
+    format = params[2].get_str();
+    result = OracleV2Create(mypk,0,name,description,format);
     if ( result[JSON_HEXTX].getValStr().size() > 0  )
     {
         result.push_back(Pair("result", "success"));
