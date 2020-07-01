@@ -1098,7 +1098,7 @@ static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, bool on
         {
             struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, it->first.index); // parse objectType and unmarshal corresponding gameobject
             if (obj != nullptr && obj->objectType == objectType && (pObjFilter == NULL || (*pObjFilter)(obj))) {
-                obj->blockHeight = it->second.blockHeight;
+                obj->blockHeightForSort = it->second.blockHeight;
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
             }
         }
@@ -1106,7 +1106,7 @@ static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, bool on
 
     std::sort(list.begin(), list.end(), 
         [](std::shared_ptr<KogsBaseObject> it1, std::shared_ptr<KogsBaseObject> it2) {
-            return it1->blockHeight < it2->blockHeight;
+            return it1->blockHeightForSort < it2->blockHeightForSort;
         });
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectType=" << (char)objectType << std::endl);
 }
