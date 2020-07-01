@@ -3000,7 +3000,7 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     }
     KogsGame *pGame = (KogsGame*)spGameObj.get();
 
-    std::shared_ptr<KogsBaseObject> spGameConfig(LoadGameObject(gameid));
+    std::shared_ptr<KogsBaseObject> spGameConfig(LoadGameObject(pGame->gameconfigid));
     if (spGameConfig == nullptr || spGameConfig->objectType != KOGSID_GAMECONFIG) {
         CCerror = "can't load gameconfig tx";
         return NullUniValue;
