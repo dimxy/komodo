@@ -1097,10 +1097,17 @@ static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, bool on
         if (onlyMine || it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
         {
             struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, it->first.index); // parse objectType and unmarshal corresponding gameobject
-            if (obj != nullptr && obj->objectType == objectType && (pObjFilter == NULL || (*pObjFilter)(obj)))
+            if (obj != nullptr && obj->objectType == objectType && (pObjFilter == NULL || (*pObjFilter)(obj))) {
+                obj->blockHeight = it->second.blockHeight;
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
+            }
         }
     }
+
+    std::sort(list.begin(), list.end(), 
+        [](std::vector<std::shared_ptr<KogsBaseObject>>::iterator it1, std::vector<std::shared_ptr<KogsBaseObject>>::iterator it2) {
+            return (*it1)->blockHeight < (*it2)->blockHeight;
+        });
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectType=" << (char)objectType << std::endl);
 }
 

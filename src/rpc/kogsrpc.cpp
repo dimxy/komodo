@@ -1381,7 +1381,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
     {
         throw runtime_error(
             "kogsgamelist [playerid1] [playerid2]\n"
-            "returns all gameids in which playerid1 and playerid2 participates\n"
+            "returns all gameids in which playerid1 and playerid2 participate\n"
             "\n");
     }
 
