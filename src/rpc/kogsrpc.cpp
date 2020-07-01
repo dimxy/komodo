@@ -1614,7 +1614,7 @@ UniValue kogscommitrandoms(const UniValue& params, bool fHelp, const CPubKey& re
 
     std::vector<uint32_t> rnds;
     for (int i = 2; i < params.size(); i ++) {
-        int64_t rnd = atoi(params[i].get_str().c_str());
+        int64_t rnd = atoll(params[i].get_str().c_str());
         if (rnd < 0 || rnd > RAND_MAX)
             return MakeResultError("invalid random");
         rnds.push_back((uint32_t)rnd);
@@ -1650,7 +1650,7 @@ UniValue kogsrevealrandoms(const UniValue& params, bool fHelp, const CPubKey& re
 
     std::vector<uint32_t> rnds;
     for (int i = 2; i < params.size(); i ++) {
-        int64_t rnd = atoi(params[i].get_str().c_str());
+        int64_t rnd = atoll(params[i].get_str().c_str());
         if (rnd < 0 || rnd > RAND_MAX)
             return MakeResultError("invalid random");
         rnds.push_back((uint32_t)rnd);
