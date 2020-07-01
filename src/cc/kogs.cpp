@@ -113,7 +113,7 @@ static bool GetNFTUnspentTx(uint256 tokenid, CTransaction &unspenttx)
 
     // use non-locking ver as this func could be called from validation code
     // also check the utxo is not spent in mempool
-    if (txid == tokenid)    {
+    if (txid == tokenid)    {  // if it is a tokencreate
         if (myGetTransaction(txid, unspenttx, hashBlock) && !myIsutxo_spentinmempool(dummytxid, dummyvout, txid, nvout))  
             return true;
         else
@@ -153,7 +153,9 @@ static bool GetNFTPrevVout(const CTransaction &tokentx, const uint256 reftokenid
                     uint256 tokenid;
                     if (!MyGetCCDropV2(prevtx.vout[vin.prevout.n].scriptPubKey, opret))
                         opret = prevtx.vout.back().scriptPubKey;
-                    DecodeTokenOpRetV1(opret, tokenid, pks, drops);
+                    if (DecodeTokenOpRetV1(opret, tokenid, pks, drops) == 'c')
+                        tokenid = prevtx.GetHash();
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "deposited tokenid=" << tokenid.GetHex() << " opret pks.size=" << pks.size() << (pks.size()>0 ? (" pk[0]=" + HexStr(pks[0])) : std::string("")) << std::endl);
                     if (tokenid == reftokenid)
                     {
                 //for (int32_t v = 0; v < prevtx.vout.size(); v++)
@@ -163,6 +165,7 @@ static bool GetNFTPrevVout(const CTransaction &tokentx, const uint256 reftokenid
                         prevtxout = prevtx;
                         nvout = vin.prevout.n;
                         vpks = pks; // validation pubkeys
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found pks=" << pks.size() << " for reftokenid=" << reftokenid.GetHex() << std::endl);
                         return true;
                     //}
                     }
@@ -1399,11 +1402,12 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
     uint32_t randomHeightRange, randomStrengthRange;
     if (pInitBaton == nullptr)  {
         // make random range offset
-        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, newbaton.prevturncount*2+1, randomHeightRange, randomUtxos)) {
+        const int32_t randomIndex = (newbaton.prevturncount-1) * newbaton.playerids.size() + 1;
+        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, randomIndex, randomHeightRange, randomUtxos)) {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+1 << std::endl);
             return false;
         }
-        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, newbaton.prevturncount*2+2, randomStrengthRange, randomUtxos)) {
+        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, randomIndex+1, randomStrengthRange, randomUtxos)) {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+2 << std::endl);
             return false;  
         }
@@ -2541,8 +2545,8 @@ UniValue KogsClaimDepositedToken(const CPubKey &remotepk, CAmount txfee_, uint25
         //TokensExtractCCVinPubkeys(lasttx, vpks1);
         GetNFTPrevVout(lasttx, tokenid, prevtxout, nvout, vpks0);
         //TokensExtractCCVinPubkeys(prevtxout, vpks);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "lasttx=" << HexStr(E_MARSHAL(ss << lasttx)) << " vpks0.size=" << vpks0.size() << std::endl); 
 
-//std::cerr << __func__ << " vpks0.size=" << vpks0.size() << " vpks1.size=" << vpks1.size() << " vpks.size=" << vpks.size() << std::endl;
         if (vpks0.size() != 1)    {
             CCerror = "could not get cc vin pubkey";
             return NullUniValue;
@@ -2875,7 +2879,7 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
         }
     }
 
-    if (spPrevBaton != nullptr)   
+    if (spPrevBaton != nullptr)   // first baton is not a slam but the first turn passing 
     {
         std::shared_ptr<KogsGameConfig> spGameConfig;
         std::shared_ptr<KogsPlayer> spPlayer;
@@ -2884,9 +2888,10 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
         //bool bGameFinished;
         uint256 dummygameid;
 
-        KogsBaton* pbaton = (KogsBaton*)spPrevBaton.get();
+        KogsBaton* pPrevBaton = (KogsBaton*)spPrevBaton.get();
+        const int32_t randomIndex = pPrevBaton->prevturncount * pPrevBaton->playerids.size() + 1;
 
-        get_random_txns(newSlamData.gameid, pbaton->prevturncount*2+1, pbaton->prevturncount*2+2, newbaton.hashtxns, newbaton.randomtxns);  // add txns with random hashes and values
+        get_random_txns(newSlamData.gameid, randomIndex, randomIndex+1, newbaton.hashtxns, newbaton.randomtxns);  // add txns with random hashes and values
         if (newbaton.hashtxns.size() == 0 || newbaton.randomtxns.size() == 0)
         {
             CCerror = "no commit or random txns";
@@ -2981,6 +2986,19 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     std::shared_ptr<KogsBaseObject> spGameObj(LoadGameObject(gameid));
     if (spGameObj == nullptr || spGameObj->objectType != KOGSID_GAME) {
         CCerror = "can't load gameid tx";
+        return NullUniValue;
+    }
+    KogsGame *pGame = (KogsGame*)spGameObj.get();
+
+    std::shared_ptr<KogsBaseObject> spGameConfig(LoadGameObject(gameid));
+    if (spGameConfig == nullptr || spGameConfig->objectType != KOGSID_GAMECONFIG) {
+        CCerror = "can't load gameconfig tx";
+        return NullUniValue;
+    }
+    KogsGameConfig *pGameConfig = (KogsGameConfig*)spGameObj.get();
+
+    if (randoms.size() < pGame->playerids.size() * pGameConfig->maxTurns + 1) {
+        CCerror = "insufficient randoms";
         return NullUniValue;
     }
 
