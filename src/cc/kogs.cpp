@@ -1105,8 +1105,8 @@ static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, bool on
     }
 
     std::sort(list.begin(), list.end(), 
-        [](std::vector<std::shared_ptr<KogsBaseObject>>::iterator it1, std::vector<std::shared_ptr<KogsBaseObject>>::iterator it2) {
-            return (*it1)->blockHeight < (*it2)->blockHeight;
+        [](std::shared_ptr<KogsBaseObject> it1, std::shared_ptr<KogsBaseObject> it2) {
+            return it1->blockHeight < it2->blockHeight;
         });
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found=" << list.size() << " objects with objectType=" << (char)objectType << std::endl);
 }
