@@ -1410,11 +1410,11 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
     if (pInitBaton == nullptr)  {
         // make random range offset
         const int32_t randomIndex = (newbaton.prevturncount-1) * newbaton.playerids.size() + 1;
-        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, randomIndex, randomHeightRange, randomUtxos)) {
+        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, newbaton.prevturncount*2+1, randomHeightRange, randomUtxos)) {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+1 << std::endl);
             return false;
         }
-        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, randomIndex+1, randomStrengthRange, randomUtxos)) {
+        if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, newbaton.gameid, newbaton.prevturncount*2+2, randomStrengthRange, randomUtxos)) {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+2 << std::endl);
             return false;  
         }
@@ -2898,7 +2898,7 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
         KogsBaton* pPrevBaton = (KogsBaton*)spPrevBaton.get();
         const int32_t randomIndex = pPrevBaton->prevturncount * pPrevBaton->playerids.size() + 1;
 
-        get_random_txns(newSlamData.gameid, randomIndex, randomIndex+1, newbaton.hashtxns, newbaton.randomtxns);  // add txns with random hashes and values
+        get_random_txns(newSlamData.gameid, pPrevBaton->prevturncount*2+1, pPrevBaton->prevturncount*2+2, newbaton.hashtxns, newbaton.randomtxns);  // add txns with random hashes and values
         if (newbaton.hashtxns.size() == 0 || newbaton.randomtxns.size() == 0)
         {
             CCerror = "no commit or random txns";
