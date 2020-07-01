@@ -3005,7 +3005,7 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         CCerror = "can't load gameconfig tx";
         return NullUniValue;
     }
-    KogsGameConfig *pGameConfig = (KogsGameConfig*)spGameObj.get();
+    KogsGameConfig *pGameConfig = (KogsGameConfig*)spGameConfig.get();
 std::cerr << __func__ << " randoms.size()=" << randoms.size() << " pGame->playerids.size()=" << pGame->playerids.size() << " pGameConfig->maxTurns=" << pGameConfig->maxTurns << " total=" << pGame->playerids.size() * pGameConfig->maxTurns * 2 + 1 << std::endl;
     if (randoms.size() < pGame->playerids.size() * pGameConfig->maxTurns * 2 + 1) {
         CCerror = "insufficient randoms";
