@@ -1414,7 +1414,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
         return  NullUniValue;
     }
 
-    int64_t normalInputs = AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote);
+    int64_t normalInputs = AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, isRemote);
     if (normalInputs > 0)
 	{
 		mask = ~((1LL << mtx.vin.size()) - 1);  // seems, mask is not used anymore
