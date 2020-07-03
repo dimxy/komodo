@@ -1064,37 +1064,40 @@ private:
     uint256 playerid1, playerid2;
 };
 
-static void ListGameObjects(const CPubKey &remotepk, uint8_t objectType, bool onlyMine, KogsObjectFilterBase *pObjFilter, std::vector<std::shared_ptr<KogsBaseObject>> &list)
+static void ListGameObjects(uint8_t objectType, const CPubKey &pk, KogsObjectFilterBase *pObjFilter, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-    bool isRemote = IS_REMOTE(remotepk);
-    CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+    //bool isRemote = IS_REMOTE(remotepk);
+    //CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
+    const bool onlyForPk = pk.IsValid();
 
     struct CCcontract_info *cp, C; 
     cp = CCinit(&C, EVAL_KOGS);
 
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting all objects with objectType=" << (char)objectType << std::endl);
-    if (onlyMine == false) {
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting objects with objectType=" << (char)objectType << (onlyForPk ? " for pk" : " all") << std::endl);
+    if (!onlyForPk) {
         // list all objects by marker:
         SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
     }
     else {
-        // list my objects by utxos on token+kogs or kogs address
+        // list objects by utxos on token+kogs or kogs address for the pk
 		// TODO: add check if this is nft or enclosure
 		// if this is nfts:
         char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-        GetTokensCCaddress(cp, tokenaddr, mypk);    
+        GetTokensCCaddress(cp, tokenaddr, pk);    
         SetCCunspentsWithMempool(addressUnspents, tokenaddr, true); 
 
 		// if this is kogs 'enclosure'
         char kogsaddr[KOMODO_ADDRESS_BUFSIZE];
-        GetCCaddress(cp, kogsaddr, mypk);    
+        GetCCaddress(cp, kogsaddr, pk);    
         SetCCunspentsWithMempool(addressUnspents, kogsaddr, true);         
     }
 
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found addressUnspents.size()=" << addressUnspents.size() << std::endl);
+
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
-        if (onlyMine || it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
+        if (onlyForPk || it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
         {
             struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, it->first.index); // parse objectType and unmarshal corresponding gameobject
             if (obj != nullptr && obj->objectType == objectType && (pObjFilter == NULL || (*pObjFilter)(obj))) {
@@ -2131,7 +2134,7 @@ void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool only
     //IsNFTMineChecker checker( IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey()) );
 
     // get all objects with this objectType
-    ListGameObjects(remotepk, objectType, onlymy, pFilter, objlist);
+    ListGameObjects(objectType, onlymy ? remotepk : CPubKey(), pFilter, objlist);
 
     for (const auto &o : objlist)
     {
@@ -2143,10 +2146,31 @@ void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool only
 void KogsGameTxidList(const CPubKey &remotepk, uint256 playerid1, uint256 playerid2, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
-    GameHasPlayerIdChecker checker(playerid1, playerid2);
+    //GameHasPlayerIdChecker checker(playerid1, playerid2);
+
+    if (playerid1.IsNull() && playerid2.IsNull())  {
+        ListGameObjects(KOGSID_GAME, CPubKey(), nullptr, objlist);
+    }
+    else {
+        std::vector<uint256> playerids; 
+        if (!playerid1.IsNull())
+            playerids.push_back(playerid1);
+        if (!playerid2.IsNull())
+            playerids.push_back(playerid2);
+        for (auto const &playerid : playerids) {
+            std::cerr << __func__ << " playerid=" << playerid.GetHex() << std::endl;
+            if (!playerid.IsNull())    {
+                std::shared_ptr<KogsBaseObject> spPlayer(LoadGameObject(playerid));
+                if (spPlayer == nullptr || spPlayer->objectType != KOGSID_PLAYER)   {
+                    CCerror = "could not load player";
+                    return;
+                }
+                ListGameObjects(KOGSID_GAME, spPlayer->encOrigPk, nullptr, objlist);
+            }
+        }
+    }
 
     // get all objects with this objectType
-    ListGameObjects(remotepk, KOGSID_GAME, false, (!playerid1.IsNull() || !playerid2.IsNull()) ? &checker : nullptr, objlist);
 
     for (auto &o : objlist)
     {
