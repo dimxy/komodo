@@ -1109,7 +1109,6 @@ UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& remotepk
     std::map<std::string, UniValue> filterprops;
     if (params.size() >= 1)
     {
-        UniValue json;
         if (params[0].get_str() == "my")
             onlymy = true;
         else if (params[0].get_str() == "all") 
@@ -1380,21 +1379,29 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
     if (fHelp || (params.size() > 2))
     {
         throw runtime_error(
-            "kogsgamelist [playerid1] [playerid2]\n"
-            "returns all gameids in which playerid1 and playerid2 participate\n"
+            "kogsgamelist [my]|[playerid1 playerid2 ...]\n"
+            "returns all gameids if no params set"
+            "if 'my' is set returns gameids for mypk"
+            "if list of playerids is set returns gameids in which those playerids participate\n"
             "\n");
     }
 
-    uint256 playerid1 = zeroid;
-    uint256 playerid2 = zeroid;
+    std::vector<uint256> playerids;
 
-    if (params.size() >= 1)
-        playerid1 = Parseuint256(params[0].get_str().c_str());
-    if (params.size() >= 2)
-        playerid2 = Parseuint256(params[1].get_str().c_str());
+    bool onlymine = false;
+    if (params.size() >= 1) {
+        if (params[0].get_str() == "my")
+            onlymine = true;
+        else  { 
+            for (int i = 0; i < params.size(); i ++)    {
+                uint256 playerid = Parseuint256(params[i].get_str().c_str());
+                playerids.push_back(playerid);
+            }
+        }
+    }
 
     std::vector<uint256> creationids;
-    KogsGameTxidList(remotepk, playerid1, playerid2, creationids);
+    KogsGameTxidList(remotepk, onlymine, playerids, creationids);
     RETURN_IF_ERROR(CCerror);
 
     for (const auto &i : creationids)

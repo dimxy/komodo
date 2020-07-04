@@ -2132,9 +2132,10 @@ void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool only
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
     //IsNFTMineChecker checker( IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey()) );
+    CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());
 
     // get all objects with this objectType
-    ListGameObjects(objectType, onlymy ? remotepk : CPubKey(), pFilter, objlist);
+    ListGameObjects(objectType, (onlymy ? mypk : CPubKey()), pFilter, objlist);
 
     for (const auto &o : objlist)
     {
@@ -2143,34 +2144,39 @@ void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool only
 } 
 
 // returns game list, either in which playerid participates or all
-void KogsGameTxidList(const CPubKey &remotepk, uint256 playerid1, uint256 playerid2, std::vector<uint256> &creationtxids)
+void KogsGameTxidList(const CPubKey &remotepk, bool onlymine, const std::vector<uint256> &playerids, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
     //GameHasPlayerIdChecker checker(playerid1, playerid2);
+    CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());
 
-    if (playerid1.IsNull() && playerid2.IsNull())  {
-        ListGameObjects(KOGSID_GAME, CPubKey(), nullptr, objlist);
+    if (playerids.size() == 0)  {
+        // get all or mypk objects with this objectType
+        ListGameObjects(KOGSID_GAME, onlymine ? mypk : CPubKey(), nullptr, objlist);
     }
     else {
-        std::vector<uint256> playerids; 
-        if (!playerid1.IsNull())
-            playerids.push_back(playerid1);
-        if (!playerid2.IsNull())
-            playerids.push_back(playerid2);
-        for (auto const &playerid : playerids) {
-            std::cerr << __func__ << " playerid=" << playerid.GetHex() << std::endl;
-            if (!playerid.IsNull())    {
-                std::shared_ptr<KogsBaseObject> spPlayer(LoadGameObject(playerid));
-                if (spPlayer == nullptr || spPlayer->objectType != KOGSID_PLAYER)   {
-                    CCerror = "could not load player";
-                    return;
-                }
-                ListGameObjects(KOGSID_GAME, spPlayer->encOrigPk, nullptr, objlist);
-            }
+        // load gameids for first player:
+        std::shared_ptr<KogsBaseObject> spPlayer0(LoadGameObject(playerids[0]));
+        if (spPlayer0 == nullptr || spPlayer0->objectType != KOGSID_PLAYER)   {
+            CCerror = "could not load player";
+            return;
+        }
+        ListGameObjects(KOGSID_GAME, spPlayer0->encOrigPk, nullptr, objlist);
+
+        // check if all playerids participate in each game, remove ones where it s not true
+        for (int32_t i = 0; i < objlist.size();)   {
+            KogsGame *pGame = (KogsGame*)(objlist[i].get());
+            int32_t found = 0;
+            for (auto const &pid : playerids)
+                if (std::find(pGame->playerids.begin(), pGame->playerids.end(), pid) != pGame->playerids.end())
+                    found++;
+            if (found < playerids.size())
+                objlist.erase(objlist.begin() + i);   // remove gameid if not all playerids from param found in this game
+            else
+                i ++;
         }
     }
 
-    // get all objects with this objectType
 
     for (auto &o : objlist)
     {
