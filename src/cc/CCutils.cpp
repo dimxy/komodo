@@ -132,7 +132,7 @@ CTxOut MakeCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2
     }
     return(vout);
 }
-
+/*
 bool CCtoAnon(const CC *cond)
 {
     for (int i=0; i<cond->size;i++)
@@ -143,7 +143,7 @@ bool CCtoAnon(const CC *cond)
             }
     return (false);
 }
-
+*/
 CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, std::vector<unsigned char> *vData)
 {
     CTxOut vout;
@@ -384,6 +384,7 @@ bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk,bool mixed)
     {
         if (mixed) CCtoAnon(payoutCond.get());
         Getscriptaddress(destaddr,CCPubKey(payoutCond.get(),mixed));
+        std::cerr << __func__ << " destaddr=" << destaddr << std::endl;
     }
     return(destaddr[0] != 0);
 }
@@ -396,26 +397,34 @@ bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk,bool mixe
     return(_GetCCaddress(destaddr,cp->evalcode,pk,mixed));
 }
 
-bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
+static bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode1, uint8_t evalcode2, CPubKey pk, bool mixed)
 {
-	CCwrapper payoutCond(MakeTokensCCcond1(evalcode, evalcode2, pk));
+	CCwrapper payoutCond;
+    
+    if (!mixed)
+        payoutCond.reset(MakeTokensCCcond1(evalcode1, evalcode2, pk));
+    else
+        payoutCond.reset(MakeTokensv2CCcond1(evalcode1, evalcode2, pk));
+
 	destaddr[0] = 0;
-	if (payoutCond.get() != 0)
+	if (payoutCond != nullptr)
 	{
-		Getscriptaddress(destaddr, CCPubKey(payoutCond.get()));
+        if (mixed) 
+            CCtoAnon(payoutCond.get());
+		Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), mixed));
+        std::cerr << __func__ << " destaddr=" << destaddr << std::endl;
 	}
 	return(destaddr[0] != 0);
 }
 
 // get scriptPubKey adddress for three/dual eval token cc vout
-bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk)
+bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk, bool mixed)
 {
 	destaddr[0] = 0;
 	if (pk.size() == 0)
 		pk = GetUnspendable(cp, 0);
-	return(_GetTokensCCaddress(destaddr, cp->evalcode, cp->evalcodeNFT, pk));
+	return(_GetTokensCCaddress(destaddr, cp->evalcode, cp->evalcodeNFT, pk, mixed));
 }
-
 
 bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2, bool mixed)
 {
@@ -429,13 +438,20 @@ bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubK
     return(destaddr[0] != 0);
 }
 
-bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk, CPubKey pk2)
+bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk1, CPubKey pk2, bool mixed)
 {
-	CCwrapper payoutCond(MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeNFT, pk, pk2));
+	CCwrapper payoutCond;
+    if (mixed)
+        payoutCond.reset(MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeNFT, pk1, pk2));
+    else
+        payoutCond.reset(MakeTokensv2CCcond1of2(cp->evalcode, cp->evalcodeNFT, pk1, pk2));
+
 	destaddr[0] = 0;
-	if (payoutCond.get() != 0)  //  if additionalTokensEvalcode2 not set then it is dual-eval cc else three-eval cc
+	if (payoutCond != nullptr)  //  if additionalTokensEvalcode2 not set then it is dual-eval cc else three-eval cc
 	{
-		Getscriptaddress(destaddr, CCPubKey(payoutCond.get()));
+        if (mixed) 
+            CCtoAnon(payoutCond.get());
+		Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), mixed));
 	}
 	return(destaddr[0] != 0);
 }
@@ -1438,4 +1454,128 @@ UniValue OracleFormat(uint8_t *data,int32_t datalen,char *format,int32_t formatl
             break;
     }
     return(obj);
+}
+
+
+// get OP_DROP data:
+bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
+{
+    std::vector<std::vector<unsigned char>> vParams;
+    CScript dummy; 
+
+    if (scriptPubKey.IsPayToCryptoCondition(&dummy, vParams) != 0)
+    {
+        if (vParams.size() >= 1)  // allow more data after cc opret
+        {
+            //uint8_t version;
+            //uint8_t evalCode;
+            //uint8_t m, n;
+            std::vector< vscript_t > vData;
+
+            // parse vParams[0] as script
+            CScript inScript(vParams[0].begin(), vParams[0].end());
+            CScript::const_iterator pc = inScript.begin();
+            inScript.GetPushedData(pc, vData);
+
+            if (vData.size() > 1 && vData[0].size() == 4) // first vector is 4-byte header
+            {
+                //vscript_t vopret(vParams[0].begin() + 6, vParams[0].end());
+                opret << OP_RETURN << vData[1];  // return vData[1] as cc opret
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// get OP_DROP data for mixed cc vouts:
+bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret)
+{
+    std::vector<vscript_t> vParams;
+    CScript dummy; 
+
+    if (scriptPubKey.IsPayToCryptoCondition(&dummy, vParams) != 0)
+    {
+        if (vParams.size() >= 1)  // allow more data after cc opret
+        {
+            //vscript_t vopret(vParams[0].begin() + 6, vParams[0].end());
+            opret << OP_RETURN << vParams[0];  // return vData[1] as cc opret
+            std::cerr << __func__ << " ccopret=" << opret.ToString() << std::endl;
+            return true;
+        }
+    }
+    return false;
+}
+
+// get cc address for pubkey or mypk
+UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vector<unsigned char> &pubkey, bool mixed)
+{
+    UniValue result(UniValue::VOBJ); 
+    char destaddr[64],str[64]; 
+    CPubKey mypk,globalpk;
+    
+    globalpk = GetUnspendable(cp, NULL);
+    GetCCaddress(cp, destaddr, globalpk, mixed);
+    if (strcmp(destaddr,cp->unspendableCCaddr) != 0)
+    {
+        uint8_t priv[32];
+        Myprivkey(priv); // it is assumed the CC's normal address'es -pubkey was used
+        fprintf(stderr,"fix mismatched CCaddr %s -> %s\n",cp->unspendableCCaddr,destaddr);
+        strcpy(cp->unspendableCCaddr,destaddr);
+        memset(priv,0,32);
+    }
+    result.push_back(Pair("result", "success"));
+    sprintf(str,"GlobalPk %s CC Address",name);
+    result.push_back(Pair(str,cp->unspendableCCaddr));
+    sprintf(str,"GlobalPk %s CC Balance",name);
+    result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(cp->unspendableCCaddr,1))));
+    sprintf(str,"GlobalPk %s Normal Address",name);
+    result.push_back(Pair(str,cp->normaladdr));
+    sprintf(str,"GlobalPk %s Normal Balance",name);
+    result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(cp->normaladdr,0))));
+    if (strcmp(name,"Gateways")==0) result.push_back(Pair("GatewaysPubkey","03ea9c062b9652d8eff34879b504eda0717895d27597aaeb60347d65eed96ccb40"));
+    
+    else if (strcmp(name,"Tokens")!=0 && strcmp(name,"Tokensv2")!=0)
+    {
+        if (GetTokensCCaddress(cp, destaddr, globalpk, mixed)>0)
+        {
+            sprintf(str,"GlobalPk %s/Tokens CC Address",name);
+            result.push_back(Pair(str,destaddr));
+        }
+    }
+    if (pubkey.size() == 33)
+    {
+        if (GetCCaddress(cp,destaddr,pubkey2pk(pubkey), mixed) != 0)
+        {
+            sprintf(str,"pubkey %s CC Address",name);
+            result.push_back(Pair(str,destaddr));
+            sprintf(str,"pubkey %s CC Balance",name);
+            result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,0))));
+        }
+    }
+    if ((strcmp(name,"Channels")==0 || strcmp(name,"Heir")==0) && pubkey.size() == 33)
+    {
+        sprintf(str,"mypk/pubkey 1of2 %s CC Address",name);
+        mypk = pubkey2pk(Mypubkey());
+        GetCCaddress1of2(cp, destaddr, mypk, pubkey2pk(pubkey), mixed);
+        result.push_back(Pair(str,destaddr));
+        if (GetTokensCCaddress1of2(cp,destaddr,mypk,pubkey2pk(pubkey), mixed) > 0)
+        {
+            sprintf(str,"mypk/pubkey 1of2 %s/Tokens CC Address",name);
+            result.push_back(Pair(str,destaddr));
+        }
+    }
+    if (GetCCaddress(cp, destaddr, pubkey2pk(Mypubkey()), mixed) != 0)
+    {
+        sprintf(str,"mypk %s CC Address",name);
+        result.push_back(Pair(str,destaddr));
+        sprintf(str,"mypk %s CC Balance",name);
+        result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,1))));
+    }
+    if ( Getscriptaddress(destaddr,(CScript() << Mypubkey() << OP_CHECKSIG)) != 0 )
+    {
+        result.push_back(Pair("mypk Normal Address",destaddr));
+        result.push_back(Pair("mypk Normal Balance",ValueFromAmount(CCaddress_balance(destaddr,0))));
+    }
+    return(result);
 }

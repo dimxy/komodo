@@ -277,6 +277,18 @@ uint8_t OraclesV2CCpriv[32] = { 0x18, 0x6A, 0xE7, 0x8C, 0x0E, 0x03, 0x3C, 0x5D, 
 #undef FUNCNAME
 #undef EVALCODE
 
+// Tokens v2
+#define FUNCNAME IsTokensv2Input
+#define EVALCODE EVAL_TOKENSV2
+const char *Tokensv2CCaddr = "RSc4RycihBEWQP2GDvSYS46MvFJsTKaNVU";
+const char *Tokensv2Normaladdr = "RDVU97zvJamGmVBSUyTm7RcYZtxjriNGkj";
+char Tokensv2CChexstr[67] = { "032fd27f72591b02f13a7f9701246eb0296b2be7cfdad32c520e594844ec3d4801" };
+uint8_t Tokensv2CCpriv[32] = { 0xb5, 0xba, 0x92, 0x7f, 0x53, 0x45, 0x4f, 0xf8, 0xa4, 0xad, 0x0d, 0x38, 0x30, 0x4f, 0xd0, 0x97, 0xd1, 0xb7, 0x94, 0x1b, 0x1f, 0x52, 0xbd, 0xae, 0xa2, 0xe7, 0x49, 0x06, 0x2e, 0xd2, 0x2d, 0xa5 };
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
+
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
     CPubKey pk; int32_t i; uint8_t pub33[33],check33[33],hash[32]; char CCaddr[64],checkaddr[64],str[67];
@@ -484,6 +496,15 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
             cp->validate = OraclesV2Validate;
             cp->ismyvin = IsOraclesV2Input;
             break;
+		case EVAL_TOKENSV2:
+			strcpy(cp->unspendableCCaddr, Tokensv2CCaddr);
+			strcpy(cp->normaladdr, Tokensv2Normaladdr);
+			strcpy(cp->CChexstr, Tokensv2CChexstr);
+			memcpy(cp->CCpriv, Tokensv2CCpriv, 32);
+			cp->validate = Tokensv2Validate;
+			cp->ismyvin = IsTokensv2Input;
+			break;
+
         default:
             if ( CClib_initcp(cp,evalcode) < 0 )
                 return(0);
