@@ -60,7 +60,7 @@ bool ValidateNormalVins(Eval* eval, const CTransaction& tx,int32_t index)
 {
     for (int i=index;i<tx.vin.size();i++)
         if (IsCCInput(tx.vin[i].scriptSig) != 0 )
-            return eval->Invalid("vin."+std::to_string(i)+" is normal for channel tx!");
+            return eval->Invalid("vin."+std::to_string(i)+" is normal for this tx!");
     return (true);
 }
 

@@ -467,7 +467,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
     if ( !(mask & FINALIZECCTX_NO_CHANGE) && totalinputs >= totaloutputs+txfee )
     {
         change = totalinputs - (totaloutputs+txfee);
-        if (!(mask & FINALIZECCTX_NO_CHANGE_WHEN_ZERO)) mtx.vout.push_back(CTxOut(change,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
+        if (!(mask & FINALIZECCTX_NO_CHANGE_WHEN_ZERO) || change>0 ) mtx.vout.push_back(CTxOut(change,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
     }
     if ( opret.size() > 0 )
         mtx.vout.push_back(CTxOut(0,opret));
