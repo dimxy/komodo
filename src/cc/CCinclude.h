@@ -482,6 +482,44 @@ uint8_t DecodeTokenCreateOpRetV1(const CScript &scriptPubKey, std::vector<uint8_
 /// @returns funcid ('c' if creation tx or 't' if token transfer tx) or NULL if errors
 uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::vector<CPubKey> &voutPubkeys, std::vector<vscript_t>  &oprets);
 
+// token 2 opreturn functions:
+
+/// Creates opreturn scriptPubKey for token 2 creation transaction. Normally this function is called internally by the tokencreate rpc. You might need to call it to create a customized token.
+/// The total opreturn length should not exceed 10001 byte
+/// @param funcid should be set to 'c' character
+/// @param origpubkey token creator pubkey as byte array
+/// @param name token name (no more than 32 char)
+/// @param description token description (no more than 4096 char)
+/// @param oprets vector of additional data added to the token opret
+/// @returns scriptPubKey with OP_RETURN script
+CScript EncodeTokenCreateOpRetV2(const std::vector<uint8_t> &origpubkey, const std::string &name, const std::string &description, const std::vector<vscript_t> &oprets);
+
+/// Creates opreturn scriptPubKey for token 2 transfer transaction. Normally this function is called internally by the token rpcs. You might call this function if your module create token transactions.
+/// The total opreturn length should not exceed 10001 byte
+/// @param tokenid id of the token
+/// @param oprets vector of pairs of additional opreturn data added to the token opret. Could be empty. The first element in the pair is opretid enum, the second is the data as byte array
+/// @returns scriptPubKey with OP_RETURN script
+CScript EncodeTokenOpRetV2(uint256 tokenid, const std::vector<vscript_t> &oprets);
+
+/// Decodes opreturn scriptPubKey of token 2 creation transaction and also returns additional data blobs. 
+/// Normally this function is called internally by the token rpcs. You might want to call this function if your module should create a customized token.
+/// @param scriptPubKey OP_RETURN script to decode
+/// @param[out] origpubkey creator public key as a byte array
+/// @param[out] name token name 
+/// @param[out] description token description 
+/// @param[out] oprets vector of opreturn data added to the token opret. Could be empty if not set
+/// @returns funcid ('c') or NULL if errors
+uint8_t DecodeTokenCreateOpRetV2(const CScript &scriptPubKey, std::vector<uint8_t> &origpubkey, std::string &name, std::string &description, std::vector<vscript_t>  &oprets);
+
+/// Decodes opreturn scriptPubKey of token 2 transfer transaction, also returns additional data blobs stored in the opreturn. 
+/// Normally this function is called internally by different token rpc. You might want to call if your module created a customized token.
+/// @param scriptPubKey OP_RETURN script to decode
+/// @param[out] evalCodeTokens should be EVAL_TOKENS
+/// @param[out] tokenid id of token 
+/// @param[out] oprets vector of additional opreturn data added to the token opret. Could be empty if not set
+/// @returns funcid ('c' if creation tx or 't' if token transfer tx) or NULL if errors
+uint8_t DecodeTokenOpRetV2(const CScript scriptPubKey, uint256 &tokenid, std::vector<vscript_t>  &oprets);
+
 
 /// @private
 int64_t AddCClibtxfee(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk);
@@ -540,8 +578,8 @@ CTxOut MakeCC1of2vout(uint8_t evalcode,CAmount nValue,CPubKey pk,CPubKey pk2, st
 
 bool CCtoAnon(const CC *cond);
 
-CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, std::vector<unsigned char> *vData = NULL);
-CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey pk2, std::vector<unsigned char> *vData = NULL);
+CTxOut MakeCC1voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<unsigned char> *vData = NULL);
+CTxOut MakeCC1of2voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<unsigned char> *vData = NULL);
 
 
 /// @private
@@ -685,14 +723,14 @@ bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubK
 /// @param cp CCcontract_info structure initialized with EVAL_TOKENS eval code
 /// @param[out] destaddr retrieved address
 /// @param pk public key to create the cryptocondition
-bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk);
+bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk, bool mixed = false);
 
 /// Gets adddress for token 1of2 cc vout
 /// @param cp CCcontract_info structure initialized with EVAL_TOKENS eval code
 /// @param[out] destaddr retrieved address
 /// @param pk first public key to create the cryptocondition
 /// @param pk2 second public key to create the cryptocondition
-bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk, CPubKey pk2);
+bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk, CPubKey pk2, bool mixed = false);
 
 /// CCaddrTokens1of2set sets pubkeys, private key and cc addr for spending from 1of2 token cryptocondition vout
 /// @param cp contract info structure where the private key is set
@@ -769,6 +807,8 @@ CPubKey check_signing_pubkey(CScript scriptSig);
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey);
 
 extern std::vector<CPubKey> NULL_pubkeys; //!< constant value for use in functions where such value might be passed @see FinalizeCCTx
+#define FINALIZECCTX_NO_CHANGE 0x1
+#define FINALIZECCTX_NO_CHANGE_WHEN_ZERO 0x2
 
 /// overload old-style FinalizeCCTx for compatibility
 /// @param skipmask parameter is not used
@@ -894,6 +934,9 @@ int64_t OracleCorrelatedPrice(int32_t height,std::vector <int64_t> origprices);
 int32_t oracleprice_add(std::vector<struct oracleprice_info> &publishers,CPubKey pk,int32_t height,std::vector <uint8_t> data,int32_t maxheight);
 UniValue OracleFormat(uint8_t *data,int32_t datalen,char *format,int32_t formatlen);
 
+/// @private
+bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret);
+
 /*! \cond INTERNAL */
 // curve25519 and sha256
 bits256 curve25519_shared(bits256 privkey,bits256 otherpub);
@@ -1011,7 +1054,7 @@ bool IsRemoteRPCCall();
 /*! \endcond */
 
 /*! \cond INTERNAL */
-UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
+UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vector<unsigned char> &pubkey, bool mixed = false);
 /*! \endcond */
 
 #define RETURN_IF_ERROR(CCerror) if ( CCerror != "" ) { UniValue result(UniValue::VOBJ); ERR_RESULT(CCerror); return(result); }
