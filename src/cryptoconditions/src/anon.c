@@ -29,7 +29,8 @@ CC* cc_anon(const CC *cond) {
     out->cost = cc_getCost(cond);
     out->subtypes = cond->type->getSubtypes(cond);
 
-    unsigned char *fp = cond->type->fingerprint(cond);
+    unsigned char *fp = calloc(1, 32);
+    cond->type->fingerprint(cond,fp);
     memcpy(out->fingerprint, fp, 32);
     free(fp);
     return out;
@@ -93,11 +94,8 @@ static void anonToJSON(const CC *cond, cJSON *params) {
 }
 
 
-static unsigned char *anonFingerprint(const CC *cond) {
-    unsigned char *out = calloc(1, 32);
-    //fprintf(stderr,"anon fingerprint %p %p\n",out,cond->fingerprint);
+static void anonFingerprint(const CC *cond, uint8_t *out) {
     memcpy(out, cond->fingerprint, 32);
-    return out;
 }
 
 
