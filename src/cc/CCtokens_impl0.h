@@ -46,7 +46,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     //  SetCCunspentsWithMempool(unspentOutputs, (char*)tokenaddr, true);  // add tokens in mempool too
 
     if (unspentOutputs.empty()) {
-        LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->evalcodeNFT << std::endl);
+        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->evalcodeNFT << std::endl);
     }
 
 	// threshold = total / (maxinputs != 0 ? maxinputs : CC_MAXVINS);   // let's not use threshold
@@ -67,14 +67,15 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 		if (myGetTransaction(it->first.txhash, vintx, hashBlock) != 0)
 		{
             char destaddr[KOMODO_ADDRESS_BUFSIZE];
-            std::cerr << __func__ << " scriptPubKey.size()=" << vintx.vout[it->first.index].scriptPubKey.size() << " scriptPubKey=" << vintx.vout[it->first.index].scriptPubKey.ToString() << " scriptPubKey[0]" << (int)vintx.vout[it->first.index].scriptPubKey[0] << std::endl;
 			Getscriptaddress(destaddr, vintx.vout[it->first.index].scriptPubKey);
 			if (strcmp(destaddr, tokenaddr) != 0 /*&& 
                 strcmp(destaddr, cp->unspendableCCaddr) != 0 &&   // TODO: check why this. Should not we add token inputs from unspendable cc addr if mypubkey is used?
                 strcmp(destaddr, cp->unspendableaddr2) != 0*/)      // or the logic is to allow to spend all available tokens (what about unspendableaddr3)?
+            {
 				continue;
+            }
 			
-            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() check vintx vout destaddress=" << destaddr << " amount=" << vintx.vout[it->first.index].nValue << std::endl);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "checked vintx vout destaddress=" << destaddr << " amount=" << vintx.vout[it->first.index].nValue << std::endl);
 
 			if (IsTokensvout<V>(true, true, cp, NULL, vintx, it->first.index, tokenid) > 0 && !myIsutxo_spentinmempool(ignoretxid,ignorevin,it->first.txhash, it->first.index))
 			{                
@@ -82,7 +83,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 					mtx.vin.push_back(CTxIn(it->first.txhash, it->first.index, CScript()));
 
 				totalinputs += it->second.satoshis;
-                LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() adding input nValue=" << it->second.satoshis  << std::endl);
+                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "adding input nValue=" << it->second.satoshis  << std::endl);
 				n++;
 
 				if ((total > 0 && totalinputs >= total) || (maxinputs > 0 && n >= maxinputs))
@@ -91,7 +92,6 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 		}
 	}
 
-	//std::cerr << "AddTokenCCInputs() found totalinputs=" << totalinputs << std::endl;
 	return(totalinputs);
 }
 
@@ -280,7 +280,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
     CAmount normalInputs = AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote);
     if (normalInputs > 0)
 	{        
-		if ((inputs = AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, CC_MAXVINS, useMempool)) < total)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
+		if ((inputs = AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, CC_MAXVINS, useMempool)) >= total)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
     	{
             uint8_t destEvalCode = V::EvalCode();
             if (cp->evalcodeNFT != 0)  // if set in AddTokenCCInputs
