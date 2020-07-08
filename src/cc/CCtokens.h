@@ -284,20 +284,20 @@ public:
 
     static CScript EncodeTokenCreateOpRet(const std::vector<uint8_t> &origpubkey, const std::string &name, const std::string &description, const std::vector<vscript_t> &oprets)
     {
-        return EncodeTokenCreateOpRetV1(origpubkey, name, description, oprets);
+        return ::EncodeTokenCreateOpRetV1(origpubkey, name, description, oprets);
     }
     static CScript EncodeTokenOpRet(uint256 tokenid, const std::vector<CPubKey> &voutPubkeys, const std::vector<vscript_t> &oprets)
     {
-        return EncodeTokenOpRetV1(tokenid, voutPubkeys, oprets);
+        return ::EncodeTokenOpRetV1(tokenid, voutPubkeys, oprets);
     }
 
     static uint8_t DecodeTokenCreateOpRet(const CScript &scriptPubKey, std::vector<uint8_t> &origpubkey, std::string &name, std::string &description, std::vector<vscript_t>  &oprets)
     {
-        return DecodeTokenCreateOpRetV1(scriptPubKey, origpubkey, name, description, oprets);
+        return ::DecodeTokenCreateOpRetV1(scriptPubKey, origpubkey, name, description, oprets);
     }
     static uint8_t DecodeTokenOpRet(const CScript scriptPubKey, uint256 &tokenid, std::vector<CPubKey> &voutPubkeys, std::vector<vscript_t>  &oprets)
     {
-        return DecodeTokenOpRetV1(scriptPubKey, tokenid, voutPubkeys, oprets);
+        return ::DecodeTokenOpRetV1(scriptPubKey, tokenid, voutPubkeys, oprets);
     }
 
     static CAmount CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true*/, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 &reftokenid, std::string &errorStr);    
@@ -305,45 +305,45 @@ public:
     // conds:
     static CC *MakeTokensCCcond1(uint8_t evalcode, CPubKey pk)
     {
-        return MakeTokensCCcond1(evalcode, pk);
+        return ::MakeTokensCCcond1(evalcode, pk);
     }
     static CC *MakeTokensCCcond1(uint8_t evalcode1, uint8_t evalcode2, CPubKey pk)
     {
-        return MakeTokensCCcond1(evalcode1, evalcode2, pk);
+        return ::MakeTokensCCcond1(evalcode1, evalcode2, pk);
     }
     static CC *MakeTokensCCcond1of2(uint8_t evalcode, CPubKey pk1, CPubKey pk2)
     {
-        return MakeTokensCCcond1of2(evalcode, pk1, pk2);
+        return ::MakeTokensCCcond1of2(evalcode, pk1, pk2);
     }
     static CC *MakeTokensCCcond1of2(uint8_t evalcode1, uint8_t evalcode2, CPubKey pk1, CPubKey pk2)
     {
-        return MakeTokensCCcond1of2(evalcode1, evalcode2, pk1, pk2);
+        return ::MakeTokensCCcond1of2(evalcode1, evalcode2, pk1, pk2);
     }
 
     // vouts:
     static CTxOut MakeCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<std::vector<unsigned char>>* vData = NULL)
     {
-        return MakeCC1vout(evalcode, nValue, pk, vData);
+        return ::MakeCC1vout(evalcode, nValue, pk, vData);
     }
     static CTxOut MakeTokensCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<std::vector<unsigned char>>* vData = NULL)
     {
-        return MakeTokensCC1vout(evalcode, nValue, pk, vData);
+        return ::MakeTokensCC1vout(evalcode, nValue, pk, vData);
     }
     static CTxOut MakeTokensCC1vout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk, std::vector<std::vector<unsigned char>>* vData = NULL)
     {
-        return MakeTokensCC1vout(evalcode1, evalcode2, nValue, pk, vData);
+        return ::MakeTokensCC1vout(evalcode1, evalcode2, nValue, pk, vData);
     }
     static CTxOut MakeTokensCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<std::vector<unsigned char>>* vData = NULL)
     {
-        return MakeTokensCC1of2vout(evalcode, nValue, pk1, pk2, vData);
+        return ::MakeTokensCC1of2vout(evalcode, nValue, pk1, pk2, vData);
     }
     static CTxOut MakeTokensCC1of2vout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<std::vector<unsigned char>>* vData = NULL)
     {
-        return MakeTokensCC1of2vout(evalcode1, evalcode2, nValue, pk1, pk2, vData);
+        return ::MakeTokensCC1of2vout(evalcode1, evalcode2, nValue, pk1, pk2, vData);
     }   
     static UniValue FinalizeCCTx(bool remote, uint64_t CCmask, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, uint64_t txfee, CScript opret)
     {
-        return FinalizeCCTxExt(remote, CCmask, cp, mtx, mypk, txfee, opret);
+        return ::FinalizeCCTxExt(remote, CCmask, cp, mtx, mypk, txfee, opret);
     }
 };
 
