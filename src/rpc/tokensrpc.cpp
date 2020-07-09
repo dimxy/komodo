@@ -195,7 +195,7 @@ static UniValue tokenbalance(const std::string& name, const UniValue& params, bo
 		char destaddr[KOMODO_ADDRESS_BUFSIZE];
 
 		result.push_back(Pair("result", "success"));
-        cp = CCinit(&C, EVAL_TOKENS);
+        cp = CCinit(&C, V::EvalCode());
 		if (GetCCaddress(cp, destaddr, pubkey2pk(vpubkey), V::IsMixed()) != 0)
 			result.push_back(Pair("CCaddress", destaddr));
 
