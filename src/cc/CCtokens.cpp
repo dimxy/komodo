@@ -1081,7 +1081,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 			continue;
 
         // fast check tokenid if vout has opdrop data
-        /*CScript opdrop;
+        CScript opdrop;
         if (MyGetCCDropV2(it->second.script, opdrop))  {
             uint256 dropTokenid;
             std::vector<CPubKey> vpks;
@@ -1091,7 +1091,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
                 continue;
             if (funcid == 't' && dropTokenid != tokenid)
                 continue;
-        }*/
+        }
 
 		if (myGetTransaction(vintxid, vintx, hashBlock) != 0)
 		{
