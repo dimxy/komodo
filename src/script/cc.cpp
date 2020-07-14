@@ -188,6 +188,7 @@ int cc_verifyMaybeMixed(const struct CC *cond, const uint256 sigHash,
         if (!condMixed) return false;
         condBinLength = cc_conditionBinary(condMixed, condBuf);
         condBin = condBuf;
+        cc_free(condMixed);
     }
     return cc_verify(cond, sigHash.begin(), 32, 0, condBin, condBinLength, verifyEval, evalContext);
 }

@@ -539,7 +539,7 @@ CC *MakeTokensv2CCcond1(uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
     std::vector<CC*> pks;
     pks.push_back(CCNewSecp256k1(pk));
 
-    std::cerr << __func__ << " entered for evalcode=" << std::hex << (int)evalcode << " evalcode2=" << std::hex << (int)evalcode2 << std::endl;
+    //std::cerr << __func__ << " entered for evalcode=" << std::hex << (int)evalcode << " evalcode2=" << std::hex << (int)evalcode2 << std::endl;
 
     std::vector<CC*> thresholds;
     thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
@@ -559,7 +559,7 @@ CC *MakeTokensv2CCcond1(uint8_t evalcode, CPubKey pk) {
 // make three-eval (token+evalcode+evalcode2) cc vout:
 CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nValue, CPubKey pk, vscript_t* pvData)
 {
-    std::cerr << __func__ << " entered for evalcode=" << std::hex << (int)evalcode << std::endl;
+    //std::cerr << __func__ << " entered for evalcode=" << std::hex << (int)evalcode << std::endl;
     CTxOut vout;
     CCwrapper payoutCond( MakeTokensv2CCcond1(evalcode, evalcode2, pk) );
     if (!CCtoAnon(payoutCond.get())) 

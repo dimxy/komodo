@@ -425,9 +425,15 @@ bool CScript::HasEvalcodeCCV2(uint8_t evalCode) const
     CC* cond=cc_readFulfillmentBinaryMixedMode((unsigned char*)ccdata.data()+1,ccdata.size()-1);
     VerifyEval eval = [] (CC *cond, void *evalcode)
     {
-        return (*(uint8_t *)evalcode==cond->code[0])?1:0;
+        return (*(uint8_t *)evalcode==cond->code[0])?0:1;
     };
-    return cc_verifyEval(cond,eval,&evalCode);
+    if (!cc_verifyEval(cond,eval,&evalCode))
+    {
+        cc_free(cond);
+        return (true);
+    }
+    cc_free(cond);
+    return (false);
 }
 
 bool CScript::MayAcceptCryptoCondition() const

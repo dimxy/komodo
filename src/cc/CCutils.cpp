@@ -384,7 +384,6 @@ bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk,bool mixed)
     {
         if (mixed) CCtoAnon(payoutCond.get());
         Getscriptaddress(destaddr,CCPubKey(payoutCond.get(),mixed));
-        std::cerr << __func__ << " destaddr=" << destaddr << std::endl;
     }
     return(destaddr[0] != 0);
 }
@@ -412,7 +411,6 @@ static bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode1, uint8_t evalc
         if (mixed) 
             CCtoAnon(payoutCond.get());
 		Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), mixed));
-        std::cerr << __func__ << " destaddr=" << destaddr << std::endl;
 	}
 	return(destaddr[0] != 0);
 }
@@ -442,9 +440,9 @@ bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey 
 {
 	CCwrapper payoutCond;
     if (mixed)
-        payoutCond.reset(MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeNFT, pk1, pk2));
-    else
         payoutCond.reset(MakeTokensv2CCcond1of2(cp->evalcode, cp->evalcodeNFT, pk1, pk2));
+    else
+        payoutCond.reset(MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeNFT, pk1, pk2));
 
 	destaddr[0] = 0;
 	if (payoutCond != nullptr)  //  if additionalTokensEvalcode2 not set then it is dual-eval cc else three-eval cc
