@@ -289,7 +289,7 @@ static uint256 myIs_baton_spentinmempool(struct CCcontract_info *cp,uint256 bato
 int64_t IsOraclesV2vout(struct CCcontract_info *cp,const CTransaction& tx,int32_t v)
 {
     //char destaddr[64];
-    if ( tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0 )
+    if ( tx.vout[v].scriptPubKey.IsCCV2() != 0 )
     {
         //if ( Getscriptaddress(destaddr,tx.vout[v].scriptPubKey) > 0 && strcmp(destaddr,cp->unspendableCCaddr) == 0 )
             return(tx.vout[v].nValue);

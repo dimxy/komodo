@@ -5776,7 +5776,7 @@ UniValue channelsaddress(const UniValue& params, bool fHelp, const CPubKey& mypk
     if ( ensure_CCrequirements(cp->evalcode) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
     pubkey = ParseHex(params[0].get_str().c_str());
-    return(CCaddress(cp,(char *)"Channels",pubkey));
+    return(CCaddress(cp,(char *)"Channels",pubkey,true));
 }
 
 UniValue cclibaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
@@ -6051,7 +6051,7 @@ UniValue gatewaysaddress(const UniValue& params, bool fHelp, const CPubKey& mypk
         throw runtime_error(CC_REQUIREMENTS_MSG);
     if ( params.size() == 1 )
         pubkey = ParseHex(params[0].get_str().c_str());
-    return(CCaddress(cp,(char *)"Gateways",pubkey));
+    return(CCaddress(cp,(char *)"Gateways",pubkey,true));
 }
 
 UniValue heiraddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
