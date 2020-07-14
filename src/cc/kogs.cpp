@@ -638,7 +638,9 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
             }
             if (obj->Unmarshal(enc.vdata))
             {
-                obj->creationtxid = enc.creationtxid;
+                // support only one transaction for enclosures (do not support adding more txns to the initial tx)
+                obj->creationtxid = tx.GetHash(); // enc.creationtxid;
+
                 obj->nameId = enc.name;
                 obj->descriptionId = enc.description;
                 obj->encOrigPk = enc.origpk;
@@ -669,7 +671,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
 
     if (myGetTransaction(txid, tx, hashBlock) /*&& (mempool || !hashBlock.IsNull())*/)  //use non-locking version, check not in mempool
     {
-        if (nvout == 10e8)
+        if (nvout == SPECIAL_VIN)
             nvout = tx.vout.size() - 1;
         KogsBaseObject *pBaseObj = DecodeGameObjectOpreturn(tx, nvout);   
 		if (pBaseObj) 
@@ -700,10 +702,10 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
 
             // for enclosures check that origpk really created the tx
             if (!pBaseObj->istoken && pBaseObj->funcid == 'c')    {
-            /*  if (TotalPubkeyNormalInputs(tx, pBaseObj->encOrigPk) == 0)  {
+                if (TotalPubkeyNormalInputs(tx, pBaseObj->encOrigPk) == 0)  {
                     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no normal inputs signed by creator for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
                     return nullptr;
-                }*/
+                }
             }
             pBaseObj->tx = tx;
 		    return pBaseObj;
@@ -717,7 +719,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
 
 static struct KogsBaseObject *LoadGameObject(uint256 txid)
 {
-    return LoadGameObject(txid, 10e8);  // 10e8 means use last vout opreturn
+    return LoadGameObject(txid, SPECIAL_VIN);  // SPECIAL_VIN means 'use last vout opreturn'
 }
 
 
@@ -1195,6 +1197,7 @@ static void ListContainerKogs(uint256 containerid, std::vector<uint256> &tokenid
         return NullUniValue; // empty 
     }
 }*/
+#include <chrono>
 
 // create an advertising tx to make known the player is ready to play
 static UniValue CreateAdvertisingTx(const CPubKey &remotepk, const KogsAdvertising &ad)
@@ -1246,6 +1249,8 @@ static bool FindAdvertisings(uint256 playerId, uint256 &adtxid, int32_t &nvout, 
     GetCCaddress(cp, kogsaddr, GetUnspendable(cp, NULL));
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "searching my advertizing marker" << std::endl);
+uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    std::cout << now << std::endl;
 
     // check if advertising is already on kogs global:
     SetCCunspentsWithMempool(addressUnspents, kogsaddr, true);    // look for baton on my cc addr 
@@ -1274,6 +1279,8 @@ static bool FindAdvertisings(uint256 playerId, uint256 &adtxid, int32_t &nvout, 
                             //{
                             adtxid = it->first.txhash;
                             nvout = it->first.index;
+                            uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    std::cout << now << std::endl;
                             return true;
                             //}
                         }
@@ -1284,6 +1291,8 @@ static bool FindAdvertisings(uint256 playerId, uint256 &adtxid, int32_t &nvout, 
             }
         }
     }
+    uint64_t now2 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    std::cout << now2 << std::endl;
     return false;
 }
 
@@ -2094,7 +2103,7 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
         // create gamefinished object:
 		newbaton.isFinished = 1;
 		newbaton.winnerid = GetWinner(&newbaton);
-        std::cerr << __func__ << " winner=" << newbaton.winnerid.GetHex() << std::endl;
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "finish baton created for gameid=" << gameid.GetHex() << " winner=" << newbaton.winnerid.GetHex() << std::endl);
         return true;
 	}
 	return true;
@@ -4830,7 +4839,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
                     else
                         return true;  */
                     return false;
-                //case KOGSID_GAMEFINISHED:
+                //case KOGSID_GAMEFINISHED: // not used, the baton is used
                 case KOGSID_BATON:
                     if (!check_baton(cp, (KogsBaton*)pBaseObj, tx, errorStr))
                         return log_and_return_error(eval, "invalid baton or gamefinished: " + errorStr, tx);

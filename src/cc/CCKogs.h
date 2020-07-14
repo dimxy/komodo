@@ -81,6 +81,8 @@ const char opt_playforwages[] = "playforwages";
 #define BATON_GLOBAL      0x1
 #define BATON_SELF        0x2
 
+#define SPECIAL_VIN     10e8
+
 struct KogsBaseObject {
     std::string nameId;
     std::string descriptionId;
@@ -495,10 +497,10 @@ struct KogsEnclosure {
             version = 0;
         }
         if (!ser_action.ForRead()) {  // if for write
-            if (creationtxid.IsNull()) // new object
-                funcId = 'c';  // creation
-            else
-                funcId = 't';  // transfer
+            //if (creationtxid.IsNull()) // new object
+            funcId = 'c';  // creation
+            //else
+            //    funcId = 't';  // transfer
         }
 
         // store data order like in token cc: eval funcid
@@ -515,13 +517,13 @@ struct KogsEnclosure {
                 //    origpk = pubkey2pk(Mypubkey()); // ... then store mypk
                 READWRITE(origpk);
             }
-            else if (funcId == 't')
+            /*else if (funcId == 't') // TODO: do not support this anymore
             {
                 READWRITE(creationtxid);  // almost like in tokens, opretdata contains the creation txid
-            }
+            }*/
             else
             {
-                LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "incorrect funcid in creationtxid=" << creationtxid.GetHex() << std::endl);
+                LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "invalid funcid" << std::endl);
                 return;
             }
             READWRITE(vdata);  // enclosed data
@@ -554,7 +556,7 @@ struct KogsEnclosure {
                 E_UNMARSHAL(enc.vdata, ss >> evalcode; ss >> objectType; ss >> version);
                 if (evalcode != EVAL_KOGS || !KogsIsObjectVersionSupported(objectType, version))
                 {
-                    LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "not kog evalcode (" << (int)evalcode << ") or incorrect version (" << (int)version << ") objectType=" << funcIdToPrint(objectType) << /*" for txid=" << tx.GetHash().GetHex() << */ std::endl);
+                    LOGSTREAM("kogs", CCLOG_INFO, stream << "KogsEnclosure" << " " << "not a kog evalcode (" << (int)evalcode << ") or incorrect version (" << (int)version << ") objectType=" << funcIdToPrint(objectType) << /*" for txid=" << tx.GetHash().GetHex() << */ std::endl);
                     return false;
                 }
 
