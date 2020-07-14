@@ -109,10 +109,7 @@ CScript EncodeChannelsOpRet(uint8_t funcid,uint256 tokenid,uint256 opentxid,CPub
     vopret = E_MARSHAL(ss << evalcode << funcid << opentxid << srcpub << destpub << numpayments << payment << hashchain << version << confirmation);
     if (tokenid!=zeroid)
     {
-        std::vector<CPubKey> pks;
-        pks.push_back(srcpub);
-        pks.push_back(destpub);
-        return(V2::EncodeTokenOpRet(tokenid,pks, { vopret }));
+        return(V2::EncodeTokenOpRet(tokenid, {}, { vopret }));
     }
     opret << OP_RETURN << vopret;
     return(opret);
