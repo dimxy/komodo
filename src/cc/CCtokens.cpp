@@ -1080,6 +1080,19 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 		if (ivin != mtx.vin.size()) // that is, the tx.vout is already added to mtx.vin (in some previous calls)
 			continue;
 
+        // fast check tokenid if vout has opdrop data
+        CScript opdrop;
+        if (MyGetCCDropV2(it->second.script, opdrop))  {
+            uint256 dropTokenid;
+            std::vector<CPubKey> vpks;
+            std::vector<vuint8_t> blobs;
+            uint8_t funcid = DecodeTokenOpRetV1(opdrop, dropTokenid, vpks, blobs);
+            if (funcid == 'c' && vintxid != tokenid)
+                continue;
+            if (funcid == 't' && dropTokenid != tokenid)
+                continue;
+        }
+
 		if (myGetTransaction(vintxid, vintx, hashBlock) != 0)
 		{
             char destaddr[64];
