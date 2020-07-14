@@ -15,6 +15,7 @@
 
 #include "CCchannels.h"
 #include "CCtokens.h"
+#include "CCtokens_impl.h"
 
 /*
  The idea here is to allow instant (mempool) payments that are secured by dPoW. In order to simplify things, channels CC will require creating reserves for each payee locked in the destination user's CC address. This will look like the payment is already made, but it is locked until further released. The dPoW protection comes from the cancel channel having a delayed effect until the next notarization. This way, if a payment release is made and the chain reorged, the same payment release will still be valid when it is re-broadcast into the mempool.
@@ -78,7 +79,7 @@ int64_t IsChannelsvout(struct CCcontract_info *cp,const CTransaction& tx,CPubKey
     char destaddr[65],channeladdr[65],tokenschanneladdr[65];
 
     GetCCaddress1of2(cp,channeladdr,srcpub,destpub,true);
-    GetTokensCCaddress1of2(cp,tokenschanneladdr,srcpub,destpub);
+    GetTokensCCaddress1of2(cp,tokenschanneladdr,srcpub,destpub,true);
     if ( tx.vout[v].scriptPubKey.IsPayToCryptoCondition() != 0 )
     {
         if ( Getscriptaddress(destaddr,tx.vout[v].scriptPubKey) > 0 && (strcmp(destaddr,channeladdr) == 0 || strcmp(destaddr,tokenschanneladdr) == 0))
@@ -111,7 +112,7 @@ CScript EncodeChannelsOpRet(uint8_t funcid,uint256 tokenid,uint256 opentxid,CPub
         std::vector<CPubKey> pks;
         pks.push_back(srcpub);
         pks.push_back(destpub);
-        return(EncodeTokenOpRetV1(tokenid,pks, { vopret }));
+        return(V2::EncodeTokenOpRet(tokenid,pks, { vopret }));
     }
     opret << OP_RETURN << vopret;
     return(opret);
@@ -125,7 +126,7 @@ uint8_t DecodeChannelsOpRet(const CScript &scriptPubKey, uint256 &tokenid, uint2
 
     version=0;
     confirmation=100;
-    if (DecodeTokenOpRetV1(scriptPubKey,tokenid,pubkeys,oprets)!=0 && GetOpReturnCCBlob(oprets, vOpretExtra) && vOpretExtra.size()>0)
+    if (V2::DecodeTokenOpRet(scriptPubKey,tokenid,pubkeys,oprets)!=0 && GetOpReturnCCBlob(oprets, vOpretExtra) && vOpretExtra.size()>0)
     {
         vopret=vOpretExtra;
     }
@@ -250,14 +251,14 @@ bool ChannelsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
                 return eval->Invalid("invalid channelopen OP_RETURN data!");
             else if (tmptokenid!=tokenid)
                 return eval->Invalid("invalid different tokenid in channelsopen and current tx!");
-            if (tokenid!=zeroid) GetTokensCCaddress1of2(cp,channeladdress,srcpub,destpub);
+            if (tokenid!=zeroid) GetTokensCCaddress1of2(cp,channeladdress,srcpub,destpub,true);
             else GetCCaddress1of2(cp,channeladdress,srcpub,destpub,true);
             GetCCaddress(cp,srcmarker,srcpub,true);
             GetCCaddress(cp,destmarker,destpub,true);
             Getscriptaddress(srcaddr,CScript() << ParseHex(HexStr(srcpub)) << OP_CHECKSIG);
             Getscriptaddress(destaddr,CScript() << ParseHex(HexStr(destpub)) << OP_CHECKSIG);
-            _GetCCaddress(srctokensaddr,EVAL_TOKENS,srcpub,true);
-            _GetCCaddress(desttokensaddr,EVAL_TOKENS,destpub,true);
+            _GetCCaddress(srctokensaddr,EVAL_TOKENSV2,srcpub,true);
+            _GetCCaddress(desttokensaddr,EVAL_TOKENSV2,destpub,true);
             switch ( funcid )
             {
                 case 'O':
@@ -295,11 +296,11 @@ bool ChannelsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
                     else
                     {
                         i=0;
-                        cpTokens = CCinit(&CTokens,EVAL_TOKENS);
-                        while (i<channelOpenTx.vin.size() && (cp->ismyvin)(channelOpenTx.vin[i].scriptSig) != 0)
+                        cpTokens = CCinit(&CTokens,EVAL_TOKENSV2);
+                        while (i<channelOpenTx.vin.size())
                         {  
                             if (myGetTransaction(channelOpenTx.vin[i].prevout.hash,prevTx,hashblock)!= 0 && (numvouts=prevTx.vout.size()) > 0 
-                                && (funcid=DecodeTokenOpRetV1(prevTx.vout[numvouts-1].scriptPubKey, tmptokenid, keys, oprets))!=0 
+                                && (funcid=V2::DecodeTokenOpRet(prevTx.vout[numvouts-1].scriptPubKey, tmptokenid, keys, oprets))!=0 
                                 && ((funcid=='c' && prevTx.GetHash()==tokenid) || (funcid!='c' && tmptokenid==tokenid)))
                                 i++;
                             else break;
@@ -484,7 +485,7 @@ int64_t AddChannelsInputs(struct CCcontract_info *cp,CMutableTransaction &mtx, C
 
     if ((numvouts=openTx.vout.size()) > 0 && DecodeChannelsOpRet(openTx.vout[numvouts-1].scriptPubKey,tokenid,tmp_txid,srcpub,destpub,param1,param2,param3,version,confirmation)=='O')
     {
-        if (tokenid!=zeroid) GetTokensCCaddress1of2(cp,coinaddr,srcpub,destpub);
+        if (tokenid!=zeroid) GetTokensCCaddress1of2(cp,coinaddr,srcpub,destpub,true);
         else GetCCaddress1of2(cp,coinaddr,srcpub,destpub,true);
         SetCCunspents(unspentOutputs,coinaddr,true);
     }
@@ -533,9 +534,8 @@ int64_t AddChannelsInputs(struct CCcontract_info *cp,CMutableTransaction &mtx, C
     {
         prevtxid=txid;
         mtx.vin.push_back(CTxIn(txid,0,CScript()));
-        //if (tokenid!=zeroid) CCAddVintxCond(cp,MakeCCcond1of2(cp->evalcode,srcpub,destpub,true),myprivkey)
-        //else
-        CCAddVintxCond(cp,MakeCCcond1of2(cp->evalcode,srcpub,destpub));
+        if (tokenid!=zeroid) CCAddVintxCond(cp,V2::MakeTokensCCcond1of2(cp->evalcode,srcpub,destpub),0);
+        else CCAddVintxCond(cp,MakeCCcond1of2(cp->evalcode,srcpub,destpub));
         mtx.vin.push_back(CTxIn(txid,marker,CScript()));
         return totalinputs;
     }
@@ -557,14 +557,15 @@ UniValue ChannelOpen(const CPubKey& pk, uint64_t txfee,CPubKey destpub,int32_t n
     if (payment <1)
         CCERR_RESULT("channelscc",CCLOG_INFO, stream << "invalid payment amount, must be greater than 0");
     cp = CCinit(&C,EVAL_CHANNELS);
-    cpTokens = CCinit(&CTokens,EVAL_TOKENS);
+    cpTokens = CCinit(&CTokens,EVAL_TOKENSV2);
     if ( txfee == 0 )
         txfee = ASSETCHAINS_CCZEROTXFEE[EVAL_CHANNELS]?0:CC_TXFEE;
     mypk = pk.IsValid()?pk:pubkey2pk(Mypubkey());
     funds = numpayments * payment;
     if (tokenid!=zeroid)
     {
-        tokens=AddTokenCCInputs(cpTokens, mtx, mypk, tokenid, funds, 64);       
+        tokens=AddTokenCCInputs<V2>(cpTokens, mtx, mypk, tokenid, funds, 64, false);   
+        CCAddVintxCond(cp,V2::MakeTokensCCcond1(cpTokens->evalcode,mypk)); 
         amount=AddNormalinputs(mtx,mypk,txfee+2*CC_MARKER_VALUE,5,pk.IsValid());
     }
     else amount=AddNormalinputs(mtx,mypk,funds+txfee+2*CC_MARKER_VALUE,64,pk.IsValid());
@@ -578,11 +579,11 @@ UniValue ChannelOpen(const CPubKey& pk, uint64_t txfee,CPubKey destpub,int32_t n
             memcpy(hash,hashdest,32);
         }
         endiancpy((uint8_t *)&hashchain,hashdest,32);
-        if (tokenid!=zeroid) mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_CHANNELS,funds,mypk,destpub));
+        if (tokenid!=zeroid) mtx.vout.push_back(V2::MakeTokensCC1of2vout(EVAL_CHANNELS,funds,mypk,destpub));
         else mtx.vout.push_back(MakeCC1of2voutMixed(EVAL_CHANNELS,funds,mypk,destpub));
         mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,mypk));
         mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,destpub));
-        if (tokenid!=zeroid && tokens>=funds) mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,tokens-funds,mypk));
+        if (tokenid!=zeroid && tokens>=funds) mtx.vout.push_back(V2::MakeTokensCC1vout(EVAL_TOKENSV2,tokens-funds,mypk));
         return(FinalizeCCV2Tx(pk.IsValid(),0,cp,mtx,mypk,txfee,EncodeChannelsOpRet('O',tokenid,zeroid,mypk,destpub,numpayments,payment,hashchain,CHANNELCC_VERSION,confirmation)));
     }
     CCERR_RESULT("channelscc",CCLOG_INFO, stream << "error adding funds");
@@ -661,11 +662,11 @@ UniValue ChannelPayment(const CPubKey& pk, uint64_t txfee,uint256 opentxid,int64
             }
             else 
                 CCERR_RESULT("channelscc",CCLOG_INFO, stream << "invalid previous tx");
-            if (tokenid!=zeroid) mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_CHANNELS, change, srcpub, destpub));
+            if (tokenid!=zeroid) mtx.vout.push_back(V2::MakeTokensCC1of2vout(EVAL_CHANNELS, change, srcpub, destpub));
             else mtx.vout.push_back(MakeCC1of2voutMixed(EVAL_CHANNELS, change, srcpub, destpub));
             mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,srcpub));
             mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,destpub));
-            if (tokenid!=zeroid) mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS, amount, destpub));
+            if (tokenid!=zeroid) mtx.vout.push_back(V2::MakeTokensCC1vout(EVAL_TOKENSV2, amount, destpub));
             else mtx.vout.push_back(CTxOut(amount, CScript() << ParseHex(HexStr(destpub)) << OP_CHECKSIG));
             return (FinalizeCCV2Tx(pk.IsValid(), 0, cp, mtx, mypk, txfee, EncodeChannelsOpRet('P', tokenid, opentxid, srcpub, destpub, prevdepth-numpayments, numpayments, secret, CHANNELCC_VERSION, confirmation)));
         }
@@ -698,7 +699,7 @@ UniValue ChannelClose(const CPubKey& pk, uint64_t txfee,uint256 opentxid)
     {
         if ( AddNormalinputs(mtx,mypk,txfee+CC_MARKER_VALUE,3,pk.IsValid()) >= txfee+CC_MARKER_VALUE )
         {
-            if (tokenid!=zeroid) mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_CHANNELS, funds, mypk, destpub));
+            if (tokenid!=zeroid) mtx.vout.push_back(V2::MakeTokensCC1of2vout(EVAL_CHANNELS, funds, mypk, destpub));
             else mtx.vout.push_back(MakeCC1of2voutMixed(EVAL_CHANNELS, funds, mypk, destpub));
             mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,mypk));
             mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,destpub));
@@ -748,7 +749,7 @@ UniValue ChannelRefund(const CPubKey& pk, uint64_t txfee,uint256 opentxid,uint25
     {
         if ( AddNormalinputs(mtx,mypk,txfee+CC_MARKER_VALUE,3,pk.IsValid()) >= txfee+CC_MARKER_VALUE )
         {
-            if (tokenid!=zeroid) mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,funds,mypk));
+            if (tokenid!=zeroid) mtx.vout.push_back(MakeCC1voutMixed(EVAL_TOKENSV2,funds,mypk));
             else mtx.vout.push_back(CTxOut(funds,CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));
             mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,mypk));
             mtx.vout.push_back(MakeCC1voutMixed(EVAL_CHANNELS,CC_MARKER_VALUE,destpub));

@@ -128,11 +128,18 @@ int ServerTransactionSignatureChecker::CheckCryptoCondition(const std::vector<un
     if (condBin[0] == CC_MIXED_MODE_PREFIX)
     {
         condMixed = cc_readFulfillmentBinaryMixedMode((unsigned char*)condBin.data()+1, condBin.size()-1);
-        if (!condMixed) return false;
+        if (!condMixed) return (false);
     }
+    else return (false);
 
     VerifyEval eval = [] (CC *cond, void *checker) {
         return ((TransactionSignatureChecker*)checker)->CheckEvalCondition(cond);
     };
-    return cc_verifyEval(condMixed,eval,(void *)this);
+    if (cc_verifyEval(condMixed,eval,(void *)this))
+    {
+        cc_free(condMixed);
+        return (true);
+    }
+    cc_free(condMixed);
+    return (false);    
 }
