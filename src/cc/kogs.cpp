@@ -20,6 +20,21 @@
 #include "komodo_defs.h"
 #include "CCKogs.h"
 
+/*
+
+    Kogs cc transaction structure
+
+    Kogs cc module is built on top of Tokens cc and uses Nonfungible token (NFT) cc object in kogs transactions.
+    Most of Kogs cc transactions are combined with Tokens cc outputs where NFT data is stored. 
+    The last opreturn contains the kogs objectType which defines which operation on NFTs is done 
+    (like adding kogs to a container or depositing cointainers to a game etc)  
+
+    The description is here:
+    https://github.com/dimxy/komodo/wiki/Kogs-cc-transaction-description
+
+*/
+
+
 #ifndef KOMODO_ADDRESS_BUFSIZE
 #define KOMODO_ADDRESS_BUFSIZE 64
 #endif
@@ -34,8 +49,8 @@ static std::map<uint8_t, std::string> objectids = {
     { KOGSID_PACK, "KOGSID_PACK" },
     { KOGSID_CONTAINER, "KOGSID_CONTAINER" },
     { KOGSID_BATON , "KOGSID_BATON" },
-//    { KOGSID_SLAMPARAMS, "KOGSID_SLAMPARAMS" },
-//    { KOGSID_GAMEFINISHED, "KOGSID_GAMEFINISHED" },
+//    { KOGSID_SLAMPARAMS, "KOGSID_SLAMPARAMS" }, not used
+//    { KOGSID_GAMEFINISHED, "KOGSID_GAMEFINISHED" }, not used
     { KOGSID_ADVERTISING, "KOGSID_ADVERTISING" },
     { KOGSID_ADDTOCONTAINER, "KOGSID_ADDTOCONTAINER" },
     { KOGSID_REMOVEFROMCONTAINER, "KOGSID_REMOVEFROMCONTAINER" },
@@ -1716,7 +1731,7 @@ static uint256 GetWinner(const KogsBaton *pbaton)
     std::map<uint256, int32_t> flippedCounts;
     for(auto const &flipped : pbaton->kogsFlipped)
     {
-        flippedCounts[flipped.second] ++;
+        flippedCounts[flipped.first] ++;
     }
 
     // find max
