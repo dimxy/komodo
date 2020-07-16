@@ -314,7 +314,7 @@ libbitcoin_server_a_SOURCES = \
   cc/pegs.cpp \
   cc/marmara.cpp \
   cc/payments.cpp \
-  cc/gateways.cpp \
+  cc/gatewaysV2.cpp \
   cc/channelsV2.cpp \
   cc/auction.cpp \
   cc/betprotocol.cpp \
