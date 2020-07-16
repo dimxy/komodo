@@ -685,12 +685,72 @@ uint256 CCOraclesReverseScan(char const *logcategory,uint256 &txid,int32_t heigh
     return(zeroid);
 }
 
+uint256 CCOraclesV2ReverseScan(char const *logcategory,uint256 &txid,int32_t height,uint256 reforacletxid,uint256 batontxid)
+{
+    CTransaction tx; uint256 hash,mhash,bhash,hashBlock,oracletxid; int32_t len,len2,numvouts;
+    int64_t val,merkleht; CPubKey pk; std::vector<uint8_t>data; char str[65],str2[65]; struct CCcontract_info *cp,C;
+    
+    cp = CCinit(&C,EVAL_ORACLESV2);
+    txid = zeroid;
+    LogPrint(logcategory,"start reverse scan %s\n",uint256_str(str,batontxid));
+    while ( myGetTransactionCCV2(cp,batontxid,tx,hashBlock) != 0 && (numvouts= tx.vout.size()) > 0 )
+    {
+        LogPrint(logcategory,"check %s\n",uint256_str(str,batontxid));
+        if ( DecodeOraclesData(tx.vout[numvouts-1].scriptPubKey,oracletxid,bhash,pk,data) == 'D' && oracletxid == reforacletxid )
+        {
+            LogPrint(logcategory,"decoded %s\n",uint256_str(str,batontxid));
+            if ( oracle_format(&hash,&merkleht,0,'I',(uint8_t *)data.data(),0,(int32_t)data.size()) == sizeof(int32_t) && merkleht == height )
+            {
+                len = oracle_format(&hash,&val,0,'h',(uint8_t *)data.data(),sizeof(int32_t),(int32_t)data.size());
+                len2 = oracle_format(&mhash,&val,0,'h',(uint8_t *)data.data(),(int32_t)(sizeof(int32_t)+sizeof(uint256)),(int32_t)data.size());
+
+                LogPrint(logcategory,"found merkleht.%d len.%d len2.%d %s %s\n",(int32_t)merkleht,len,len2,uint256_str(str,hash),uint256_str(str2,mhash));
+                if ( len == sizeof(hash)+sizeof(int32_t) && len2 == 2*sizeof(mhash)+sizeof(int32_t) && mhash != zeroid )
+                {
+                    txid = batontxid;
+                    LogPrint(logcategory,"set txid\n");
+                    return(mhash);
+                }
+                else
+                {
+                    LogPrint(logcategory,"missing hash\n");
+                    return(zeroid);
+                }
+            }
+            else LogPrint(logcategory,"height.%d vs search ht.%d\n",(int32_t)merkleht,(int32_t)height);
+            batontxid = bhash;
+            LogPrint(logcategory,"new hash %s\n",uint256_str(str,batontxid));
+        } else break;
+    }
+    LogPrint(logcategory,"end of loop\n");
+    return(zeroid);
+}
+
 int64_t CCOraclesGetDepositBalance(char const *logcategory,uint256 reforacletxid,uint256 batontxid)
 {
     CTransaction tx; uint256 hash,prevbatontxid,hashBlock,oracletxid; int32_t len,len2,numvouts;
     int64_t val,balance=0; CPubKey pk; std::vector<uint8_t>data;
 
     if ( myGetTransaction(batontxid,tx,hashBlock) != 0 && (numvouts= tx.vout.size()) > 0 )
+    {
+        if ( DecodeOraclesData(tx.vout[numvouts-1].scriptPubKey,oracletxid,prevbatontxid,pk,data) == 'D' && oracletxid == reforacletxid )
+        {
+            if ( oracle_format(&hash,&balance,0,'L',(uint8_t *)data.data(),(int32_t)(sizeof(int32_t)+sizeof(uint256)*2),(int32_t)data.size()) == (int32_t)(sizeof(int32_t)+sizeof(uint256)*2+sizeof(int64_t)))
+            {
+                return (balance);
+            }
+        }
+    }
+    return (0);
+}
+
+int64_t CCOraclesV2GetDepositBalance(char const *logcategory,uint256 reforacletxid,uint256 batontxid)
+{
+    CTransaction tx; uint256 hash,prevbatontxid,hashBlock,oracletxid; int32_t len,len2,numvouts;
+    int64_t val,balance=0; CPubKey pk; std::vector<uint8_t>data; struct CCcontract_info *cp,C;
+
+    cp = CCinit(&C,EVAL_ORACLESV2);
+    if ( myGetTransactionCCV2(cp,batontxid,tx,hashBlock) != 0 && (numvouts= tx.vout.size()) > 0 )
     {
         if ( DecodeOraclesData(tx.vout[numvouts-1].scriptPubKey,oracletxid,prevbatontxid,pk,data) == 'D' && oracletxid == reforacletxid )
         {
