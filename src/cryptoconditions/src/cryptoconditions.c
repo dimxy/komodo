@@ -150,16 +150,32 @@ size_t cc_fulfillmentBinaryMixedMode(const CC *cond, unsigned char *buf, size_t 
 void asnCondition(const CC *cond, Condition_t *asn) {
     asn->present = cc_isAnon(cond) ? cond->conditionType->asnType : cond->type->asnType;
     
-    // This may look a little weird - we dont have a reference here to the correct
-    // union choice for the condition type, so we just assign everything to the threshold
-    // type. This works out nicely since the union choices have the same binary interface.
-
-    CompoundSha256Condition_t *choice = &asn->choice.thresholdSha256;
-    choice->cost = cc_getCost(cond);
-    choice->fingerprint.size = 32;
-    choice->fingerprint.buf = calloc(1, 32);
-    cond->type->fingerprint(cond, choice->fingerprint.buf);
-    choice->subtypes = asnSubtypes(cond->type->getSubtypes(cond));
+    // Fixed previous implementation as it was treating every asn as thresholdSha256 type and it was memory leaking
+    // because SimpleSha256Condition_t types do not have subtypes so it couldn't free it in the end.
+    int typeId=cond->type->typeId;
+    if (asn->present==Condition_PR_thresholdSha256 || asn->present==Condition_PR_prefixSha256)
+    {
+        CompoundSha256Condition_t *sequence=asn->present==Condition_PR_thresholdSha256?&asn->choice.thresholdSha256:&asn->choice.prefixSha256;
+        sequence->cost = cc_getCost(cond);
+        cond->type->fingerprint(cond,sequence->fingerprint.buf);
+        sequence->fingerprint.size = 32;
+        sequence->subtypes = asnSubtypes(cond->type->getSubtypes(cond));
+    }
+    else
+    {
+        SimpleSha256Condition_t *choice;
+        switch (asn->present)
+        {
+            case Condition_PR_preimageSha256: choice = &asn->choice.preimageSha256; break;
+            case Condition_PR_rsaSha256: choice = &asn->choice.rsaSha256; break;
+            case Condition_PR_ed25519Sha256: choice = &asn->choice.ed25519Sha256; break;
+            case Condition_PR_secp256k1Sha256: choice = &asn->choice.secp256k1Sha256; break;
+            case Condition_PR_evalSha256: choice = &asn->choice.evalSha256; break;
+        };
+        choice->cost = cc_getCost(cond);
+        cond->type->fingerprint(cond,choice->fingerprint.buf);
+        choice->fingerprint.size = 32;
+    }
 }
 
 
