@@ -511,7 +511,7 @@ static UniValue CreateGameTx(const CPubKey &remotepk, const KogsGame *gameobj, c
     return NullUniValue;
 }
 
-static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creationtxid, vuint8_t &vorigpubkey, std::string &name, std::string &description, std::vector<vscript_t> &oprets)
+static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creationtxid, vuint8_t &vorigpubkey, std::string &name, std::string &description, std::vector<vscript_t> &blobs)
 {
     uint256 tokenid;
     uint8_t funcid, evalcode, version;
@@ -524,13 +524,14 @@ static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creati
         if (!MyGetCCDropV2(tx.vout[nvout].scriptPubKey, opret)) 
             opret = tx.vout.back().scriptPubKey;
 
-        if ((funcid = DecodeTokenOpRetV1(opret, tokenid, pubkeys, oprets)) != 0)
+        if ((funcid = DecodeTokenOpRetV1(opret, tokenid, pubkeys, blobs)) != 0)
         {
             if (IsTokenTransferFuncid(funcid))
             {
                 uint256 hashBlock;
                 if (!myGetTransaction(tokenid, createtx, hashBlock) /*|| hashBlock.IsNull()*/)  //use non-locking version, check that tx not in mempool
                 {
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not load tokenbase transaction for tokenid=" << tokenid.GetHex() << std::endl);
                     return false;
                 }
                 creationtxid = tokenid;
@@ -538,17 +539,20 @@ static bool LoadTokenData(const CTransaction &tx, int32_t nvout, uint256 &creati
             else if (IsTokenCreateFuncid(funcid))
             {
                 createtx = tx;
-                creationtxid = createtx.GetHash();
             }
             if (!createtx.IsNull())
             {
-                if (DecodeTokenCreateOpRetV1(createtx.vout.back().scriptPubKey, vorigpubkey, name, description, oprets) != 0)
+                if (IsTokenbaseTx(createtx, vorigpubkey, name, description, blobs))    {
+                    creationtxid = createtx.GetHash();
                     return true;
+                }
             }
         }
+        else
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not find in tokentx" << std::endl);
     }
     else
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no opret in token" << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no vouts in tokentx" << std::endl);
     return false;
 }
 
@@ -559,12 +563,29 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
     vscript_t vopret;
 
     if (tx.vout.size() < 1) {
-        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cant find vouts in txid=" << tx.GetHash().GetHex() << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not find vouts in txid=" << tx.GetHash().GetHex() << std::endl);
         return nullptr;
     }
-    if (nvout < 0 || nvout >= tx.vout.size()) {
+    /*if (nvout < 0 || nvout >= tx.vout.size()) {
         LOGSTREAMFN("kogs", CCLOG_INFO, stream << "nvout out of bounds txid=" << tx.GetHash().GetHex() << std::endl);
         return nullptr;
+    }*/
+
+    // find NFT vout
+    if (nvout == SPECIAL_VIN)   {
+        struct CCcontract_info *cpTokens, C;
+        cpTokens = CCinit(&C, EVAL_TOKENS);
+        cpTokens->evalcodeNFT = EVAL_KOGS;  // prevent getting NFT data inside
+        for (nvout = 0; nvout < tx.vout.size(); nvout ++)   {
+            uint256 tokenid;
+            std::string errstr;
+            if (tx.vout[nvout].nValue == 1 && tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition() && CheckTokensvout(true, true, cpTokens, NULL, tx, nvout, tokenid, errstr) > 0)
+                break;
+        }
+        if (nvout == tx.vout.size()) {
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not find token vouts in txid=" << tx.GetHash().GetHex() << std::endl);
+            return nullptr;
+        }
     }
 
     if (MyGetCCDropV2(tx.vout[nvout].scriptPubKey, ccdata)) 
@@ -574,7 +595,7 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
         
     if (vopret.size() < 2)
     {
-        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "cant find opret in txid=" << tx.GetHash().GetHex() << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "could not find opret in txid=" << tx.GetHash().GetHex() << std::endl);
         return nullptr;
     }
 
@@ -686,8 +707,8 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
 
     if (myGetTransaction(txid, tx, hashBlock) /*&& (mempool || !hashBlock.IsNull())*/)  //use non-locking version, check not in mempool
     {
-        if (nvout == SPECIAL_VIN)
-            nvout = tx.vout.size() - 1;
+        //if (nvout == SPECIAL_VIN)
+        //    nvout = tx.vout.size() - 1;
         KogsBaseObject *pBaseObj = DecodeGameObjectOpreturn(tx, nvout);   
 		if (pBaseObj) 
         {
@@ -697,22 +718,23 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
 			    return nullptr;  // invalid syspk creator
             }
 
-            // for tokencreate check if valid token vout:
-            if (pBaseObj->istoken && pBaseObj->funcid == 'c')    {
+            // for tokencreate check if the NFT vout is valid:
+            if (pBaseObj->istoken && IsTokenCreateFuncid( pBaseObj->funcid ))    {
                 struct CCcontract_info *cpTokens, C; 
                 cpTokens = CCinit(&C, EVAL_TOKENS);
+                cpTokens->evalcodeNFT = EVAL_KOGS;  // prevent loading create tx in IsTokensvout
                 CAmount totalOutput = 0;
                 for (int32_t i = 0; i < tx.vout.size(); i ++)    {
                     if (tx.vout[i].scriptPubKey.IsPayToCryptoCondition()) {
                         CAmount output;
-                        if ((output = IsTokensvout(true, true, cpTokens, NULL, tx, i, pBaseObj->creationtxid)) > 0)
-                            totalOutput += output;
+                        //if ((output = IsTokensvout(true, true, cpTokens, NULL, tx, i, pBaseObj->creationtxid)) > 0)
+                        //   totalOutput += output;
                     }
                 }
-                if (totalOutput != 1)   {
-                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "invalid tokencreate for txid=" << pBaseObj->creationtxid.GetHex() << std::endl);
+                /*if (totalOutput != 1)   {
+                    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "invalid tokencreate for txid=" << pBaseObj->creationtxid.GetHex() << " cc value must be 1" << std::endl);
                     return nullptr;
-                }
+                }*/
             } 
 
             // for enclosures check that origpk really created the tx
@@ -1116,7 +1138,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, KogsObjectFil
     {
         if (onlyForPk || it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
         {
-            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, it->first.index); // parse objectType and unmarshal corresponding gameobject
+            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, onlyForPk ? it->first.index : SPECIAL_VIN); // parse objectType and unmarshal corresponding gameobject
             if (obj != nullptr && obj->objectType == objectType && (pObjFilter == NULL || (*pObjFilter)(obj))) {
                 obj->blockHeightForSort = it->second.blockHeight;
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
