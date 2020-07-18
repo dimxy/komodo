@@ -28,7 +28,7 @@
 /// Returns non-fungible data of token if this is a NFT
 /// @param tokenid id of token
 /// @param vopretNonfungible non-fungible token data. The first byte is the evalcode of the contract that validates the NFT-data
-void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible);
+bool GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible);
 
 // CCcustom
 bool TokensValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn);
@@ -83,7 +83,10 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 /// @param v vout number (starting from 0)
 /// @param reftokenid id of the token. The vout is checked if it has this tokenid
 /// @returns true if vout is true token with the reftokenid id
-int64_t IsTokensvout(bool goDeeper, bool checkPubkeys, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 reftokenid);
+CAmount IsTokensvout(bool goDeeper, bool checkPubkeys, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 reftokenid);
+
+CAmount CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, always true*/, struct CCcontract_info *cp, Eval* eval, const CTransaction& tx, int32_t v, uint256 &reftokenid, std::string &errorStr);
+
 
 /// Creates a token cryptocondition that allows to spend it by one key
 /// The resulting cc will have two eval codes (EVAL_TOKENS and evalcode parameter value).
@@ -174,6 +177,7 @@ bool IsEqualScriptPubKeys(const CScript &spk1, const CScript &spk2);
 
 bool TokensIsVer1Active(const Eval *eval);
 bool TokensExtractCCVinPubkeys(const CTransaction &tx, std::vector<CPubKey> &vinPubkeys); 
+bool IsTokenbaseTx(const CTransaction &tx, std::vector<uint8_t> &origpubkey, std::string &name, std::string &description, std::vector<vuint8_t> &blobs);
 
 
 UniValue tokentransfer(const UniValue& params, bool fHelp, const CPubKey& mypk); // rpc used in other ccs
