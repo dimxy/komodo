@@ -1016,7 +1016,7 @@ void SetRemoteRPCCall(bool isRemote);
 /*! \endcond */
 
 /*! \cond INTERNAL */
-// multithreaded CCerror
+// multithreaded CCerror version
 class CCerror {
 private:
     static thread_local std::string th_cc_error;
@@ -1025,13 +1025,17 @@ public:
     {
         th_cc_error.clear();
     }
-    static void set(std::string &err)
+    static void set(const std::string &err)
     {
         th_cc_error = err;
     }
     static std::string get()
     {
         return th_cc_error;
+    }
+    static bool empty()
+    {
+        return th_cc_error.empty();
     }
 };
 /*! \endcond */
@@ -1040,6 +1044,8 @@ public:
 UniValue CCaddress(struct CCcontract_info *cp, char *name, std::vector<unsigned char> &pubkey);
 /*! \endcond */
 
+// old style macro for non multithreaded CCerror var
+/*! \cond INTERNAL */
 #define RETURN_IF_ERROR(CCerror) if ( CCerror != "" ) { UniValue result(UniValue::VOBJ); ERR_RESULT(CCerror); return(result); }
 
 #ifndef LOGSTREAM_DEFINED
