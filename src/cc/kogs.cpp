@@ -573,17 +573,17 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
 
     // find NFT vout
     if (nvout == SPECIAL_VIN)   {
-        struct CCcontract_info *cpTokens, C;
-        cpTokens = CCinit(&C, EVAL_TOKENS);
-        cpTokens->evalcodeNFT = EVAL_KOGS;  // prevent getting NFT data inside
+        //struct CCcontract_info *cpTokens, C;
+        //cpTokens = CCinit(&C, EVAL_TOKENS);
+        //cpTokens->evalcodeNFT = EVAL_KOGS;  // prevent getting NFT data inside
         for (nvout = 0; nvout < tx.vout.size(); nvout ++)   {
             uint256 tokenid;
             std::string errstr;
-            if (tx.vout[nvout].nValue == 1 && tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition() && CheckTokensvout(true, true, cpTokens, NULL, tx, nvout, tokenid, errstr) > 0)
+            if (tx.vout[nvout].nValue == 1 && tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition() /*&& CheckTokensvout(true, true, cpTokens, NULL, tx, nvout, tokenid, errstr) > 0*/)
                 break;
         }
         if (nvout == tx.vout.size()) {
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not find token vouts in txid=" << tx.GetHash().GetHex() << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not find kogs or token vouts in txid=" << tx.GetHash().GetHex() << std::endl);
             return nullptr;
         }
     }
@@ -727,14 +727,14 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
                 for (int32_t i = 0; i < tx.vout.size(); i ++)    {
                     if (tx.vout[i].scriptPubKey.IsPayToCryptoCondition()) {
                         CAmount output;
-                        //if ((output = IsTokensvout(true, true, cpTokens, NULL, tx, i, pBaseObj->creationtxid)) > 0)
-                        //   totalOutput += output;
+                        if ((output = IsTokensvout(true, true, cpTokens, NULL, tx, i, pBaseObj->creationtxid)) > 0)
+                            totalOutput += output;
                     }
                 }
-                /*if (totalOutput != 1)   {
+                if (totalOutput != 1)   {
                     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "invalid tokencreate for txid=" << pBaseObj->creationtxid.GetHex() << " cc value must be 1" << std::endl);
                     return nullptr;
-                }*/
+                }
             } 
 
             // for enclosures check that origpk really created the tx
