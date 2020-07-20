@@ -563,7 +563,7 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
     vscript_t vopret;
 
     if (tx.vout.size() < 1) {
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not find vouts in txid=" << tx.GetHash().GetHex() << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no vouts in txid=" << tx.GetHash().GetHex() << std::endl);
         return nullptr;
     }
     /*if (nvout < 0 || nvout >= tx.vout.size()) {
@@ -571,8 +571,9 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
         return nullptr;
     }*/
 
-    // find NFT vout
-    if (nvout == SPECIAL_VIN)   {
+    nvout = tx.vout.size() - 1;
+    if (!GetOpReturnData(tx.vout.back().scriptPubKey, vopret))   {
+        // find NFT vout:
         //struct CCcontract_info *cpTokens, C;
         //cpTokens = CCinit(&C, EVAL_TOKENS);
         //cpTokens->evalcodeNFT = EVAL_KOGS;  // prevent getting NFT data inside
@@ -583,15 +584,20 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
                 break;
         }
         if (nvout == tx.vout.size()) {
-            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not find kogs or token vouts in txid=" << tx.GetHash().GetHex() << std::endl);
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not find kogs opreturn or token vouts in txid=" << tx.GetHash().GetHex() << std::endl);
             return nullptr;
         }
+        if (!MyGetCCDropV2(tx.vout[nvout].scriptPubKey, ccdata)) {
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not find token opdrop data in txid=" << tx.GetHash().GetHex() << std::endl);
+            return nullptr;
+        }
+        GetOpReturnData(ccdata, vopret);
     }
 
-    if (MyGetCCDropV2(tx.vout[nvout].scriptPubKey, ccdata)) 
+    /*if (nvout != KOGS_USE_LAST_VOUT_OPRETURN && MyGetCCDropV2(tx.vout[nvout].scriptPubKey, ccdata)) 
         GetOpReturnData(ccdata, vopret);
     else
-        GetOpReturnData(tx.vout.back().scriptPubKey, vopret);
+        GetOpReturnData(tx.vout.back().scriptPubKey, vopret);*/
         
     if (vopret.size() < 2)
     {
@@ -707,7 +713,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
 
     if (myGetTransaction(txid, tx, hashBlock) /*&& (mempool || !hashBlock.IsNull())*/)  //use non-locking version, check not in mempool
     {
-        //if (nvout == SPECIAL_VIN)
+        //if (nvout == KOGS_USE_LAST_VOUT_OPRETURN)
         //    nvout = tx.vout.size() - 1;
         KogsBaseObject *pBaseObj = DecodeGameObjectOpreturn(tx, nvout);   
 		if (pBaseObj) 
@@ -756,7 +762,7 @@ static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
 
 static struct KogsBaseObject *LoadGameObject(uint256 txid)
 {
-    return LoadGameObject(txid, SPECIAL_VIN);  // SPECIAL_VIN means 'use last vout opreturn'
+    return LoadGameObject(txid, KOGS_USE_LAST_VOUT_OPRETURN);  
 }
 
 
@@ -824,6 +830,10 @@ static void AddGameFinishedInOuts(const CPubKey &remotepk, CMutableTransaction &
     CCAddVintxCond(cpTokens, probeCond, !forceFinish ? NULL : kogspriv);  // use myprivkey if not forcing finish of the stalled game
     cc_free(probeCond);
 
+    // add probe to spend marker
+    /*CC* probeCondKogsPk = MakeCCcond1(EVAL_KOGS, kogsPk);  
+    CCAddVintxCond(cpTokens, probeCondKogsPk, kogspriv);  
+    cc_free(probeCondKogsPk);*/
 
     //CScript opret;
     opret << OP_RETURN << enc.EncodeOpret();  // create opreturn
@@ -1138,7 +1148,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, KogsObjectFil
     {
         if (onlyForPk || it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
         {
-            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, onlyForPk ? it->first.index : SPECIAL_VIN); // parse objectType and unmarshal corresponding gameobject
+            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, KogsIsNFT(objectType) ? KOGS_SEARCH_TOKEN_VOUT : KOGS_USE_LAST_VOUT_OPRETURN); // parse objectType and unmarshal corresponding gameobject
             if (obj != nullptr && obj->objectType == objectType && (pObjFilter == NULL || (*pObjFilter)(obj))) {
                 obj->blockHeightForSort = it->second.blockHeight;
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
@@ -3574,7 +3584,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     // browse the sequence of slamparam and baton txns: 
     while (CCgetspenttxid(batontxid, vini, height, txid, nvout) == 0)
     {
-        std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(batontxid));
+        std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(batontxid, KOGS_USE_LAST_VOUT_OPRETURN));
         if (spobj == nullptr || (spobj->objectType != KOGSID_BATON /*&& spobj->objectType != KOGSID_SLAMPARAMS && spobj->objectType != KOGSID_GAMEFINISHED*/))
         {
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load baton txid=" << batontxid.GetHex() << std::endl);
@@ -3983,7 +3993,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
             if (std::find(badGames.begin(), badGames.end(), it->first.txhash) != badGames.end())  // check if in bad game list
                 continue;
 
-            std::shared_ptr<KogsBaseObject> spGameBase(LoadGameObject(it->first.txhash)); // load and unmarshal game or slamparam
+            std::shared_ptr<KogsBaseObject> spGameBase(LoadGameObject(it->first.txhash)); // load and unmarshal game 
             LOGSTREAMFN("kogs", CCLOG_DEBUG2, stream << "checking gameobject marker txid=" << it->first.txhash.GetHex() << " vout=" << it->first.index << " spGameBase->objectType=" << (int)(spGameBase != nullptr ? spGameBase->objectType : 0) << std::endl);
 
             if (spGameBase.get() != nullptr && spGameBase->objectType == KOGSID_GAME)
@@ -4454,7 +4464,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
             CScript drop;
             if (MyGetCCDropV2(vout.scriptPubKey, drop) && DecodeTokenOpRetV1(drop, tokenid, pks, blobs) != 0)	
             {
-                std::shared_ptr<KogsBaseObject> spTokenObj( LoadGameObject(tokenid) ); // 
+                std::shared_ptr<KogsBaseObject> spTokenObj( LoadGameObject(tokenid, KOGS_SEARCH_TOKEN_VOUT) ); // 
                 if (spTokenObj == nullptr || spTokenObj->objectType != KOGSID_CONTAINER && spTokenObj->objectType != KOGSID_SLAMMER)
                     return errorStr = "invalid container or slammer sent to game", false;
                 
@@ -4468,7 +4478,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
 
 		for(auto const &tokenid : tokenids)	
         {
-            std::shared_ptr<KogsBaseObject> spToken( LoadGameObject(tokenid) );
+            std::shared_ptr<KogsBaseObject> spToken( LoadGameObject(tokenid, KOGS_SEARCH_TOKEN_VOUT) );
             if (spToken == nullptr || spToken->objectType != KOGSID_CONTAINER && spToken->objectType != KOGSID_SLAMMER)
             	return errorStr = "could not load claimed token", false;
 
@@ -4555,7 +4565,7 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
 	// if kogs are added or removed to/from a container, check:
 	// this is my container
 	// container is not deposited to a game
-	std::shared_ptr<KogsBaseObject> spObj( LoadGameObject(pContOps->containerid) );
+	std::shared_ptr<KogsBaseObject> spObj( LoadGameObject(pContOps->containerid, KOGS_SEARCH_TOKEN_VOUT) );
 	if (spObj == nullptr || spObj->objectType != KOGSID_CONTAINER)
 		return errorStr = "could not load containerid", false;
 
@@ -4583,7 +4593,7 @@ static bool check_ops_on_container_addr(struct CCcontract_info *cp, const KogsCo
             if (MyGetCCDropV2(vout.scriptPubKey, drop) && DecodeTokenOpRetV1(drop, tokenid, pks, blobs) != 0)	
             {
                 // check this is valid kog/slammer sent:
-                std::shared_ptr<KogsBaseObject> spMatchObj( LoadGameObject(tokenid) );  // TODO: maybe check this only on sending?
+                std::shared_ptr<KogsBaseObject> spMatchObj( LoadGameObject(tokenid, KOGS_SEARCH_TOKEN_VOUT) );  // TODO: maybe check this only on sending?
                 if (spMatchObj == nullptr || !KogsIsMatchObject(spMatchObj->objectType))
                     return errorStr = "invalid NFT sent to container", false;
 
@@ -4655,7 +4665,7 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
         CScript drop;
 		if (MyGetCCDropV2(vout.scriptPubKey, drop) && DecodeTokenOpRetV1(drop, tokenid, pks, blobs) != 0)	
         {
-            std::shared_ptr<KogsBaseObject> spTokenObj( LoadGameObject(tokenid) ); // 
+            std::shared_ptr<KogsBaseObject> spTokenObj( LoadGameObject(tokenid, KOGS_SEARCH_TOKEN_VOUT) ); // 
             if (spTokenObj == nullptr || spTokenObj->objectType != KOGSID_CONTAINER && spTokenObj->objectType != KOGSID_SLAMMER)
 				return errorStr = "invalid container or slammer sent to game", false;
 			if (pGameOps->objectType == KOGSID_ADDTOGAME)	{
@@ -4705,7 +4715,7 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
         
 		for(auto const &tokenid : tokenids)	
         {
-            std::shared_ptr<KogsBaseObject> spToken( LoadGameObject(tokenid) );
+            std::shared_ptr<KogsBaseObject> spToken( LoadGameObject(tokenid, KOGS_SEARCH_TOKEN_VOUT) );
             if (spToken == nullptr || spToken->objectType != KOGSID_CONTAINER && spToken->objectType != KOGSID_SLAMMER)
             	return errorStr = "could not load claimed token", false;
 
@@ -4744,7 +4754,7 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
 
         for(auto const &tokenid : tokenids)	
         {
-            std::shared_ptr<KogsBaseObject> spToken( LoadGameObject(tokenid) );
+            std::shared_ptr<KogsBaseObject> spToken( LoadGameObject(tokenid, KOGS_SEARCH_TOKEN_VOUT) );
             if (spToken == nullptr || spToken->objectType != KOGSID_CONTAINER && spToken->objectType != KOGSID_SLAMMER)
             	return errorStr = "could not load token for tokenid", false;
 

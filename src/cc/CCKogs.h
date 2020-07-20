@@ -58,6 +58,8 @@ inline bool KogsIsMatchObject(uint8_t objectType) { return objectType == KOGSID_
 inline bool KogsIsSysCreateObject(uint8_t objectType) { return IS_CHARINSTR(objectType, "MKSP"); }
 inline bool KogsIsObjectVersionSupported(uint8_t objectType, uint8_t version) { return KogsIsMatchObject(objectType) && version >= KOGS_MIN_VERSION && version <= 2 || version == KOGS_MIN_VERSION; }
 
+inline bool KogsIsNFT(uint8_t objectType) { return IS_CHARINSTR(objectType, "KSPC"); }
+
 #define TOKEN_MARKER_VOUT           0   // token global address basic cc marker vout num
 #define KOGS_NFT_MARKER_VOUT        2   // additional kogs global address marker vout num for tokens
 //#define KOGS_BATON_VOUT               // different vouts
@@ -81,7 +83,9 @@ const char opt_playforwages[] = "playforwages";
 #define BATON_GLOBAL      0x1
 #define BATON_SELF        0x2
 
-#define SPECIAL_VIN     10e8
+#define KOGS_USE_LAST_VOUT_OPRETURN     10e8
+#define KOGS_SEARCH_TOKEN_VOUT          0
+
 
 struct KogsBaseObject {
     std::string nameId;
