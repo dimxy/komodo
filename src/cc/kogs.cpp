@@ -591,6 +591,8 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
             }
             GetOpReturnData(ccdata, vopret);
         }
+        else
+            nvout = tx.vout.size()-1;
     }
     else
     {
