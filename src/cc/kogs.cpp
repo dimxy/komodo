@@ -581,7 +581,7 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
             if (tx.vout[nvout].nValue == 1 && tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition() /*&& CheckTokensvout(true, true, cpTokens, NULL, tx, nvout, tokenid, errstr) > 0*/)
                 break;
         }
-        std::cerr << __func__ << " nvout=" << nvout << " tx.vout.size()=" << tx.vout.size() << std::endl;
+        //std::cerr << __func__ << " nvout=" << nvout << " tx.vout.size()=" << tx.vout.size() << std::endl;
         if (nvout < tx.vout.size() && MyGetCCDropV2(tx.vout[nvout].scriptPubKey, ccdata)) {
             GetOpReturnData(ccdata, vopret);
         }
@@ -1159,8 +1159,8 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, KogsObjectFil
     {
         if (onlyForPk || it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
         {
-            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, KOGS_SEARCH_TOKEN_VOUT); // parse objectType and unmarshal corresponding gameobject
-            std::cerr << __func__ << " objectType=" << (char)(obj ? obj->objectType : '0') << std::endl; 
+            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, onlyForPk ? it->first.index : KOGS_SEARCH_TOKEN_VOUT); // parse objectType and unmarshal corresponding gameobject
+            //std::cerr << __func__ << " objectType=" << (char)(obj ? obj->objectType : '0') << std::endl; 
             if (obj != nullptr && obj->objectType == objectType && (pObjFilter == NULL || (*pObjFilter)(obj))) {
                 obj->blockHeightForSort = it->second.blockHeight;
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
