@@ -566,10 +566,6 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "no vouts in txid=" << tx.GetHash().GetHex() << std::endl);
         return nullptr;
     }
-    /*if (nvout < 0 || nvout >= tx.vout.size()) {
-        LOGSTREAMFN("kogs", CCLOG_INFO, stream << "nvout out of bounds txid=" << tx.GetHash().GetHex() << std::endl);
-        return nullptr;
-    }*/
 
     if (nvout == KOGS_SEARCH_TOKEN_VOUT)
     {
@@ -598,7 +594,11 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
     }
     else
     {
-       // use specific opdrop vout:
+        if (nvout < 0 || nvout >= tx.vout.size()) {
+            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "nvout out of bounds txid=" << tx.GetHash().GetHex() << std::endl);
+            return nullptr;
+        }
+        // use specific opdrop vout:
         if (MyGetCCDropV2(tx.vout[nvout].scriptPubKey, ccdata))
             GetOpReturnData(ccdata, vopret);
     }
