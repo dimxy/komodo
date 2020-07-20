@@ -188,7 +188,7 @@ static bool GetNFTPrevVout(const CTransaction &tokentx, const uint256 reftokenid
                 //}
                 //else
                 //{
-                //    CCerror::set("can't load or decode prev token tx");
+                //    CCerrorMT::set("can't load or decode prev token tx");
                 //    LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not load prev token tx txid=" << tokenid.GetHex() << std::endl);
                 }
             }
@@ -376,7 +376,7 @@ static UniValue CreateGameObjectNFT(const CPubKey &remotepk, const struct KogsBa
     vscript_t vnftdata = baseobj->Marshal(); // E_MARSHAL(ss << baseobj);
     if (vnftdata.empty())
     {
-        CCerror::set(std::string("can't marshal object with id=") + std::string(1, (char)baseobj->objectType));
+        CCerrorMT::set(std::string("can't marshal object with id=") + std::string(1, (char)baseobj->objectType));
         return NullUniValue; // return empty obj
     }
 
@@ -451,7 +451,7 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject 
             else if (batonType == BATON_SELF)
                 mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_BATON_AMOUNT, mypk)); // initial marker for miners who will create a baton indicating whose turn is first
             else    {
-                CCerror::set("invalid baton type");
+                CCerrorMT::set("invalid baton type");
                 return NullUniValue;
             }
         }
@@ -462,10 +462,10 @@ static UniValue CreateEnclosureTx(const CPubKey &remotepk, const KogsBaseObject 
         if (ResultHasTx(sigData))
             return sigData;
         else
-            CCerror::set("can't finalize or sign tx");
+            CCerrorMT::set("can't finalize or sign tx");
     }
     else
-        CCerror::set("can't find normals for 2 txfee");
+        CCerrorMT::set("can't find normals for 2 txfee");
     return NullUniValue;
 }
 
@@ -504,10 +504,10 @@ static UniValue CreateGameTx(const CPubKey &remotepk, const KogsGame *gameobj, c
         if (ResultHasTx(sigData))
             return sigData;
         else
-            CCerror::set("can't finalize or sign tx");
+            CCerrorMT::set("can't finalize or sign tx");
     }
     else
-        CCerror::set("can't find normals for 2 txfee");
+        CCerrorMT::set("can't find normals for 2 txfee");
     return NullUniValue;
 }
 
@@ -900,7 +900,7 @@ static bool AddTransferBackTokensVouts(const CPubKey &mypk, CMutableTransaction 
             }
             else
             {
-                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx=" << HexStr(E_MARSHAL(ss << transfertx)) << " for containerid=" << c->creationtxid.GetHex() << " CCerror=" << CCerror << std::endl);
+                LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "could not create transfer container back tx=" << HexStr(E_MARSHAL(ss << transfertx)) << " for containerid=" << c->creationtxid.GetHex() << " CCerrorMT=" << CCerrorMT << std::endl);
                 isError = true;
                 break;  // restored break, do not create game finish on this node if it has errors
             }*/
@@ -1220,7 +1220,7 @@ static void ListContainerKogs(uint256 containerid, std::vector<uint256> &tokenid
         opret << OP_RETURN << enc.EncodeOpret();
         UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret, false);  // TODO why was destpk here (instead of minerpk)?
         if (!ResultHasTx(sigData)) {
-            CCerror::set("could not finalize or sign slam param transaction");
+            CCerrorMT::set("could not finalize or sign slam param transaction");
             return NullUniValue;
         }
         else
@@ -1230,7 +1230,7 @@ static void ListContainerKogs(uint256 containerid, std::vector<uint256> &tokenid
     }
     else
     {
-        CCerror::set("could not find normal inputs for txfee");
+        CCerrorMT::set("could not find normal inputs for txfee");
         return NullUniValue; // empty 
     }
 }*/
@@ -1261,14 +1261,14 @@ static UniValue CreateAdvertisingTx(const CPubKey &remotepk, const KogsAdvertisi
         opret << OP_RETURN << enc.EncodeOpret();
         UniValue sigData = FinalizeCCTxExt(isRemote, 0, cp, mtx, mypk, txfee, opret, false);
         if (!ResultHasTx(sigData)) {
-            CCerror::set("could not finalize or sign advertising transaction");
+            CCerrorMT::set("could not finalize or sign advertising transaction");
             return NullUniValue;
         }
         return sigData;
     }
     else
     {
-        CCerror::set("could not find normal inputs for txfee");
+        CCerrorMT::set("could not find normal inputs for txfee");
         return NullUniValue; // empty 
     }
 }
@@ -2204,7 +2204,7 @@ void KogsGameTxidList(const CPubKey &remotepk, bool onlymine, const std::vector<
         // load gameids for first player:
         std::shared_ptr<KogsBaseObject> spPlayer0(LoadGameObject(playerids[0]));
         if (spPlayer0 == nullptr || spPlayer0->objectType != KOGSID_PLAYER)   {
-            CCerror::set("could not load player");
+            CCerrorMT::set("could not load player");
             return;
         }
         ListGameObjects(KOGSID_GAME, spPlayer0->encOrigPk, nullptr, objlist);
@@ -2237,7 +2237,7 @@ std::vector<UniValue> KogsCreateMatchObjectNFTs(const CPubKey &remotepk, std::ve
 
     // TODO: do we need to check remote pk or suppose we are always in local mode with sys pk in the wallet?
     if (!CheckSysPubKey())  {
-        CCerror::set("not sys pubkey used or sys pubkey not set");
+        CCerrorMT::set("not sys pubkey used or sys pubkey not set");
         return NullResults;
     }
     
@@ -2280,7 +2280,7 @@ UniValue KogsCreatePack(const CPubKey &remotepk, const KogsPack &newpack)
 {
     // TODO: do we need to check remote pk or suppose we are always in local mode with sys pk in the wallet?
     if (!CheckSysPubKey())  {
-        CCerror::set("not sys pubkey used or sys pubkey not set");
+        CCerrorMT::set("not sys pubkey used or sys pubkey not set");
         return NullUniValue;
     }
 
@@ -2304,12 +2304,12 @@ UniValue KogsStartGame(const CPubKey &remotepk, const KogsGame &newgame)
     std::shared_ptr<KogsBaseObject> spGameConfig(LoadGameObject(newgame.gameconfigid));
     if (spGameConfig == nullptr || spGameConfig->objectType != KOGSID_GAMECONFIG)
     {
-        CCerror::set("can't load game config");
+        CCerrorMT::set("can't load game config");
         return NullUniValue;
     }
 
     if (newgame.playerids.size() < 2)   {
-        CCerror::set("number of players too low");
+        CCerrorMT::set("number of players too low");
         return NullUniValue;
     }
 
@@ -2323,12 +2323,12 @@ UniValue KogsStartGame(const CPubKey &remotepk, const KogsGame &newgame)
 
         std::shared_ptr<KogsBaseObject> spPlayer( LoadGameObject(playerid) );
         if (spPlayer == nullptr || spPlayer->objectType != KOGSID_PLAYER)   {
-            CCerror::set("invalid playerid: " + playerid.GetHex());
+            CCerrorMT::set("invalid playerid: " + playerid.GetHex());
             return NullUniValue;
         }
 
         if (!FindAdvertisings(playerid, adtxid, advout, dummy)) {
-            CCerror::set("playerid did not advertise itself: " + playerid.GetHex());
+            CCerrorMT::set("playerid did not advertise itself: " + playerid.GetHex());
             return NullUniValue;
         }
         pks.insert(spPlayer->encOrigPk);
@@ -2352,7 +2352,7 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
         get_random_txns(gameid, 0, 0, newbaton.hashtxns, newbaton.randomtxns);  // add txns with random hashes and values
         if (newbaton.hashtxns.size() == 0 || newbaton.randomtxns.size() == 0)
         {
-            CCerror::set("no commit or random txns");
+            CCerrorMT::set("no commit or random txns");
             return NullUniValue;
         }
         std::vector<std::pair<uint256, int32_t>> randomUtxos;
@@ -2371,18 +2371,18 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
             }
             else
             {
-                CCerror::set("can't create or sign baton transaction");
+                CCerrorMT::set("can't create or sign baton transaction");
                 return NullUniValue;
             } 
         }
         else {
-            CCerror::set("can't create baton object (check if all players deposited containers and slammers and added randoms)");
+            CCerrorMT::set("can't create baton object (check if all players deposited containers and slammers and added randoms)");
             return NullUniValue;
         }
     }
     else
     {
-        CCerror::set("can't load game");
+        CCerrorMT::set("can't load game");
         return NullUniValue;
     }
 }
@@ -2401,7 +2401,7 @@ std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContain
     std::shared_ptr<KogsBaseObject>spplayer( LoadGameObject(newcontainer.playerid) );
     if (spplayer == nullptr || spplayer->objectType != KOGSID_PLAYER)
     {
-        CCerror::set("could not load this playerid");
+        CCerrorMT::set("could not load this playerid");
         return NullResults;
     }
 
@@ -2410,7 +2410,7 @@ std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContain
 
     if (spplayer->encOrigPk != mypk)
     {
-        CCerror::set("not your playerid");
+        CCerrorMT::set("not your playerid");
         return NullResults;
     }
 
@@ -2452,7 +2452,7 @@ std::vector<UniValue> KogsCreateContainerV2(const CPubKey &remotepk, KogsContain
     }
     else
     {
-        CCerror::set("can't unmarshal container tx");
+        CCerrorMT::set("can't unmarshal container tx");
         return NullResults;
     } */
 
@@ -2474,7 +2474,7 @@ static UniValue SpendEnclosure(const CPubKey &remotepk, int64_t txfee, KogsEnclo
     if (AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote) > 0)
     {
         if (enc.latesttxid.IsNull()) {
-            CCerror::set(strprintf("incorrect latesttx in container");
+            CCerrorMT::set(strprintf("incorrect latesttx in container");
             return NullUniValue;
         }
 
@@ -2486,7 +2486,7 @@ static UniValue SpendEnclosure(const CPubKey &remotepk, int64_t txfee, KogsEnclo
         UniValue sigData = FinalizeCCTxExt(true, 0, cp, mtx, mypk, txfee, opret, false);
         if (!ResultHasTx(sigData))
         {
-            CCerror::set(strprintf("could not finalize transfer container tx");
+            CCerrorMT::set(strprintf("could not finalize transfer container tx");
             return nullUnivalue;
         }
 
@@ -2495,7 +2495,7 @@ static UniValue SpendEnclosure(const CPubKey &remotepk, int64_t txfee, KogsEnclo
     }
     else
     {
-        CCerror::set("insufficient normal inputs for tx fee");
+        CCerrorMT::set("insufficient normal inputs for tx fee");
     }
     return NullUniValue;
 }
@@ -2510,21 +2510,21 @@ UniValue KogsDepositTokensToGame(const CPubKey &remotepk, CAmount txfee_, uint25
 
     std::shared_ptr<KogsBaseObject>spgamebaseobj(LoadGameObject(gameid));
     if (spgamebaseobj == nullptr || spgamebaseobj->objectType != KOGSID_GAME) {
-        CCerror::set("can't load game data");
+        CCerrorMT::set("can't load game data");
         return NullUniValue;
     }
     KogsGame *pgame = (KogsGame *)spgamebaseobj.get();
 
     std::shared_ptr<KogsBaseObject>spgameconfigbaseobj(LoadGameObject(pgame->gameconfigid));
     if (spgameconfigbaseobj == nullptr || spgameconfigbaseobj->objectType != KOGSID_GAMECONFIG) {
-        CCerror::set("can't load game config data");
+        CCerrorMT::set("can't load game config data");
         return NullUniValue;
     }
     KogsGameConfig *pgameconfig = (KogsGameConfig *)spgameconfigbaseobj.get();
 
     std::shared_ptr<KogsBaseObject>spcontbaseobj(LoadGameObject(containerid));
     if (spcontbaseobj == nullptr || spcontbaseobj->objectType != KOGSID_CONTAINER) {
-        CCerror::set("can't load container");
+        CCerrorMT::set("can't load container");
         return NullUniValue;
     }
     KogsContainer *pcontainer = (KogsContainer *)spcontbaseobj.get();
@@ -2532,13 +2532,13 @@ UniValue KogsDepositTokensToGame(const CPubKey &remotepk, CAmount txfee_, uint25
 
     // TODO: check if this player has already deposited a container. Seems the doc states only one container is possible
     if (pcontainer->tokenids.size() != pgameconfig->numKogsInContainer)     {
-        CCerror::set("kogs number in container does not match game config");
+        CCerrorMT::set("kogs number in container does not match game config");
         return NullUniValue;
     }
 
     std::shared_ptr<KogsBaseObject>spslammerbaseobj(LoadGameObject(slammerid));
     if (spslammerbaseobj == nullptr || spslammerbaseobj->objectType != KOGSID_SLAMMER) {
-        CCerror::set("can't load slammer");
+        CCerrorMT::set("can't load slammer");
         return NullUniValue;
     }
 
@@ -2563,21 +2563,21 @@ UniValue KogsDepositTokensToGame(const CPubKey &remotepk, CAmount txfee_, uint25
     cpTokens = CCinit(&CTokens, EVAL_TOKENS);
     UniValue beginResult = TokenBeginTransferTx(mtx, cpTokens, remotepk, 10000);
     if (ResultIsError(beginResult)) {
-        CCerror::set(ResultGetError(beginResult));
+        CCerrorMT::set(ResultGetError(beginResult));
         return NullUniValue;
     }
 
     // add container vout:
     UniValue addContResult = TokenAddTransferVout(mtx, cpTokens, remotepk, containerid, tokenaddr, { kogsPk, gametxidPk }, {nullptr, nullptr}, 1, true);
     if (ResultIsError(addContResult)) {
-        CCerror::set(ResultGetError(addContResult));
+        CCerrorMT::set(ResultGetError(addContResult));
         return NullUniValue;
     }
 
     // add slammer vout:
     UniValue addSlammerResult = TokenAddTransferVout(mtx, cpTokens, remotepk, slammerid, tokenaddr, { kogsPk, gametxidPk }, {nullptr, nullptr}, 1, true);
     if (ResultIsError(addSlammerResult)) {
-        CCerror::set(ResultGetError(addSlammerResult));
+        CCerrorMT::set(ResultGetError(addSlammerResult));
         return NullUniValue;
     }
     
@@ -2605,13 +2605,13 @@ UniValue KogsClaimDepositedToken(const CPubKey &remotepk, CAmount txfee_, uint25
     const CAmount txfee = txfee_ == 0 ? 10000 : txfee_;
     std::shared_ptr<KogsBaseObject>spgamebaseobj(LoadGameObject(gameid));
     if (spgamebaseobj == nullptr || spgamebaseobj->objectType != KOGSID_GAME) {
-        CCerror::set("can't load game data");
+        CCerrorMT::set("can't load game data");
         return NullUniValue;
     }
 
     std::shared_ptr<KogsBaseObject>spnftobj(LoadGameObject(tokenid));
     if (spnftobj == nullptr || spnftobj->objectType != KOGSID_CONTAINER && spnftobj->objectType != KOGSID_SLAMMER) {
-        CCerror::set("can't load container or slammer");
+        CCerrorMT::set("can't load container or slammer");
         return NullUniValue;
     }
 
@@ -2634,11 +2634,11 @@ UniValue KogsClaimDepositedToken(const CPubKey &remotepk, CAmount txfee_, uint25
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "lasttx=" << HexStr(E_MARSHAL(ss << lasttx)) << " vpks0.size=" << vpks0.size() << std::endl); 
 
         if (vpks0.size() != 1)    {
-            CCerror::set("could not get cc vin pubkey");
+            CCerrorMT::set("could not get cc vin pubkey");
             return NullUniValue;
         }
         if (mypk != vpks0[0]) {
-            CCerror::set("not your pubkey deposited token");
+            CCerrorMT::set("not your pubkey deposited token");
             return NullUniValue;
         }
         
@@ -2663,13 +2663,13 @@ UniValue KogsClaimDepositedToken(const CPubKey &remotepk, CAmount txfee_, uint25
         cpTokens = CCinit(&CTokens, EVAL_TOKENS);
         UniValue beginResult = TokenBeginTransferTx(mtx, cpTokens, remotepk, 10000);
         if (ResultIsError(beginResult)) {
-            CCerror::set(ResultGetError(beginResult));
+            CCerrorMT::set(ResultGetError(beginResult));
             return NullUniValue;
         }
 
         UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, tokenid, tokenaddr, { mypk }, { std::make_pair(probeCond, kogspriv) }, 1, true);
         if (ResultIsError(addtxResult)) {
-            CCerror::set(ResultGetError(addtxResult));
+            CCerrorMT::set(ResultGetError(addtxResult));
             return NullUniValue;
         }
 
@@ -2689,11 +2689,11 @@ UniValue KogsClaimDepositedToken(const CPubKey &remotepk, CAmount txfee_, uint25
         return sigData;
     }
     else
-        CCerror::set("cant get last tx for container");
+        CCerrorMT::set("cant get last tx for container");
 
     //}
     //else
-    //    CCerror::set("not my container");
+    //    CCerrorMT::set("not my container");
 
     return NullUniValue;
 }
@@ -2726,7 +2726,7 @@ static int CheckIsMyContainer(const CPubKey &remotepk, uint256 gameid, uint256 c
 
     std::shared_ptr<KogsBaseObject>spcontbaseobj( LoadGameObject(containerid) );
     if (spcontbaseobj == nullptr || spcontbaseobj->objectType != KOGSID_CONTAINER) {
-        CCerror::set("can't load container");
+        CCerrorMT::set("can't load container");
         return -1;
     }
     KogsContainer *pcontainer = (KogsContainer *)spcontbaseobj.get();
@@ -2735,14 +2735,14 @@ static int CheckIsMyContainer(const CPubKey &remotepk, uint256 gameid, uint256 c
     {
         std::shared_ptr<KogsBaseObject>spgamebaseobj( LoadGameObject(gameid) );
         if (spgamebaseobj == nullptr || spgamebaseobj->objectType != KOGSID_GAME) {
-            CCerror::set("can't load container");
+            CCerrorMT::set("can't load container");
             return -1;
         }
         KogsGame *pgame = (KogsGame *)spgamebaseobj.get();
         if (IsContainerDeposited(*pgame, *pcontainer)) 
         {
             if (mypk != pgame->encOrigPk) {  // TODO: why is only game owner allowed to modify container?
-                CCerror::set("can't add or remove kogs: container is deposited and you are not the game creator");
+                CCerrorMT::set("can't add or remove kogs: container is deposited and you are not the game creator");
                 return 0;
             }
             else
@@ -2752,11 +2752,11 @@ static int CheckIsMyContainer(const CPubKey &remotepk, uint256 gameid, uint256 c
     
     CTransaction lasttx;
     if (!GetNFTUnspentTx(containerid, lasttx)) {
-        CCerror::set("container is already burned or not yours");
+        CCerrorMT::set("container is already burned or not yours");
         return -1;
     }
     if (lasttx.vout.size() < 1) {
-        CCerror::set("incorrect nft last tx");
+        CCerrorMT::set("incorrect nft last tx");
         return -1;
     }
     for(const auto &v : lasttx.vout)    {
@@ -2764,7 +2764,7 @@ static int CheckIsMyContainer(const CPubKey &remotepk, uint256 gameid, uint256 c
             return 1;
     }
     
-    CCerror::set("this is not your container to add or remove kogs");
+    CCerrorMT::set("this is not your container to add or remove kogs");
     return 0;
 }
 
@@ -2795,7 +2795,7 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
     cpTokens = CCinit(&CTokens, EVAL_TOKENS);
     UniValue beginResult = TokenBeginTransferTx(mtx, cpTokens, remotepk, 10000);
     if (ResultIsError(beginResult)) {
-        CCerror::set(ResultGetError(beginResult));
+        CCerrorMT::set(ResultGetError(beginResult));
         return NullResults;
     }
 
@@ -2804,7 +2804,7 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
         //UniValue sigData = TokenTransferExt(remotepk, 0, tokenid, tokenaddr, std::vector<std::pair<CC*, uint8_t*>>{ }, std::vector<CPubKey>{ kogsPk, containertxidPk }, 1, true); // amount = 1 always for NFTs
         UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, tokenid, tokenaddr, { kogsPk, containertxidPk }, {nullptr, nullptr}, 1, true);
         if (ResultIsError(addtxResult)) {
-            CCerror::set(ResultGetError(addtxResult));
+            CCerrorMT::set(ResultGetError(addtxResult));
             return NullResults;
         }
     }
@@ -2826,7 +2826,7 @@ std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t 
     }
     else
     {
-        CCerror::set(ResultGetError(sigData));
+        CCerrorMT::set(ResultGetError(sigData));
     }
     
     return result;
@@ -2882,7 +2882,7 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
     cpTokens = CCinit(&CTokens, EVAL_TOKENS);
     UniValue beginResult = TokenBeginTransferTx(mtx, cpTokens, remotepk, 10000);
     if (ResultIsError(beginResult)) {
-        CCerror::set(ResultGetError(beginResult));
+        CCerrorMT::set(ResultGetError(beginResult));
         return NullResults;
     }
 
@@ -2890,7 +2890,7 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
     {
         UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, remotepk, tokenid, tokenaddr, { mypk }, { std::make_pair(probeCond, kogspriv) }, 1, true);
         if (ResultIsError(addtxResult)) {
-            CCerror::set(ResultGetError(addtxResult));
+            CCerrorMT::set(ResultGetError(addtxResult));
             return NullResults;
         }
     }
@@ -2900,7 +2900,7 @@ std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int
     }
     else
     {
-        CCerror::set(ResultGetError(sigData));
+        CCerrorMT::set(ResultGetError(sigData));
     }
 
     cc_free(probeCond);
@@ -2912,7 +2912,7 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
     std::shared_ptr<KogsBaseObject> spbaseobj( LoadGameObject(newSlamData.gameid) );
     if (spbaseobj == nullptr || spbaseobj->objectType != KOGSID_GAME)
     {
-        CCerror::set("can't load game");
+        CCerrorMT::set("can't load game");
         return NullUniValue;
     }
 
@@ -2980,7 +2980,7 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
         get_random_txns(newSlamData.gameid, randomIndex, randomIndex+1, newbaton.hashtxns, newbaton.randomtxns);  // add txns with random hashes and values
         if (newbaton.hashtxns.size() == 0 || newbaton.randomtxns.size() == 0)
         {
-            CCerror::set("no commit or random txns");
+            CCerrorMT::set("no commit or random txns");
             return NullUniValue;
         }
         std::vector<std::pair<uint256, int32_t>> randomUtxos;
@@ -2999,18 +2999,18 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
             }
             else
             {
-                CCerror::set("can't create or sign baton transaction");
+                CCerrorMT::set("can't create or sign baton transaction");
                 return NullUniValue;
             } 
         }
         else {
-            CCerror::set("can't create baton object (check if all players deposited containers and slammers or added randoms)");
+            CCerrorMT::set("can't create baton object (check if all players deposited containers and slammers or added randoms)");
             return NullUniValue;
         }
     }
     else
     {
-        CCerror::set("could not find baton for your pubkey (not your turn)");
+        CCerrorMT::set("could not find baton for your pubkey (not your turn)");
         return NullUniValue;
     }
 }
@@ -3020,7 +3020,7 @@ UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &new
     std::shared_ptr<KogsBaseObject> spplayer(LoadGameObject(newad.playerId));
     if (spplayer == nullptr || spplayer->objectType != KOGSID_PLAYER)
     {
-        CCerror::set("can't load player object");
+        CCerrorMT::set("can't load player object");
         return NullUniValue;
     }
 
@@ -3029,7 +3029,7 @@ UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &new
     
     KogsPlayer *pplayer = (KogsPlayer*)spplayer.get();
     if (pplayer->encOrigPk != mypk) {
-        CCerror::set("not this pubkey player");
+        CCerrorMT::set("not this pubkey player");
         return NullUniValue;
     }
 
@@ -3038,7 +3038,7 @@ UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &new
     std::vector<KogsAdvertising> dummy;
 
     if (FindAdvertisings(newad.playerId, adtxid, advout, dummy)) {
-        CCerror::set("this player already made advertising");
+        CCerrorMT::set("this player already made advertising");
         return NullUniValue;
     }
     return CreateAdvertisingTx(remotepk, newad);
@@ -3065,26 +3065,26 @@ UniValue KogsCommitRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     CTransaction gametx;
     uint256 hashBlock;
     if (!myGetTransaction(gameid, gametx, hashBlock))   {
-        CCerror::set("can't load gameid tx");
+        CCerrorMT::set("can't load gameid tx");
         return NullUniValue;
     }
     
     std::shared_ptr<KogsBaseObject> spGameObj(LoadGameObject(gameid));
     if (spGameObj == nullptr || spGameObj->objectType != KOGSID_GAME) {
-        CCerror::set("can't load gameid tx");
+        CCerrorMT::set("can't load gameid tx");
         return NullUniValue;
     }
     KogsGame *pGame = (KogsGame*)spGameObj.get();
 
     std::shared_ptr<KogsBaseObject> spGameConfig(LoadGameObject(pGame->gameconfigid));
     if (spGameConfig == nullptr || spGameConfig->objectType != KOGSID_GAMECONFIG) {
-        CCerror::set("can't load gameconfig tx");
+        CCerrorMT::set("can't load gameconfig tx");
         return NullUniValue;
     }
     KogsGameConfig *pGameConfig = (KogsGameConfig*)spGameConfig.get();
 std::cerr << __func__ << " randoms.size()=" << randoms.size() << " pGame->playerids.size()=" << pGame->playerids.size() << " pGameConfig->maxTurns=" << pGameConfig->maxTurns << " total=" << pGame->playerids.size() * pGameConfig->maxTurns * 2 + 1 << std::endl;
     if (randoms.size() < pGame->playerids.size() * pGameConfig->maxTurns * 2 + 1) {
-        CCerror::set("insufficient randoms");
+        CCerrorMT::set("insufficient randoms");
         return NullUniValue;
     }
 
@@ -3128,11 +3128,11 @@ std::cerr << __func__ << " randoms.size()=" << randoms.size() << " pGame->player
         }
         else
         {
-            CCerror::set("can't create tx");
+            CCerrorMT::set("can't create tx");
             return NullUniValue;
         }
     }
-    CCerror::set("could not find normal inputs for txfee");
+    CCerrorMT::set("could not find normal inputs for txfee");
     return NullUniValue; 
 }
 
@@ -3150,7 +3150,7 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
 
     std::shared_ptr<KogsBaseObject> spGame( LoadGameObject(gameid) );
     if (spGame == nullptr || spGame->objectType != KOGSID_GAME)    {
-        CCerror::set("can't load game");
+        CCerrorMT::set("can't load game");
         return NullUniValue;
     }
     KogsGame *pGame = (KogsGame*)spGame.get();
@@ -3223,7 +3223,7 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     }
 
     if (mpkscommitted.size() != randoms.size()) {
-        CCerror::set("no valid committed random txns found");
+        CCerrorMT::set("no valid committed random txns found");
         return NullUniValue;
     }
 
@@ -3231,7 +3231,7 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
     for(auto const &m : mpkscommitted)  {
         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "for num=" << m.first << " committed pubkeys size=" << m.second.size() << " gameid=" << gameid.GetHex() << std::endl);
         if (pks != m.second)    {
-            CCerror::set("not all pubkeys committed randoms yet for num=" + std::to_string(m.first));
+            CCerrorMT::set("not all pubkeys committed randoms yet for num=" + std::to_string(m.first));
             return NullUniValue;
         }
     }
@@ -3271,11 +3271,11 @@ UniValue KogsRevealRandoms(const CPubKey &remotepk, uint256 gameid, int32_t star
         }
         else
         {
-            CCerror::set("can't create tx");
+            CCerrorMT::set("can't create tx");
             return NullUniValue;
         }
     }
-    CCerror::set("could not find normal inputs for 2 txfee");
+    CCerrorMT::set("could not find normal inputs for 2 txfee");
     return NullUniValue; 
 }
 
@@ -3283,7 +3283,7 @@ UniValue KogsGetRandom(const CPubKey &remotepk, uint256 gameid, int32_t num)
 {
     std::shared_ptr<KogsBaseObject> spGame( LoadGameObject(gameid) );
     if (spGame == nullptr || spGame->objectType != KOGSID_GAME)    {
-        CCerror::set("can't load game");
+        CCerrorMT::set("can't load game");
         return NullUniValue;
     }
     KogsGame *pGame = (KogsGame*)spGame.get();
@@ -3297,14 +3297,14 @@ UniValue KogsGetRandom(const CPubKey &remotepk, uint256 gameid, int32_t num)
     std::vector<CTransaction> hashTxns, randomTxns;
     get_random_txns(gameid, num, num, hashTxns, randomTxns);
     if (hashTxns.size() == 0 || randomTxns.size() == 0) {
-        CCerror::set("could not get txns");
+        CCerrorMT::set("could not get txns");
         return NullUniValue;
     }
 
     uint32_t r;
     std::vector<std::pair<uint256, int32_t>> randomUtxos;
     if (!get_random_value(hashTxns, randomTxns, pks, gameid, num, r, randomUtxos))  {
-        CCerror::set("could not get random value");
+        CCerrorMT::set("could not get random value");
         return NullUniValue;
     }
     UniValue result(UniValue::VOBJ);
@@ -3341,14 +3341,14 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
             std::shared_ptr<KogsBaseObject> sppackbaseobj( LoadGameObject(packid) );
             if (sppackbaseobj == nullptr || sppackbaseobj->objectType != KOGSID_PACK)
             {
-                CCerror::set("can't load pack NFT or not a pack");
+                CCerrorMT::set("can't load pack NFT or not a pack");
                 return NullResults;
             }
 
             KogsPack *pack = (KogsPack *)sppackbaseobj.get();  
             /*if (!pack->DecryptContent(encryptkey, iv))
             {
-                CCerror::set("can't decrypt pack content");
+                CCerrorMT::set("can't decrypt pack content");
                 return NullResults;
             }*/
 
@@ -3369,8 +3369,8 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
 
                 UniValue sigData = TokenTransferExt(remotepk, 0, tokenid, tokensrcaddr, std::vector<std::pair<CC*, uint8_t*>>{}, pks, 1, true);
                 if (!ResultHasTx(sigData)) {
-                    results.push_back(MakeResultError("can't create transfer tx (nft could be already sent!): " + CCerror));
-                    CCerror.clear(); // clear read CCerror
+                    results.push_back(MakeResultError("can't create transfer tx (nft could be already sent!): " + CCerrorMT));
+                    CCerrorMT.clear(); // clear read CCerrorMT
                 }
                 else
                     results.push_back(sigData);
@@ -3381,8 +3381,8 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
                 // create tx removing pack by spending the kogs marker
                 UniValue sigData = KogsRemoveObject(remotepk, packid, KOGS_NFT_MARKER_VOUT);
                 if (!ResultHasTx(sigData)) {
-                    results.push_back(MakeResultError("can't create pack removal tx: " + CCerror));
-                    CCerror.clear(); // clear used CCerror
+                    results.push_back(MakeResultError("can't create pack removal tx: " + CCerrorMT::get()));
+                    CCerrorMT::clear(); // clear used CCerrorMT
                 }
                 else
                     results.push_back(sigData);
@@ -3393,7 +3393,7 @@ std::vector<UniValue> KogsUnsealPackToOwner(const CPubKey &remotepk, uint256 pac
     }
     else
     {
-        CCerror::set("can't unseal, pack NFT not burned yet or already removed");
+        CCerrorMT::set("can't unseal, pack NFT not burned yet or already removed");
     }
     return NullResults;
 }
@@ -3409,7 +3409,7 @@ UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid)
 
     if (!mypk.IsFullyValid())
     {
-        CCerror::set("mypk is not set");
+        CCerrorMT::set("mypk is not set");
         return  NullUniValue;
     }
 
@@ -3439,13 +3439,13 @@ UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid)
             if (ResultHasTx(sigData))
                 return sigData;
             else
-                CCerror::set("can't finalize or sign burn tx");
+                CCerrorMT::set("can't finalize or sign burn tx");
         }
         else
-            CCerror::set("can't find token inputs");
+            CCerrorMT::set("can't find token inputs");
     }
     else
-        CCerror::set("can't find normals for txfee");
+        CCerrorMT::set("can't find normals for txfee");
     return NullUniValue;
 }
 
@@ -3458,7 +3458,7 @@ UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout)
     CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
     if (!mypk.IsFullyValid())
     {
-        CCerror::set("mypk is not set");
+        CCerrorMT::set("mypk is not set");
         return  NullUniValue;
     }
 
@@ -3475,10 +3475,10 @@ UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout)
         if (ResultHasTx(sigData))
             return sigData;
         else
-            CCerror::set("can't finalize or sign removal tx");
+            CCerrorMT::set("can't finalize or sign removal tx");
     }
     else
-        CCerror::set("can't find normals for txfee");
+        CCerrorMT::set("can't find normals for txfee");
     return NullUniValue;
 }
 
@@ -3488,7 +3488,7 @@ UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId)
     std::shared_ptr<KogsBaseObject> spplayer(LoadGameObject(playerId));
     if (spplayer == nullptr || spplayer->objectType != KOGSID_PLAYER)
     {
-        CCerror::set("can't load player object");
+        CCerrorMT::set("can't load player object");
         return NullUniValue;
     }
 
@@ -3497,13 +3497,13 @@ UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId)
     CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
     if (!mypk.IsFullyValid())
     {
-        CCerror::set("mypk is not set");
+        CCerrorMT::set("mypk is not set");
         return  NullUniValue;
     }
 
     KogsPlayer *pplayer = (KogsPlayer*)spplayer.get();
     if (pplayer->encOrigPk != mypk) {
-        CCerror::set("not this pubkey player");
+        CCerrorMT::set("not this pubkey player");
         return NullUniValue;
     }
 
@@ -3513,7 +3513,7 @@ UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId)
     std::vector<KogsAdvertising> adlist;
 
     if (!FindAdvertisings(playerId, adtxid, advout, adlist)) {
-        CCerror::set("can't find advertising tx");
+        CCerrorMT::set("can't find advertising tx");
         return NullUniValue;
     }
 
@@ -3542,10 +3542,10 @@ UniValue KogsStopAdvertisePlayer(const CPubKey &remotepk, uint256 playerId)
         if (ResultHasTx(sigData))
             return sigData;
         else
-            CCerror::set("can't finalize or sign stop ad tx");
+            CCerrorMT::set("can't finalize or sign stop ad tx");
     }
     else
-        CCerror::set("can't find normals for txfee");
+        CCerrorMT::set("can't find normals for txfee");
     return NullUniValue;
 }
 

@@ -102,7 +102,7 @@ UniValue kogsaddress(const UniValue& params, bool fHelp, const CPubKey& remotepk
 UniValue kogscreategameconfig(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -264,7 +264,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp, const CPubKey&
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsCreateGameConfig(remotepk, newgameconfig);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -276,7 +276,7 @@ UniValue kogscreategameconfig(const UniValue& params, bool fHelp, const CPubKey&
 UniValue kogscreateplayer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -320,7 +320,7 @@ UniValue kogscreateplayer(const UniValue& params, bool fHelp, const CPubKey& rem
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsCreatePlayer(remotepk, newplayer);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -332,7 +332,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
 {
     UniValue result(UniValue::VOBJ);
 
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -391,7 +391,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsStartGame(remotepk, newgame);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -403,7 +403,7 @@ UniValue kogsstartgame(const UniValue& params, bool fHelp, const CPubKey& remote
 static UniValue CreateMatchObjects(const CPubKey& remotepk, const UniValue& params, bool isKogs)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (params[0].getType() == UniValue::VOBJ)
         jsonParams = params[0].get_obj();
@@ -480,7 +480,7 @@ static UniValue CreateMatchObjects(const CPubKey& remotepk, const UniValue& para
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     std::vector<UniValue> sigDataArr = KogsCreateMatchObjectNFTs(remotepk, gameobjects);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     UniValue resarray(UniValue::VARR);
     for (const auto &sigData : sigDataArr)
@@ -533,7 +533,7 @@ UniValue kogscreateslammers(const UniValue& params, bool fHelp, const CPubKey& r
 UniValue kogscreatepack(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -570,7 +570,7 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp, const CPubKey& remot
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsCreatePack(remotepk, newpack);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -581,7 +581,7 @@ UniValue kogscreatepack(const UniValue& params, bool fHelp, const CPubKey& remot
 UniValue kogsunsealpack(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR), jsonParams(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -613,7 +613,7 @@ throw runtime_error("not supported any more");
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     std::vector<UniValue> sigDataArr = KogsUnsealPackToOwner(remotepk, packid, enckey, iv);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &sigData : sigDataArr)
     {
@@ -630,7 +630,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
     
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -688,7 +688,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     std::vector<UniValue> sigDataArr = KogsCreateContainerV2(remotepk, newcontainer, tokenids);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &sigData : sigDataArr)
     {
@@ -705,7 +705,7 @@ UniValue kogscreatecontainer(const UniValue& params, bool fHelp, const CPubKey& 
 UniValue kogsdeposittokens(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -739,7 +739,7 @@ UniValue kogsdeposittokens(const UniValue& params, bool fHelp, const CPubKey& re
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsDepositTokensToGame(remotepk, 0, gameid, containerid, slammerid);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -750,7 +750,7 @@ UniValue kogsdeposittokens(const UniValue& params, bool fHelp, const CPubKey& re
 UniValue kogsclaimdepositedtoken(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -779,7 +779,7 @@ UniValue kogsclaimdepositedtoken(const UniValue& params, bool fHelp, const CPubK
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsClaimDepositedToken(remotepk, 0, gameid, containerid);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -791,7 +791,7 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKe
 {
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -847,7 +847,7 @@ UniValue kogsaddkogstocontainer(const UniValue& params, bool fHelp, const CPubKe
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     std::vector<UniValue> sigDataArr = KogsAddKogsToContainerV2(remotepk, 0, containerid, tokenids);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &sigData : sigDataArr)
     {
@@ -864,7 +864,7 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const C
     UniValue result(UniValue::VOBJ);
     UniValue jsonParams(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -934,7 +934,7 @@ UniValue kogsremovekogsfromcontainer(const UniValue& params, bool fHelp, const C
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     std::vector<UniValue> sigDataArr = KogsRemoveKogsFromContainerV2(remotepk, 0, gameid, containerid, tokenids);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
     for (const auto &sigData : sigDataArr)
     {
         resarray.push_back(sigData);
@@ -950,7 +950,7 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& remotep
 {
     UniValue result(UniValue::VOBJ);
     UniValue resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -1014,7 +1014,7 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& remotep
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsCreateSlamData(remotepk, slamparams);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -1026,7 +1026,7 @@ UniValue kogsslamdata(const UniValue& params, bool fHelp, const CPubKey& remotep
 UniValue kogsburntoken(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -1048,7 +1048,7 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp, const CPubKey& remote
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsBurnNFT(remotepk, tokenid);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -1059,7 +1059,7 @@ UniValue kogsburntoken(const UniValue& params, bool fHelp, const CPubKey& remote
 UniValue kogsremoveobject(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -1083,7 +1083,7 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp, const CPubKey& rem
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsRemoveObject(remotepk, txid, nvout);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -1094,7 +1094,7 @@ UniValue kogsremoveobject(const UniValue& params, bool fHelp, const CPubKey& rem
 UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() > 2))
     {
@@ -1130,7 +1130,7 @@ UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& remotepk
     std::vector<uint256> tokenids;
     KogsMatchObjectFilter_OR filter(filterprops);
     KogsCreationTxidList(remotepk, KOGSID_KOG, onlymy, filterprops.size() > 0 ? &filter : nullptr, tokenids);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
@@ -1143,7 +1143,7 @@ UniValue kogskoglist(const UniValue& params, bool fHelp, const CPubKey& remotepk
 UniValue kogsslammerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() > 2))
     {
@@ -1180,7 +1180,7 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp, const CPubKey& remo
     std::vector<uint256> tokenids;
     KogsMatchObjectFilter_OR filter(filterprops);
     KogsCreationTxidList(remotepk, KOGSID_SLAMMER, onlymy, filterprops.size() > 0 ? &filter : nullptr, tokenids);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
@@ -1193,7 +1193,7 @@ UniValue kogsslammerlist(const UniValue& params, bool fHelp, const CPubKey& remo
 UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() > 1))
     {
@@ -1213,7 +1213,7 @@ UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& remotep
 
     std::vector<uint256> tokenids;
     KogsCreationTxidList(remotepk, KOGSID_PACK, onlymy, nullptr, tokenids);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
@@ -1226,7 +1226,7 @@ UniValue kogspacklist(const UniValue& params, bool fHelp, const CPubKey& remotep
 UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() > 1))
     {
@@ -1247,7 +1247,7 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& re
 
     std::vector<uint256> tokenids;
     KogsCreationTxidList(remotepk, KOGSID_CONTAINER, onlymy, nullptr, tokenids);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
@@ -1260,7 +1260,7 @@ UniValue kogscontainerlist(const UniValue& params, bool fHelp, const CPubKey& re
 UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() != 1))
     {
@@ -1275,7 +1275,7 @@ UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp, const CP
 
     std::vector<uint256> tokenids;
     KogsDepositedTokenList(gameid, tokenids, KOGSID_CONTAINER);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
@@ -1288,7 +1288,7 @@ UniValue kogsdepositedcontainerlist(const UniValue& params, bool fHelp, const CP
 UniValue kogsdepositedslammerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() != 1))
     {
@@ -1304,7 +1304,7 @@ UniValue kogsdepositedslammerlist(const UniValue& params, bool fHelp, const CPub
     std::vector<uint256> tokenids;
 
     KogsDepositedTokenList(gameid, tokenids, KOGSID_SLAMMER);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &t : tokenids)
         resarray.push_back(t.GetHex());
@@ -1317,7 +1317,7 @@ UniValue kogsdepositedslammerlist(const UniValue& params, bool fHelp, const CPub
 UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() > 1))
     {
@@ -1337,7 +1337,7 @@ UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& remot
 
     std::vector<uint256> creationids;
     KogsCreationTxidList(remotepk, KOGSID_PLAYER, onlymy, nullptr, creationids);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &i : creationids)
         resarray.push_back(i.GetHex());
@@ -1350,7 +1350,7 @@ UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& remot
 UniValue kogsgameconfiglist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() != 0))
     {
@@ -1361,7 +1361,7 @@ UniValue kogsgameconfiglist(const UniValue& params, bool fHelp, const CPubKey& r
 
     std::vector<uint256> creationids;
     KogsCreationTxidList(remotepk, KOGSID_GAMECONFIG, false, nullptr, creationids);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &i : creationids)
         resarray.push_back(i.GetHex());
@@ -1374,7 +1374,7 @@ UniValue kogsgameconfiglist(const UniValue& params, bool fHelp, const CPubKey& r
 UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() > 2))
     {
@@ -1402,7 +1402,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
 
     std::vector<uint256> creationids;
     KogsGameTxidList(remotepk, onlymine, playerids, creationids);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &i : creationids)
         resarray.push_back(i.GetHex());
@@ -1415,7 +1415,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
 UniValue kogsobjectinfo(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() != 1))
     {
@@ -1429,7 +1429,7 @@ UniValue kogsobjectinfo(const UniValue& params, bool fHelp, const CPubKey& remot
         throw runtime_error("id incorrect\n");
 
     result = KogsObjectInfo(tokenid);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     return result;
 }
@@ -1438,7 +1438,8 @@ UniValue kogsobjectinfo(const UniValue& params, bool fHelp, const CPubKey& remot
 UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
+    //CCerror1.clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -1501,7 +1502,7 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     result = KogsAdvertisePlayer(remotepk, newadplayer);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     return result;
 }
@@ -1510,7 +1511,7 @@ UniValue kogsadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& 
 UniValue kogsadvertisedplayerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() > 0))
     {
@@ -1524,7 +1525,7 @@ UniValue kogsadvertisedplayerlist(const UniValue& params, bool fHelp, const CPub
         playerid = Parseuint256(params[0].get_str().c_str());
     std::vector<KogsAdvertising> ads;
     KogsAdvertisedList(ads);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &ad : ads) {
         UniValue el(UniValue::VOBJ);
@@ -1548,7 +1549,7 @@ UniValue kogsadvertisedplayerlist(const UniValue& params, bool fHelp, const CPub
 UniValue kogsstopadvertiseplayer(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), jsonParams(UniValue::VOBJ);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     int32_t error = ensure_CCrequirements(EVAL_KOGS);
     if (error < 0)
@@ -1570,7 +1571,7 @@ UniValue kogsstopadvertiseplayer(const UniValue& params, bool fHelp, const CPubK
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsStopAdvertisePlayer(remotepk, playerid);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -1581,7 +1582,7 @@ UniValue kogsstopadvertiseplayer(const UniValue& params, bool fHelp, const CPubK
 UniValue kogscreatefirstbaton(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() != 1))
     {
@@ -1596,7 +1597,7 @@ UniValue kogscreatefirstbaton(const UniValue& params, bool fHelp, const CPubKey&
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsCreateFirstBaton(remotepk, gameid);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -1607,7 +1608,7 @@ UniValue kogscreatefirstbaton(const UniValue& params, bool fHelp, const CPubKey&
 UniValue kogscommitrandoms(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() < 3))
     {
@@ -1632,7 +1633,7 @@ UniValue kogscommitrandoms(const UniValue& params, bool fHelp, const CPubKey& re
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsCommitRandoms(remotepk, gameid, startNum, rnds);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -1643,7 +1644,7 @@ UniValue kogscommitrandoms(const UniValue& params, bool fHelp, const CPubKey& re
 UniValue kogsrevealrandoms(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() < 3))
     {
@@ -1668,7 +1669,7 @@ UniValue kogsrevealrandoms(const UniValue& params, bool fHelp, const CPubKey& re
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue sigData = KogsRevealRandoms(remotepk, gameid, startNum, rnds);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result = sigData;
     result.push_back(std::make_pair("result", "success"));
@@ -1678,7 +1679,7 @@ UniValue kogsrevealrandoms(const UniValue& params, bool fHelp, const CPubKey& re
 // rpc kogsgetrandom impl (get combined random value for game)
 UniValue kogsgetrandom(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || (params.size() != 2))
     {
@@ -1695,7 +1696,7 @@ UniValue kogsgetrandom(const UniValue& params, bool fHelp, const CPubKey& remote
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
 
     UniValue result = KogsGetRandom(remotepk, gameid, num);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     result.push_back(std::make_pair("result", "success"));
     return result;
@@ -1709,7 +1710,7 @@ UniValue kogsbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
     CAmount balance;
     std::vector<uint8_t> pubkey;
     struct CCcontract_info *cp, C;
-    CCerror::clear();
+    CCerrorMT::clear();
 
     if (fHelp || params.size() > 2)
         throw runtime_error("kogsbalance tokenid [pubkey]\n" 
@@ -1727,7 +1728,7 @@ UniValue kogsbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
     balance = GetTokenBalance(pubkey2pk(pubkey), tokenid, true);
 
-    if (CCerror::empty()) {
+    if (CCerrorMT::empty()) {
         char destaddr[64];
 
         result.push_back(Pair("result", "success"));
@@ -1739,7 +1740,7 @@ UniValue kogsbalance(const UniValue& params, bool fHelp, const CPubKey& mypk)
         result.push_back(Pair("balance", (int64_t)balance));
     }
     else {
-        return MakeResultError(CCerror::get());
+        return MakeResultError(CCerrorMT::get());
     }
 
     return(result);
@@ -1765,7 +1766,7 @@ UniValue kogscreatekogsbunch(const UniValue& params, bool fHelp, const CPubKey& 
     }
 
     UniValue crresult = kogscreatekogs(crparams, fHelp, remotepk);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
     if (crresult.isNull())  
         throw runtime_error("nfts not created");
 
@@ -1838,14 +1839,14 @@ UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey
         trparams.push_back("1");
 
         UniValue transferred = tokentransfer(trparams, false, CPubKey());
-        if (!CCerror::empty()) return MakeResultError(CCerror::get());
+        if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
         if (transferred.isNull())  
             throw runtime_error("nfts not created");
 
         if (transferred["hex"].getValStr().empty()) {
-            std::cerr << "tokentransfer did not return hex tx, CCerror=" << CCerror << std::endl;
+            std::cerr << "tokentransfer did not return hex tx, CCerrorMT=" << CCerrorMT::get() << std::endl;
             result.pushKV("result", "error");
-            result.pushKV("error", "cant create tokentransfer tx, CCerror=" + transferred["error"].getValStr() + " CCerror=" + CCerror);
+            result.pushKV("error", "cant create tokentransfer tx, CCerrorMT=" + transferred["error"].getValStr() + " CCerrorMT=" + CCerrorMT::get());
             //return result;
         }
 
@@ -1881,7 +1882,7 @@ UniValue kogstransferkogsbunch(const UniValue& params, bool fHelp, const CPubKey
 // kogsdecodetxdata rpc impl decodes kogs transactions in hex
 UniValue kogs_decodetxdata(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    CCerror::clear();
+    CCerrorMT::clear();
     if (fHelp || params.size() < 1 || params.size() > 2)
     {
         throw runtime_error("kogsdecodetxdata txdata [true]\n"
@@ -1894,13 +1895,13 @@ UniValue kogs_decodetxdata(const UniValue& params, bool fHelp, const CPubKey& re
     if (params.size() > 1)
         decodevintx = (params[1].get_str() == "true") ? true : false;
     UniValue result = KogsDecodeTxdata(vdata, decodevintx);
-    if (!CCerror::empty()) return MakeResultError(CCerror::get());
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
     return result;
 }
 #include "addrman.h"
 UniValue kogs_praddrman(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    CCerror::clear();
+    CCerrorMT::clear();
     if (fHelp )
     {
         throw runtime_error("praddrman \n"
@@ -1953,11 +1954,10 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogscommitrandoms",    &kogscommitrandoms,          true },
     { "kogs",         "kogsrevealrandoms",    &kogsrevealrandoms,          true },
     { "kogs",         "kogsgetrandom",    &kogsgetrandom,          true },
-
-    { "hidden",         "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
-    { "hidden",         "kogstransferkogsbunch",         &kogstransferkogsbunch,          true },
-    { "kogs",         "kogsdecodetxdata",         &kogs_decodetxdata,          true },
-    { "hidden",         "kogspraddrman",         &kogs_praddrman,          true }
+    { "hidden",       "kogscreatekogsbunch",         &kogscreatekogsbunch,          true },
+    { "hidden",       "kogstransferkogsbunch",       &kogstransferkogsbunch,          true },
+    { "kogs",         "kogsdecodetxdata",      &kogs_decodetxdata,          true },
+    { "hidden",       "kogspraddrman",         &kogs_praddrman,          true }
 };
 
 

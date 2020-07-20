@@ -1335,3 +1335,4 @@ void LockUtxoInMemory::GetAddrUtxosInMemory(char *destaddr, bool isCC, std::vect
         }
     }
 }
+

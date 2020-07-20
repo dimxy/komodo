@@ -1184,3 +1184,6 @@ void CCAddVintxCond(struct CCcontract_info *cp, CC *cond, const uint8_t *priv)
 
     cp->CCvintxprobes.push_back(ccprobe);
 }
+
+
+
