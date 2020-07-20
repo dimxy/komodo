@@ -995,14 +995,8 @@ class IsRemoteRPC {
 private:
     static thread_local bool th_is_remote_rpc;
 public:
-    static void set(bool isRemote)
-    {
-        th_is_remote_rpc = isRemote;
-    }
-    static bool get()
-    {
-        return th_is_remote_rpc;
-    }
+    static void set(bool isRemote);
+    static bool get();
 };
 
 void SetRemoteRPCCall(bool isRemote);
@@ -1017,27 +1011,18 @@ void SetRemoteRPCCall(bool isRemote);
 
 /*! \cond INTERNAL */
 // multithreaded CCerror version
-class CCerror {
+class CCerrorMT {
 private:
     static thread_local std::string th_cc_error;
 public:
-    static void clear()
-    {
-        th_cc_error.clear();
-    }
-    static void set(const std::string &err)
-    {
-        th_cc_error = err;
-    }
-    static std::string get()
-    {
-        return th_cc_error;
-    }
-    static bool empty()
-    {
-        return th_cc_error.empty();
-    }
+    static void clear();
+    static void set(const std::string &err);
+    static std::string get();
+    static bool empty();
 };
+
+extern thread_local std::string CCerror1;
+
 /*! \endcond */
 
 /*! \cond INTERNAL */
