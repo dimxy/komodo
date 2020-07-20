@@ -83,8 +83,8 @@ const char opt_playforwages[] = "playforwages";
 #define BATON_GLOBAL      0x1
 #define BATON_SELF        0x2
 
-#define KOGS_USE_LAST_VOUT_OPRETURN     10e8
-#define KOGS_SEARCH_TOKEN_VOUT          0
+//#define KOGS_USE_LAST_VOUT_OPRETURN     10e8
+#define KOGS_SEARCH_TOKEN_VOUT          10e8
 
 
 struct KogsBaseObject {
