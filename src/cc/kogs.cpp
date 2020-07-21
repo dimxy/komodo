@@ -569,7 +569,8 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
 
     if (nvout == KOGS_TRY_OPRETURN_THEN_SEARCH_TOKEN_VOUT)
     {
-        // specially  for tokens: try to search for token cc opdrop then check in the last vout opreturn
+        // this case is for loading creation txns, which in case of tokens might have either last vout opreturn or opdrop in cc vout
+        // try to check the last vout opreturn, if not, for tokens, try to search for token cc opdrop
         if (GetOpReturnData(tx.vout.back().scriptPubKey, vopret)) {
             nvout = tx.vout.size() - 1;  // reset nvout to opreturn vout   
         }
@@ -580,14 +581,21 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
             //cpTokens = CCinit(&C, EVAL_TOKENS);
             //cpTokens->evalcodeNFT = EVAL_KOGS;  // prevent getting NFT data inside
             for (nvout = 0; nvout < tx.vout.size(); nvout ++)   {
-                uint256 tokenid;
-                std::string errstr;
-                if (tx.vout[nvout].nValue == 1 && tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition() /*&& CheckTokensvout(true, true, cpTokens, NULL, tx, nvout, tokenid, errstr) > 0*/)
+                //uint256 tokenid;
+                //std::string errstr;
+                if (tx.vout[nvout].nValue == 1 && 
+                    tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition() &&
+                    MyGetCCDropV2(tx.vout[nvout].scriptPubKey, ccdata) &&
+                    GetOpReturnData(ccdata, vopret) &&
+                    vopret.size() > 2 &&
+                    vopret[0] == EVAL_TOKENS
+                    /* && CheckTokensvout(true, true, cpTokens, NULL, tx, nvout, tokenid, errstr) > 0 -- too heavy check*/)
                     break;
             }
             //std::cerr << __func__ << " nvout=" << nvout << " tx.vout.size()=" << tx.vout.size() << std::endl;
-            if (nvout < tx.vout.size() && MyGetCCDropV2(tx.vout[nvout].scriptPubKey, ccdata)) {
-                GetOpReturnData(ccdata, vopret);
+            if (nvout == tx.vout.size()) {
+                LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "could not find opreturn or opdrop data txid=" << tx.GetHash().GetHex() << std::endl);
+                return nullptr;
             }
         }
     }
@@ -598,7 +606,6 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
     else
     {
         // try to use specific vout, if no opdrop data use last vout opret 
-
         if (nvout < 0 || nvout >= tx.vout.size()) {
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "nvout out of bounds txid=" << tx.GetHash().GetHex() << std::endl);
             return nullptr;
