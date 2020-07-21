@@ -1009,6 +1009,8 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
         for (auto const &rndUtxo : randomUtxos)
             mtx.vin.push_back(CTxIn(rndUtxo.first, rndUtxo.second));  // spend used in this baton utxos
 
+        mtx.vout.push_back(MakeCC1of2vout(EVAL_KOGS, KOGS_BATON_AMOUNT, kogsPk, destpk)); // baton to indicate whose turn is now, globalpk to allow autofinish stalled games
+
         if (isFirst)    {
             // spend the deposited nft special vout to make the first baton dependent on the deposited txns        
             std::vector<std::shared_ptr<KogsContainer>> spcontainers;
@@ -1040,8 +1042,6 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
         CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, mypk);
         CCAddVintxCond(cp, probeCond, NULL);  // use myprivkey if not forcing finish of the stalled game
         cc_free(probeCond);
-
-        mtx.vout.push_back(MakeCC1of2vout(EVAL_KOGS, KOGS_BATON_AMOUNT, kogsPk, destpk)); // baton to indicate whose turn is now, globalpk to allow autofinish stalled games
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
