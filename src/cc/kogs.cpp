@@ -1009,6 +1009,9 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
         for (auto const &rndUtxo : randomUtxos)
             mtx.vin.push_back(CTxIn(rndUtxo.first, rndUtxo.second));  // spend used in this baton utxos
 
+        uint8_t kogspriv[32];
+        CPubKey kogsPk = GetUnspendable(cp, kogspriv);
+        CPubKey gametxidPk = CCtxidaddr_tweak(NULL, pbaton->gameid);
         mtx.vout.push_back(MakeCC1of2vout(EVAL_KOGS, KOGS_BATON_AMOUNT, kogsPk, destpk)); // baton to indicate whose turn is now, globalpk to allow autofinish stalled games
 
         if (isFirst)    {
@@ -1031,9 +1034,6 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
         }
 
         // add probeCond to spend from a number of 1of2 outputs: the prev baton, random txns, deposited txns for the first baton
-        uint8_t kogspriv[32];
-        CPubKey kogsPk = GetUnspendable(cp, kogspriv);
-        CPubKey gametxidPk = CCtxidaddr_tweak(NULL, pbaton->gameid);
         CC *probeCond1of2 = MakeCCcond1of2(EVAL_KOGS, kogsPk, gametxidPk);
         CCAddVintxCond(cp, probeCond1of2, kogspriv);
         cc_free(probeCond1of2);
