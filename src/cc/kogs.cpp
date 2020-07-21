@@ -716,7 +716,7 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
 }
 
 
-// load any kogs game object for any ot its txids
+// load any kogs game object for one or its txids and optional vout
 static struct KogsBaseObject *LoadGameObject(uint256 txid, int32_t nvout)
 {
     uint256 hashBlock;
@@ -1159,7 +1159,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, KogsObjectFil
     {
         if (onlyForPk || it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
         {
-            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, onlyForPk ? it->first.index : KOGS_SEARCH_TOKEN_VOUT); // parse objectType and unmarshal corresponding gameobject
+            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, onlyForPk ? it->first.index : KOGS_SEARCH_TOKEN_VOUT); // load either by utxo on mypk, or look through the creation tx 
             //std::cerr << __func__ << " objectType=" << (char)(obj ? obj->objectType : '0') << std::endl; 
             if (obj != nullptr && obj->objectType == objectType && (pObjFilter == NULL || (*pObjFilter)(obj))) {
                 obj->blockHeightForSort = it->second.blockHeight;
@@ -3941,8 +3941,7 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
 // output info about any game object
 UniValue KogsObjectInfo(uint256 gameobjectid)
 {
-    std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(gameobjectid) );
-    
+    std::shared_ptr<KogsBaseObject> spobj( LoadGameObject(gameobjectid, KOGS_SEARCH_TOKEN_VOUT) );
     if (spobj == nullptr)
     {
         UniValue err(UniValue::VOBJ);
@@ -3950,7 +3949,6 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
         err.push_back(std::make_pair("error", "could not load object or bad opreturn"));
         return err;
     }
-
     return DecodeObjectInfo(spobj.get());
 }
 
