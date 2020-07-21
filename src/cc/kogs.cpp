@@ -3605,6 +3605,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     bool isFinished = false;
     uint256 winnerid;
     
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "searching batons for gameid=" << txid.GetHex() << std::endl);
 
     // browse the sequence of slamparam and baton txns: 
     while (CCgetspenttxid(batontxid, vini, height, txid, nvout) == 0)
