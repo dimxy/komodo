@@ -570,24 +570,25 @@ static struct KogsBaseObject *DecodeGameObjectOpreturn(const CTransaction &tx, i
     if (nvout == KOGS_TRY_OPRETURN_THEN_SEARCH_TOKEN_VOUT)
     {
         // specially  for tokens: try to search for token cc opdrop then check in the last vout opreturn
-    
-        // find NFT vout:
-        //struct CCcontract_info *cpTokens, C;
-        //cpTokens = CCinit(&C, EVAL_TOKENS);
-        //cpTokens->evalcodeNFT = EVAL_KOGS;  // prevent getting NFT data inside
-        for (nvout = 0; nvout < tx.vout.size(); nvout ++)   {
-            uint256 tokenid;
-            std::string errstr;
-            if (tx.vout[nvout].nValue == 1 && tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition() /*&& CheckTokensvout(true, true, cpTokens, NULL, tx, nvout, tokenid, errstr) > 0*/)
-                break;
+        if (GetOpReturnData(tx.vout.back().scriptPubKey, vopret)) {
+            nvout = tx.vout.size() - 1;  // reset nvout to opreturn vout   
         }
-        //std::cerr << __func__ << " nvout=" << nvout << " tx.vout.size()=" << tx.vout.size() << std::endl;
-        if (nvout < tx.vout.size() && MyGetCCDropV2(tx.vout[nvout].scriptPubKey, ccdata)) {
-            GetOpReturnData(ccdata, vopret);
-        }
-        else {
-            GetOpReturnData(tx.vout.back().scriptPubKey, vopret);
-            nvout = tx.vout.size() - 1;  // reset nvout to opreturn vout    
+        else 
+        {
+            // find NFT vout:
+            //struct CCcontract_info *cpTokens, C;
+            //cpTokens = CCinit(&C, EVAL_TOKENS);
+            //cpTokens->evalcodeNFT = EVAL_KOGS;  // prevent getting NFT data inside
+            for (nvout = 0; nvout < tx.vout.size(); nvout ++)   {
+                uint256 tokenid;
+                std::string errstr;
+                if (tx.vout[nvout].nValue == 1 && tx.vout[nvout].scriptPubKey.IsPayToCryptoCondition() /*&& CheckTokensvout(true, true, cpTokens, NULL, tx, nvout, tokenid, errstr) > 0*/)
+                    break;
+            }
+            //std::cerr << __func__ << " nvout=" << nvout << " tx.vout.size()=" << tx.vout.size() << std::endl;
+            if (nvout < tx.vout.size() && MyGetCCDropV2(tx.vout[nvout].scriptPubKey, ccdata)) {
+                GetOpReturnData(ccdata, vopret);
+            }
         }
     }
     else if (nvout == KOGS_USE_LAST_VOUT_OPRETURN)  {
