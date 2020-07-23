@@ -492,7 +492,7 @@ static UniValue CreateGameTx(const CPubKey &remotepk, const KogsGame *gameobj, c
 
     if (AddNormalinputsRemote(mtx, mypk, normals, 0x10000, true) > 0)   // use remote version to add inputs from mypk
     {
-        mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership
+        //mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, 1, mypk)); // spendable vout for transferring the enclosure ownership, dont need this
         mtx.vout.push_back(MakeCC1vout(EVAL_KOGS, KOGS_NFT_MARKER_AMOUNT, GetUnspendable(cp, NULL)));  // kogs cc marker
         mtx.vout.push_back(MakeCC1of2vout(EVAL_KOGS, KOGS_BATON_AMOUNT, kogsPk, mypk)); // send initially to self to create the first baton later, send also to kogsPk to allow autofinish stalled games
         for(auto const &pk : pks)   
@@ -1137,9 +1137,11 @@ private:
 // list all game objects
 // if pk is null lists all object on the marker address and treats them as creation txns: checks opreturn first then search for token vout
 // if pk is not null then it lists all utxos on this pk and tries to load each utxo as a game object
-static void ListGameObjects(uint8_t objectType, const CPubKey &pk, KogsObjectFilterBase *pObjFilter, std::vector<std::shared_ptr<KogsBaseObject>> &list)
+static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspentIndex, KogsObjectFilterBase *pObjFilter, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
+    std::vector<std::pair<CAddressIndexKey, CAmount> > addressOutputs;
+
     //bool isRemote = IS_REMOTE(remotepk);
     //CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
     const bool onlyForPk = pk.IsValid();
@@ -1148,37 +1150,60 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, KogsObjectFil
     cp = CCinit(&C, EVAL_KOGS);
 
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "getting objects with objectType=" << (char)objectType << (onlyForPk ? " for pk" : " all") << std::endl);
-    if (!onlyForPk) {
-        // list all objects by marker:
-        SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
-    }
-    else {
+    if (onlyForPk) 
+    {
         // list objects by utxos on token+kogs or kogs address for the pk
-		// TODO: add check if this is nft or enclosure
-		// if this is nfts:
+		// TODO: add check if this is nft or enclosure (but do we need this?)
         char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
         GetTokensCCaddress(cp, tokenaddr, pk);    
-        SetCCunspentsWithMempool(addressUnspents, tokenaddr, true); 
+        if (useUspentIndex)
+            SetCCunspentsWithMempool(addressUnspents, tokenaddr, true); 
+        else
+            SetCCtxids(addressOutputs, tokenaddr, true);
 
 		// if this is kogs 'enclosure'
         char kogsaddr[KOMODO_ADDRESS_BUFSIZE];
         GetCCaddress(cp, kogsaddr, pk);    
-        SetCCunspentsWithMempool(addressUnspents, kogsaddr, true);         
+        if (useUspentIndex)
+            SetCCunspentsWithMempool(addressUnspents, kogsaddr, true);         
+        else
+            SetCCtxids(addressOutputs, kogsaddr, true);
+
+    }
+    else
+    {
+        // list all objects by marker:
+        SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
     }
 
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found addressUnspents.size()=" << addressUnspents.size() << std::endl);
-
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found addressUnspents.size()=" << addressUnspents.size() << " addressOutputs.size()=" << addressOutputs.size() << std::endl);
+    auto checkAndLoadGameObject = [&](uint256 txid, uint32_t index, CAmount satoshis, int32_t height)
     {
-        if (onlyForPk || it->second.satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
+        if (onlyForPk || satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
         {
-            struct KogsBaseObject *obj = LoadGameObject(it->first.txhash, onlyForPk ? it->first.index : KOGS_TRY_OPRETURN_THEN_SEARCH_TOKEN_VOUT); // load either by utxo on mypk, or look through the creation tx 
+            int32_t nvout = index;
+            if (!onlyForPk) {
+                if (KogsIsNFT(objectType))
+                    nvout = KOGS_TRY_OPRETURN_THEN_SEARCH_TOKEN_VOUT;
+                else
+                    nvout = KOGS_USE_LAST_VOUT_OPRETURN;
+            }
+            struct KogsBaseObject *obj = LoadGameObject(txid, nvout); // load either by utxo on mypk, or look through the creation tx 
             //std::cerr << __func__ << " objectType=" << (char)(obj ? obj->objectType : '0') << std::endl; 
             if (obj != nullptr && obj->objectType == objectType && (pObjFilter == NULL || (*pObjFilter)(obj))) {
-                obj->blockHeightForSort = it->second.blockHeight;
+                obj->blockHeightForSort = (height <= 0 ? 0x7fffffff : height); //set big ht for mempool tx
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
             }
         }
+    };
+
+    if (addressUnspents.size() > 0 ) {
+        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
+            checkAndLoadGameObject(it->first.txhash, it->first.index, it->second.satoshis, it->second.blockHeight);       
+    }
+    else  {
+        for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressOutputs.begin(); it != addressOutputs.end(); it++) 
+            checkAndLoadGameObject(it->first.txhash, it->first.index, it->second, it->first.blockHeight);       
     }
 
     std::sort(list.begin(), list.end(), 
@@ -2216,7 +2241,7 @@ void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool only
     CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());
 
     // get all objects with this objectType
-    ListGameObjects(objectType, (onlymy ? mypk : CPubKey()), pFilter, objlist);
+    ListGameObjects(objectType, (onlymy ? mypk : CPubKey()), true, pFilter, objlist);
 
     for (const auto &o : objlist)
     {
@@ -2233,7 +2258,7 @@ void KogsGameTxidList(const CPubKey &remotepk, bool onlymine, const std::vector<
 
     if (playerids.size() == 0)  {
         // get all or mypk objects with this objectType
-        ListGameObjects(KOGSID_GAME, onlymine ? mypk : CPubKey(), nullptr, objlist);
+        ListGameObjects(KOGSID_GAME, onlymine ? mypk : CPubKey(), true, nullptr, objlist); // use true to check unspent outputs
     }
     else {
         // load gameids for first player:
@@ -2242,7 +2267,7 @@ void KogsGameTxidList(const CPubKey &remotepk, bool onlymine, const std::vector<
             CCerrorMT::set("could not load player");
             return;
         }
-        ListGameObjects(KOGSID_GAME, spPlayer0->encOrigPk, nullptr, objlist);
+        ListGameObjects(KOGSID_GAME, spPlayer0->encOrigPk, false, nullptr, objlist);  //use false to check spent outputs
 
         // check if all playerids participate in each game, remove ones where it s not true
         for (int32_t i = 0; i < objlist.size();)   {
