@@ -1324,8 +1324,8 @@ UniValue TokenBeginTransferTx(CMutableTransaction &mtx, struct CCcontract_info *
 		txfee = 10000;
 
     mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    int64_t normalInputs = AddNormalinputsRemote(mtx, mypk, txfee, 0x10000);
-    if (normalInputs < 0)
+    int64_t normalInputs = AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, true);
+    if (normalInputs <= 0)
 	{
         return MakeResultError("cannot find normal inputs");
     }
