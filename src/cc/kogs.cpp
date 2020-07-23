@@ -3615,7 +3615,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     UniValue info(UniValue::VOBJ);
     // go for the opret data from the last/unspent tx 't'
     uint256 txid = gameobj.creationtxid;
-    int32_t nvout = 2;  // number of vout transferring the turn: 2 for game tx, 0 for baton tx
+    int32_t nvout = 1;  // number of vout transferring the turn: 2 for game tx, 0 for baton tx
     int32_t prevTurn = -1;  //-1 indicates we are before any turns
     int32_t nextTurn = -1;  
     uint256 prevPlayerid = zeroid;
