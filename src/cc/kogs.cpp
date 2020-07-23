@@ -2258,7 +2258,7 @@ void KogsGameTxidList(const CPubKey &remotepk, bool onlymine, const std::vector<
 
     if (playerids.size() == 0)  {
         // get all or mypk objects with this objectType
-        ListGameObjects(KOGSID_GAME, onlymine ? mypk : CPubKey(), true, nullptr, objlist); // use true to check unspent outputs
+        ListGameObjects(KOGSID_GAME, onlymine ? mypk : CPubKey(), onlymine ? false : true, nullptr, objlist); // use true to check unspent outputs
     }
     else {
         // load gameids for first player:
