@@ -2418,7 +2418,7 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
         std::vector<std::pair<uint256, int32_t>> randomUtxos;
         if (CreateNewBaton(spPrevObj.get(), dummygameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos, false))
         {    
-            const int32_t batonvout = 2;
+            const int32_t batonvout = KOGS_GAMETX_BATON_VOUT;
 
             UniValue sigData;
             if (!newbaton.isFinished)
@@ -3615,7 +3615,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     UniValue info(UniValue::VOBJ);
     // go for the opret data from the last/unspent tx 't'
     uint256 txid = gameobj.creationtxid;
-    int32_t nvout = 1;  // number of vout transferring the turn: 2 for game tx, 0 for baton tx
+    int32_t nvout = KOGS_GAMETX_BATON_VOUT;  // number of vout transferring the turn: 1 for game tx, 0 for baton tx
     int32_t prevTurn = -1;  //-1 indicates we are before any turns
     int32_t nextTurn = -1;  
     uint256 prevPlayerid = zeroid;
@@ -3664,7 +3664,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
         }
         prevFlipped = pbaton->kogsFlipped;
         kogsInStack = pbaton->kogsInStack;
-        nvout = 0;  // baton tx's next baton vout
+        nvout = 0;  // baton tx's next baton vout == 0
         if (pbaton->isFinished) {
             winnerid = pbaton->winnerid;
             isFinished = true;

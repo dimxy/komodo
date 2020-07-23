@@ -69,6 +69,7 @@ inline bool KogsIsNFT(uint8_t objectType) { return IS_CHARINSTR(objectType, "KSP
 #define KOGS_ADVERISING_AMOUNT      5000
 
 #define KOGS_ENCLOSURE_MARKER_VOUT  1   // marker vout num for kogs enclosure tx in kogs global address
+#define KOGS_GAMETX_BATON_VOUT 1
 
 #define KOGS_OPTS_PLAYFORKEEPS   0x01
 #define KOGS_OPTS_PLAYFORFUN     0x20
