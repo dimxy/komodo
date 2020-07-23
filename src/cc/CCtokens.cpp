@@ -835,7 +835,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
 			// we are not inside the validation code -- dimxy
 			if ((eval && eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock) == 0) || (!eval && !myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock)))
 			{
-                LOGSTREAM(cctokens_log, CCLOG_ERROR, stream << indentStr << "TokensExactAmounts() cannot read vintx for i." << i << " numvins." << numvins << std::endl);
+                LOGSTREAM(cctokens_log, CCLOG_ERROR, stream << indentStr << "TokensExactAmounts() cannot read vintx for vin.i=" << i << " txid=" << tx.vin[i].prevout.hash.GetHex() << std::endl);
 				return (!eval) ? false : eval->Invalid("could not load vin tx " + std::to_string(i));
 			}
 			else 
