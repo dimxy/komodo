@@ -4327,7 +4327,7 @@ private:
     {
         if (isAssetChain)
         {
-            if (!preventRestore)
+            if (0 && !preventRestore)
             {
                 LOCK2(cs_main, mempool.cs);
 
