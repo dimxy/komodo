@@ -1026,7 +1026,7 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
             // spend the deposited nft special vout to make the first baton dependent on the deposited txns        
             std::vector<std::shared_ptr<KogsContainer>> spcontainers;
             std::vector<std::shared_ptr<KogsMatchObject>> spslammers;
-            ListDepositedTokenids(pbaton->gameid, spcontainers, spslammers, false);
+            ListDepositedTokenids(pbaton->gameid, spcontainers, spslammers, true);  //false
             for (auto const &spcontainer : spcontainers)  {
                 int32_t i = spcontainer->tx.vout.size();
                 while (--i >= 0 && !spcontainer->tx.vout[i].scriptPubKey.IsPayToCryptoCondition());   // find last cc vout
@@ -1080,7 +1080,7 @@ static UniValue CreateGameFinishedTx(const CPubKey &remotepk, uint256 prevtxid, 
     std::vector<CTransaction> transferContainerTxns;
     std::vector<std::shared_ptr<KogsContainer>> spcontainers;
     std::vector<std::shared_ptr<KogsMatchObject>> spslammers;
-    ListDepositedTokenids(pBaton->gameid, spcontainers, spslammers, false);
+    ListDepositedTokenids(pBaton->gameid, spcontainers, spslammers, true);  //false
         
     char txidaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey gametxidPk = CCtxidaddr_tweak(txidaddr, pBaton->gameid);
@@ -1709,7 +1709,7 @@ static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *
 
     std::vector<std::shared_ptr<KogsContainer>> containers;
     std::vector<std::shared_ptr<KogsMatchObject>> slammers;
-    ListDepositedTokenids(gameid, containers, slammers, false);
+    ListDepositedTokenids(gameid, containers, slammers, true);  //false
 
     //get kogs tokenids on containers 1of2 address
     for (const auto &c : containers)
@@ -2221,7 +2221,7 @@ void KogsDepositedTokenList(uint256 gameid, std::vector<uint256> &tokenids, uint
 {
     std::vector<std::shared_ptr<KogsContainer>> containers;
     std::vector<std::shared_ptr<KogsMatchObject>> slammers;
-    ListDepositedTokenids(gameid, containers, slammers, false);
+    ListDepositedTokenids(gameid, containers, slammers, true);  //false
 
     if (objectType == KOGSID_CONTAINER) {
         for (const auto &c : containers)
@@ -4487,7 +4487,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
         // get pubkeys that have deposited containers and slammers to the game address:
         std::vector<std::shared_ptr<KogsContainer>> spcontainers;
         std::vector<std::shared_ptr<KogsMatchObject>> spslammers;
-        ListDepositedTokenids(gameid, spcontainers, spslammers, false);
+        ListDepositedTokenids(gameid, spcontainers, spslammers, true);  //false
         std::map<uint256, CPubKey> origpks;
         for (auto const &c : spcontainers)    {
             std::vector<CPubKey> vpks;
@@ -4746,7 +4746,7 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
         // get pubkeys that deposited containers and slammers to the game address:
         std::vector<std::shared_ptr<KogsContainer>> spcontainers;
         std::vector<std::shared_ptr<KogsMatchObject>> spslammers;
-        ListDepositedTokenids(pGameOps->gameid, spcontainers, spslammers, false);
+        ListDepositedTokenids(pGameOps->gameid, spcontainers, spslammers, true);  //false
         std::map<uint256, CPubKey> origpks;
         for (auto const &c : spcontainers)    {
             std::vector<CPubKey> vpks;
@@ -4798,7 +4798,7 @@ static bool check_ops_on_game_addr(struct CCcontract_info *cp, const KogsGameOps
         std::vector<std::shared_ptr<KogsContainer>> spSentContainers;
         std::vector<std::shared_ptr<KogsMatchObject>> spSentSlammers;
         // get already deposited tokens (checking in mempool too)
-        ListDepositedTokenids(pGameOps->gameid, spSentContainers, spSentSlammers, true);     
+        ListDepositedTokenids(pGameOps->gameid, spSentContainers, spSentSlammers, true); //or false??    
 
         for(auto const &tokenid : tokenids)	
         {
