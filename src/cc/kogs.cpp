@@ -2621,7 +2621,7 @@ UniValue KogsDepositTokensToGame(const CPubKey &remotepk, CAmount txfee_, uint25
     CMutableTransaction mtx;
     struct CCcontract_info *cpTokens, CTokens;
     cpTokens = CCinit(&CTokens, EVAL_TOKENS);
-    UniValue beginResult = TokenBeginTransferTx(mtx, cpTokens, remotepk, 10000);
+    UniValue beginResult = TokenBeginTransferTx(mtx, cpTokens, remotepk, 0/*10000*/);
     if (ResultIsError(beginResult)) {
         CCerrorMT::set(ResultGetError(beginResult));
         return NullUniValue;
