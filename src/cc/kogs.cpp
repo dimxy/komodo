@@ -999,7 +999,7 @@ static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<Ko
 // get deposited NFTs by checking the first baton vins spending them
 static void ListSpentDepositedTokenids(KogsBaseObject *pObj, std::vector<std::shared_ptr<KogsContainer>> &containers, std::vector<std::shared_ptr<KogsMatchObject>> &slammers)
 {
-    if (pBaton->objectType == KOGSID_BATON) 
+    if (pObj->objectType == KOGSID_BATON) 
     {
         KogsBaton *pBaton = (KogsBaton*)pObj;
         std::shared_ptr<KogsBaseObject> spPrevObj;
@@ -1028,13 +1028,13 @@ static void ListSpentDepositedTokenids(KogsBaseObject *pObj, std::vector<std::sh
             {
                 std::shared_ptr<KogsContainer> spcontainer;
                 std::shared_ptr<KogsMatchObject> spslammer;
-                KogsBaseObject* pobj = LoadGameObject(pBaton->tx.vin[ivin].prevout.hash, ivout); // load and unmarshal gameobject for this txid
-                if (pobj == nullptr || pobj->tx.vout.size() == 0)
+                KogsBaseObject* pBaseObj = LoadGameObject(pBaton->tx.vin[ivin].prevout.hash, ivout); // load and unmarshal gameobject for this txid
+                if (pBaseObj == nullptr || pBaseObj->tx.vout.size() == 0)
                     break; // no more tokens for this vin's deposit tx
-                std::cerr << __func__ <<  " objectType=" << (int)pobj->objectType << " creationtxid=" << pobj->creationtxid.GetHex() << std::endl;
+                std::cerr << __func__ <<  " objectType=" << (int)pBaseObj->objectType << " creationtxid=" << pBaseObj->creationtxid.GetHex() << std::endl;
                 // check it was a valid deposit operation:
                 // decode last vout opret where operaton objectType resides
-                std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(pobj->tx, KOGS_USE_LAST_VOUT_OPRETURN) );
+                std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(pBaseObj->tx, KOGS_USE_LAST_VOUT_OPRETURN) );
                 if (spOperObj != nullptr )
                     std::cerr << __func__ <<  " spOperObj objectType=" << (int)spOperObj->objectType << " creationtxid=" << spOperObj->creationtxid.GetHex() << std::endl;
                 else
@@ -1042,14 +1042,14 @@ static void ListSpentDepositedTokenids(KogsBaseObject *pObj, std::vector<std::sh
                 if (spOperObj == nullptr || spOperObj->objectType != KOGSID_ADDTOGAME ) 
                     break; // not a deposit tx
                 
-                if (pobj->objectType == KOGSID_CONTAINER)
+                if (pBaseObj->objectType == KOGSID_CONTAINER)
                 {
-                    std::shared_ptr<KogsContainer> spcontainer((KogsContainer*)pobj);
+                    std::shared_ptr<KogsContainer> spcontainer((KogsContainer*)pBaseObj);
                     containers.push_back(spcontainer);
                 }
-                else if (pobj->objectType == KOGSID_SLAMMER)
+                else if (pBaseObj->objectType == KOGSID_SLAMMER)
                 {
-                    std::shared_ptr<KogsMatchObject> spslammer((KogsMatchObject*)pobj);
+                    std::shared_ptr<KogsMatchObject> spslammer((KogsMatchObject*)pBaseObj);
                     slammers.push_back(spslammer);
                 }
             }
