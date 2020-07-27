@@ -2124,7 +2124,7 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
 {
     // called from CheckBlock which is in cs_main and mempool.cs locks already. 
     auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
-    CTxMemPoolEntry entry(tx, 0, GetTime(), 0, chainActive.Height(), mempool.HasNoInputsOf(tx), false, consensusBranchId);
+    CTxMemPoolEntry entry(tx, 0, GetTime(), 0, chainActive.Height(), pool.HasNoInputsOf(tx), false, consensusBranchId);
     //fprintf(stderr, "adding %s to mempool from block %d\n",tx.GetHash().ToString().c_str(),chainActive.GetHeight());
     
     CCoinsView dummy;
@@ -2152,6 +2152,7 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
             if (!view.HaveInputs(tx))   // also adds vin txns to CoinViewCache
             {
                 //fprintf(stderr,"accept failure.1\n");
+                std::cerr << __func__ << " view.HaveInputs(tx) failed for txid=" << tx.GetHash().GetHex() << std::endl;
                 return false;
             }
         }
