@@ -148,7 +148,8 @@ void asnCondition(const CC *cond, Condition_t *asn) {
     choice->cost = cc_getCost(cond);
     choice->fingerprint.buf = cond->type->fingerprint(cond);
     choice->fingerprint.size = 32;
-    choice->subtypes = asnSubtypes(cond->type->getSubtypes(cond));
+    if (asn->present == Condition_PR_prefixSha256 || asn->present == Condition_PR_thresholdSha256)
+    	choice->subtypes = asnSubtypes(cond->type->getSubtypes(cond));
 }
 
 

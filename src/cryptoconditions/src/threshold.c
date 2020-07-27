@@ -213,7 +213,11 @@ static CC *thresholdFromJSON(const cJSON *params, char *err) {
     for (int i=0; i<cond->size; i++) {
         sub = cJSON_GetArrayItem(subfulfillments_item, i);
         cond->subconditions[i] = cc_conditionFromJSON(sub, err);
-        if (err[0]) return NULL;
+        if (err[0] || cond->subconditions[i]==NULL)
+        {
+            if (cond) cc_free(cond);
+            return NULL;
+        }    
     }
 
     return cond;
