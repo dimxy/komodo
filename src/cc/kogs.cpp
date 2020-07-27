@@ -1784,7 +1784,7 @@ static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *
     if (newbaton.tx.IsNull()) // for new created baton just searching for deposit utxo (in CreateBatonTx they will be spent)
         ListDepositedTokenids(gameid, containers, slammers, true);  //false - look only confirmed tx
     else   // for validated baton searching for vins spending deposit tx (init tx in int the validation code for the current baton)    
-        ListSpentDepositedTokenids(prevbaton, containers, slammers);  // if tx spending deposit txns exist, use its vins to search deposit tx. If deposit tx could be in the mempool, searching for utxo is not enough as mempool tx might be lost  
+        ListSpentDepositedTokenids(&newbaton, containers, slammers);  // if tx spending deposit txns exist, use its vins to search deposit tx. If deposit tx could be in the mempool, searching for utxo is not enough as mempool tx might be lost  
 
     //get kogs tokenids on containers 1of2 address
     for (const auto &c : containers)
