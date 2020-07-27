@@ -4563,7 +4563,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
         // get pubkeys that have deposited containers and slammers to the game address:
         std::vector<std::shared_ptr<KogsContainer>> spcontainers;
         std::vector<std::shared_ptr<KogsMatchObject>> spslammers;
-        ListDepositedTokenids(gameid, spcontainers, spslammers, true);  //false
+        ListSpentDepositedTokenids(&testBaton, spcontainers, spslammers);  //false
         std::map<uint256, CPubKey> origpks;
         for (auto const &c : spcontainers)    {
             std::vector<CPubKey> vpks;
