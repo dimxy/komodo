@@ -970,6 +970,8 @@ static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<Ko
             //std::cerr << __func__ <<  " objectType=" << (int)pobj->objectType << " creationtxid=" << pobj->creationtxid.GetHex() << std::endl;
             // check it was a valid deposit operation:
             // decode last vout opret where operaton objectType resides
+            std::shared_ptr<KogsContainer> spcontainer;
+            std::shared_ptr<KogsMatchObject> spslammer;
             std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(pobj->tx, KOGS_USE_LAST_VOUT_OPRETURN) );
             //if (spOperObj != nullptr )
             //    std::cerr << __func__ <<  " spOperObj objectType=" << (int)spOperObj->objectType << " creationtxid=" << spOperObj->creationtxid.GetHex() << std::endl;
@@ -977,6 +979,69 @@ static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<Ko
             //    std::cerr << __func__ <<  " spOperObj=null" << std::endl;
             if (spOperObj != nullptr && spOperObj->objectType == KOGSID_ADDTOGAME ) 
             {
+                if (pobj->objectType == KOGSID_CONTAINER)
+                {
+                    spcontainer.reset((KogsContainer*)pobj);
+                    containers.push_back(spcontainer);
+                }
+                else if (pobj->objectType == KOGSID_SLAMMER)
+                {
+                    spslammer.reset((KogsMatchObject*)pobj);
+                    slammers.push_back(spslammer);
+                }
+            }
+        }
+        // else
+        //    std::cerr << __func__ <<  " LoadGameObject failed for=" << it->first.txhash.GetHex() << std::endl;
+    }
+}
+
+// get deposited NFTs by checking the first baton vins spending them
+static void ListSpentDepositedTokenids(KogsBaseObject *pObj, std::vector<std::shared_ptr<KogsContainer>> &containers, std::vector<std::shared_ptr<KogsMatchObject>> &slammers)
+{
+    if (pBaton->objectType == KOGSID_BATON) 
+    {
+        KogsBaton *pBaton = (KogsBaton*)pObj;
+        std::shared_ptr<KogsBaseObject> spPrevObj;
+
+        // search for the first baton (which spends the deposit txns)
+        while(pBaton->prevturncount > 0)    {
+            spPrevObj.reset( LoadGameObject(pBaton->tx.vin[0].prevout.hash, pBaton->tx.vin[0].prevout.n) );
+            if (spPrevObj == nullptr)   {
+                std::cerr << __func__ << " bad previos baton null" << std::endl;
+                return;
+            }
+            if (spPrevObj->objectType != KOGSID_BATON)  {
+                std::cerr << __func__ << " bad previos baton type=" << (int)spPrevObj->objectType << std::endl;
+                return;
+            }
+            pBaton = (KogsBaton*)spPrevObj.get();
+        }
+        // skip initial vins: game tx and randoms txns:
+        int ivin = 1 + pBaton->randomtxids.size();
+
+        // check for vins spending deposit tx
+        for (; ivin < pBaton->tx.vin.size(); ivin ++)     
+        {
+            // try to load deposited NFTs
+            for (int ivout = 0; ; ivout ++)
+            {
+                std::shared_ptr<KogsContainer> spcontainer;
+                std::shared_ptr<KogsMatchObject> spslammer;
+                KogsBaseObject* pobj = LoadGameObject(pBaton->tx.vin[ivin].prevout.hash, ivout); // load and unmarshal gameobject for this txid
+                if (pobj == nullptr || pobj->tx.vout.size() == 0)
+                    break; // no more tokens for this vin's deposit tx
+                std::cerr << __func__ <<  " objectType=" << (int)pobj->objectType << " creationtxid=" << pobj->creationtxid.GetHex() << std::endl;
+                // check it was a valid deposit operation:
+                // decode last vout opret where operaton objectType resides
+                std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(pobj->tx, KOGS_USE_LAST_VOUT_OPRETURN) );
+                if (spOperObj != nullptr )
+                    std::cerr << __func__ <<  " spOperObj objectType=" << (int)spOperObj->objectType << " creationtxid=" << spOperObj->creationtxid.GetHex() << std::endl;
+                else
+                    std::cerr << __func__ <<  " spOperObj=null" << std::endl;
+                if (spOperObj == nullptr || spOperObj->objectType != KOGSID_ADDTOGAME ) 
+                    break; // not a deposit tx
+                
                 if (pobj->objectType == KOGSID_CONTAINER)
                 {
                     std::shared_ptr<KogsContainer> spcontainer((KogsContainer*)pobj);
@@ -988,9 +1053,7 @@ static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<Ko
                     slammers.push_back(spslammer);
                 }
             }
-        }
-        // else
-        //    std::cerr << __func__ <<  " LoadGameObject failed for=" << it->first.txhash.GetHex() << std::endl;
+        }        
     }
 }
 
@@ -1029,7 +1092,7 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
             ListDepositedTokenids(pbaton->gameid, spcontainers, spslammers, true);  //false
             for (auto const &spcontainer : spcontainers)  {
                 int32_t i = spcontainer->tx.vout.size();
-                while (--i >= 0 && !spcontainer->tx.vout[i].scriptPubKey.IsPayToCryptoCondition());   // find last cc vout
+                while (--i >= 0 && !spcontainer->tx.vout[i].scriptPubKey.IsPayToCryptoCondition());   // find the last cc vout, it is a special vout to spend it
                 if (std::find(mtx.vin.begin(), mtx.vin.end(), CTxIn(spcontainer->tx.GetHash(), i)) == mtx.vin.end()) // check if not added already
                     mtx.vin.push_back(CTxIn(spcontainer->tx.GetHash(), i));  
             }
@@ -1228,7 +1291,7 @@ static void ListContainerKogs(uint256 containerid, std::vector<uint256> &tokenid
     GetTokensCCaddress1of2(cp, tokenaddr, kogsPk, containertxidPk);
 
     //SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
-    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
+    SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr. Note: always list only confirmed kogs, should not list in mempool as no direct spending exists in batons so kogs in mempool might be lost
     tokenids.clear();
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
@@ -1709,7 +1772,8 @@ static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *
 
     std::vector<std::shared_ptr<KogsContainer>> containers;
     std::vector<std::shared_ptr<KogsMatchObject>> slammers;
-    ListDepositedTokenids(gameid, containers, slammers, true);  //false
+    //ListDepositedTokenids(gameid, containers, slammers, true);  //false does not work as finish tx sends tokens back, so they could not be found when the block is connected
+    ListSpentDepositedTokenids(prevbaton, containers, slammers);
 
     //get kogs tokenids on containers 1of2 address
     for (const auto &c : containers)
@@ -2621,7 +2685,7 @@ UniValue KogsDepositTokensToGame(const CPubKey &remotepk, CAmount txfee_, uint25
     CMutableTransaction mtx;
     struct CCcontract_info *cpTokens, CTokens;
     cpTokens = CCinit(&CTokens, EVAL_TOKENS);
-    UniValue beginResult = TokenBeginTransferTx(mtx, cpTokens, remotepk, 0/*10000*/);
+    UniValue beginResult = TokenBeginTransferTx(mtx, cpTokens, remotepk, 10000);
     if (ResultIsError(beginResult)) {
         CCerrorMT::set(ResultGetError(beginResult));
         return NullUniValue;
