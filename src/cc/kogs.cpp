@@ -997,7 +997,7 @@ static void ListDepositedTokenids(uint256 gameid, std::vector<std::shared_ptr<Ko
 }
 
 // get deposited NFTs by checking the first baton vins spending them
-static void ListSpentDepositedTokenids(KogsBaseObject *pObj, std::vector<std::shared_ptr<KogsContainer>> &containers, std::vector<std::shared_ptr<KogsMatchObject>> &slammers)
+static void ListSpentDepositedTokenids(const KogsBaseObject *pObj, std::vector<std::shared_ptr<KogsContainer>> &containers, std::vector<std::shared_ptr<KogsMatchObject>> &slammers)
 {
     if (pObj->objectType == KOGSID_BATON) 
     {
