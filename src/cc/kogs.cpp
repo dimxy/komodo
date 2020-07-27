@@ -1006,7 +1006,16 @@ static void ListSpentDepositedTokenids(const KogsBaseObject *pObj, std::vector<s
 
         // search for the first baton (which spends the deposit txns)
         while(pBaton->prevturncount > 0)    {
-            spPrevObj.reset( LoadGameObject(pBaton->tx.vin[0].prevout.hash, pBaton->tx.vin[0].prevout.n) );
+            // find first ccvin:
+            int32_t ccvin = 0;
+            for (; ccvin < pBaton->tx.vin.size(); ccvin ++)
+                if (IsCCInput(pBaton->tx.vin[ccvin].scriptSig))   
+                    break;
+            if (ccvin == pBaton->tx.vin.size())  {
+                std::cerr << __func__ << " no cc vin" << std::endl;
+                return;
+            }
+            spPrevObj.reset( LoadGameObject(pBaton->tx.vin[ccvin].prevout.hash, pBaton->tx.vin[ccvin].prevout.n) );
             if (spPrevObj == nullptr)   {
                 std::cerr << __func__ << " bad previos baton null" << std::endl;
                 return;
@@ -1749,13 +1758,13 @@ static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *
 {   
     if (prevbaton == nullptr) // check for internal logic error
     {
-        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "previous object is null"  << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "previous baton is null"  << std::endl);
         return false;
     }
 
     if (prevbaton->objectType != KOGSID_BATON && prevbaton->objectType != KOGSID_GAME)
     {
-        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "incorrect previous objectType=" << (char)prevbaton->objectType << std::endl);
+        LOGSTREAMFN("kogs", CCLOG_ERROR, stream << "incorrect previous baton objectType=" << (char)prevbaton->objectType << std::endl);
         return false;
     }
 
@@ -1772,8 +1781,10 @@ static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *
 
     std::vector<std::shared_ptr<KogsContainer>> containers;
     std::vector<std::shared_ptr<KogsMatchObject>> slammers;
-    //ListDepositedTokenids(gameid, containers, slammers, true);  //false does not work as finish tx sends tokens back, so they could not be found when the block is connected
-    ListSpentDepositedTokenids(prevbaton, containers, slammers);
+    if (newbaton.tx.IsNull()) // for new created baton just searching for deposit utxo (in CreateBatonTx they will be spent)
+        ListDepositedTokenids(gameid, containers, slammers, true);  //false - look only confirmed tx
+    else   // for validated baton searching for vins spending deposit tx (init tx in int the validation code for the current baton)    
+        ListSpentDepositedTokenids(prevbaton, containers, slammers);  // if tx spending deposit txns exist, use its vins to search deposit tx. If deposit tx could be in the mempool, searching for utxo is not enough as mempool tx might be lost  
 
     //get kogs tokenids on containers 1of2 address
     for (const auto &c : containers)
@@ -4514,6 +4525,7 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
     // create test baton object using validated object as an init object (with the stored random data)
     LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating test baton"  << std::endl);
     std::vector<std::pair<uint256, int32_t>> randomUtxos;
+    testBaton.tx = tx; // init tx in baton as it is used for getting the prev txns
     if (!CreateNewBaton(spPrevObj.get(), gameid, spGameConfig, spPlayer, nullptr, testBaton, pBaton, randomUtxos, forceFinish))
         return errorStr = "could not create test baton", false;
 
