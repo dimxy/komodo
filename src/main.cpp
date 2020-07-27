@@ -120,7 +120,7 @@ unsigned int expiryDelta = DEFAULT_TX_EXPIRY_DELTA;
 CFeeRate minRelayTxFee = CFeeRate(DEFAULT_MIN_RELAY_TX_FEE);
 
 CTxMemPool mempool(::minRelayTxFee);
-// CTxMemPool tmpmempool(::minRelayTxFee);
+CTxMemPool tmpmempool(::minRelayTxFee);
 
 struct COrphanTx {
     CTransaction tx;
@@ -2127,14 +2127,36 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
     CTxMemPoolEntry entry(tx, 0, GetTime(), 0, chainActive.Height(), mempool.HasNoInputsOf(tx), false, consensusBranchId);
     //fprintf(stderr, "adding %s to mempool from block %d\n",tx.GetHash().ToString().c_str(),chainActive.GetHeight());
     
-    //CCoinsView dummy;
-    //CCoinsViewCache view(&dummy);
+    CCoinsView dummy;
+    CCoinsViewCache view(&dummy);
 
-    //LOCK(pool.cs);
+    LOCK(pool.cs);
 
     pool.addUnchecked(tx.GetHash(), entry, false);
     {
-        /*if (!tx.IsCoinImport() && !fImporting && !fReindex)
+        if (!tx.IsCoinImport() && !tx.IsPegsImport())
+        {
+
+            // do all inputs exist?
+            // Note that this does not check for the presence of actual outputs (see the next check for that),
+            // and only helps with filling in pfMissingInputs (to determine missing vs spent).
+            /*BOOST_FOREACH(const CTxIn txin, tx.vin)
+            {
+                if (!view.HaveCoins(txin.prevout.hash))
+                {
+                    //fprintf(stderr,"missing inputs\n");
+                    return false; 
+                }
+            }*/
+            // are the actual inputs available?
+            if (!view.HaveInputs(tx))   // also adds vin txns to CoinViewCache
+            {
+                //fprintf(stderr,"accept failure.1\n");
+                return false;
+            }
+        }
+
+        if (!tx.IsCoinImport() && !fImporting && !fReindex)
         {
             // Add memory address index
             if (fAddressIndex) {
@@ -2145,7 +2167,7 @@ bool CCTxFixAcceptToMemPoolUnchecked(CTxMemPool& pool, const CTransaction &tx)
             if (fSpentIndex) {
                 pool.addSpentIndex(entry, view);
             }
-        }*/
+        }
     }
     return true;
 }
@@ -2225,7 +2247,7 @@ struct CompareBlocksByHeightMain
     else return(coins.vout[n].nValue);
 }*/
 
-bool myAddtomempool(CTransaction &tx, CValidationState *pstate, bool fSkipExpiry)
+bool myAddtomempool(const CTransaction &tx, CValidationState *pstate, bool fSkipExpiry)
 {
     CValidationState state;
     if (!pstate)
@@ -4284,7 +4306,8 @@ static int64_t nTimePostConnect = 0;
 class CMempoolStateSaver 
 {
 public: 
-    CMempoolStateSaver(const std::string & _caller) : isAssetChain(false), preventRestore(false), caller(_caller), savedMempool(::minRelayTxFee) {}
+    CMempoolStateSaver(const std::string & _caller) : isAssetChain(false), preventRestore(false), caller(_caller) {} 
+        //savedMempool(::minRelayTxFee) {}
     void Save(bool _isAssetChain) 
     {
         isAssetChain = _isAssetChain;
@@ -4292,14 +4315,15 @@ public:
         {
             // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
             LOCK2(cs_main, mempool.cs);
-
+            mempoolState.reserve(mempool.size());
             //fprintf(stderr, "starting... mempoolsize.%ld\n",mempool.size());
             //std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
-            BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
+            for (auto const & e : mempool.mapTx) {
                 const CTransaction &tx = e.GetTx();
                 const uint256 &hash = tx.GetHash();
                 if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
-                    savedMempool.addUnchecked(hash, e, true);
+                    //savedMempool.addUnchecked(hash, e, true);
+                    mempoolState.push_back(hash);   // remember txns that are currently in the mempool 
                     //std::cerr << __func__ << " savedMempool.addUnchecked=" << hash.GetHex() << std::endl;
                 }
             }
@@ -4316,7 +4340,8 @@ public:
     void PreventRestore() 
     {
         if (isAssetChain)   {
-            savedMempool.clear();
+            //savedMempool.clear();
+            mempoolState.clear();
             preventRestore = true;
             //std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
         }
@@ -4334,42 +4359,22 @@ private:
                 // clear current mempool:
                 // std::cerr << __func__ << " called from " << caller << " thread=" << boost::this_thread::get_id() << std::endl;
 
-                list<CTransaction> transactionsToRemove;
-                BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
+                // collect txns added from the connected block:
+                std::list<CTransaction> txnsToRemove;
+                for (auto const & e : mempool.mapTx) {
                     const CTransaction &tx = e.GetTx();
                     if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
-                        transactionsToRemove.push_back(tx);
+                        if (std::find(mempoolState.begin(), mempoolState.end(), tx.GetHash()) == mempoolState.end())    {
+                            txnsToRemove.push_back(tx);    
+                        }
                     }                
                 }
-                BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
+
+                // remove txns that were added from the connected block
+                for (auto const & tx : txnsToRemove) {
                     list<CTransaction> removed;
                     mempool.remove(tx, removed, false);
-                    //std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex()  << " " << removed.size() << std::endl;
-                }            
-
-                // return the saved txns to mempool:
-
-                //CCoinsView dummy;
-                //CCoinsViewCache view(&dummy);
-                {
-                    BOOST_FOREACH(const CTxMemPoolEntry& e, savedMempool.mapTx) {
-                        const CTransaction &tx = e.GetTx();
-                        const uint256 &hash = tx.GetHash();
-                        mempool.addUnchecked(hash, e, true);
-                        /*if (!tx.IsCoinImport() && !fImporting && !fReindex)
-                        {
-                            // Add memory address index
-                            if (fAddressIndex) {
-                                mempool.addAddressIndex(e, view);
-                            }
-
-                            // Add memory spent index
-                            if (fSpentIndex) {
-                                mempool.addSpentIndex(e, view);
-                            }
-                        }*/
-                    }
-                    savedMempool.clear();
+                    std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex() << " " << removed.size() << std::endl;
                 }
             }
         }
@@ -4384,9 +4389,12 @@ public:
 private:
     bool isAssetChain;
     bool preventRestore;
-    CTxMemPool savedMempool;
+    //CTxMemPool savedMempool;
+    std::vector<uint256> mempoolState;
     std::string caller;
 };
+
+
 
 
 /**
@@ -5373,7 +5381,6 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
         LOCK2(cs_main, mempool.cs);
         //fprintf(stderr, "starting... mempoolsize.%ld\n",mempool.size());
-        /* we already did this in CMempoolStateSaver
         list<CTransaction> transactionsToRemove;
         BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
             const CTransaction &tx = e.GetTx();
@@ -5388,13 +5395,13 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
             list<CTransaction> removed;
             //std::cerr << __func__ << " before mempool.remove" << std::endl;
             mempool.remove(tx, removed, false);
-        } */
+        } 
 
         // add all the txs in the block to the empty mempool.
         // CC validation shouldnt (cant) depend on the state of mempool!
         while ( 1 )
         {
-            // list<CTransaction> removed;
+            list<CTransaction> removed;
             for (i=0; i<block.vtx.size(); i++)
             {
                 CValidationState state; CTransaction Tx; 
@@ -5426,7 +5433,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                 // here we remove any txs in the temp mempool that were included in the block.
                 // (we do not do this anymore as tmpmempool is used for saving the mempool state
                 // and if a block tx was in tmpmempool it would just try to add it to the mempool second time, no problem with this
-                // tmpmempool.remove(tx, removed, false);
+                tmpmempool.remove(tx, removed, false);
                 // std::cerr << __func__ << " after tmpmempool.removed size=" << removed.size() << std::endl;
             }
             //fprintf(stderr, "removed.%ld\n",removed.size());
@@ -5479,19 +5486,26 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
 
     if ( ASSETCHAINS_CC != 0 )
     {
-        /*LOCK2(cs_main,mempool.cs);
+        LOCK2(cs_main, mempool.cs);
         // here we add back all txs from the temp mempool to the main mempool.
+        fprintf(stderr, "%s adding back to mempool. tmpmempool.size.%ld\n", __func__, tmpmempool.size());
+
         BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool.mapTx)
         {
             const CTransaction &tx = e.GetTx();
             const uint256 &hash = tx.GetHash();
-            std::cerr << __func__ << " mempool.addUnchecked=" << hash.GetHex() << std::endl;
-            mempool.addUnchecked(hash,e,true);
-        } */
-        //fprintf(stderr, "finished adding back. mempoolsize.%ld\n",mempool.size());
+            CValidationState state;
+            std::cerr << __func__ << " myAddtomempool=" << hash.GetHex() << std::endl;
+            
+            //mempool.addUnchecked(hash,e,true);
+            bool bResult = myAddtomempool(tx, &state, true); // add with indexes update
+            std::cerr << __func__ << " myAddtomempool=" << hash.GetHex() << " result=" << bResult << std::endl;
+
+        } 
+        fprintf(stderr, "%s finished adding back. mempoolsize.%ld\n", __func__, mempool.size());
         // empty the temp mempool for next time.
         // std::cerr << __func__ << " tmpmempool.clear()" << std::endl;
-        // tmpmempool.clear(); // will be cleared in CMempoolStateSaver
+        tmpmempool.clear(); // will be cleared in CMempoolStateSaver
     }
     return true;
 }
