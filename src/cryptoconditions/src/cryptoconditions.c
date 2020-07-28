@@ -157,6 +157,7 @@ void asnCondition(const CC *cond, Condition_t *asn) {
     {
         CompoundSha256Condition_t *sequence=asn->present==Condition_PR_thresholdSha256?&asn->choice.thresholdSha256:&asn->choice.prefixSha256;
         sequence->cost = cc_getCost(cond);
+        sequence->fingerprint.buf = calloc(1, 32);
         cond->type->fingerprint(cond,sequence->fingerprint.buf);
         sequence->fingerprint.size = 32;
         sequence->subtypes = asnSubtypes(cond->type->getSubtypes(cond));
@@ -173,6 +174,7 @@ void asnCondition(const CC *cond, Condition_t *asn) {
             case Condition_PR_evalSha256: choice = &asn->choice.evalSha256; break;
         };
         choice->cost = cc_getCost(cond);
+        choice->fingerprint.buf = calloc(1, 32);
         cond->type->fingerprint(cond,choice->fingerprint.buf);
         choice->fingerprint.size = 32;
     }
