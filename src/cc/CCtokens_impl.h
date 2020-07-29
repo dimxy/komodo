@@ -26,7 +26,8 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 {
 	CAmount /*threshold, price,*/ totalinputs = 0; 
     int32_t n = 0; 
-	std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+	//std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+	std::vector<std::pair<CAddressUnspentCCKey, CAddressUnspentCCValue> > unspentOutputs;
 
     if (cp->evalcode != V::EvalCode())
         LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "warning: EVAL_TOKENS *cp is needed but used evalcode=" << (int)cp->evalcode << std::endl);
@@ -41,7 +42,9 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     }
 
     //if (!useMempool)  // reserved for mempool use
-	    SetCCunspents(unspentOutputs, (char*)tokenaddr, true);
+	    //SetCCunspents(unspentOutputs, (char*)tokenaddr, true);
+        SetCCunspentsCCIndex(unspentOutputs, tokenaddr, tokenid);
+
     //else
     //  SetCCunspentsWithMempool(unspentOutputs, (char*)tokenaddr, true);  // add tokens in mempool too
 
@@ -51,9 +54,10 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 
 	// threshold = total / (maxinputs != 0 ? maxinputs : CC_MAXVINS);   // let's not use threshold
 
-	for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
+	//for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
+	for (std::vector<std::pair<CAddressUnspentCCKey, CAddressUnspentCCValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
 	{
-        CTransaction vintx;
+        CTransaction tx;
         uint256 hashBlock;
 
 		//if (it->second.satoshis < threshold)            // this should work also for non-fungible tokens (there should be only 1 satoshi for non-fungible token issue)
@@ -61,25 +65,25 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
         if (it->second.satoshis == 0)
             continue;  // skip null vins 
 
-        if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](const CTxIn &vin){ return vin.prevout.hash == it->first.txhash && vin.prevout.n == it->first.index; }) != mtx.vin.end())  
+        if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](const CTxIn &vin){ return vin.prevout.hash == it->second.txhash && vin.prevout.n == it->second.index; }) != mtx.vin.end())  
             continue;  // vin already added
 
-		if (myGetTransaction(it->first.txhash, vintx, hashBlock) != 0)
+		if (myGetTransaction(it->second.txhash, tx, hashBlock) != 0)
 		{
             char destaddr[KOMODO_ADDRESS_BUFSIZE];
-            std::cerr << __func__ << " scriptPubKey.size()=" << vintx.vout[it->first.index].scriptPubKey.size() << " scriptPubKey=" << vintx.vout[it->first.index].scriptPubKey.ToString() << " scriptPubKey[0]" << (int)vintx.vout[it->first.index].scriptPubKey[0] << std::endl;
-			Getscriptaddress(destaddr, vintx.vout[it->first.index].scriptPubKey);
+            std::cerr << __func__ << " scriptPubKey.size()=" << tx.vout[it->second.index].scriptPubKey.size() << " scriptPubKey=" << tx.vout[it->second.index].scriptPubKey.ToString() << " scriptPubKey[0]" << (int)tx.vout[it->second.index].scriptPubKey[0] << std::endl;
+			Getscriptaddress(destaddr, tx.vout[it->second.index].scriptPubKey);
 			if (strcmp(destaddr, tokenaddr) != 0 /*&& 
                 strcmp(destaddr, cp->unspendableCCaddr) != 0 &&   // TODO: check why this. Should not we add token inputs from unspendable cc addr if mypubkey is used?
                 strcmp(destaddr, cp->unspendableaddr2) != 0*/)      // or the logic is to allow to spend all available tokens (what about unspendableaddr3)?
 				continue;
 			
-            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() check vintx vout destaddress=" << destaddr << " amount=" << vintx.vout[it->first.index].nValue << std::endl);
+            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() checked tx vout destaddress=" << destaddr << " amount=" << tx.vout[it->second.index].nValue << std::endl);
 
-			if (IsTokensvout<V>(true, true, cp, NULL, vintx, it->first.index, tokenid) > 0 && !myIsutxo_spentinmempool(ignoretxid,ignorevin,it->first.txhash, it->first.index))
+			if (IsTokensvout<V>(true, true, cp, NULL, tx, it->second.index, tokenid) > 0 && !myIsutxo_spentinmempool(ignoretxid, ignorevin, it->second.txhash, it->second.index))
 			{                
                 if (total != 0 && maxinputs != 0)  // if it is not just to calc amount...
-					mtx.vin.push_back(CTxIn(it->first.txhash, it->first.index, CScript()));
+					mtx.vin.push_back(CTxIn(it->second.txhash, it->second.index, CScript()));
 
 				totalinputs += it->second.satoshis;
                 LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() adding input nValue=" << it->second.satoshis  << std::endl);
@@ -404,7 +408,7 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
     CAmount totalInputs;
     // always add inputs only from the mypk passed in the param to prove the token creator has the token originator pubkey
     // This what the AddNormalinputsRemote does (and it is not necessary that this is done only for nspv calls):
-	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfeeCount * txfee, 0x10000)) > 0)
+	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfeeCount * txfee, 0x10000, addTxInMemory)) > 0)
 	{
         CAmount mypkInputs = TotalPubkeyNormalInputs(mtx, mypk);  
         if (mypkInputs < tokensupply) {     // check that the token amount is really issued with mypk (because in the wallet there may be some other privkeys)
@@ -450,7 +454,7 @@ template <class V>
 std::string CreateTokenLocal(CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData)
 {
     CPubKey nullpk = CPubKey();
-    UniValue sigData = CreateTokenExt<V>(nullpk, txfee, tokensupply, name, description, nonfungibleData, 0, false);
+    UniValue sigData = CreateTokenExt<V>(nullpk, txfee, tokensupply, name, description, nonfungibleData, 0, true); //TODO: temp true, set back to false
     return sigData[JSON_HEXTX].getValStr();
 }
 

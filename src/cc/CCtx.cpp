@@ -598,7 +598,60 @@ void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentVa
 void NSPV_CCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &txids,char *coinaddr,bool ccflag);
 void NSPV_CCtxids(std::vector<uint256> &txids,char *coinaddr,bool ccflag, uint8_t evalcode,uint256 filtertxid, uint8_t func);
 
-void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool ccflag)
+// set cc or normal unspents from mempool
+static void AddCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC)
+{
+    // lock mempool
+    ENTER_CRITICAL_SECTION(mempool.cs);
+
+    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
+        mi != mempool.mapTx.end(); ++mi)
+    {
+        const CTransaction& memtx = mi->GetTx();
+        for (int32_t i = 0; i < memtx.vout.size(); i++)
+        {
+            if (isCC && memtx.vout[i].scriptPubKey.IsPayToCryptoCondition() || !isCC && !memtx.vout[i].scriptPubKey.IsPayToCryptoCondition())
+            {
+                uint256 dummytxid;
+                int32_t dummyvout;
+                if (!myIsutxo_spentinmempool(dummytxid, dummyvout, memtx.GetHash(), i))
+                {
+                    char voutaddr[64];
+                    Getscriptaddress(voutaddr, memtx.vout[i].scriptPubKey);
+                    if (strcmp(voutaddr, destaddr) == 0)
+                    {
+                        uint160 hashBytes;
+                        std::string addrstr(destaddr);
+                        CBitcoinAddress address(addrstr);
+                        int type;
+
+                        if (address.GetIndexKey(hashBytes, type, isCC) == 0)
+                            continue;
+
+                        // create unspent output key value pair
+                        CAddressUnspentKey key;
+                        CAddressUnspentValue value;
+
+                        key.type = type;
+                        key.hashBytes = hashBytes;
+                        key.txhash = memtx.GetHash();
+                        key.index = i;
+
+                        value.satoshis = memtx.vout[i].nValue;
+                        value.blockHeight = 0;
+                        value.script = memtx.vout[i].scriptPubKey;
+
+                        unspentOutputs.push_back(std::make_pair(key, value));
+                    }
+                }
+            }
+        }
+    }
+    LEAVE_CRITICAL_SECTION(mempool.cs);
+}
+
+
+void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr,bool ccflag)
 {
     int32_t type=0,i,n; char *ptr; std::string addrstr; uint160 hashBytes; std::vector<std::pair<uint160, int> > addresses;
     if ( KOMODO_NSPV_SUPERLITE )
@@ -618,6 +671,45 @@ void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValu
     for (std::vector<std::pair<uint160, int> >::iterator it = addresses.begin(); it != addresses.end(); it++)
     {
         if ( GetAddressUnspent((*it).first, (*it).second, unspentOutputs) == 0 )
+            return;
+    }
+}
+
+// SetCCunspents with support of looking utxos in mempool and checking that utxos are not spent in mempool too
+void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag)
+{
+    SetCCunspents(unspentOutputs, coinaddr, ccflag);
+
+    // remove utxos spent in mempool
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); )
+    {
+        uint256 dummytxid;
+        int32_t dummyvout;
+        if (myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index)) {
+            //std::cerr << __func__ << " erasing spent in mempool txid=" << it->first.txhash.GetHex() << " index=" << it->first.index << " spenttxid=" << dummytxid.GetHex() << std::endl;
+            it = unspentOutputs.erase(it);
+        }
+        else
+            it++;
+    }
+    AddCCunspentsInMempool(unspentOutputs, coinaddr, ccflag);
+}
+
+
+// find cc unspent outputs with use unspents cc index
+void SetCCunspentsCCIndex(std::vector<std::pair<CAddressUnspentCCKey, CAddressUnspentCCValue> > &unspentOutputs, const char *coinaddr, uint256 creationId)
+{
+    int32_t type=0;
+    uint160 hashBytes; 
+    std::vector<std::pair<uint160, uint256> > searchKeys;
+    CBitcoinAddress address(coinaddr);
+
+    if (address.GetIndexKey(hashBytes, type, true) == 0)
+        return;
+    searchKeys.push_back(std::make_pair(hashBytes, creationId));
+    for (std::vector<std::pair<uint160, uint256> >::iterator it = searchKeys.begin(); it != searchKeys.end(); it++)
+    {
+        if (GetAddressUnspentCCIndex((*it).first, (*it).second, unspentOutputs, -1, -1, 0) == 0)
             return;
     }
 }
@@ -948,7 +1040,7 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx, int64_t total, int32_t maxinp
 }
 
 // has additional mypk param for nspv calls
-int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs)
+int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs, bool mempool)
 {
     int32_t abovei,belowi,ind,vout,i,n = 0; int64_t sum,threshold,above,below; int64_t remains,nValue,totalinputs = 0; char coinaddr[64]; uint256 txid,hashBlock; CTransaction tx; struct CC_utxo *utxos,*up;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
@@ -962,15 +1054,20 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
     else threshold = total;
     sum = 0;
     Getscriptaddress(coinaddr,CScript() << vscript_t(mypk.begin(), mypk.end()) << OP_CHECKSIG);
-    SetCCunspents(unspentOutputs,coinaddr,false);
+    if (!mempool)
+        SetCCunspents(unspentOutputs,coinaddr,false);
+    else
+        SetCCunspentsWithMempool(unspentOutputs,coinaddr,false);
+
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
         txid = it->first.txhash;
         vout = (int32_t)it->first.index;
         //if ( it->second.satoshis < threshold )
-        //    continue;
-        if( it->second.satoshis == 0 )
-            continue;
+        //    continue;  // do not use threshold
+        if( it->second.satoshis == 0 )  
+            continue;  //skip null outputs
+
         if ( myGetTransaction(txid,tx,hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0 )
         {
             //fprintf(stderr,"check %.8f to vins array.%d of %d %s/v%d\n",(double)tx.vout[vout].nValue/COIN,n,maxinputs,txid.GetHex().c_str(),(int32_t)vout);

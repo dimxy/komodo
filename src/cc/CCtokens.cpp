@@ -611,6 +611,10 @@ bool TokensValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &
 
     if (strcmp(ASSETCHAINS_SYMBOL, "ROGUE") == 0 && chainActive.Height() <= 12500)
         return true;
+    
+    // my test chains:
+    if (strcmp(ASSETCHAINS_SYMBOL, "TOK3") == 0 /*&& eval->GetCurrentHeight() < 100*/)
+        return true;
 
     // check boundaries:
     if (tx.vout.size() < 1)
@@ -708,10 +712,11 @@ bool Tokensv2Validate(struct CCcontract_info *cp, Eval* eval, const CTransaction
         return report_validation_error(__func__, eval, tx, "no vouts");
 
     std::string errorStr;
+    return true;
 
-    if (CheckTokensV2CreateTx(cp, eval, tx))
+    if (CheckTokensV2CreateTx(cp, eval, tx)) //found create tx and it is valid 
         return true;
-    if (eval->state.IsInvalid())
+    if (eval->state.IsInvalid())  // create tx is invalid
         return false;
 
     // check 't' vouts (could have multiple tokenids)

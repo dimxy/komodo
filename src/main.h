@@ -43,6 +43,7 @@
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "uint256.h"
+#include "unspentccindex.h"
 
 #include <algorithm>
 #include <exception>
@@ -844,6 +845,10 @@ bool GetAddressIndex(uint160 addressHash, int type,
                      int start = 0, int end = 0);
 bool GetAddressUnspent(uint160 addressHash, int type,
                        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs);
+
+// get utxos from unspet cc index
+bool GetAddressUnspentCCIndex(uint160 addressHash, uint256 creationId,
+                       std::vector<std::pair<CAddressUnspentCCKey, CAddressUnspentCCValue> > &unspentOutputs, int32_t beginHeight, int32_t endHeight, int64_t maxOutputs);
 
 /** Functions for disk access for blocks */
 bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart);

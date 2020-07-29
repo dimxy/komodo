@@ -1488,7 +1488,9 @@ bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
     return false;
 }
 
-// get OP_DROP data for mixed cc vouts:
+// get OP_DROP data for mixed cc vouts
+// the function returns OP_DROP data as OP_RETURN script. This looks strange but all cc modules have DecodeOpReturn-like functions 
+// that accept OP_RETURN scripts 
 bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret)
 {
     std::vector<vscript_t> vParams;
@@ -1578,4 +1580,52 @@ UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vect
         result.push_back(Pair("mypk Normal Balance",ValueFromAmount(CCaddress_balance(destaddr,0))));
     }
     return(result);
+}
+
+// decode cc transaction:
+// try to find cc data in vout's opdrop or in the last vout opreturn
+// return funcid, version and creationid
+bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_t &funcid, uint8_t &version, uint256 &creationId)
+{
+    CScript opdrop;
+    vscript_t ccdata;
+
+    if (tx.vout.size() > 0)     
+    {
+        // first try if OP_DROP data exists
+        if (GetCCVDataAsOpret(tx.vout[n].scriptPubKey, opdrop))
+            GetOpReturnData(opdrop, ccdata);
+        else
+            GetOpReturnData(tx.vout.back().scriptPubKey, ccdata);  // use OP_RETURN in the last vout if no OP_DROP data
+
+        // use following algotithm to determine creationId
+        // get the evalcode from ccdata
+        // if no cc vins found with this evalcode this is the creation tx and creationId = tx.GetHash()
+        // else the creationId is after the version field: 'evalcode funcid version creationId'
+        if (ccdata.size() >= 3)  {
+            struct CCcontract_info *cp, C; 
+            cp = CCinit(&C, ccdata[0]);
+            int32_t i = 0;
+            for (; i < tx.vin.size(); i ++)
+                if (cp->ismyvin(tx.vin[i].scriptSig))
+                    break;
+            if (i == tx.vin.size()) 
+            {
+                creationId = tx.GetHash(); // tx is the creation tx
+                evalcode = ccdata[0];
+                funcid = ccdata[1];
+                version = ccdata[2];
+            }
+            else
+            {
+                if (ccdata.size() >= 3 + sizeof(uint256))   {  // get creationId from the ccdata
+                    bool isEof = true;
+                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; ss >> funcid; ss >> version; ss >> creationId; isEof = ss.eof()) && isEof)
+                        return false;
+                }
+            }
+        }
+        return true;
+    }
+    return false;
 }
