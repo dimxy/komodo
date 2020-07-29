@@ -772,7 +772,8 @@ bool CBlockTreeDB::ReadAddressUnspentCCIndex(uint160 addressHash, uint256 creati
     else
         pcursor->Seek(make_pair(DB_ADDRESSUNSPENT_CC_INDEX, CAddressUnspentIteratorCCKeyCreationId(addressHash, creationid)));  // search first address+creationId
 
-    while (pcursor->Valid() && (maxOutputs <= 0 || maxOutputs > 0)) {
+    int64_t n = 0;
+    while (pcursor->Valid() && (maxOutputs <= 0 || n < maxOutputs)) {
         boost::this_thread::interruption_point();
         try {
             CDataStream ssKey(SER_DISK, CLIENT_VERSION);
@@ -787,8 +788,7 @@ bool CBlockTreeDB::ReadAddressUnspentCCIndex(uint160 addressHash, uint256 creati
                     pcursor->GetValue(ccValue);
                     if ((beginHeight < 0 || ccValue.blockHeight >= beginHeight) && (endHeight < 0 || ccValue.blockHeight <= endHeight))   { 
                         unspentOutputs.push_back(make_pair(indexKey, ccValue));
-                        if (maxOutputs > 0)
-                            maxOutputs --;
+                        n ++;
                     }
                     pcursor->Next();
                 } catch (const std::exception& e) {
