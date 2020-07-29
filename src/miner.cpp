@@ -2037,6 +2037,7 @@ void static BitcoinMiner()
                         fprintf(stderr, "\n");
                     }
                     CValidationState state;
+                    ENTER_CRITICAL_SECTION(cs_main);   // need cs_main here bcz chainActive.LastTip() might change and TestBlockValidity will assert
                     if ( !TestBlockValidity(state,B, chainActive.LastTip(), true, false))
                     {
                         h = UintToArith256(B.GetHash());
@@ -2044,7 +2045,12 @@ void static BitcoinMiner()
                         //    fprintf(stderr,"%02x",((uint8_t *)&h)[z]);
                         //fprintf(stderr," Invalid block mined, try again\n");
                         gotinvalid = 1;
+                        LEAVE_CRITICAL_SECTION(cs_main);
                         return(false);
+                    }
+                    else
+                    {
+                        LEAVE_CRITICAL_SECTION(cs_main);
                     }
                     KOMODO_CHOSEN_ONE = 1;
                     // Found a solution
