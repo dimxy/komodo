@@ -3257,8 +3257,9 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = block.vtx[i];
         uint256 hash = tx.GetHash();
-        if (fAddressIndex || ASSETCHAINS_CC != 0) {
+        if (fAddressIndex || fUnspentCCIndex) {
 
+            std::cerr << __func__ << " fAddressIndex=" << fAddressIndex << " fUnspentCCIndex=" << fUnspentCCIndex << std::endl;
             for (unsigned int k = tx.vout.size(); k-- > 0;) {
                 const CTxOut &out = tx.vout[k];
 
@@ -3290,9 +3291,9 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                                     opreturn = tx.vout.back().scriptPubKey;
 
                                 if (CCDecodeTxVout(tx, k, evalcode, funcid, version, creationId))  {
-                                    // set key for delete from unspent cc index
+                                    // set key for delete the current entry from unspent cc index
                                     addressUnspentCCIndex.push_back(make_pair(
-                                        CAddressUnspentCCKey(addrHash, creationId, funcid, version), 
+                                        CAddressUnspentCCKey(addrHash, creationId, hash, k), 
                                         CAddressUnspentCCValue()));
                                     std::cerr << __func__ << " undoing cc tx=" << hash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
                                 }
@@ -3384,8 +3385,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
 
                                         if (CCDecodeTxVout(vintx, input.prevout.n, evalcode, funcid, version, creationId))
                                             addressUnspentCCIndex.push_back(make_pair(
-                                                CAddressUnspentCCKey(addrHash, creationId, funcid, version), 
-                                                CAddressUnspentCCValue(input.prevout.hash, input.prevout.n, prevout.nValue, prevout.scriptPubKey, prevOpreturn, undo.nHeight)));
+                                                CAddressUnspentCCKey(addrHash, creationId, input.prevout.hash, input.prevout.n), 
+                                                CAddressUnspentCCValue(prevout.nValue, prevout.scriptPubKey, prevOpreturn, undo.nHeight, funcid, version)));
                                     }
                                 }
                             }
@@ -3810,9 +3811,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                         opreturn = tx.vout.back().scriptPubKey;
 
                                     if (CCDecodeTxVout(vintx, input.prevout.n, evalcode, funcid, version, creationId))  {
-                                        // set key for delete from unspent cc index
+                                        // set key for delete the spent output
                                         addressUnspentCCIndex.push_back(make_pair(
-                                            CAddressUnspentCCKey(addrHash, creationId, funcid, version), 
+                                            CAddressUnspentCCKey(addrHash, creationId, input.prevout.hash, input.prevout.n), 
                                             CAddressUnspentCCValue()));
                                         std::cerr << __func__ << " erasing spent cc output input.prevout.hash=" << input.prevout.hash.GetHex() << " input.prevout.n=" << input.prevout.n << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
                                     }
@@ -3906,8 +3907,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                 if (CCDecodeTxVout(tx, k, evalcode, funcid, version, creationId))  {
                                     // record cc index output with spk and opreturn
                                     addressUnspentCCIndex.push_back(make_pair(
-                                        CAddressUnspentCCKey(addrHash, creationId, funcid, version), 
-                                        CAddressUnspentCCValue(txhash, k, tx.vout[k].nValue, tx.vout[k].scriptPubKey, opreturn, pindex->GetHeight())));
+                                        CAddressUnspentCCKey(addrHash, creationId, txhash, k), 
+                                        CAddressUnspentCCValue(tx.vout[k].nValue, tx.vout[k].scriptPubKey, opreturn, pindex->GetHeight(), funcid, version)));
                                     std::cerr << __func__ << " adding to cc index tx=" << txhash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
                                 }
                             }
