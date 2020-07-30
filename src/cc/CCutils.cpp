@@ -384,7 +384,6 @@ bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk,bool mixed)
     {
         if (mixed) CCtoAnon(payoutCond.get());
         Getscriptaddress(destaddr,CCPubKey(payoutCond.get(),mixed));
-        std::cerr << __func__ << " destaddr=" << destaddr << std::endl;
     }
     return(destaddr[0] != 0);
 }
@@ -1501,7 +1500,6 @@ bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret)
         {
             //vscript_t vopret(vParams[0].begin() + 6, vParams[0].end());
             opret << OP_RETURN << vParams[0];  // return vData[1] as cc opret
-            std::cerr << __func__ << " ccopret=" << opret.ToString() << std::endl;
             return true;
         }
     }
