@@ -3257,9 +3257,8 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = block.vtx[i];
         uint256 hash = tx.GetHash();
-        if (fAddressIndex || fUnspentCCIndex) {
-
-            std::cerr << __func__ << " fAddressIndex=" << fAddressIndex << " fUnspentCCIndex=" << fUnspentCCIndex << std::endl;
+        if (fAddressIndex || fUnspentCCIndex) 
+        {
             for (unsigned int k = tx.vout.size(); k-- > 0;) {
                 const CTxOut &out = tx.vout[k];
 
@@ -3732,8 +3731,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     txdata.reserve(block.vtx.size()); // Required so that pointers to individual PrecomputedTransactionData don't get invalidated
     for (unsigned int i = 0; i < block.vtx.size(); i++)
     {
-        std::cerr << __func__ << " iterating over block.vtx=" << block.vtx[i].GetHash().GetHex() << " i=" << i << std::endl;
-
         const CTransaction &tx = block.vtx[i];
         const uint256 txhash = tx.GetHash();
         nInputs += tx.vin.size();
@@ -3757,7 +3754,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
             if (fAddressIndex || fSpentIndex || fUnspentCCIndex)
             {
-                std::cerr << __func__ << " erasing previous inputs" << std::endl;
                 for (size_t j = 0; j < tx.vin.size(); j++) 
                 {
                     if (tx.IsPegsImport() && j==0) continue;
@@ -3793,7 +3789,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     // erase spent entry
                     if (fUnspentCCIndex) 
                     {
-                        std::cerr << __func__ << " checking spent cc output input.prevout.hash=" << input.prevout.hash.GetHex() << " input.prevout.n=" << input.prevout.n << std::endl;
                         if (keyType == 3)   
                         {
                             if (vSols.size() > 0)   
@@ -3866,7 +3861,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (fAddressIndex || fUnspentCCIndex) // update address index, unspent index and cc index
         {
-            std::cerr << __func__ << " updating AddressIndex=" << fAddressIndex<< " and UnspentCCIndex=" << fUnspentCCIndex << std::endl;
             for (unsigned int k = 0; k < tx.vout.size(); k++) {
                 const CTxOut &out = tx.vout[k];
 
@@ -3892,7 +3886,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     }
                     if (fUnspentCCIndex) // support cc index for cc chains
                     {
-                        std::cerr << __func__ << " checking for adding to cc index tx=" << txhash.GetHex() << " k=" << k << std::endl;
                         if (keyType == 3)  // type CC
                         {
                             if (vSols.size() > 0)   
