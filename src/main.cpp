@@ -6021,8 +6021,7 @@ bool ProcessNewBlock(bool from_miner,int32_t height,CValidationState &state, CNo
 bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex * const pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot)
 {
     std::cerr << __func__ << " started for block=" << block.GetHash().GetHex() << std::endl;
-    // AssertLockHeld(cs_main);  <-- asserts if DEBUG_LOCKORDER is set
-    LOCK(cs_main);   // TestBlockValidity sometimes is called with no lock of cs_main, but we need this lock to restore the mempool state
+    AssertLockHeld(cs_main);  <-- asserts if DEBUG_LOCKORDER is set
 
     assert(pindexPrev == chainActive.Tip());
 
