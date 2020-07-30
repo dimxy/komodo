@@ -6414,7 +6414,7 @@ bool static LoadBlockIndexDB()
     pblocktree->ReadFlag("spentindex", fSpentIndex);
     LogPrintf("%s: spent index %s\n", __func__, fSpentIndex ? "enabled" : "disabled");
 
-    if (ASSETCHAINS_CC != 0) {
+    if (ASSETCHAINS_CC != 0 || KOMODO_CCACTIVATE != 0) {
         pblocktree->ReadFlag("unspentccindex", fUnspentCCIndex);
         LogPrintf("%s: unspent cc index %s\n", __func__, fUnspentCCIndex ? "enabled" : "disabled");
     }
