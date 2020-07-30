@@ -18,7 +18,6 @@
 #include "CCtokens.h"
 #include "importcoin.h"
 
-
 // overload, adds inputs from token cc addr and returns non-fungible opret payload if present
 // also sets evalcode in cp, if needed
 template <class V>
@@ -46,13 +45,9 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
         SetCCunspentsCCIndex(unspentOutputs, tokenaddr, tokenid);
     //else
     //  SetCCunspentsWithMempool(unspentOutputs, (char*)tokenaddr, true);  // add tokens in mempool too
-
-    if (unspentOutputs.empty()) {
-        LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->evalcodeNFT << std::endl);
-    }
-
+    
 	// threshold = total / (maxinputs != 0 ? maxinputs : CC_MAXVINS);   // let's not use threshold
-    std::cerr << __func__ << " found unspentOutputs=" << unspentOutputs.size() << std::endl;
+    LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found unspentOutputs=" << unspentOutputs.size() << std::endl);
 	//for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
 	for (std::vector<std::pair<CAddressUnspentCCKey, CAddressUnspentCCValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
 	{
@@ -61,6 +56,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 
 		//if (it->second.satoshis < threshold)            // this should work also for non-fungible tokens (there should be only 1 satoshi for non-fungible token issue)
 		//	continue;
+
         if (it->second.satoshis == 0)
             continue;  // skip null vins 
 
@@ -70,14 +66,13 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 		if (myGetTransaction(it->second.txhash, tx, hashBlock) != 0)
 		{
             char destaddr[KOMODO_ADDRESS_BUFSIZE];
-            std::cerr << __func__ << " scriptPubKey.size()=" << tx.vout[it->second.index].scriptPubKey.size() << " scriptPubKey=" << tx.vout[it->second.index].scriptPubKey.ToString() << " scriptPubKey[0]" << (int)tx.vout[it->second.index].scriptPubKey[0] << std::endl;
 			Getscriptaddress(destaddr, tx.vout[it->second.index].scriptPubKey);
 			if (strcmp(destaddr, tokenaddr) != 0 /*&& 
                 strcmp(destaddr, cp->unspendableCCaddr) != 0 &&   // TODO: check why this. Should not we add token inputs from unspendable cc addr if mypubkey is used?
                 strcmp(destaddr, cp->unspendableaddr2) != 0*/)      // or the logic is to allow to spend all available tokens (what about unspendableaddr3)?
 				continue;
 			
-            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() checked tx vout destaddress=" << destaddr << " amount=" << tx.vout[it->second.index].nValue << std::endl);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "checked tx vout destaddress=" << destaddr << " amount=" << tx.vout[it->second.index].nValue << std::endl);
 
 			if (IsTokensvout<V>(true, true, cp, NULL, tx, it->second.index, tokenid) > 0 && !myIsutxo_spentinmempool(ignoretxid, ignorevin, it->second.txhash, it->second.index))
 			{                
@@ -85,7 +80,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 					mtx.vin.push_back(CTxIn(it->second.txhash, it->second.index, CScript()));
 
 				totalinputs += it->second.satoshis;
-                LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() adding input nValue=" << it->second.satoshis  << std::endl);
+                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "adding input nValue=" << it->second.satoshis  << std::endl);
 				n++;
 
 				if ((total > 0 && totalinputs >= total) || (maxinputs > 0 && n >= maxinputs))
@@ -267,7 +262,6 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << CCerror << "=" << total << std::endl);
         return NullUniValue;
 	}
-
 	cp = CCinit(&C, V::EvalCode());
 
 	if (txfee == 0)
@@ -280,7 +274,9 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
         return  NullUniValue;
     }
 
-    CAmount normalInputs = AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote);
+    // CAmount normalInputs = AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote);   // note: wallet scanning for inputs is slower than index scanning
+    CAmount normalInputs = AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, useMempool);
+
     if (normalInputs > 0)
 	{        
 		if ((inputs = AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, CC_MAXVINS, useMempool)) >= total)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
@@ -580,46 +576,6 @@ UniValue TokenInfo(uint256 tokenid)
 
 	return result;
 }
-
-template <class V> 
-static UniValue TokenList()
-{
-	UniValue result(UniValue::VARR);
-	std::vector<uint256> txids;
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentCCMarker;
-
-	struct CCcontract_info *cp, C; uint256 txid, hashBlock;
-	CTransaction vintx; std::vector<uint8_t> origpubkey;
-	std::string name, description;
-
-	cp = CCinit(&C, V::EvalCode());
-
-    auto addTokenId = [&](uint256 txid) {
-        if (myGetTransaction(txid, vintx, hashBlock) != 0) {
-            std::vector<vscript_t>  oprets;
-            if (vintx.vout.size() > 0 && V::DecodeTokenCreateOpRet(vintx.vout[vintx.vout.size() - 1].scriptPubKey, origpubkey, name, description, oprets) != 0) {
-                result.push_back(txid.GetHex());
-            }
-            else {
-                std::cerr << __func__ << " V::DecodeTokenCreateOpRet failed" <<std::endl;
-            }
-        }
-    };
-
-	SetCCtxids(txids, cp->normaladdr, false, cp->evalcode, 0, zeroid, 'c');                      // find by old normal addr marker
-   	for (std::vector<uint256>::const_iterator it = txids.begin(); it != txids.end(); it++) 	{
-        addTokenId(*it);
-	}
-
-    SetCCunspents(unspentCCMarker, cp->unspendableCCaddr, true);    // find by burnable validated cc addr marker
-    std::cerr << __func__ << " unspenCCMarker.size()=" << unspentCCMarker.size() << std::endl;
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentCCMarker.begin(); it != unspentCCMarker.end(); it++) {
-        addTokenId(it->first.txhash);
-    }
-
-	return(result);
-}
-
 
 
 // extract cc token vins' pubkeys:

@@ -75,25 +75,27 @@ UniValue tokenv2address(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return CCaddress(cp, "Tokensv2", pubkey, true);  
 }
 
-template <class V>
-static UniValue tokenlist(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
-{
-    uint256 tokenid;
-    if ( fHelp || params.size() > 0 )
-        throw runtime_error(name + "\n");
-    if ( ensure_CCrequirements(V::EvalCode()) < 0 )
-        throw runtime_error(CC_REQUIREMENTS_MSG);
-    return(TokenList<V>());
-}
-
 UniValue tokenlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    return tokenlist<V1>("tokenlist", params, fHelp, remotepk);
+    uint256 tokenid;
+    if (fHelp || params.size() > 0)
+        throw runtime_error("tokenlist\n");
+        
+    if (ensure_CCrequirements(EVAL_TOKENS) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+
+    return TokenList();
 }
 UniValue tokenv2list(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    return tokenlist<V2>("tokenv2list", params, fHelp, remotepk);
-}
+    uint256 tokenid;
+    if (fHelp || params.size() > 0)
+        throw runtime_error("tokenv2list\n");
+
+    if (ensure_CCrequirements(EVAL_TOKENSV2) < 0)
+        throw runtime_error(CC_REQUIREMENTS_MSG);
+
+    return TokenV2List();}
 
 template <class V>
 static UniValue tokeninfo(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
