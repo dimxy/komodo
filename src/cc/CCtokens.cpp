@@ -21,6 +21,7 @@
   tokens cc tx creation and validation code 
 */
 
+#include "CCtokens_impl.h"
 
 thread_local uint32_t tokenValIndentSize = 0; // for debug logging
 
@@ -170,7 +171,7 @@ CAmount V1::CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, alwa
 
             // get optional nft eval code:
             vscript_t vopretNonfungible;
-            GetNonfungibleData(reftokenid, vopretNonfungible);
+            GetNonfungibleData<V1>(reftokenid, vopretNonfungible);
             if (vopretNonfungible.size() > 0)   {
                 // shift evalcodes so the first is NFT evalcode 
                 evalCode2 = evalCode1;
@@ -324,7 +325,7 @@ CAmount V1::CheckTokensvout(bool goDeeper, bool checkPubkeys /*<--not used, alwa
             LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << "IsTokensvout() vopretExtra=" << HexStr(vopretExtra) << std::endl);
 
             // get non-fungible data
-            GetNonfungibleData(reftokenid, vopretNonfungible);
+            GetNonfungibleData<V1>(reftokenid, vopretNonfungible);
             std::vector<CPubKey> voutPubkeys;
             FilterOutTokensUnspendablePk(voutPubkeysInOpret, voutPubkeys);  // cannot send tokens to token unspendable cc addr (only marker is allowed there)
 
@@ -578,8 +579,6 @@ CAmount V2::CheckTokensvout(bool goDeeper, bool checkPubkeys, struct CCcontract_
 }
 
 
-#include "CCtokens_impl.h"
-
 /*static CPubKey GetTokenOriginatorPubKey(CScript scriptPubKey) {
 
     uint8_t funcId;
@@ -814,7 +813,7 @@ UniValue TokenV2List()
 	struct CCcontract_info *cp, C; 
 	cp = CCinit(&C, EVAL_TOKENSV2);
 
-    auto addTokenId = [&](uint256 tokenid, CScript opreturn) {
+    auto addTokenId = [&](uint256 tokenid, const CScript &opreturn) {
         std::vector<uint8_t> origpubkey;
 	    std::string name, description;
         std::vector<vscript_t>  oprets;

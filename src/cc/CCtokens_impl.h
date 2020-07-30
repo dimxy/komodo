@@ -18,6 +18,33 @@
 #include "CCtokens.h"
 #include "importcoin.h"
 
+// get non-fungible data from 'tokenbase' tx (the data might be empty)
+template <class V>
+void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
+{
+    CTransaction tokenbasetx;
+    uint256 hashBlock;
+
+    if (!myGetTransaction(tokenid, tokenbasetx, hashBlock)) {
+        LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "could not load token creation tx=" << tokenid.GetHex() << std::endl);
+        return;
+    }
+
+    vopretNonfungible.clear();
+    // check if it is non-fungible tx and get its second evalcode from non-fungible payload
+    if (tokenbasetx.vout.size() > 0) {
+        std::vector<uint8_t> origpubkey;
+        std::string name, description;
+        std::vector<vscript_t>  oprets;
+        uint8_t funcid;
+
+        if (IsTokenCreateFuncid(V::DecodeTokenCreateOpRet(tokenbasetx.vout.back().scriptPubKey, origpubkey, name, description, oprets))) {
+            if (oprets.size() > 0)
+                vopretNonfungible = oprets[0];
+        }
+    }
+}
+
 // overload, adds inputs from token cc addr and returns non-fungible opret payload if present
 // also sets evalcode in cp, if needed
 template <class V>
@@ -35,7 +62,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     {
         // check if this is a NFT
         vscript_t vopretNonfungible;
-        GetNonfungibleData(tokenid, vopretNonfungible); //load NFT data 
+        GetNonfungibleData<V>(tokenid, vopretNonfungible); //load NFT data 
         if (vopretNonfungible.size() > 0)
             cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT, for signing
     }
@@ -60,24 +87,24 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
         if (it->second.satoshis == 0)
             continue;  // skip null vins 
 
-        if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](const CTxIn &vin){ return vin.prevout.hash == it->second.txhash && vin.prevout.n == it->second.index; }) != mtx.vin.end())  
+        if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](const CTxIn &vin){ return vin.prevout.hash == it->first.txhash && vin.prevout.n == it->first.index; }) != mtx.vin.end())  
             continue;  // vin already added
 
-		if (myGetTransaction(it->second.txhash, tx, hashBlock) != 0)
+		if (myGetTransaction(it->first.txhash, tx, hashBlock) != 0)
 		{
             char destaddr[KOMODO_ADDRESS_BUFSIZE];
-			Getscriptaddress(destaddr, tx.vout[it->second.index].scriptPubKey);
+			Getscriptaddress(destaddr, tx.vout[it->first.index].scriptPubKey);
 			if (strcmp(destaddr, tokenaddr) != 0 /*&& 
                 strcmp(destaddr, cp->unspendableCCaddr) != 0 &&   // TODO: check why this. Should not we add token inputs from unspendable cc addr if mypubkey is used?
                 strcmp(destaddr, cp->unspendableaddr2) != 0*/)      // or the logic is to allow to spend all available tokens (what about unspendableaddr3)?
 				continue;
 			
-            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "checked tx vout destaddress=" << destaddr << " amount=" << tx.vout[it->second.index].nValue << std::endl);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "checked tx vout destaddress=" << destaddr << " amount=" << tx.vout[it->first.index].nValue << std::endl);
 
-			if (IsTokensvout<V>(true, true, cp, NULL, tx, it->second.index, tokenid) > 0 && !myIsutxo_spentinmempool(ignoretxid, ignorevin, it->second.txhash, it->second.index))
+			if (IsTokensvout<V>(true, true, cp, NULL, tx, it->first.index, tokenid) > 0 && !myIsutxo_spentinmempool(ignoretxid, ignorevin, it->first.txhash, it->first.index))
 			{                
                 if (total != 0 && maxinputs != 0)  // if it is not just to calc amount...
-					mtx.vin.push_back(CTxIn(it->second.txhash, it->second.index, CScript()));
+					mtx.vin.push_back(CTxIn(it->first.txhash, it->first.index, CScript()));
 
 				totalinputs += it->second.satoshis;
                 LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "adding input nValue=" << it->second.satoshis  << std::endl);
@@ -101,7 +128,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     
     // check if this is a NFT
     vscript_t vopretNonfungible;
-    GetNonfungibleData(tokenid, vopretNonfungible);
+    GetNonfungibleData<V>(tokenid, vopretNonfungible);
     if (vopretNonfungible.size() > 0)
         cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT
     
@@ -349,7 +376,7 @@ std::string TokenTransfer(CAmount txfee, uint256 tokenid, CPubKey destpubkey, CA
     cp = CCinit(&C, V::EvalCode());
 
     vscript_t vopretNonfungible;
-    GetNonfungibleData(tokenid, vopretNonfungible);
+    GetNonfungibleData<V>(tokenid, vopretNonfungible);
     if (vopretNonfungible.size() > 0)
         cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT
     GetTokensCCaddress(cp, tokenaddr, mypk, V::IsMixed());
@@ -623,10 +650,6 @@ bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::vector<CPubKey> &vin
 	return found;
 }
 
-
-
-
-
 // this is just for log messages indentation fur debugging recursive calls:
 extern thread_local uint32_t tokenValIndentSize;
 
@@ -687,36 +710,6 @@ static uint8_t ValidateTokenOpret(uint256 txid, const CScript &scriptPubKey, uin
     }
 	return (uint8_t)0;
 }
-
-
-
-// get non-fungible data from 'tokenbase' tx (the data might be empty)
-template <class V>
-void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
-{
-    CTransaction tokenbasetx;
-    uint256 hashBlock;
-
-    if (!myGetTransaction(tokenid, tokenbasetx, hashBlock)) {
-        LOGSTREAM(cctokens_log, CCLOG_INFO, stream << "GetNonfungibleData() could not load token creation tx=" << tokenid.GetHex() << std::endl);
-        return;
-    }
-
-    vopretNonfungible.clear();
-    // check if it is non-fungible tx and get its second evalcode from non-fungible payload
-    if (tokenbasetx.vout.size() > 0) {
-        std::vector<uint8_t> origpubkey;
-        std::string name, description;
-        std::vector<vscript_t>  oprets;
-        uint8_t funcid;
-
-        if (IsTokenCreateFuncid(V::DecodeTokenCreateOpRet(tokenbasetx.vout.back().scriptPubKey, origpubkey, name, description, oprets))) {
-            if (oprets.size() > 0)
-                vopretNonfungible = oprets[0];
-        }
-    }
-}
-
 
 // checks if any token vouts are sent to 'dead' pubkey
 template <class V>

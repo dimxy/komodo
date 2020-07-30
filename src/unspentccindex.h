@@ -23,32 +23,32 @@
 struct CAddressUnspentCCKey {
     uint160 hashBytes;
     uint256 creationid;
-    uint8_t funcid;
-    uint8_t version;
+    uint256 txhash;
+    uint32_t index;
 
     size_t GetSerializeSize(int nType, int nVersion) const {
-        return sizeof(uint160) + sizeof(uint256) + sizeof(uint8_t) + sizeof(uint8_t);
+        return sizeof(uint160) + sizeof(uint256) + sizeof(uint256) + sizeof(uint32_t);
     }
     template<typename Stream>
     void Serialize(Stream& s) const {
         hashBytes.Serialize(s);
         creationid.Serialize(s);
-        ser_writedata8(s, funcid);
-        ser_writedata8(s, version);
+        txhash.Serialize(s);
+        ser_writedata32(s, index);
     }
     template<typename Stream>
     void Unserialize(Stream& s) {
         hashBytes.Unserialize(s);
         creationid.Unserialize(s);
-        funcid = ser_readdata8(s);
-        version = ser_readdata8(s);
+        txhash.Unserialize(s);
+        index = ser_readdata32(s);
     }
 
-    CAddressUnspentCCKey(uint160 addressHash, uint256 txid, uint8_t _funcid, uint8_t _version) {
+    CAddressUnspentCCKey(uint160 addressHash, uint256 txid, uint256 _txid, uint32_t _index) {
         hashBytes = addressHash;
         creationid = txid;
-        funcid = _funcid;
-        version = _version;
+        txhash = _txid;
+        index = _index;
     }
 
     CAddressUnspentCCKey() {
@@ -58,8 +58,8 @@ struct CAddressUnspentCCKey {
     void SetNull() {
         hashBytes.SetNull();
         creationid.SetNull();
-        funcid = 0;
-        version = 0;
+        txhash.SetNull();
+        index = 0;
     }
 };
 
@@ -111,9 +111,9 @@ struct CAddressUnspentIteratorCCKeyCreationId {
         creationid.Unserialize(s);
     }
 
-    CAddressUnspentIteratorCCKeyCreationId(uint160 addressHash, uint256 txid) {
+    CAddressUnspentIteratorCCKeyCreationId(uint160 addressHash, uint256 _creationid) {
         hashBytes = addressHash;
-        creationid = txid;
+        creationid = _creationid;
     }
 
     CAddressUnspentIteratorCCKeyCreationId() {
@@ -128,32 +128,32 @@ struct CAddressUnspentIteratorCCKeyCreationId {
 
 // unspent cc index value
 struct  CAddressUnspentCCValue {
-    uint256 txhash;
-    uint32_t index;
     CAmount satoshis;
     CScript scriptPubKey;
     CScript opreturn;
     int blockHeight;
+    uint8_t funcid;
+    uint8_t version;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITE(txhash);
-        READWRITE(index);
         READWRITE(satoshis);
         READWRITE(*(CScriptBase*)(&scriptPubKey));
         READWRITE(*(CScriptBase*)(&opreturn));
         READWRITE(blockHeight);
+        READWRITE(funcid);
+        READWRITE(version);
     }
 
-    CAddressUnspentCCValue(uint256 _txid, uint32_t _index, CAmount sats, CScript _scriptPubKey, CScript _opreturn, int32_t height) {
-        txhash = _txid;
-        index = _index;
+    CAddressUnspentCCValue(CAmount sats, CScript _scriptPubKey, CScript _opreturn, int32_t height, uint8_t _funcid, uint8_t _version) {
         satoshis = sats;
         scriptPubKey = _scriptPubKey;
         opreturn = _opreturn;
         blockHeight = height;
+        funcid = _funcid;
+        version = _version;
     }
 
     CAddressUnspentCCValue() {
@@ -161,12 +161,12 @@ struct  CAddressUnspentCCValue {
     }
 
     void SetNull() {
-        txhash.SetNull();
-        index = 0;
         satoshis = -1;
         scriptPubKey.clear();
         opreturn.clear();
         blockHeight = 0;
+        funcid = 0;
+        version = 0;
     }
 
     bool IsNull() const {

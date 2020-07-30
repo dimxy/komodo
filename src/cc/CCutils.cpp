@@ -1592,10 +1592,11 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
     if (tx.vout.size() > 0)     
     {
         // first try if OP_DROP data exists
+        bool usedOpreturn;
         if (GetCCVDataAsOpret(tx.vout[n].scriptPubKey, opdrop))
-            GetOpReturnData(opdrop, ccdata);
+            GetOpReturnData(opdrop, ccdata), usedOpreturn = false;
         else
-            GetOpReturnData(tx.vout.back().scriptPubKey, ccdata);  // use OP_RETURN in the last vout if no OP_DROP data
+            GetOpReturnData(tx.vout.back().scriptPubKey, ccdata), usedOpreturn = true;  // use OP_RETURN in the last vout if no OP_DROP data
 
         // use following algotithm to determine creationId
         // get the evalcode from ccdata
@@ -1617,11 +1618,16 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
             }
             else
             {
+                uint256 encodedCrid;
                 if (ccdata.size() >= 3 + sizeof(uint256))   {  // get creationId from the ccdata
                     bool isEof = true;
-                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; ss >> funcid; ss >> version; ss >> creationId; isEof = ss.eof()) && isEof)
+                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; ss >> funcid; ss >> version; ss >> encodedCrid; isEof = ss.eof()) && isEof) {
+                        LOGSTREAMFN("ccindex", CCLOG_DEBUG1, stream << "failed to decode ccdata, isEof=" << isEof << " usedOpreturn=" << usedOpreturn << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
                         return false;
+                    }
                 }
+                creationId = revuint256(encodedCrid);
+                std::cerr << __func__ << " in opret found creationid=" << creationId.GetHex() << std::endl;
             }
         }
         return true;
