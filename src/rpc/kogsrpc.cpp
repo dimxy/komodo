@@ -1313,6 +1313,32 @@ UniValue kogsdepositedslammerlist(const UniValue& params, bool fHelp, const CPub
     return result;
 }
 
+// rpc kogsdepositedtokenobjectlist impl (to return all the tokens deposited to a game with object infos)
+UniValue kogsdepositedtokenobjectlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ);
+    CCerrorMT::clear();
+
+    if (fHelp || (params.size() != 1))
+    {
+        throw runtime_error(
+            "kogsdepositedtokenobjectlist gameid\n"
+            "returns list of token objects deposited to the game with this gameid\n" "\n");
+    }
+
+    uint256 gameid = Parseuint256(params[0].get_str().c_str());
+    if (gameid.IsNull())
+        throw runtime_error("gameid incorrect\n");
+
+    std::vector<uint256> tokenids;
+
+    UniValue resarray = KogsDepositedTokenObjectsList(gameid);
+    if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
+
+    result.push_back(std::make_pair("tokens", resarray));
+    return result;
+}
+
 // rpc kogsplayerlist impl (to return all player creationids)
 UniValue kogsplayerlist(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
@@ -1379,7 +1405,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
     if (fHelp || (params.size() > 2))
     {
         throw runtime_error(
-            "kogsgamelist [my]|[playerid1 playerid2 ...]\n"
+            "kogsgamelist [my]|[notstarted]|[mynotstarted]|[playerid1 playerid2 ...]\n"
             "returns all gameids if no params set"
             "if 'my' is set returns gameids for mypk"
             "if list of playerids is set returns gameids in which those playerids participate\n"
@@ -1388,20 +1414,30 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
 
     std::vector<uint256> playerids;
 
-    bool onlymine = false;
+    bool onlyMine = false;
+    bool onlyNotStarted = false;
     if (params.size() >= 1) {
         if (params[0].get_str() == "my")
-            onlymine = true;
+            onlyMine = true;
+        else if (params[0].get_str() == "notstarted") {
+            onlyNotStarted = true;
+        }
+        else if (params[0].get_str() == "mynotstarted") {
+            onlyNotStarted = true;
+            onlyMine = true;
+        }
         else  { 
             for (int i = 0; i < params.size(); i ++)    {
                 uint256 playerid = Parseuint256(params[i].get_str().c_str());
+                if (playerid.IsNull())  
+                    throw runtime_error("playerid incorrect\n");
                 playerids.push_back(playerid);
             }
         }
     }
 
     std::vector<uint256> creationids;
-    KogsGameTxidList(remotepk, onlymine, playerids, creationids);
+    KogsGameTxidList(remotepk, onlyMine, onlyNotStarted, playerids, creationids);
     if (!CCerrorMT::empty()) return MakeResultError(CCerrorMT::get());
 
     for (const auto &i : creationids)
@@ -1940,6 +1976,7 @@ static const CRPCCommand commands[] =
     { "kogs",         "kogscontainerlist",      &kogscontainerlist,       true },
     { "kogs",         "kogsdepositedcontainerlist",  &kogsdepositedcontainerlist,   true },
     { "kogs",         "kogsdepositedslammerlist",  &kogsdepositedslammerlist,       true },
+    { "kogs",         "kogsdepositedtokenobjectlist",  &kogsdepositedtokenobjectlist,       true },
     { "kogs",         "kogsplayerlist",         &kogsplayerlist,          true },
     { "kogs",         "kogsgameconfiglist",     &kogsgameconfiglist,      true },
     { "kogs",         "kogsgamelist",           &kogsgamelist,            true },

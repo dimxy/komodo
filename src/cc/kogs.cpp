@@ -1206,6 +1206,22 @@ private:
     uint256 playerid1, playerid2;
 };
 
+class GameHasNoBatons : public KogsObjectFilterBase {
+public:
+    GameHasNoBatons() {  }
+    virtual bool operator()(KogsBaseObject *obj) {
+        if (obj != NULL && obj->objectType == KOGSID_GAME)
+        {
+            uint256 dummytxid;
+            int32_t dummyn, h;
+            return (CCgetspenttxid(dummytxid, dummyn, h, obj->creationtxid, KOGS_GAMETX_BATON_VOUT) != 0);  // returns true if the baton vout is not spent
+        }
+        else
+            return false;
+    }
+private:
+};
+
 // list all game objects
 // if pk is null lists all object on the marker address and treats them as creation txns: checks opreturn first then search for token vout
 // if pk is not null then it lists all utxos on this pk and tries to load each utxo as a game object
@@ -1286,7 +1302,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
 }
 
 // loads tokenids from 1of2 address (kogsPk, containertxidPk) and adds the tokenids to container object
-static void ListContainerKogs(uint256 containerid, std::vector<uint256> &tokenids)
+static void ListContainerKogs(uint256 containerid, std::vector<std::shared_ptr<KogsMatchObject>> &kogs)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
 
@@ -1301,28 +1317,38 @@ static void ListContainerKogs(uint256 containerid, std::vector<uint256> &tokenid
 
     //SetCCunspentsWithMempool(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr
     SetCCunspents(addressUnspents, tokenaddr, true);    // look all tx on 1of2 addr. Note: always list only confirmed kogs, should not list in mempool as no direct spending exists in batons so kogs in mempool might be lost
-    tokenids.clear();
+    kogs.clear();
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
     {
         //uint256 dummytxid;
         //int32_t dummyvout;
         //if (!myIsutxo_spentinmempool(dummytxid, dummyvout, it->first.txhash, it->first.index))
         //{
-        std::shared_ptr<KogsBaseObject> spobj(LoadGameObject(it->first.txhash, it->first.index)); // load and unmarshal gameobject for this txid
+        std::shared_ptr<KogsMatchObject> spkog; // use the same KogsMatchObject as kogs param to correctly handle shared_ptr refs
+        KogsBaseObject* pobj = LoadGameObject(it->first.txhash, it->first.index); // load and unmarshal gameobject for this txid
 
-        if (spobj != nullptr && /*KogsIsMatchObject(spobj->objectType)*/ spobj->objectType == KOGSID_KOG)   
+        if (pobj != nullptr && /*KogsIsMatchObject(pobj->objectType)*/ pobj->objectType == KOGSID_KOG)   
         {
-            if (spobj->tx.vout.size() > 0)
+            spkog.reset((KogsMatchObject*)pobj);
+            if (spkog->tx.vout.size() > 0)
             {
                 // check it was a valid add kog to container operation:
-                std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(spobj->tx, KOGS_USE_LAST_VOUT_OPRETURN) );
+                std::shared_ptr<KogsBaseObject> spOperObj( DecodeGameObjectOpreturn(spkog->tx, KOGS_USE_LAST_VOUT_OPRETURN) );
                 if (spOperObj != nullptr && spOperObj->objectType == KOGSID_ADDTOCONTAINER ) {
-                    tokenids.push_back(spobj->creationtxid);
+                    kogs.push_back(spkog);
                 }
             }
         }
-        //}
     }
+}
+
+static void ListContainerKogids(uint256 containerid, std::vector<uint256> &kogids)
+{
+    std::vector<std::shared_ptr<KogsMatchObject>> kogs;
+    ListContainerKogs(containerid, kogs);
+    kogids.clear();
+    for (const auto &k : kogs)
+        kogids.push_back(k->creationtxid);
 }
 
 // create slam param tx to send slam height and strength to the chain
@@ -1787,8 +1813,8 @@ static bool ManageStack(const KogsGameConfig &gameconfig, const KogsBaseObject *
         ListSpentDepositedTokenids(&newbaton, containers, slammers);  // if tx spending deposit txns exist, use its vins to search deposit tx. If deposit tx could be in the mempool, searching for utxo is not enough as mempool tx might be lost  
 
     //get kogs tokenids on containers 1of2 address
-    for (const auto &c : containers)
-        ListContainerKogs(c->creationtxid, c->tokenids);
+    for (const auto &c : containers)    
+        ListContainerKogids(c->creationtxid, c->tokenids);
 
     // check kogs sizes match the config
     for(const auto &c : containers)     {
@@ -2291,7 +2317,7 @@ static bool has_ccvin(struct CCcontract_info *cp, const CTransaction &tx)
 
 // RPC implementations:
 
-// wrapper to load container ids deposited on gameid 1of2 addr 
+// wrapper to load container or slammer ids deposited on gameid 1of2 addr 
 void KogsDepositedTokenList(uint256 gameid, std::vector<uint256> &tokenids, uint8_t objectType)
 {
     std::vector<std::shared_ptr<KogsContainer>> containers;
@@ -2307,6 +2333,7 @@ void KogsDepositedTokenList(uint256 gameid, std::vector<uint256> &tokenids, uint
             tokenids.push_back(s->creationtxid);
     }
 }
+
 
 // returns all objects' creationtxid (tokenids or kog object creation txid) for the object with objectType
 void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool onlymy, KogsObjectFilterBase *pFilter, std::vector<uint256> &creationtxids)
@@ -2325,15 +2352,21 @@ void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool only
 } 
 
 // returns game list, either in which playerid participates or all
-void KogsGameTxidList(const CPubKey &remotepk, bool onlymine, const std::vector<uint256> &playerids, std::vector<uint256> &creationtxids)
+void KogsGameTxidList(const CPubKey &remotepk, bool onlyMine, bool onlyNotStarted, const std::vector<uint256> &playerids, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
     //GameHasPlayerIdChecker checker(playerid1, playerid2);
     CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());
 
     if (playerids.size() == 0)  {
+        GameHasNoBatons noBatonChecker;
+
         // get all or mypk objects with this objectType
-        ListGameObjects(KOGSID_GAME, onlymine ? mypk : CPubKey(), onlymine ? false : true, nullptr, objlist); // use true to check unspent outputs
+        ListGameObjects(KOGSID_GAME, 
+            onlyMine ? mypk : CPubKey(), 
+            onlyMine ? false : true, 
+            onlyNotStarted ? &noBatonChecker : nullptr, 
+            objlist); // use true to check unspent outputs
     }
     else {
         // load gameids for first player:
@@ -2357,7 +2390,6 @@ void KogsGameTxidList(const CPubKey &remotepk, bool onlymine, const std::vector<
                 i ++;
         }
     }
-
 
     for (auto &o : objlist)
     {
@@ -2663,7 +2695,7 @@ UniValue KogsDepositTokensToGame(const CPubKey &remotepk, CAmount txfee_, uint25
         return NullUniValue;
     }
     KogsContainer *pcontainer = (KogsContainer *)spcontbaseobj.get();
-    ListContainerKogs(pcontainer->creationtxid, pcontainer->tokenids);
+    ListContainerKogids(pcontainer->creationtxid, pcontainer->tokenids);
 
     // TODO: check if this player has already deposited a container. Seems the doc states only one container is possible
     if (pcontainer->tokenids.size() != pgameconfig->numKogsInContainer)     {
@@ -3832,7 +3864,7 @@ UniValue KogsGameStatus(const KogsGame &gameobj)
     return info;
 }
 
-static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
+static UniValue DecodeObjectInfo(KogsBaseObject *pobj, bool nestedAsObjects = false)
 {
     UniValue info(UniValue::VOBJ), err(UniValue::VOBJ), infotokenids(UniValue::VARR);
     UniValue gameinfo(UniValue::VOBJ);
@@ -3900,12 +3932,20 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj)
     case KOGSID_CONTAINER:
         containerobj = (KogsContainer*)pobj;
         info.push_back(std::make_pair("playerId", containerobj->playerid.GetHex()));
-        ListContainerKogs(containerobj->creationtxid, containerobj->tokenids);
-        for (const auto &t : containerobj->tokenids)
-        {
-            infotokenids.push_back(t.GetHex());
+        if (!nestedAsObjects) {
+            ListContainerKogids(containerobj->creationtxid, containerobj->tokenids);
+            for (const auto &t : containerobj->tokenids)
+                infotokenids.push_back(t.GetHex());
+            info.push_back(std::make_pair("tokenids", infotokenids));
         }
-        info.push_back(std::make_pair("tokenids", infotokenids));
+        else {
+            UniValue infokogs(UniValue::VARR);
+            std::vector< std::shared_ptr<KogsMatchObject> > kogs;
+            ListContainerKogs(containerobj->creationtxid, kogs);
+            for (const auto &k : kogs)
+                infokogs.push_back(DecodeObjectInfo(k.get()));
+            info.push_back(std::make_pair("kogs", infokogs));
+        }
         break;
 
     case KOGSID_GAME:
@@ -4066,7 +4106,25 @@ UniValue KogsObjectInfo(uint256 gameobjectid)
     return DecodeObjectInfo(spobj.get());
 }
 
+// get objects deposited to gameid
+UniValue KogsDepositedTokenObjectsList(uint256 gameid)
+{
+    UniValue array(UniValue::VARR);
 
+    std::vector<std::shared_ptr<KogsContainer>> containers;
+    std::vector<std::shared_ptr<KogsMatchObject>> slammers;
+    ListDepositedTokenids(gameid, containers, slammers, true);  //false
+
+    for (const auto &c : containers) {
+        UniValue elem = DecodeObjectInfo(c.get(), true);
+        array.push_back(elem);
+    }
+    for (const auto &s : slammers)   {
+        UniValue elem = DecodeObjectInfo(s.get());
+        array.push_back(elem);
+    }
+    return array;
+}
 
 // create baton or gamefinished tx
 void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &minersTransactions)

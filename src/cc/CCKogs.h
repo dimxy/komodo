@@ -1467,12 +1467,13 @@ UniValue KogsClaimDepositedToken(const CPubKey &remotepk, int64_t txfee, uint256
 std::vector<UniValue> KogsAddKogsToContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 containerid, const std::set<uint256> &tokenids);
 std::vector<UniValue> KogsRemoveKogsFromContainerV2(const CPubKey &remotepk, int64_t txfee, uint256 gameid, uint256 containerid, const std::set<uint256> &tokenids);
 void KogsDepositedTokenList(uint256 gameid, std::vector<uint256> &tokenids, uint8_t objectType);
+UniValue KogsDepositedTokenObjectsList(uint256 gameid);
 UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid);
 UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newslamparams);
 UniValue KogsRemoveObject(const CPubKey &remotepk, uint256 txid, int32_t nvout);
 UniValue KogsBurnNFT(const CPubKey &remotepk, uint256 tokenid);
 void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool onlymy, KogsObjectFilterBase *pFilter, std::vector<uint256> &tokenids);
-void KogsGameTxidList(const CPubKey &remotepk, bool onlymine, const std::vector<uint256> &playerids, std::vector<uint256> &creationtxids);
+void KogsGameTxidList(const CPubKey &remotepk, bool onlyMine, bool onlyNotStarted, const std::vector<uint256> &playerids, std::vector<uint256> &creationtxids);
 UniValue KogsObjectInfo(uint256 gameobjectid);
 UniValue KogsAdvertisePlayer(const CPubKey &remotepk, const KogsAdvertising &newad);
 void KogsAdvertisedList(std::vector<KogsAdvertising> &adlist);
