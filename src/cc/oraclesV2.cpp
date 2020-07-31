@@ -188,30 +188,25 @@ CPubKey OracleV2BatonPk(char *batonaddr,struct CCcontract_info *cp)
 {
     static secp256k1_context *ctx;
     size_t clen = CPubKey::PUBLIC_KEY_SIZE;
-    secp256k1_pubkey pubkey; CPubKey batonpk; uint8_t priv[32]; int32_t i;
+    secp256k1_pubkey pubkey; CPubKey batonpk; uint8_t priv[32],batonpriv[32]; int32_t i;
     if ( ctx == 0 )
         ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
     Myprivkey(priv);
-    cp->unspendableEvalcode2 = EVAL_ORACLESV2;
     for (i=0; i<32; i++)
-        cp->unspendablepriv2[i] = (priv[i] ^ cp->CCpriv[i]);
-    while ( secp256k1_ec_seckey_verify(ctx,cp->unspendablepriv2) == 0 )
+        batonpriv[i] = (priv[i] ^ cp->CCpriv[i]);
+    while ( secp256k1_ec_seckey_verify(ctx,batonpriv) == 0 )
     {
-        // for (i=0; i<32; i++)
-        //     fprintf(stderr,"%02x",cp->unspendablepriv2[i]);
-        // fprintf(stderr," invalid privkey\n");
-        if ( secp256k1_ec_privkey_tweak_add(ctx,cp->unspendablepriv2,priv) != 0 )
+        if ( secp256k1_ec_privkey_tweak_add(ctx,batonpriv,priv) != 0 )
             break;
     }
-    if ( secp256k1_ec_pubkey_create(ctx,&pubkey,cp->unspendablepriv2) != 0 )
+    if ( secp256k1_ec_pubkey_create(ctx,&pubkey,batonpriv) != 0 )
     {
         secp256k1_ec_pubkey_serialize(ctx,(unsigned char*)batonpk.begin(),&clen,&pubkey,SECP256K1_EC_COMPRESSED);
-        cp->unspendablepk2 = batonpk;
         Getscriptaddress(batonaddr,MakeCC1voutMixed(cp->evalcode,0,batonpk).scriptPubKey);
-        //fprintf(stderr,"batonpk.(%s) -> %s\n",(char *)HexStr(batonpk).c_str(),batonaddr);
-        strcpy(cp->unspendableaddr2,batonaddr);
+        CCAddVintxCond(cp,MakeCCcond1(cp->evalcode,batonpk),batonpriv);
     } else fprintf(stderr,"error creating pubkey\n");
     memset(priv,0,sizeof(priv));
+    memset(batonpriv,0,sizeof(batonpriv));
     return(batonpk);
 }
 
@@ -566,7 +561,7 @@ bool OraclesV2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction 
                         return eval->Invalid("invalid oraclesfund OP_RETURN data!"); 
                     if ( ValidateNormalVins(eval,tx,0) == 0 )
                         return (false);
-                    if ( GetCCaddress(cp,tmpaddress,tmppk,true)==0 || ConstrainVout(tx.vout[0],1,tmpaddress,CC_MARKER_VALUE)==0 )
+                    if ( GetCCaddress(cp,tmpaddress,tmppk,true)==0 || /*tmppk==oraclespk ||*/ ConstrainVout(tx.vout[0],1,tmpaddress,CC_MARKER_VALUE)==0 )
                         return eval->Invalid("vout.0 is CC marker amount to users OracleCC address for oraclesfund!");
                     if ( ConstrainVout(tx.vout[1],0,0,0)==0 )
                         return eval->Invalid("vout.1 is normal change for oraclesfund!");
@@ -578,7 +573,7 @@ bool OraclesV2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction 
                 case 'R': // register
                     // vin.0: CC input from pubkeys oracle CC addres - to prove that register came from pubkey that is registred (activation on Jul 15th 2019 00:00)
                     // vin.1: normal inputs
-                    // vout.0: marker to oracletxid CC address
+                    // vout.0: marker to oracletxid address
                     // vout.1: baton CC utxo
                     // vout.2: change
                     // vout.3: opreturn with createtxid, pubkey and price per data point
@@ -586,12 +581,13 @@ bool OraclesV2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction 
                         return eval->Invalid("invalid number of vouts for oraclesregister tx!");
                     if (DecodeOraclesV2OpRet(tx.vout[numvouts-1].scriptPubKey,version,oracletxid,tmppk,amount)!='R')
                         return eval->Invalid("invalid oraclesregister OP_RETURN data!"); 
-                    if (GetCCaddress(cp,tmpaddress,tmppk,true)==0 ||  ValidateOraclesVin(cp,eval,tx,0,oracletxid,tmpaddress,CC_MARKER_VALUE)==0)
+                    if (GetCCaddress(cp,tmpaddress,tmppk,true)==0 || tmppk==oraclespk ||  ValidateOraclesVin(cp,eval,tx,0,oracletxid,tmpaddress,CC_MARKER_VALUE)==0)
                         return eval->Invalid("vin.0 is CC marker for oraclesregister!");
                     if (ValidateNormalVins(eval,tx,1)==0)
                         return (false);
-                    if (!(CCtxidaddr(markeraddr,oracletxid).IsFullyValid()) || ConstrainVout(tx.vout[0],0,markeraddr,CC_HIGH_MARKER_VALUE)==0)
-                        return eval->Invalid("vout.0 is CC marker amount to oracletxid address for oraclesregister!");
+                    std::cerr << oracletxid.GetHex() << " " << CCtxidaddr(markeraddr,oracletxid).IsFullyValid() << " " << ConstrainVout(tx.vout[0],0,markeraddr,CC_HIGH_MARKER_VALUE) << std::endl;
+                    if (!(CCtxidaddr(markeraddr,oracletxid).IsFullyValid()) || tmppk==oraclespk || ConstrainVout(tx.vout[0],0,markeraddr,CC_HIGH_MARKER_VALUE)==0)
+                        return eval->Invalid("vout.0 is marker amount to oracletxid address for oraclesregister!");
                     if (ConstrainVout(tx.vout[2],0,0,0)==0)
                         return eval->Invalid("vout.2 is normal change for oraclesregister!");
                     if (myGetTransactionCCV2(cp,oracletxid,tmptx,hashblock) == 0)
@@ -601,7 +597,7 @@ bool OraclesV2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction 
                     break;
                 case 'S': // subscribe
                     // vins.*: normal inputs
-                    // vout.0: marker to oracletxid CC address
+                    // vout.0: marker to oracletxid address
                     // vout.1: subscription fee to publishers CC address
                     // vout.2: change
                     // vout.3: opreturn with createtxid, registered provider's pubkey, amount                    
@@ -612,8 +608,8 @@ bool OraclesV2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction 
                     if (ValidateNormalVins(eval,tx,0)==0)
                         return (false);
                     if (!CCtxidaddr(markeraddr,oracletxid).IsFullyValid() || ConstrainVout(tx.vout[0],0,markeraddr,CC_HIGH_MARKER_VALUE)==0)
-                        return eval->Invalid("vout.0 is CC marker amount to oracletxid address for oraclessubscribe!");
-                    if (GetCCaddress(cp,tmpaddress,tmppk,true)==0 || ConstrainVout(tx.vout[1],1,tmpaddress,amount)==0)
+                        return eval->Invalid("vout.0 is marker amount to oracletxid address for oraclessubscribe!");
+                    if (GetCCaddress(cp,tmpaddress,tmppk,true)==0 || tmppk==oraclespk || ConstrainVout(tx.vout[1],1,tmpaddress,amount)==0)
                         return eval->Invalid("vout.1 is subscribe amount to publishers OracleCC address for oraclessubscribe!");
                     if (ConstrainVout(tx.vout[2],0,0,0)==0)
                         return eval->Invalid("vout.2 is normal change for oraclessubscribe!");
@@ -629,7 +625,7 @@ bool OraclesV2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction 
                     // vout.0: change to publishers CC address
                     // vout.1: baton CC utxo
                     // vout.2: payment for dataprovider
-                    // vout.3: change
+                    // vout.3: normal change
                     // vout.4: opreturn with createtxid, batontxid, publishers pubkey, data                    
                     if (numvouts!=5)
                         return eval->Invalid("invalid number of vouts for oraclesdata tx!");
@@ -646,7 +642,7 @@ bool OraclesV2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction 
                         return eval->Invalid("invalid number of CC vouts for oraclesdata!");
                     if (ValidateNormalVins(eval,tx,i)==0)
                         return (false);
-                    if (GetCCaddress(cp,tmpaddress,publisher,true)==0 || ConstrainVout(tx.vout[0],1,tmpaddress,0)==0)
+                    if (GetCCaddress(cp,tmpaddress,publisher,true)==0 || publisher==oraclespk || ConstrainVout(tx.vout[0],1,tmpaddress,0)==0)
                         return eval->Invalid("vout.0 is change to publishers OracleCC address for oraclesdata!");
                     if (myGetTransactionCCV2(cp,tx.vin[0].prevout.hash,tmptx,hashblock) == 0 || Getscriptaddress(tmpaddress,tmptx.vout[tx.vin[0].prevout.n].scriptPubKey)==0)
                         return eval->Invalid("invalid baton input tx!"); 
