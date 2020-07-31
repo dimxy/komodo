@@ -6021,7 +6021,7 @@ bool ProcessNewBlock(bool from_miner,int32_t height,CValidationState &state, CNo
 bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex * const pindexPrev, bool fCheckPOW, bool fCheckMerkleRoot)
 {
     std::cerr << __func__ << " started for block=" << block.GetHash().GetHex() << std::endl;
-    AssertLockHeld(cs_main);  <-- asserts if DEBUG_LOCKORDER is set
+    AssertLockHeld(cs_main);  // asserts if DEBUG_LOCKORDER is set and no cs_main enterred
 
     assert(pindexPrev == chainActive.Tip());
 
