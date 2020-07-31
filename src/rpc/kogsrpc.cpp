@@ -1435,7 +1435,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
             for (int i = idbegin; i < params.size(); i ++)    {
                 uint256 playerid = Parseuint256(params[i].get_str().c_str());
                 if (playerid.IsNull())  
-                    throw runtime_error("playerid incorrect\n");
+                    break; // if bad id stop parse
                 playerids.push_back(playerid);
             }
         }
