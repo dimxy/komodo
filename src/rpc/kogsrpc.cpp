@@ -1420,16 +1420,19 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
     if (params.size() >= 1) {
         if (params[0].get_str() == "my")  {
             onlyMine = true;
-            idbegin = -1;  // prevent use playerids
-        }
-        else if (params[0].get_str() == "notstarted") {
-            onlyNotStarted = true;
-            idbegin = 1;
+            if (params.size() != 1)
+                throw runtime_error("bad extra params");
+
         }
         else if (params[0].get_str() == "mynotstarted") {
             onlyNotStarted = true;
             onlyMine = true;
-            idbegin = -1;  // prevent use playerids
+            if (params.size() != 1)
+                throw runtime_error("bad extra params");
+        }
+        else if (params[0].get_str() == "notstarted") {
+            onlyNotStarted = true;
+            idbegin = 1;
         }
         if (idbegin >= 0)  { 
             for (int i = idbegin; i < params.size(); i ++)    {
