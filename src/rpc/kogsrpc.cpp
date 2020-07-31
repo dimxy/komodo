@@ -1441,6 +1441,8 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
                     throw runtime_error("bad playerid");
                 playerids.push_back(playerid);
             }
+            if (playerids.size() > 2)
+                throw runtime_error("too many playerids");
         }
     }
 
