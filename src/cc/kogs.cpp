@@ -1190,20 +1190,18 @@ private:
 
 class GameHasPlayerIdChecker : public KogsObjectFilterBase {
 public:
-    GameHasPlayerIdChecker(uint256 _playerid1, uint256 _playerid2) { playerid1 = _playerid1; playerid2 = _playerid2; }
+    GameHasPlayerIdChecker(uint256 _playerid) { playerid = _playerid; }
     virtual bool operator()(KogsBaseObject *obj) {
         if (obj != NULL && obj->objectType == KOGSID_GAME)
         {
             KogsGame *game = (KogsGame*)obj;
-            return 
-                (playerid1.IsNull() || std::find(game->playerids.begin(), game->playerids.end(), playerid1) != game->playerids.end()) &&
-                (playerid2.IsNull() || std::find(game->playerids.begin(), game->playerids.end(), playerid2) != game->playerids.end()) ;
+            return playerid.IsNull() || std::find(game->playerids.begin(), game->playerids.end(), playerid) != game->playerids.end();
         }
         else
             return false;
     }
 private:
-    uint256 playerid1, playerid2;
+    uint256 playerid;
 };
 
 class GameHasNoBatons : public KogsObjectFilterBase {
@@ -1225,7 +1223,7 @@ private:
 // list all game objects
 // if pk is null lists all object on the marker address and treats them as creation txns: checks opreturn first then search for token vout
 // if pk is not null then it lists all utxos on this pk and tries to load each utxo as a game object
-static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspentIndex, KogsObjectFilterBase *pObjFilter, std::vector<std::shared_ptr<KogsBaseObject>> &list)
+static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspentIndex, std::vector<KogsObjectFilterBase *>filters, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressOutputs;
@@ -1278,7 +1276,10 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
             }
             struct KogsBaseObject *obj = LoadGameObject(txid, nvout); // load either by utxo on mypk, or look through the creation tx 
             //std::cerr << __func__ << " objectType=" << (char)(obj ? obj->objectType : '0') << std::endl; 
-            if (obj != nullptr && obj->objectType == objectType && (pObjFilter == NULL || (*pObjFilter)(obj))) {
+            if (obj != nullptr && obj->objectType == objectType)  {
+                for (auto const &pf : filters)
+                    if (!(*pf)(obj))
+                        return; // not satisfied to a filter
                 obj->blockHeightForSort = (height <= 0 ? 0x7fffffff : height); //set big ht for mempool tx
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
             }
@@ -2343,7 +2344,10 @@ void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool only
     CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());
 
     // get all objects with this objectType
-    ListGameObjects(objectType, (onlymy ? mypk : CPubKey()), true, pFilter, objlist);
+    std::vector<KogsObjectFilterBase*> filters;
+    if (pFilter)
+        filters.push_back(pFilter);
+    ListGameObjects(objectType, (onlymy ? mypk : CPubKey()), true, filters, objlist);  // using unspent index
 
     for (const auto &o : objlist)
     {
@@ -2355,17 +2359,19 @@ void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool only
 void KogsGameTxidList(const CPubKey &remotepk, bool onlyMine, bool onlyNotStarted, const std::vector<uint256> &playerids, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
-    //GameHasPlayerIdChecker checker(playerid1, playerid2);
+    GameHasPlayerIdChecker playeridChecker(playerids.size() > 1 ? playerids[1] : zeroid);
+    GameHasNoBatons noBatonChecker;
+    std::vector<KogsObjectFilterBase*> filters;
     CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());
 
     if (playerids.size() == 0)  {
-        GameHasNoBatons noBatonChecker;
-
+        if (onlyNotStarted)
+            filters.push_back(&noBatonChecker);
         // get all or mypk objects with this objectType
         ListGameObjects(KOGSID_GAME, 
             onlyMine ? mypk : CPubKey(), 
             onlyMine ? false : true, 
-            onlyNotStarted ? &noBatonChecker : nullptr, 
+            filters, 
             objlist); // use true to check unspent outputs
     }
     else {
@@ -2375,10 +2381,15 @@ void KogsGameTxidList(const CPubKey &remotepk, bool onlyMine, bool onlyNotStarte
             CCerrorMT::set("could not load player");
             return;
         }
-        ListGameObjects(KOGSID_GAME, spPlayer0->encOrigPk, false, nullptr, objlist);  //use false to check spent outputs
+        if (onlyNotStarted)
+            filters.push_back(&noBatonChecker);
+        if (playerids.size() > 1)
+            filters.push_back(&playeridChecker);
+
+        ListGameObjects(KOGSID_GAME, spPlayer0->encOrigPk, false, filters, objlist);  //use false to check spents (for pk) getting games on spent commit random vout
 
         // check if all playerids participate in each game, remove ones where it s not true
-        for (int32_t i = 0; i < objlist.size();)   {
+        /*for (int32_t i = 0; i < objlist.size();)   {
             KogsGame *pGame = (KogsGame*)(objlist[i].get());
             int32_t found = 0;
             for (auto const &pid : playerids)
@@ -2388,7 +2399,7 @@ void KogsGameTxidList(const CPubKey &remotepk, bool onlyMine, bool onlyNotStarte
                 objlist.erase(objlist.begin() + i);   // remove gameid if not all playerids from param found in this game
             else
                 i ++;
-        }
+        }*/
     }
 
     for (auto &o : objlist)

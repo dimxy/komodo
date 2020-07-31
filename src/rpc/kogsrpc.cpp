@@ -1416,18 +1416,23 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
 
     bool onlyMine = false;
     bool onlyNotStarted = false;
+    int idbegin = 0;
     if (params.size() >= 1) {
-        if (params[0].get_str() == "my")
+        if (params[0].get_str() == "my")  {
             onlyMine = true;
+            idbegin = -1;  // prevent use playerids
+        }
         else if (params[0].get_str() == "notstarted") {
             onlyNotStarted = true;
+            idbegin = 1;
         }
         else if (params[0].get_str() == "mynotstarted") {
             onlyNotStarted = true;
             onlyMine = true;
+            idbegin = -1;  // prevent use playerids
         }
-        else  { 
-            for (int i = 0; i < params.size(); i ++)    {
+        if (idbegin >= 0)  { 
+            for (int i = idbegin; i < params.size(); i ++)    {
                 uint256 playerid = Parseuint256(params[i].get_str().c_str());
                 if (playerid.IsNull())  
                     throw runtime_error("playerid incorrect\n");
