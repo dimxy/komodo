@@ -1286,13 +1286,22 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
         }
     };
 
+    uint256 previd;
     if (addressUnspents.size() > 0 ) {
-        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++) 
-            checkAndLoadGameObject(it->first.txhash, it->first.index, it->second.satoshis, it->second.blockHeight);       
+        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)  {
+            if (previd == it->first.txhash)  //skip repeating
+                continue;
+            checkAndLoadGameObject(it->first.txhash, it->first.index, it->second.satoshis, it->second.blockHeight);   
+            previd = it->first.txhash;
+        }    
     }
     else  {
-        for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressOutputs.begin(); it != addressOutputs.end(); it++) 
-            checkAndLoadGameObject(it->first.txhash, it->first.index, it->second, it->first.blockHeight);       
+        for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressOutputs.begin(); it != addressOutputs.end(); it++)  {
+            if (previd == it->first.txhash)  //skip repeating
+                continue;
+            checkAndLoadGameObject(it->first.txhash, it->first.index, it->second, it->first.blockHeight);     
+            previd = it->first.txhash;  
+        }
     }
 
     std::sort(list.begin(), list.end(), 
@@ -2359,7 +2368,8 @@ void KogsCreationTxidList(const CPubKey &remotepk, uint8_t objectType, bool only
 void KogsGameTxidList(const CPubKey &remotepk, bool onlyMine, bool onlyNotStarted, const std::vector<uint256> &playerids, std::vector<uint256> &creationtxids)
 {
     std::vector<std::shared_ptr<KogsBaseObject>> objlist;
-    GameHasPlayerIdChecker playeridChecker(playerids.size() > 1 ? playerids[1] : zeroid);
+    GameHasPlayerIdChecker playerid1Checker(playerids.size() > 0 ? playerids[0] : zeroid);
+    GameHasPlayerIdChecker playerid2Checker(playerids.size() > 1 ? playerids[1] : zeroid);
     GameHasNoBatons noBatonChecker;
     std::vector<KogsObjectFilterBase*> filters;
     CPubKey mypk = IS_REMOTE(remotepk) ? remotepk : pubkey2pk(Mypubkey());
@@ -2383,8 +2393,9 @@ void KogsGameTxidList(const CPubKey &remotepk, bool onlyMine, bool onlyNotStarte
         }
         if (onlyNotStarted)
             filters.push_back(&noBatonChecker);
+        filters.push_back(&playerid1Checker);
         if (playerids.size() > 1)
-            filters.push_back(&playeridChecker);
+            filters.push_back(&playerid2Checker);
 
         ListGameObjects(KOGSID_GAME, spPlayer0->encOrigPk, false, filters, objlist);  //use false to check spents (for pk) getting games on spent commit random vout
 
