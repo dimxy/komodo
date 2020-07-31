@@ -1402,7 +1402,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
     UniValue result(UniValue::VOBJ), resarray(UniValue::VARR);
     CCerrorMT::clear();
 
-    if (fHelp || (params.size() > 2))
+    if (fHelp || (params.size() > 3))
     {
         throw runtime_error(
             "kogsgamelist [my]|[notstarted]|[mynotstarted]|[playerid1 playerid2 ...]\n"
@@ -1435,7 +1435,7 @@ UniValue kogsgamelist(const UniValue& params, bool fHelp, const CPubKey& remotep
             for (int i = idbegin; i < params.size(); i ++)    {
                 uint256 playerid = Parseuint256(params[i].get_str().c_str());
                 if (playerid.IsNull())  
-                    break; // if bad id stop parse
+                    throw runtime_error("bad playerid");
                 playerids.push_back(playerid);
             }
         }
