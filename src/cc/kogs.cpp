@@ -1118,14 +1118,21 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
         CCAddVintxCond(cp, probeCond1of2, kogspriv);
         cc_free(probeCond1of2);
 
-        // add probe to spend baton from mypk
-        CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, mypk);
-        // temp ON allow to create first baton itk kogsPK:
-        if (!isFirst)
-            CCAddVintxCond(cp, probeCond, NULL);  // use myprivkey if not forcing finish of the stalled game
-        else
-            CCAddVintxCond(cp, probeCond, kogspriv);  // use myprivkey if not forcing finish of the stalled game
-        cc_free(probeCond);
+        // add probe to spend baton from 1of2 mypk
+        if (!isFirst)  {  // remove this if
+            CC *probeCondBaton = MakeCCcond1of2(EVAL_KOGS, kogsPk, mypk);
+            CCAddVintxCond(cp, probeCondBaton, NULL);  // use myprivkey if not forcing finish of the stalled game
+            cc_free(probeCondBaton);
+        }
+        else   {
+            // temp ON allow to create first baton for sysnode with kogsPK:
+            std::shared_ptr<KogsBaseObject> spGame(LoadGameObject(prevtxid));
+            if (spGame !=  nullptr && spGame->objectType == KOGSID_GAME)    {
+                CC *probeCondBaton = MakeCCcond1of2(EVAL_KOGS, kogsPk, mypk);
+                CCAddVintxCond(cp, probeCondBaton, kogspriv);  // kogs privkey
+                cc_free(probeCondBaton);
+            }
+        }
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
