@@ -1227,6 +1227,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressSpents;
+    std::set<uint256> checkDuplicates;
 
     //bool isRemote = IS_REMOTE(remotepk);
     //CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
@@ -1281,27 +1282,19 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
                     if (!(*pf)(obj))
                         return; // not satisfied to a filter
                 obj->blockHeightForSort = (height <= 0 ? 0x7fffffff : height); //set big ht for mempool tx to be sorted top 
-                list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
+                if (!checkDuplicates.insert(obj->creationtxid).second)     // check the object not already added  
+                    list.push_back(std::shared_ptr<KogsBaseObject>(obj));  // wrap with auto ptr to auto-delete it
             }
         }
     };
 
-    uint256 previd;
-    if (addressUnspents.size() > 0 ) {
-        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)  {
-            if (previd == it->first.txhash)  //skip repeating
-                continue;
-            checkAndLoadGameObject(it->first.txhash, it->first.index, it->second.satoshis, it->second.blockHeight);   
-            previd = it->first.txhash;
-        }    
+    if (addressUnspents.size() > 0) {
+        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = addressUnspents.begin(); it != addressUnspents.end(); it++)  
+            checkAndLoadGameObject(it->first.txhash, it->first.index, it->second.satoshis, it->second.blockHeight);       
     }
     else  {
-        for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressSpents.begin(); it != addressSpents.end(); it++)  {
-            if (previd == it->first.txhash)  //skip repeating
-                continue;
+        for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressSpents.begin(); it != addressSpents.end(); it++)  
             checkAndLoadGameObject(it->first.txhash, it->first.index, it->second, it->first.blockHeight);     
-            previd = it->first.txhash;  
-        }
     }
 
     std::sort(list.begin(), list.end(), 
