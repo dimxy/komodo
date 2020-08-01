@@ -1098,7 +1098,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
         SetCCunspentsWithMempool(unspentOutputs, (char*)tokenaddr, true);  // add tokens in mempool too
 
     if (unspentOutputs.empty()) {
-        LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->evalcodeNFT << std::endl);
+        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->evalcodeNFT << std::endl);
     }
 
 	threshold = total / (maxinputs != 0 ? maxinputs : CC_MAXVINS);
@@ -1115,12 +1115,9 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
         if (it->second.satoshis == 0)
             continue;
 
-        int32_t ivin;
-		for (ivin = 0; ivin < mtx.vin.size(); ivin ++)
-			if (vintxid == mtx.vin[ivin].prevout.hash && vout == mtx.vin[ivin].prevout.n)
-				break;
-		if (ivin != mtx.vin.size()) // that is, the tx.vout is already added to mtx.vin (in some previous calls)
-			continue;
+        if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](const CTxIn &vin){ return vin.prevout.hash == it->first.txhash && vin.prevout.n == it->first.index; }) != mtx.vin.end())  
+            continue;  // vin already added
+
 
         // fast check tokenid if vout has opdrop data
         CScript opdrop;
@@ -1144,7 +1141,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
                 strcmp(destaddr, cp->unspendableaddr2) != 0*/)      // or the logic is to allow to spend all available tokens (what about unspendableaddr3)?
 				continue;
 			
-            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() check vintx vout destaddress=" << destaddr << " amount=" << vintx.vout[vout].nValue << std::endl);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "checked okay vintx vout destaddress=" << destaddr << " amount=" << vintx.vout[vout].nValue << std::endl);
 
 			if ((nValue = IsTokensvout(true, true/*<--add only valid token uxtos */, cp, NULL, vintx, vout, tokenid)) > 0 && myIsutxo_spentinmempool(ignoretxid,ignorevin,vintxid, vout) == false)
 			{
@@ -1168,7 +1165,7 @@ int64_t AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 
 				nValue = it->second.satoshis;
 				totalinputs += nValue;
-                LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() adding input nValue=" << nValue  << std::endl);
+                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "adding input nValue=" << nValue  << std::endl);
 				n++;
 
 				if ((total > 0 && totalinputs >= total) || (maxinputs > 0 && n >= maxinputs))

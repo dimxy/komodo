@@ -253,7 +253,7 @@ uint8_t DecodeTokenCreateOpRetV1(const CScript &scriptPubKey, std::vector<uint8_
             return 'c'; // convert to old-style funcid
         }   
     }
-    LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "incorrect token create opret" << std::endl);
+    LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "incorrect token create opret=" << HexStr(vopret) << std::endl);
     return (uint8_t)0;
 }
 
