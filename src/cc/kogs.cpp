@@ -4276,8 +4276,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                     if (!hextx.empty() && ResultGetError(txdata).empty())    
                         myTransactions.push_back(std::make_pair(it->first.txhash, hextx));
                     else {
-                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(txdata) << " signing first baton tx for gameid=" << gameid.GetHex() << std::endl);
-                        badGames.push_back(it->first.txhash);
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(txdata) << " creating first baton tx for gameid=" << gameid.GetHex() << " maybe containers not deposited yet" << std::endl);
                     }
                 }
                 /* no batons are created by nodes any more
