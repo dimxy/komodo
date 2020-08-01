@@ -4271,7 +4271,7 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                 else if (batontxid == spGameBase->creationtxid)
                 {
                     uint256 gameid = spGameBase->creationtxid;
-                    UniValue txdata = KogsCreateFirstBaton(mypk, gameid);
+                    UniValue txdata = KogsCreateFirstBaton(CPubKey(), gameid);
                     std::string hextx = ResultGetTx(txdata);
                     if (!hextx.empty() && ResultGetError(txdata).empty())    
                         myTransactions.push_back(std::make_pair(it->first.txhash, hextx));
