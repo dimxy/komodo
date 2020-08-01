@@ -1127,8 +1127,8 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
         else   {
             // temp ON allow to create first baton for sysnode with kogsPK:
             std::shared_ptr<KogsBaseObject> spGame(LoadGameObject(prevtxid));
-            if (spGame !=  nullptr && spGame->objectType == KOGSID_GAME)    {
-                CC *probeCondBaton = MakeCCcond1of2(EVAL_KOGS, kogsPk, mypk);
+            if (spGame != nullptr && spGame->objectType == KOGSID_GAME)    {
+                CC *probeCondBaton = MakeCCcond1of2(EVAL_KOGS, kogsPk, spGame->encOrigPk);
                 CCAddVintxCond(cp, probeCondBaton, kogspriv);  // kogs privkey
                 cc_free(probeCondBaton);
             }
