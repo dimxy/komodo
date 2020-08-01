@@ -2089,7 +2089,7 @@ void get_random_txns(uint256 gameid, int32_t startNum, int32_t endNum, std::vect
 }
 
 // creates new baton object, manages stack according to slam data
-static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayer, KogsSlamData *pSlamparam, KogsBaton &newbaton, const KogsBaton *pInitBaton, std::vector<std::pair<uint256, int32_t>> &randomUtxos, bool forceFinish)
+static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std::shared_ptr<KogsGameConfig> &spGameConfig, std::shared_ptr<KogsPlayer> &spPlayerNext, KogsSlamData *pSlamparam, KogsBaton &newbaton, const KogsBaton *pInitBaton, std::vector<std::pair<uint256, int32_t>> &randomUtxos, bool forceFinish)
 {
 	int32_t nextturn = 0;
 	int32_t turncount = 0;
@@ -2279,7 +2279,7 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "bad prev baton for gameid=" << gameid.GetHex() << " can't load player with id=" << playerids[nextturn].GetHex() << std::endl);
             return false;
         }
-        spPlayer.reset((KogsPlayer*)pPlayer);
+        spPlayerNext.reset((KogsPlayer*)pPlayer);
     }
 
     // create the next baton
@@ -4247,15 +4247,28 @@ void KogsCreateMinerTransactions(int32_t nHeight, std::vector<CTransaction> &min
                         LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "creating autofinish baton tx for stalled game=" << gameid.GetHex() << std::endl);
 
                         const int32_t batonvout = (spPrevBaton->objectType == KOGSID_GAME) ? 2 : 0;
-                        UniValue sigres = CreateGameFinishedTx(CPubKey(), spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
+                        UniValue txdata = CreateGameFinishedTx(CPubKey(), spPrevBaton->creationtxid, batonvout, randomUtxos, &newbaton, true);  // send baton to player pubkey;
 
-                        std::string hextx = ResultGetTx(sigres);
-                        if (!hextx.empty() && ResultGetError(sigres).empty())    
+                        std::string hextx = ResultGetTx(txdata);
+                        if (!hextx.empty() && ResultGetError(txdata).empty())    
                             myTransactions.push_back(std::make_pair(it->first.txhash, hextx));
                         else {
-                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(sigres) << " signing auto-finish tx for gameid=" << gameid.GetHex() << std::endl);
+                            LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(txdata) << " signing auto-finish tx for gameid=" << gameid.GetHex() << std::endl);
                             badGames.push_back(it->first.txhash);
                         }
+                    }
+                }
+                // temp ON, allow to create first baton by node
+                else if (batontxid == spGameBase->creationtxid)
+                {
+                    uint256 gameid = spGameBase->creationtxid;
+                    UniValue txdata = KogsCreateFirstBaton(mypk, gameid);
+                    std::string hextx = ResultGetTx(txdata);
+                    if (!hextx.empty() && ResultGetError(txdata).empty())    
+                        myTransactions.push_back(std::make_pair(it->first.txhash, hextx));
+                    else {
+                        LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "error=" << ResultGetError(txdata) << " signing first baton tx for gameid=" << gameid.GetHex() << std::endl);
+                        badGames.push_back(it->first.txhash);
                     }
                 }
                 /* no batons are created by nodes any more
@@ -4602,15 +4615,25 @@ static bool check_baton(struct CCcontract_info *cp, const KogsBaton *pBaton, con
     }
 
     bool forceFinish = false;
-    // check if spent with global pk
+    // check if next turn vout spent with global pk only in the special cases
     CPubKey kogsPk = GetUnspendable(cp, NULL);
     if (check_signing_pubkey(tx.vin[ccvin].scriptSig) == kogsPk)    {
+        // temp allow to create first baton for the sys node
+        bool allowed = false;
+        if (spPrevObj->objectType == KOGSID_GAME)
+            allowed = true;
+        
         // spending with kogspk allowed for autofinishing of the stalled games:
-        if (!IsBatonStalled(tx.vin[ccvin].prevout.hash)) 
-            return errorStr = "game is not time-out yet", false;
-        if (!pBaton->isFinished)
-            return errorStr = "for auto finishing games a finish baton is required", false;
-        forceFinish = true;
+        if (IsBatonStalled(tx.vin[ccvin].prevout.hash)) 
+        {
+            if (!pBaton->isFinished)
+                return errorStr = "for auto finishing games a finish baton is required", false;
+            forceFinish = true;
+            allowed = true;
+        }
+        if (!allowed)
+            return errorStr = "game is not time-out yet (or not the first baton) to auto-create baton", false;
+        // TODO: check if signed with the sysnode pk
     }
 
     //CTransaction prevtx;
@@ -5052,7 +5075,7 @@ bool KogsValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx
 	std::string errorStr;
 
     //return true;
-    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY14") == 0 && chainActive.Height() <= 1006)
+    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY14") == 0 && chainActive.Height() <= 1347)
         return true;
     if (strcmp(ASSETCHAINS_SYMBOL, "MYKOG") == 0 && chainActive.Height() <= 204)
         return true;
