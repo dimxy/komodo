@@ -1027,7 +1027,7 @@ static void ListSpentDepositedTokenids(const KogsBaseObject *pObj, std::vector<s
             pBaton = (KogsBaton*)spPrevObj.get();
         }
         // skip initial vins: game tx and randoms txns:
-        int ivin = 1 + pBaton->randomtxids.size();
+        int ivin = 1 /*+ pBaton->randomtxids.size()*/;   // temp OFF
 
         // check for vins spending deposit tx
         for (; ivin < pBaton->tx.vin.size(); ivin ++)     
@@ -1280,7 +1280,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
                 for (auto const &pf : filters)
                     if (!(*pf)(obj))
                         return; // not satisfied to a filter
-                obj->blockHeightForSort = (height <= 0 ? 0x7fffffff : height); //set big ht for mempool tx
+                obj->blockHeightForSort = (height <= 0 ? 0x7fffffff : height); //set big ht for mempool tx to be sorted top 
                 list.push_back(std::shared_ptr<KogsBaseObject>(obj)); // wrap with auto ptr to auto-delete it
             }
         }
@@ -1624,7 +1624,13 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
         
     // calc percentage of flipped based on height or ranges
     uint32_t randomHeightRange, randomStrengthRange;
-    if (pInitBaton == nullptr)  {
+    if (pInitBaton == nullptr)  
+    {
+        // temp on:
+        newbaton.randomHeightRange = randomHeightRange = rand();
+        newbaton.randomStrengthRange = randomStrengthRange = rand();
+        // temp off:
+        /*
         const int32_t randomIndex = (newbaton.prevturncount-1) * newbaton.playerids.size() + 1;
 
         // make random range offset
@@ -1636,8 +1642,12 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+2 << std::endl);
             return false;  
         }
+        */
     }
-    else {
+    else 
+    {
+        // temp off:
+        /*
         // load random txns from txids in the validated baton
         std::vector<CTransaction> randomtxns;
         for (auto const &txid : pInitBaton->randomtxids)    {
@@ -1665,8 +1675,11 @@ static bool FlipKogs(const KogsGameConfig &gameconfig, KogsBaton &newbaton, cons
             LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << newbaton.gameid.GetHex() << " num=" << newbaton.prevturncount*2+2 << std::endl);
             return false; 
         }
-        // newbaton.randomHeightRange = ((KogsBaton*)pInitBaton)->randomHeightRange;
-        // newbaton.randomStrengthRange = ((KogsBaton*)pInitBaton)->randomStrengthRange;
+        */
+
+        // temp on:
+        randomHeightRange = newbaton.randomHeightRange = ((KogsBaton*)pInitBaton)->randomHeightRange;
+        randomStrengthRange = newbaton.randomStrengthRange = ((KogsBaton*)pInitBaton)->randomStrengthRange;
     }
     int heightFract = heightRanges[iheight].left + randomHeightRange % (heightRanges[iheight].right - heightRanges[iheight].left);
     int strengthFract = strengthRanges[istrength].left + randomStrengthRange % (strengthRanges[istrength].right - strengthRanges[istrength].left);
@@ -2161,18 +2174,24 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
             // randomly select whose turn is the first:
             if (pInitBaton == nullptr)      
             {    
-                uint32_t r;
+                // temp on:
+                nextturn = rand() % pgame->playerids.size();
+
+                // temp off:
+                /* uint32_t r;
                 if (!get_random_value(newbaton.hashtxns, newbaton.randomtxns, playerpks, pgame->creationtxid, 0, r, randomUtxos))  {
                     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << pgame->creationtxid.GetHex() << " num=" << 0 << std::endl);
                     return false;
                 }
-                // nextturn = rand() % pgame->playerids.size();
-                nextturn = r % pgame->playerids.size();
+                nextturn = r % pgame->playerids.size(); */
             }
             else
             {
-                //nextturn = ((KogsBaton*)pInitBaton)->nextturn; // validate
+                // temp on:
+                nextturn = ((KogsBaton*)pInitBaton)->nextturn; // validate
 
+                // temp off:
+                /*
                 // load random txns:
                 std::vector<CTransaction> randomtxns;
                 for (auto const &txid : pInitBaton->randomtxids)    {
@@ -2192,11 +2211,12 @@ static bool CreateNewBaton(const KogsBaseObject *pPrevObj, uint256 &gameid, std:
 
                 // validate random value:
                 uint32_t r;
-                if (!get_random_value(hashtxns, randomtxns, playerpks, pgame->creationtxid, 0, r, randomUtxos))  {
+                /*if (!get_random_value(hashtxns, randomtxns, playerpks, pgame->creationtxid, 0, r, randomUtxos))  {
                     LOGSTREAMFN("kogs", CCLOG_ERROR, stream << " can't get random value for gameid=" << pgame->creationtxid.GetHex() << " num=" << 0 << std::endl);
                     return false;
                 }
                 nextturn = r % pgame->playerids.size();
+                */
             }
 
             for (auto const &playerid : playerids)  {
@@ -2538,12 +2558,13 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
         //bool bGameFinished;
         uint256 dummygameid;
 
+        /* turn off randoms:
         get_random_txns(gameid, 0, 0, newbaton.hashtxns, newbaton.randomtxns);  // add txns with random hashes and values
         if (newbaton.hashtxns.size() == 0 || newbaton.randomtxns.size() == 0)
         {
             CCerrorMT::set("no commit or random txns");
             return NullUniValue;
-        }
+        } */
         std::vector<std::pair<uint256, int32_t>> randomUtxos;
         if (CreateNewBaton(spPrevObj.get(), dummygameid, spGameConfig, spPlayer, nullptr, newbaton, nullptr, randomUtxos, false))
         {    
@@ -3164,6 +3185,7 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
         uint256 dummygameid;
 
         KogsBaton* pPrevBaton = (KogsBaton*)spPrevBaton.get();
+        /*  temp OFF
         const int32_t randomIndex = pPrevBaton->prevturncount * pPrevBaton->playerids.size() + 1;
 
         get_random_txns(newSlamData.gameid, randomIndex, randomIndex+1, newbaton.hashtxns, newbaton.randomtxns);  // add txns with random hashes and values
@@ -3171,7 +3193,7 @@ UniValue KogsCreateSlamData(const CPubKey &remotepk, KogsSlamData &newSlamData)
         {
             CCerrorMT::set("no commit or random txns");
             return NullUniValue;
-        }
+        } */
         std::vector<std::pair<uint256, int32_t>> randomUtxos;
         if (CreateNewBaton(spPrevBaton.get(), dummygameid, spGameConfig, spPlayer, &newSlamData, newbaton, nullptr, randomUtxos, false))
         {    
@@ -4051,12 +4073,14 @@ static UniValue DecodeObjectInfo(KogsBaseObject *pobj, bool nestedAsObjects = fa
                 flipped.push_back(elem);
             }
             info.push_back(std::make_pair("kogsFlipped", flipped));
+            /* temp OFF
             for (const auto &t : batonobj->hashtxids)
                 hashtxids.push_back(t.GetHex());
             info.push_back(std::make_pair("hashtxids", hashtxids));
             for (const auto &t : batonobj->randomtxids)
                 randomtxids.push_back(t.GetHex());
             info.push_back(std::make_pair("randomtxids", randomtxids));    
+            */
             info.push_back(std::make_pair("finished", (batonobj->isFinished ? std::string("true") : std::string("false"))));
             if (batonobj->isFinished)
                 info.push_back(std::make_pair("WinnerId", batonobj->winnerid.GetHex()));    
