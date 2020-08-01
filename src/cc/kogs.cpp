@@ -1263,7 +1263,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
         SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
     }
 
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found addressUnspents.size()=" << addressUnspents.size() << " addressOutputs.size()=" << addressSpents.size() << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found addressUnspents.size()=" << addressUnspents.size() << " addressOutputs.size()=" << addressSpents.size() << "filters.size()=" << filters.size() << std::endl);
     auto checkAndLoadGameObject = [&](uint256 txid, uint32_t index, CAmount satoshis, int32_t height)
     {
         if (onlyForPk || satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
@@ -1282,7 +1282,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
                     if (!(*pf)(obj))
                         return; // not satisfied to a filter
                 obj->blockHeightForSort = (height <= 0 ? 0x7fffffff : height); //set big ht for mempool tx to be sorted top 
-                if (!checkDuplicates.insert(obj->creationtxid).second)     // check the object not already added  
+                if (checkDuplicates.insert(obj->creationtxid).second)     // check the object not already added  
                     list.push_back(std::shared_ptr<KogsBaseObject>(obj));  // wrap with auto ptr to auto-delete it
             }
         }
