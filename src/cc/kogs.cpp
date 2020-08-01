@@ -1226,7 +1226,7 @@ private:
 static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspentIndex, std::vector<KogsObjectFilterBase *>filters, std::vector<std::shared_ptr<KogsBaseObject>> &list)
 {
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspents;
-    std::vector<std::pair<CAddressIndexKey, CAmount> > addressOutputs;
+    std::vector<std::pair<CAddressIndexKey, CAmount> > addressSpents;
 
     //bool isRemote = IS_REMOTE(remotepk);
     //CPubKey mypk = isRemote ? remotepk : pubkey2pk(Mypubkey());
@@ -1245,7 +1245,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
         if (useUspentIndex)
             SetCCunspentsWithMempool(addressUnspents, tokenaddr, true); 
         else
-            SetCCtxids(addressOutputs, tokenaddr, true);
+            SetCCtxids(addressSpents, tokenaddr, true);
 
 		// if this is kogs 'enclosure'
         char kogsaddr[KOMODO_ADDRESS_BUFSIZE];
@@ -1253,7 +1253,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
         if (useUspentIndex)
             SetCCunspentsWithMempool(addressUnspents, kogsaddr, true);         
         else
-            SetCCtxids(addressOutputs, kogsaddr, true);
+            SetCCtxids(addressSpents, kogsaddr, true);
 
     }
     else
@@ -1262,7 +1262,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
         SetCCunspentsWithMempool(addressUnspents, cp->unspendableCCaddr, true);    // look all tx on cc addr 
     }
 
-    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found addressUnspents.size()=" << addressUnspents.size() << " addressOutputs.size()=" << addressOutputs.size() << std::endl);
+    LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "found addressUnspents.size()=" << addressUnspents.size() << " addressOutputs.size()=" << addressSpents.size() << std::endl);
     auto checkAndLoadGameObject = [&](uint256 txid, uint32_t index, CAmount satoshis, int32_t height)
     {
         if (onlyForPk || satoshis == KOGS_NFT_MARKER_AMOUNT) // check for marker==10000 to differenciate it from batons with 20000
@@ -1296,7 +1296,7 @@ static void ListGameObjects(uint8_t objectType, const CPubKey &pk, bool useUspen
         }    
     }
     else  {
-        for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressOutputs.begin(); it != addressOutputs.end(); it++)  {
+        for (std::vector<std::pair<CAddressIndexKey, CAmount> >::const_iterator it = addressSpents.begin(); it != addressSpents.end(); it++)  {
             if (previd == it->first.txhash)  //skip repeating
                 continue;
             checkAndLoadGameObject(it->first.txhash, it->first.index, it->second, it->first.blockHeight);     

@@ -685,10 +685,10 @@ struct KogsBaton : public KogsBaseObject {
     std::vector<uint256> kogsInStack;
     std::vector<std::pair<uint256, uint256>> kogsFlipped;
     
-    int32_t randomHeightRange, randomStrengthRange;
+    int32_t randomHeightRange, randomStrengthRange; // temp ON
     int32_t armHeight, armStrength;
 
-    // temp turm off:
+    // temp off:
     ///// std::vector<CTransaction> hashtxns, randomtxns;
     ///// std::vector<uint256> hashtxids, randomtxids;
 
@@ -718,13 +718,14 @@ struct KogsBaton : public KogsBaseObject {
             READWRITE(playerids);
             READWRITE(kogsInStack);
             READWRITE(kogsFlipped);
-            READWRITE(randomHeightRange);
-            READWRITE(randomStrengthRange);
+            READWRITE(randomHeightRange);  // temp ON
+            READWRITE(randomStrengthRange); // temp ON
             READWRITE(armHeight);
             READWRITE(armStrength);
 
             // read/write hash txids:
-        /*    int32_t hashtxnsSize;
+        /*  temp off  
+            int32_t hashtxnsSize;
             if (ser_action.ForRead()) {
                 READWRITE(hashtxnsSize);
                 hashtxids.clear();
