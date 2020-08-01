@@ -1120,16 +1120,18 @@ static UniValue CreateBatonTx(const CPubKey &remotepk, uint256 prevtxid, int32_t
 
         // add probe to spend baton from mypk
         CC* probeCond = MakeCCcond1of2(EVAL_KOGS, kogsPk, mypk);
-        CCAddVintxCond(cp, probeCond, NULL);  // use myprivkey if not forcing finish of the stalled game
+        // temp ON allow to create first baton itk kogsPK:
+        if (!isFirst)
+            CCAddVintxCond(cp, probeCond, NULL);  // use myprivkey if not forcing finish of the stalled game
+        else
+            CCAddVintxCond(cp, probeCond, kogspriv);  // use myprivkey if not forcing finish of the stalled game
         cc_free(probeCond);
 
         CScript opret;
         opret << OP_RETURN << enc.EncodeOpret();
         UniValue sigData = FinalizeCCTxExt(IS_REMOTE(remotepk), 0, cp, mtx, mypk, txfee, opret, false);  // TODO why was destpk here (instead of minerpk)?
         if (ResultHasTx(sigData))
-        {
             return sigData; 
-        }
         else
         {
             LOGSTREAMFN("kogs", CCLOG_DEBUG1, stream << "can't create baton for txid=" << prevtxid.GetHex() << " could not finalize tx" << std::endl);
@@ -2574,7 +2576,7 @@ UniValue KogsCreateFirstBaton(const CPubKey &remotepk, uint256 gameid)
             }
             else
             {
-                CCerrorMT::set("can't create or sign baton transaction");
+                CCerrorMT::set("can't create or sign baton transaction: " + ResultGetError(sigData));
                 return NullUniValue;
             } 
         }
