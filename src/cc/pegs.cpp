@@ -647,7 +647,7 @@ bool PegsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, 
                             return eval->Invalid(error);
                         else if (_GetCCaddress(addr,EVAL_TOKENS,srcpub) && ConstrainVout(tx.vout[2],1,addr,prevaccount.first)==0)
                             return ("invalid tokens destination or amount vout.2 for pegsclose!");
-                        else if ( Getscriptaddress(addr,CScript() << ParseHex(HexStr(CCtxidaddr(addr,pegstxid))) << OP_CHECKSIG) && ConstrainVout(tx.vout[3],0,addr,prevaccount.second)==0)
+                        else if ( Getscriptaddress(addr,CScript() << ParseHex(HexStr(CCtxidaddr_tweak(addr,pegstxid))) << OP_CHECKSIG) && ConstrainVout(tx.vout[3],0,addr,prevaccount.second)==0)
                             return ("invalid coins destination or amount vout.3 for pegsclose!");
                         break;     
                     case 'E':
@@ -670,7 +670,7 @@ bool PegsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, 
                             return eval->Invalid("cannot exchange from this account, it is not worst account there is!");
                         else if (_GetCCaddress(addr,EVAL_TOKENS,srcpub) && ConstrainVout(tx.vout[2],1,addr,prevaccount.first-account.first)==0)
                             return ("invalid tokens destination or amount vout.2 for pegsexchange!");
-                        else if (Getscriptaddress(addr,CScript() << ParseHex(HexStr(CCtxidaddr(addr,pegstxid))) << OP_CHECKSIG) && ConstrainVout(tx.vout[3],0,addr,amount)==0)
+                        else if (Getscriptaddress(addr,CScript() << ParseHex(HexStr(CCtxidaddr_tweak(addr,pegstxid))) << OP_CHECKSIG) && ConstrainVout(tx.vout[3],0,addr,amount)==0)
                             return ("invalid coins destination or amount vout.3 for pegsexchange, it should be coin burn vout!");
                         else if (numvouts>4 && GetTokensCCaddress1of2(cp,addr,accountpk,pegspk) && ConstrainVout(tx.vout[4],1,addr,account.first)==0)
                             return ("invalid tokens destination or amount vout.4 for pegsexchange, it should be the change of tokens back to account address!");
@@ -695,7 +695,7 @@ bool PegsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, 
                             return eval->Invalid("cannot liquidate account that is not in the red zone!");
                         else if (_GetCCaddress(addr,EVAL_TOKENS,srcpub) && ConstrainVout(tx.vout[2],1,addr,amount)==0)
                             return ("invalid tokens destination or amount vout.2 for pegsliquidate!");
-                        else if (Getscriptaddress(addr,CScript() << ParseHex(HexStr(CCtxidaddr(addr,pegstxid))) << OP_CHECKSIG) && ConstrainVout(tx.vout[3],0,addr,prevaccount.second)==0)
+                        else if (Getscriptaddress(addr,CScript() << ParseHex(HexStr(CCtxidaddr_tweak(addr,pegstxid))) << OP_CHECKSIG) && ConstrainVout(tx.vout[3],0,addr,prevaccount.second)==0)
                             return ("invalid coins destination or amount vout.3 for pegsliquidate, it should be coin burn vout!");
                         else if (GetTokensCCaddress(cp,addr,pegspk) && ConstrainVout(tx.vout[4],1,addr,prevaccount.first-amount)==0)
                             return ("invalid tokens destination or amount vout.4 for pegsliquidate, it should be the rest of tokens to pegs CC global tokens address!");
@@ -1078,7 +1078,7 @@ UniValue PegsClose(const CPubKey& pk,uint64_t txfee,uint256 pegstxid, uint256 to
                 mtx.vout.push_back(MakeCC1of2vout(EVAL_PEGS,CC_MARKER_VALUE,pegspk,pegspk));
                 mtx.vout.push_back(MakeCC1of2vout(EVAL_PEGS,CC_MARKER_VALUE,mypk,pegspk));
                 mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,tokenamount,mypk));
-                mtx.vout.push_back(CTxOut(account.second,CScript() << ParseHex(HexStr(CCtxidaddr(coinaddr,pegstxid))) << OP_CHECKSIG));
+                mtx.vout.push_back(CTxOut(account.second,CScript() << ParseHex(HexStr(CCtxidaddr_tweak(coinaddr,pegstxid))) << OP_CHECKSIG));
                 if (pegsfunds>txfee+2*CC_MARKER_VALUE) mtx.vout.push_back(MakeCC1vout(EVAL_PEGS,pegsfunds-(txfee+2*CC_MARKER_VALUE),pegspk));
                 account.first=0;
                 account.second=0;
@@ -1159,7 +1159,7 @@ UniValue PegsExchange(const CPubKey& pk,uint64_t txfee,uint256 pegstxid, uint256
                 if ((accounttxid!=zeroid && pegsfunds>=txfee+2*CC_MARKER_VALUE) || pegsfunds>=txfee)
                 {
                     mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,tokenamount,mypk));
-                    mtx.vout.push_back(CTxOut(amount,CScript() << ParseHex(HexStr(CCtxidaddr(coinaddr,pegstxid))) << OP_CHECKSIG));
+                    mtx.vout.push_back(CTxOut(amount,CScript() << ParseHex(HexStr(CCtxidaddr_tweak(coinaddr,pegstxid))) << OP_CHECKSIG));
                     if (tokenfunds>tokenamount) mtx.vout.push_back(MakeTokensCC1of2vout(EVAL_PEGS,tokenfunds-tokenamount,accountpk,pegspk));
                     if (accounttxid!=zeroid)
                     {
@@ -1247,7 +1247,7 @@ UniValue PegsLiquidate(const CPubKey& pk,uint64_t txfee,uint256 pegstxid, uint25
                 mtx.vout.push_back(MakeCC1of2vout(EVAL_PEGS,CC_MARKER_VALUE,pegspk,pegspk));
                 mtx.vout.push_back(MakeCC1of2vout(EVAL_PEGS,CC_MARKER_VALUE,accountpk,pegspk));
                 mtx.vout.push_back(MakeCC1vout(EVAL_TOKENS,amount,mypk));
-                mtx.vout.push_back(CTxOut(burnamount,CScript() << ParseHex(HexStr(CCtxidaddr(coinaddr,pegstxid))) << OP_CHECKSIG));
+                mtx.vout.push_back(CTxOut(burnamount,CScript() << ParseHex(HexStr(CCtxidaddr_tweak(coinaddr,pegstxid))) << OP_CHECKSIG));
                 mtx.vout.push_back(MakeTokensCC1vout(EVAL_PEGS,tokenamount-amount,pegspk));
                 if (pegsfunds>txfee+2*CC_MARKER_VALUE) mtx.vout.push_back(MakeCC1vout(EVAL_PEGS,pegsfunds-(txfee+2*CC_MARKER_VALUE),pegspk));
                 account.first=0;
