@@ -571,6 +571,8 @@ bool OraclesV2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction 
                         return (false);
                     if (!(CCtxidaddr_tweak(markeraddr,oracletxid).IsFullyValid()) || ConstrainVout(tx.vout[0],0,markeraddr,CC_HIGH_MARKER_VALUE)==0)
                         return eval->Invalid("vout.0 is marker amount to oracletxid address for oraclesregister!");
+                    if (ConstrainVout(tx.vout[1],1,oraclespk,0))//As we don't know baton address before register is created, we check that it does not go to global pubkey!
+                        return eval->Invalid("vout.1 is baton or amount invalid for oraclesregister!")
                     if (ConstrainVout(tx.vout[2],0,0,0)==0)
                         return eval->Invalid("vout.2 is normal change for oraclesregister!");
                     if (myGetTransactionCCV2(cp,oracletxid,tmptx,hashblock) == 0)
