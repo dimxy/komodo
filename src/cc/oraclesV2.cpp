@@ -466,14 +466,8 @@ bool OraclesV2ExactAmounts(struct CCcontract_info *cp,Eval* eval,const CTransact
     {        
         switch (funcid)
         {
-            case 'C': case 'S':
+            case 'C': case 'S': case 'R':
                 return (true);
-            case 'R':
-                if ( eval->GetTxUnconfirmed(tx.vin[0].prevout.hash,vinTx,hashBlock) == 0 )
-                    return eval->Invalid("cant find vinTx");
-                inputs = vinTx.vout[tx.vin[0].prevout.n].nValue;
-                outputs = tx.vout[1].nValue;
-                break;
             case 'D':
                 i=0;
                 inputs=0;
@@ -575,7 +569,7 @@ bool OraclesV2Validate(struct CCcontract_info *cp,Eval* eval,const CTransaction 
                         return eval->Invalid("invalid oraclesregister OP_RETURN data!"); 
                     if (ValidateOraclesRegisterVin(cp,eval,tx,0,tmppk)==0)
                         return (false);
-                    if (!(CCtxidaddr_tweak(markeraddr,oracletxid).IsFullyValid()) || tmppk==oraclespk || ConstrainVout(tx.vout[0],0,markeraddr,CC_HIGH_MARKER_VALUE)==0)
+                    if (!(CCtxidaddr_tweak(markeraddr,oracletxid).IsFullyValid()) || ConstrainVout(tx.vout[0],0,markeraddr,CC_HIGH_MARKER_VALUE)==0)
                         return eval->Invalid("vout.0 is marker amount to oracletxid address for oraclesregister!");
                     if (ConstrainVout(tx.vout[2],0,0,0)==0)
                         return eval->Invalid("vout.2 is normal change for oraclesregister!");
@@ -778,7 +772,7 @@ UniValue OracleV2Register(const CPubKey& pk, int64_t txfee,uint256 oracletxid,in
     mypk = pk.IsValid()?pk:pubkey2pk(Mypubkey());
     batonpk = OracleV2BatonPk(batonaddr,cp);
     markerpubkey = CCtxidaddr_tweak(markeraddr,oracletxid);
-    if (AddNormalinputs(mtx,mypk,txfee+2*CC_HIGH_MARKER_VALUE,4,pk.IsValid())<txfee+2*CC_HIGH_MARKER_VALUE)
+    if (AddNormalinputs(mtx,mypk,txfee+CC_MARKER_VALUE+CC_HIGH_MARKER_VALUE,4,pk.IsValid())>=txfee+CC_MARKER_VALUE+CC_HIGH_MARKER_VALUE)
     {
         mtx.vout.push_back(CTxOut(CC_HIGH_MARKER_VALUE,CScript() << ParseHex(HexStr(markerpubkey)) << OP_CHECKSIG));
         mtx.vout.push_back(MakeCC1voutMixed(cp->evalcode,CC_MARKER_VALUE,batonpk));
