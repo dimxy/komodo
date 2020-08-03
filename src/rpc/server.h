@@ -262,7 +262,6 @@ extern UniValue oraclesv2address(const UniValue& params, bool fHelp, const CPubK
 extern UniValue oraclesv2list(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue oraclesv2info(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue oraclesv2create(const UniValue& params, bool fHelp, const CPubKey& mypk);
-extern UniValue oraclesv2fund(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue oraclesv2register(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue oraclesv2subscribe(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue oraclesv2data(const UniValue& params, bool fHelp, const CPubKey& mypk);
