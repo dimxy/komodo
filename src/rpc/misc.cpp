@@ -1667,7 +1667,7 @@ UniValue decodeccopret(const UniValue& params, bool fHelp, const CPubKey& mypk)
 UniValue pycli(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ); Eval eval;
-    if (fHelp || params.size() != 1)
+    if (fHelp)
     {
         string msg = "pycli string\n"
             "\nPass cc_cli python function an arbitary string."
