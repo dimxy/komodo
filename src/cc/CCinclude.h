@@ -417,6 +417,7 @@ bool GetCCParams(Eval* eval, const CTransaction &tx, uint32_t nIn,
 int64_t OraclePrice(int32_t height,uint256 reforacletxid,char *markeraddr,char *format);
 uint256 OracleMerkle(int32_t height,uint256 reforacletxid,char *format,std::vector<struct oracle_merklepair>publishers);
 uint256 OraclesBatontxid(uint256 oracletxid,CPubKey pk);
+uint256 OraclesV2Batontxid(uint256 oracletxid,CPubKey pk);
 uint8_t DecodeOraclesCreateOpRet(const CScript &scriptPubKey,std::string &name,std::string &description,std::string &format);
 uint8_t DecodeOraclesV2CreateOpRet(const CScript &scriptPubKey,uint8_t &version,std::string &name,std::string &description,std::string &format);
 uint8_t DecodeOraclesOpRet(const CScript &scriptPubKey,uint256 &oracletxid,CPubKey &pk,int64_t &num);
