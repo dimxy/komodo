@@ -142,11 +142,12 @@ uint8_t DecodeChannelsOpRet(const CScript &scriptPubKey, uint256 &tokenid, uint2
 
 bool ChannelsExactAmounts(Eval* eval,const CTransaction &tx)
 {
-    uint256 txid,param3,tokenid;
+    uint256 txid,param3,tokenid; struct CCcontract_info *cp,C;
     CPubKey srcpub,destpub; uint16_t confirmation;
     int32_t param1,numvouts; int64_t param2; uint8_t funcid,version;
     CTransaction vinTx; uint256 hashBlock; int64_t inputs=0,outputs=0;
 
+    cp = CCinit(&C,EVAL_CHANNELS);
     if ((numvouts=tx.vout.size()) > 0 && (funcid=DecodeChannelsOpRet(tx.vout[numvouts-1].scriptPubKey, tokenid, txid, srcpub, destpub, param1, param2, param3, version, confirmation))!=0)
     {        
         switch (funcid)
@@ -154,7 +155,7 @@ bool ChannelsExactAmounts(Eval* eval,const CTransaction &tx)
             case 'O':
                 return (true);
             case 'P': case 'C': case 'R':
-                if ( eval->GetTxUnconfirmed(tx.vin[0].prevout.hash,vinTx,hashBlock) == 0 )
+                if ( myGetTransactionCCV2(cp,tx.vin[0].prevout.hash,vinTx,hashBlock) == 0 )
                     return eval->Invalid("cant find vinTx");
                 inputs = vinTx.vout[tx.vin[0].prevout.n].nValue;
                 outputs = tx.vout[0].nValue;
@@ -282,9 +283,8 @@ bool ChannelsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
                     //vout.5: opreturn - 'O' zerotxid senderspubkey receiverspubkey totalnumberofpayments paymentamount hashchain version confirmation
                     if (tokenid==zeroid)
                     {
-                        for (i=0;i<channelOpenTx.vin.size();i++)
-                            if (IsCCInput(channelOpenTx.vin[i].scriptSig) != 0 )
-                                return eval->Invalid("vin."+std::to_string(i)+" is normal for channelopen!");
+                        if (ValidateNormalVins(eval,tx,0)==0)
+                            return (false);
                         if (channelOpenTx.vout.size()!=5)
                             return eval->Invalid("invalid number of vouts for channelsopen tx!");
                         if (ConstrainVout(channelOpenTx.vout[3],0,srcaddr,0)==0 )
@@ -296,15 +296,14 @@ bool ChannelsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &
                         cpTokens = CCinit(&CTokens,EVAL_TOKENSV2);
                         while (i<channelOpenTx.vin.size())
                         {  
-                            if (myGetTransaction(channelOpenTx.vin[i].prevout.hash,prevTx,hashblock)!= 0 && (numvouts=prevTx.vout.size()) > 0 
-                                && (funcid=V2::DecodeTokenOpRet(prevTx.vout[numvouts-1].scriptPubKey, tmptokenid, keys, oprets))!=0 
+                            if ((cpTokens->ismyvin)(tx.vin[i].scriptSig) && myGetTransaction(channelOpenTx.vin[i].prevout.hash,prevTx,hashblock)!= 0 
+                                && (numvouts=prevTx.vout.size()) > 0 && (funcid=V2::DecodeTokenOpRet(prevTx.vout[numvouts-1].scriptPubKey, tmptokenid, keys, oprets))!=0 
                                 && ((funcid=='c' && prevTx.GetHash()==tokenid) || (funcid!='c' && tmptokenid==tokenid)))
                                 i++;
                             else break;
                         }
-                        while (i<channelOpenTx.vin.size() && IsCCInput(channelOpenTx.vin[i].scriptSig) == 0) i++;
-                        if (i!=channelOpenTx.vin.size())
-                            return eval->Invalid("invalid vin structure for channelopen!");
+                        if (ValidateNormalVins(eval,tx,i)==0)
+                            return (false);
                         if (channelOpenTx.vout.size()!=6)
                             return eval->Invalid("invalid number of vouts for channelsopen tx!");
                         if (ConstrainVout(channelOpenTx.vout[3],1,srctokensaddr,0)==0 )
