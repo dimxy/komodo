@@ -409,7 +409,6 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
         return eval->Invalid("no vouts");
     else
     {   
-            cpOracles=CCinit(&COracles,EVAL_ORACLESV2);    
             CCOpretCheck(eval,tx,true,true,true);
             ExactAmounts(eval,tx,CC_TXFEE);
             GatewaysExactAmounts(cp,eval,tx);
@@ -456,6 +455,7 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                         if (pubkeys.size()!=N)
                             return eval->Invalid("not enough pubkeys("+std::to_string(pubkey.size())+") for N."+std::to_string(N)+" gatewaysbind ");
                         pubkeys.clear();
+                        cpOracles=CCinit(&COracles,EVAL_ORACLESV2);    
                         CCtxidaddr_tweak(str,oracletxid);
                         SetCCunspents(unspentOutputs,str,false);
                         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
@@ -723,10 +723,11 @@ UniValue GatewaysBind(const CPubKey& pk, uint64_t txfee,std::string coin,uint256
 {
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CTransaction oracletx,tx; uint8_t version,taddr,prefix,prefix2,wiftype; CPubKey mypk,gatewayspk,regpk; CScript opret; uint256 hashBlock,txid,tmporacletxid;
-    struct CCcontract_info *cp,*cpTokens,C,CTokens; std::string name,description,format; int32_t i,numvouts,n=0; int64_t fullsupply,datafee;
+    struct CCcontract_info *cp,*cpTokens,C,CTokens,*cpOracles,COracles; std::string name,description,format; int32_t i,numvouts,n=0; int64_t fullsupply,datafee;
     char destaddr[64],coinaddr[64],myTokenCCaddr[64],markeraddr[64],*fstr; std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
 
     cp = CCinit(&C,EVAL_GATEWAYS);
+    cpOracles = CCinit(&COracles,EVAL_ORACLESV2);
     cpTokens = CCinit(&CTokens,EVAL_TOKENSV2);
     if (coin=="KMD")
     {
@@ -752,7 +753,7 @@ UniValue GatewaysBind(const CPubKey& pk, uint64_t txfee,std::string coin,uint256
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
     {
         txid = it->first.txhash;
-        if ( myGetTransactionCCV2(cp,txid,tx,hashBlock) != 0 && tx.vout.size() > 0
+        if ( myGetTransactionCCV2(cpOracles,txid,tx,hashBlock) != 0
             && DecodeOraclesV2OpRet(tx.vout[tx.vout.size()-1].scriptPubKey,version,tmporacletxid,regpk,datafee) == 'R' && oracletxid == tmporacletxid)
         {
             std::vector<CPubKey>::iterator it1 = std::find(pubkeys.begin(), pubkeys.end(), regpk);
@@ -761,7 +762,7 @@ UniValue GatewaysBind(const CPubKey& pk, uint64_t txfee,std::string coin,uint256
         }
     }
     if (pubkeys.size()!=n)
-        CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "different number of bind and oracle pubkeys " << n << "!=" << pubkeys.size() << std::endl);
+        CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "different number of bind and oracle pubkeys " << n << "!=" << pubkeys.size());
     for (i=0; i<N; i++)
     {
         Getscriptaddress(coinaddr,CScript() << ParseHex(HexStr(pubkeys[i])) << OP_CHECKSIG);
