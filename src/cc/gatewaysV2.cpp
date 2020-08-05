@@ -782,7 +782,7 @@ UniValue GatewaysBind(const CPubKey& pk, uint64_t txfee,std::string coin,uint256
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "Gateway bind." << coin << " ("<< tokenid.GetHex() << ") globaladdr." <<cp->unspendableCCaddr << " totalsupply " << (double)totalsupply/COIN << " != fullsupply " << (double)fullsupply/COIN);
     if ( CCtoken_balanceV2(myTokenCCaddr,tokenid) != totalsupply )
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "token balance on " << myTokenCCaddr << " " << (double)CCtoken_balanceV2((char *)myTokenCCaddr,tokenid)/COIN << "!=" << (double)totalsupply/COIN);
-    if ( myGetTransactionCCV2(cp,oracletxid,oracletx,hashBlock) == 0 || (numvouts= oracletx.vout.size()) <= 0 )
+    if ( myGetTransactionCCV2(cpOracles,oracletxid,oracletx,hashBlock) == 0 )
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "cant find oracletxid " << oracletxid.GetHex());
     if ( DecodeOraclesV2CreateOpRet(oracletx.vout[numvouts-1].scriptPubKey,version,name,description,format) != 'C' )
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "invalid oraclescreate opret data");
@@ -792,17 +792,18 @@ UniValue GatewaysBind(const CPubKey& pk, uint64_t txfee,std::string coin,uint256
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "illegal format (" << fstr << ") != (IhhL)");
     if ( GatewaysBindExists(cp,gatewayspk,tokenid) != 0 )
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "Gateway bind." << coin << " (" << tokenid.GetHex() << ") already exists");
-    if ( AddNormalinputs(mtx,mypk,txfee+CC_MARKER_VALUE,2,pk.IsValid()) >= txfee+CC_MARKER_VALUE )
+    if (AddTokenCCInputs<V2>(cpTokens, mtx, mypk, tokenid, totalsupply, 64, false)==totalsupply)
     {
-        if (AddTokenCCInputs<V2>(cpTokens, mtx, mypk, tokenid, totalsupply, 64, false)==totalsupply)
+        CCAddVintxCond(cp,V2::MakeTokensCCcond1(cpTokens->evalcode,mypk)); 
+        if ( AddNormalinputs(mtx,mypk,txfee+CC_MARKER_VALUE,2,pk.IsValid()) >= txfee+CC_MARKER_VALUE )
         {
             for (int i=0; i<100; i++) mtx.vout.push_back(V2::MakeTokensCC1vout(cp->evalcode,totalsupply/100,gatewayspk));       
             mtx.vout.push_back(MakeCC1voutMixed(cp->evalcode,CC_MARKER_VALUE,gatewayspk));
             return(FinalizeCCTxExt(pk.IsValid(),0,cp,mtx,mypk,txfee,EncodeGatewaysBindOpRet('B',tokenid,coin,totalsupply,oracletxid,M,N,pubkeys,taddr,prefix,prefix2,wiftype)));
         }
-        CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "you must have total supply of tokens in your tokens address!");
+        CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "cant find enough inputs");
     }
-    CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "cant find enough inputs");
+    CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "you must have total supply of tokens in your tokens address!");
 }
 
 UniValue GatewaysDeposit(const CPubKey& pk, uint64_t txfee,uint256 bindtxid,int32_t height,std::string refcoin,uint256 cointxid,int32_t claimvout,std::string deposithex,std::vector<uint8_t>proof,CPubKey destpub,int64_t amount)
