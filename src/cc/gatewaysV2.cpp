@@ -192,43 +192,75 @@ int64_t IsGatewaysvout(struct CCcontract_info *cp,const CTransaction& tx,int32_t
     return(0);
 }
 
-bool GatewaysExactAmounts(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx,int32_t minage,uint64_t txfee)
+bool GatewaysExactAmounts(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx)
 {
-    static uint256 zerohash;
-    CTransaction vinTx; uint256 hashBlock,activehash; int32_t i,numvins,numvouts; int64_t inputs=0,outputs=0,assetoshis;
-
-    numvins = tx.vin.size();
+    uint256 bindtxid,hashblock; uint8_t version; int32_t numvouts,i; int64_t inputs=0,outputs=0; char funcid;
+    struct CCcontract_info *cpTokens,CTokens; CTransaction tmptx;
+    
     numvouts = tx.vout.size();
-    for (i=0; i<numvins; i++)
-    {
-        LOGSTREAM("gatewayscc",CCLOG_DEBUG2, stream << "vini." << i << std::endl);
-        if ( (*cp->ismyvin)(tx.vin[i].scriptSig) != 0 )
+    if ((numvouts=tx.vout.size()) > 0 && (funcid=DecodeGatewaysOpRet(tx.vout[numvouts-1].scriptPubKey,version,bindtxid))!=0)
+    {        
+        switch (funcid)
         {
-            LOGSTREAM("gatewayscc",CCLOG_DEBUG2, stream << "vini." << i << " check mempool" << std::endl);
-            if ( myGetTransactionCCV2(cp,tx.vin[i].prevout.hash,vinTx,hashBlock) == 0 )
-                return eval->Invalid("cant find vinTx");
-            else
-            {
-                LOGSTREAM("gatewayscc",CCLOG_DEBUG2, stream << "vini." << i << " check hash and vout" << std::endl);
-                if ( hashBlock == zerohash )
-                    return eval->Invalid("cant Gateways from mempool");
-                if ( (assetoshis= IsGatewaysvout(cp,vinTx,tx.vin[i].prevout.n)) != 0 )
-                    inputs += assetoshis;
-            }
+            case 'B': 
+                i=0;
+                cpTokens = CCinit(&CTokens,EVAL_TOKENSV2);
+                while (i<tx.vin.size())
+                {  
+                    if ((cpTokens->ismyvin)(tx.vin[i].scriptSig) && myGetTransactionCCV2(cpTokens,tx.vin[i].prevout.hash,tmptx,hashblock)!= 0)
+                    {
+                        inputs+=tmptx.vout[tx.vin[i].prevout.n].nValue;
+                        i++;
+                    }
+                    else break;
+                }
+                for (int i=0;i<100;i++) outputs+=tx.vout[i].nValue;
+                break;
+            case 'D':
+                i=0;
+                while (i<tx.vin.size())
+                {  
+                    if ((cp->ismyvin)(tx.vin[i].scriptSig) && myGetTransactionCCV2(cp,tx.vin[i].prevout.hash,tmptx,hashblock)!= 0)
+                    {
+                        inputs+=tmptx.vout[tx.vin[i].prevout.n].nValue;
+                        i++;
+                    }
+                    else break;
+                }
+                outputs=tx.vout[0].nValue+tx.vout[2].nValue;
+                break;
+            case 'W': 
+                i=0;
+                cpTokens = CCinit(&CTokens,EVAL_TOKENSV2);
+                while (i<tx.vin.size())
+                {  
+                    if ((cpTokens->ismyvin)(tx.vin[i].scriptSig) && myGetTransactionCCV2(cpTokens,tx.vin[i].prevout.hash,tmptx,hashblock)!= 0)
+                    {
+                        inputs+=tmptx.vout[tx.vin[i].prevout.n].nValue;
+                        i++;
+                    }
+                    else break;
+                }
+                outputs=tx.vout[1].nValue+tx.vout[2].nValue;
+                break;
+            case 'S': case 'M':
+                if (myGetTransactionCCV2(cp,tx.vin[0].prevout.hash,tmptx,hashblock)==0)
+                    return eval->Invalid("cant find vinTx");
+                inputs=tmptx.vout[tx.vin[0].prevout.n].nValue;
+                outputs=tx.vout[0].nValue;
         }
+        if ( inputs != outputs )
+        {
+            LOGSTREAM("gatewayscc",CCLOG_ERROR, stream << "inputs " << inputs << " vs outputs " << outputs << std::endl);            
+            return eval->Invalid("mismatched inputs != outputs");
+        } 
+        else return (true);       
     }
-    for (i=0; i<numvouts; i++)
+    else
     {
-        LOGSTREAM("gatewayscc",CCLOG_DEBUG2, stream << "i." << i << " of numvouts." << numvouts << std::endl);
-        if ( (assetoshis= IsGatewaysvout(cp,tx,i)) != 0 )
-            outputs += assetoshis;
+        return eval->Invalid("invalid op_return data");
     }
-    if ( inputs != outputs+txfee )
-    {
-        LOGSTREAM("gatewayscc",CCLOG_DEBUG1, stream << "inputs " << (long long)inputs << " vs outputs " << (long long)outputs << std::endl);
-        return eval->Invalid("mismatched inputs != outputs + txfee");
-    }
-    else return(true);
+    return(false);
 }
 
 int64_t GatewaysVerify(char *refdepositaddr,uint256 oracletxid,int32_t claimvout,std::string refcoin,uint256 cointxid,const std::string deposithex,std::vector<uint8_t>proof,uint256 merkleroot,CPubKey destpub,uint8_t taddr,uint8_t prefix,uint8_t prefix2)
@@ -364,30 +396,23 @@ bool ValidateGatewaysVin(struct CCcontract_info *cp,Eval* eval, const CTransacti
 
 bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &tx, uint32_t nIn)
 {
-    int32_t numvins,numvouts,preventCCvins,preventCCvouts,i,n,height,claimvout; bool retval; uint8_t version,funcid,K,tmpK,M,N,taddr,prefix,prefix2,wiftype;
+    int32_t numvins,numvouts,i,n,height,claimvout; uint8_t version,funcid,K,tmpK,M,N,taddr,prefix,prefix2,wiftype;
     char str[65],destaddr[65],depositaddr[65],gatewaystokensaddr[65],gatewaysaddr[65]; std::vector<uint8_t> proof; int64_t datafee,fullsupply,totalsupply,amount,tmpamount; 
-    std::vector<uint256> txids; std::vector<CPubKey> pubkeys,publishers,signingpubkeys,tmpsigningpubkeys; struct CCcontract_info *cpOracles,COracles;
+    std::vector<uint256> txids; std::vector<CPubKey> pubkeys,publishers,signingpubkeys,tmpsigningpubkeys; struct CCcontract_info *cpOracles,COracles,*cpTokens,CTokens;
     uint256 hashblock,txid,bindtxid,deposittxid,withdrawtxid,tmpwithdrawtxid,withdrawsigntxid,lasttxid,tmplasttxid,tokenid,tmptokenid,oracletxid,cointxid,tmptxid,merkleroot,mhash;
     CTransaction tmptx; std::string refcoin,tmprefcoin,hex,tmphex,name,description,format; CPubKey pubkey,tmppubkey,gatewayspk,destpub;
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs; std::vector<CPubKey> keys; std::vector<vscript_t> oprets;
 
     numvins = tx.vin.size();
     numvouts = tx.vout.size();
-    preventCCvins = preventCCvouts = -1;
     if ( numvouts < 1 )
         return eval->Invalid("no vouts");
     else
-    {
-        //LogPrint("gatewayscc-1","check amounts\n");
-        // if ( GatewaysExactAmounts(cp,eval,tx,1,CC_TXFEE) == false )
-        // {
-        //      return eval->Invalid("invalid inputs vs. outputs!");   
-        // }
-        // else
-        // {    
+    {   
             cpOracles=CCinit(&COracles,EVAL_ORACLESV2);    
             CCOpretCheck(eval,tx,true,true,true);
             ExactAmounts(eval,tx,CC_TXFEE);
+            GatewaysExactAmounts(cp,eval,tx);
             gatewayspk = GetUnspendable(cp,0);      
             GetCCaddress(cp, gatewaysaddr, gatewayspk,true);  
             GetTokensCCaddress(cp, gatewaystokensaddr, gatewayspk,true);      
@@ -396,8 +421,8 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                 switch ( funcid )
                 {
                     case 'B':
-                        //vin.0: normal input
-                        //vin.1: CC input of tokens
+                        //vin.0: CC input of tokens
+                        //vin.m+: normal input
                         //vout.0-99: CC vout of gateways tokens to gateways tokens CC address
                         //vout.100: CC vout marker
                         //vout.101: normal change
@@ -408,7 +433,17 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                             return eval->Invalid("invalid gatewaysbind OP_RETURN data!"); 
                         if ( GatewaysBindExists(cp,gatewayspk,tokenid) != 0 )
                             return eval->Invalid("Gateway bind."+refcoin+" ("+tokenid.GetHex()+") already exists");
-                        if ( ValidateNormalVins(eval,tx,0) == 0 )
+                        i=0;
+                        cpTokens = CCinit(&CTokens,EVAL_TOKENSV2);
+                        while (i<numvins)
+                        {  
+                            if ((cpTokens->ismyvin)(tx.vin[i].scriptSig) && myGetTransactionCCV2(cpTokens,tx.vin[i].prevout.hash,tmptx,hashblock)!= 0 && (numvouts=tmptx.vout.size()) > 0 
+                                && (funcid=V2::DecodeTokenOpRet(tmptx.vout[numvouts-1].scriptPubKey, tmptokenid, keys, oprets))!=0 
+                                && ((funcid=='c' && tmptx.GetHash()==tokenid) || (funcid!='c' && tmptokenid==tokenid)))
+                                i++;
+                            else break;
+                        }
+                        if (ValidateNormalVins(eval,tx,i) == 0 )
                             return (false);
                         for (i=0;i<100;i++) if ( ConstrainVout(tx.vout[i],1,gatewaystokensaddr,totalsupply/100)==0 )
                             return eval->Invalid("vout."+std::to_string(i)+" is tokens to gateways global address or invalid amount for gatewaysbind!");
@@ -457,7 +492,7 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                         break;
                     case 'D':
                         //vin.0: CC input of gateways tokens
-                        //vin.1: normal inputs
+                        //vin.m+: normal inputs
                         //vout.0: CC vout of tokens from deposit amount to destination pubkey
                         //vout.1: normal output marker to txidaddr                           
                         //vout.2: CC vout change of gateways tokens to gateways tokens CC address
@@ -521,7 +556,7 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                         break;
                     case 'W':
                         //vin.0: CC input of tokens        
-                        //vin.1: normal inputs
+                        //vin.m+: normal inputs
                         //vout.0: CC vout marker to gateways CC address                
                         //vout.1: CC vout of gateways tokens back to gateways tokens CC address                  
                         //vout.2: CC vout change of tokens back to owners pubkey                                               
@@ -560,7 +595,7 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                         break;
                     case 'S':          
                         //vin.0: CC input of marker from previous tx (withdraw or withdrawsign)
-                        //vin.1: normal inputs             
+                        //vin.1+: normal inputs             
                         //vout.0: CC vout marker to gateway CC address
                         //vout.1: normalchange                  
                         //vout.2: opreturn - 'S' withdrawtxid lasttxid signingpubkeys refcoin number_of_signs hex
@@ -628,11 +663,8 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                         break;                      
                 }
             }
-            retval = PreventCC(eval,tx,preventCCvins,numvins,preventCCvouts,numvouts);
-            if ( retval != 0 )
-                LOGSTREAM("gatewayscc",CCLOG_DEBUG1, stream << "Gateways tx validated" << std::endl);
-            else fprintf(stderr,"Gateways tx invalid\n");
-            return(retval);
+            LOGSTREAM("gatewayscc",CCLOG_DEBUG1, stream << "Gateways tx validated" << std::endl);
+            return(true);
         // }
     }
 }
