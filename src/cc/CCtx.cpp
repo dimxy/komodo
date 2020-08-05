@@ -759,6 +759,23 @@ int64_t CCfullsupply(uint256 tokenid)
     return(0);
 }
 
+int64_t CCfullsupplyV2(uint256 tokenid)
+{
+    uint256 hashBlock; int32_t numvouts; CTransaction tx; std::vector<uint8_t> origpubkey; std::string name,description;
+    struct CCcontract_info *cp,C;
+
+    cp = CCinit(&C,EVAL_TOKENSV2);
+    if ( myGetTransactionCCV2(cp,tokenid,tx,hashBlock) != 0 && (numvouts= tx.vout.size()) > 0 )
+    {
+        std::vector<vscript_t> oprets;
+        if (V2::DecodeTokenCreateOpRet(tx.vout[numvouts-1].scriptPubKey,origpubkey,name,description,oprets))
+        {
+            return(tx.vout[1].nValue);
+        }
+    }
+    return(0);
+}
+
 // TODO: remove this func or add IsTokenVout check (in other places just AddTokenCCInputs is used instead, maybe make it to do the job here)
 int64_t CCtoken_balance(char *coinaddr,uint256 reftokenid)
 {
@@ -776,6 +793,31 @@ int64_t CCtoken_balance(char *coinaddr,uint256 reftokenid)
 			std::vector<CPubKey> voutTokenPubkeys;
             std::vector<vscript_t>  oprets;
             if ( reftokenid==txid || (DecodeTokenOpRetV1(tx.vout[numvouts-1].scriptPubKey, tokenid, voutTokenPubkeys, oprets) != 0 && reftokenid == tokenid))
+            {
+                sum += it->second.satoshis;
+            }
+        }
+    }
+    return(sum);
+}
+
+int64_t CCtoken_balanceV2(char *coinaddr,uint256 reftokenid)
+{
+    int64_t price,sum = 0; int32_t numvouts; CTransaction tx; uint256 tokenid,txid,hashBlock; 
+	std::vector<uint8_t>  vopretExtra; std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+    struct CCcontract_info *cp,C;
+
+    cp = CCinit(&C,EVAL_TOKENSV2);
+    SetCCunspents(unspentOutputs,coinaddr,true);
+    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it=unspentOutputs.begin(); it!=unspentOutputs.end(); it++)
+    {
+        txid = it->first.txhash;
+        if ( myGetTransactionCCV2(cp,txid,tx,hashBlock) != 0 )
+        {
+            char str[65];
+			std::vector<CPubKey> voutTokenPubkeys;
+            std::vector<vscript_t>  oprets;
+            if ( reftokenid==txid || (V2::DecodeTokenOpRet(tx.vout[numvouts-1].scriptPubKey, tokenid, voutTokenPubkeys, oprets) != 0 && reftokenid == tokenid))
             {
                 sum += it->second.satoshis;
             }

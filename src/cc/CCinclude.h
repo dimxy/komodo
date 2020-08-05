@@ -691,11 +691,13 @@ CPubKey pubkey2pk(std::vector<uint8_t> vpubkey);
 /// CCfullsupply returns token initial supply
 /// @param tokenid id of token (id of token creation tx)
 int64_t CCfullsupply(uint256 tokenid);
+int64_t CCfullsupplyV2(uint256 tokenid);
 
 /// CCtoken_balance returns token balance for an address
 /// @param destaddr address to search the balance on
 /// @param tokenid id of the token
 int64_t CCtoken_balance(char *destaddr,uint256 tokenid);
+int64_t CCtoken_balanceV2(char *destaddr,uint256 tokenid);
 
 /// @private
 int64_t CCtoken_balance2(char *destaddr,uint256 tokenid);
