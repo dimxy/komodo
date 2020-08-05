@@ -479,7 +479,7 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                         }
                         if ( totalsupply%100!=0)
                             return eval->Invalid("token supply must be dividable by 100sat");
-                        if ( (fullsupply=CCfullsupply(tokenid)) != totalsupply )
+                        if ( (fullsupply=CCfullsupplyV2(tokenid)) != totalsupply )
                             return eval->Invalid("Gateway bind."+refcoin+" ("+tokenid.GetHex()+") globaladdr."+cp->unspendableCCaddr+" totalsupply "+std::to_string(totalsupply)+" != fullsupply "+std::to_string(fullsupply));
                         if (myGetTransactionCCV2(cpOracles,oracletxid,tmptx,hashblock) == 0 || (numvouts=tmptx.vout.size()) <= 0 )
                             return eval->Invalid("cant find oracletxid "+oracletxid.GetHex());
@@ -778,10 +778,10 @@ UniValue GatewaysBind(const CPubKey& pk, uint64_t txfee,std::string coin,uint256
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "Gateway bind." << coin << " (" << tokenid.GetHex() << ") cant create globaladdr");
     if ( totalsupply%100!=0)
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "token supply must be dividable by 100sat");
-    if ( (fullsupply=CCfullsupply(tokenid)) != totalsupply )
+    if ( (fullsupply=CCfullsupplyV2(tokenid)) != totalsupply )
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "Gateway bind." << coin << " ("<< tokenid.GetHex() << ") globaladdr." <<cp->unspendableCCaddr << " totalsupply " << (double)totalsupply/COIN << " != fullsupply " << (double)fullsupply/COIN);
-    if ( CCtoken_balance(myTokenCCaddr,tokenid) != totalsupply )
-        CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "token balance on " << myTokenCCaddr << " " << (double)CCtoken_balance((char *)myTokenCCaddr,tokenid)/COIN << "!=" << (double)totalsupply/COIN);
+    if ( CCtoken_balanceV2(myTokenCCaddr,tokenid) != totalsupply )
+        CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "token balance on " << myTokenCCaddr << " " << (double)CCtoken_balanceV2((char *)myTokenCCaddr,tokenid)/COIN << "!=" << (double)totalsupply/COIN);
     if ( myGetTransactionCCV2(cp,oracletxid,oracletx,hashBlock) == 0 || (numvouts= oracletx.vout.size()) <= 0 )
         CCERR_RESULT("gatewayscc",CCLOG_ERROR, stream << "cant find oracletxid " << oracletxid.GetHex());
     if ( DecodeOraclesV2CreateOpRet(oracletx.vout[numvouts-1].scriptPubKey,version,name,description,format) != 'C' )
@@ -1363,7 +1363,7 @@ UniValue GatewaysInfo(uint256 bindtxid)
     result.push_back(Pair("tokenid",uint256_str(str,tokenid)));
     sprintf(numstr,"%.8f",(double)totalsupply/COIN);
     result.push_back(Pair("totalsupply",numstr));
-    remaining = CCtoken_balance(gatewaystokens,tokenid);
+    remaining = CCtoken_balanceV2(gatewaystokens,tokenid);
     sprintf(numstr,"%.8f",(double)remaining/COIN);
     result.push_back(Pair("remaining",numstr));
     sprintf(numstr,"%.8f",(double)(totalsupply - remaining)/COIN);
