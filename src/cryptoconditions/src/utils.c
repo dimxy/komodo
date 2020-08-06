@@ -130,7 +130,7 @@ unsigned char *base64_decode(const unsigned char *data_,
         if (j < *output_length) decoded_data[j++] = (triple >> 1 * 8) & 0xFF;
         if (j < *output_length) decoded_data[j++] = (triple >> 0 * 8) & 0xFF;
     }
-
+    free(data);
     return decoded_data;
 }
 
@@ -210,7 +210,7 @@ void jsonAddBase64(cJSON *params, char *key, unsigned char *bin, size_t size) {
 }
 
 
-unsigned char *hashFingerprintContents(asn_TYPE_descriptor_t *asnType, void *fp) {
+void hashFingerprintContents(asn_TYPE_descriptor_t *asnType, void *fp, uint8_t *out) {
     unsigned char buf[BUF_SIZE];
     asn_enc_rval_t rc = der_encode_to_buffer(asnType, fp, buf, BUF_SIZE);
     ASN_STRUCT_FREE(*asnType, fp);
@@ -218,9 +218,7 @@ unsigned char *hashFingerprintContents(asn_TYPE_descriptor_t *asnType, void *fp)
         fprintf(stderr, "Encoding fingerprint failed\n");
         return 0;
     }
-    unsigned char *hash = calloc(1,32);
-    sha256(buf, rc.encoded, hash);
-    return hash;
+    sha256(buf, rc.encoded, out);
 }
 
 

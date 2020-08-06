@@ -67,7 +67,7 @@ int32_t Jumblr_secretaddradd(char *secretaddr);
 uint64_t komodo_interestsum();
 int32_t komodo_longestchain();
 int32_t komodo_notarized_height(int32_t *prevMoMheightp,uint256 *hashp,uint256 *txidp);
-bool komodo_txnotarizedconfirmed(uint256 txid);
+extern bool komodo_txnotarizedconfirmed(uint256 txid,int32_t minconfirms);
 uint32_t komodo_chainactive_timestamp();
 int32_t komodo_whoami(char *pubkeystr,int32_t height,uint32_t timestamp);
 extern uint64_t KOMODO_INTERESTSUM,KOMODO_WALLETBALANCE;
@@ -80,7 +80,7 @@ int8_t StakedNotaryID(std::string &notaryname, char *Raddress);
 uint64_t komodo_notarypayamount(int32_t nHeight, int64_t notarycount);
 int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestamp);
 
-#define KOMODO_VERSION "0.5.2"
+#define KOMODO_VERSION "0.5.3"
 #define VERUS_VERSION "0.4.0g"
 extern uint16_t ASSETCHAINS_P2PPORT,ASSETCHAINS_RPCPORT;
 extern uint32_t ASSETCHAINS_CC;
@@ -1534,7 +1534,7 @@ UniValue getspentinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
             "\nArguments:\n"
             "{\n"
             "  \"txid\" (string) The hex string of the txid\n"
-            "  \"index\" (number) The start block height\n"
+            "  \"index\" (number) The output index in tx\n"
             "}\n"
             "\nResult:\n"
             "{\n"
@@ -1601,7 +1601,7 @@ UniValue txnotarizedconfirmed(const UniValue& params, bool fHelp, const CPubKey&
 UniValue decodeccopret(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     CTransaction tx; uint256 tokenid,txid,hashblock;
-    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script,tokenevalcode;
+    std::vector<uint8_t> vopret,vOpretExtra; uint8_t *script;
     UniValue result(UniValue::VOBJ),array(UniValue::VARR); std::vector<CPubKey> pubkeys;
 
     if (fHelp || params.size() < 1 || params.size() > 1)
@@ -1622,11 +1622,12 @@ UniValue decodeccopret(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
     std::vector<unsigned char> hex(ParseHex(params[0].get_str()));
     CScript scripthex(hex.begin(),hex.end());
-    std::vector<std::pair<uint8_t, vscript_t>>  oprets;
-    if (DecodeTokenOpRet(scripthex,tokenevalcode,tokenid,pubkeys, oprets)!=0 && tokenevalcode==EVAL_TOKENS && oprets.size()>0)
+    std::vector<vscript_t>  oprets;
+    if (DecodeTokenOpRetV1(scripthex,tokenid,pubkeys, oprets)!=0  && oprets.size()>0)
     {
         // seems we need a loop here
-        vOpretExtra = oprets[0].second;  
+        if (oprets.size() > 0)
+            vOpretExtra = oprets[0];  
         UniValue obj(UniValue::VOBJ);
         GetOpReturnData(scripthex,vopret);
         script = (uint8_t *)vopret.data();

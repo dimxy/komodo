@@ -920,7 +920,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
         else if ((whichType == TX_MULTISIG) && (!fIsBareMultisigStd)) {
             reason = "bare-multisig";
             return false;
-        } else if (whichType != TX_CRYPTOCONDITION && txout.IsDust(::minRelayTxFee)) {
+        } else if (!IsCryptoConditionsEnabled() && txout.IsDust(::minRelayTxFee)) {
             reason = "dust";
             return false;
         }
@@ -1267,9 +1267,9 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
         if (IsExpiredTx(tx, nHeight)) {
             // Don't increase banscore if the transaction only just expired
             int expiredDosLevel = IsExpiredTx(tx, nHeight - 1) ? (dosLevel > 10 ? dosLevel : 10) : 0;
-            string strHex = EncodeHexTx(tx);
+            //string strHex = EncodeHexTx(tx);
             //fprintf(stderr, "transaction exipred.%s\n",strHex.c_str());
-            return state.DoS(expiredDosLevel, error("ContextualCheckTransaction(): transaction %s is expired, expiry block %i vs current block %i\n txhex.%s",tx.GetHash().ToString(),tx.nExpiryHeight,nHeight,strHex), REJECT_INVALID, "tx-overwinter-expired");
+            return state.DoS(expiredDosLevel, error("ContextualCheckTransaction(): transaction %s is expired, expiry block %i vs current block %i\n",tx.GetHash().ToString(),tx.nExpiryHeight,nHeight), REJECT_INVALID, "tx-overwinter-expired");
         }
     }
 
@@ -2064,7 +2064,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // Check against previous transactions
         // This is done last to help prevent CPU exhaustion denial-of-service attacks.
         PrecomputedTransactionData txdata(tx);
-        if (!ContextualCheckInputs(tx, state, view, true, STANDARD_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId))
+        std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker(new CCheckCCEvalCodes());
+        if (!ContextualCheckInputs(tx, state, view, true, STANDARD_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId, evalcodeChecker))
         {
             //fprintf(stderr,"accept failure.9\n");
             return error("AcceptToMemoryPool: ConnectInputs failed %s", hash.ToString());
@@ -2087,12 +2088,15 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
 //fprintf(stderr,"addmempool 7\n");
 
-        if (!ContextualCheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId))
+        if (!ContextualCheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId, evalcodeChecker))
         {
             if ( flag != 0 )
                 KOMODO_CONNECTING = -1;
             return error("AcceptToMemoryPool: BUG! PLEASE REPORT THIS! ConnectInputs failed against MANDATORY but not STANDARD flags %s", hash.ToString());
         }
+
+        if (!ContextualCheckOutputs(tx, state, true, txdata, evalcodeChecker))
+                return error("AcceptToMemoryPool: BUG! PLEASE REPORT THIS! ContextualCheckOutputs failed %s", hash.ToString());;
         if ( flag != 0 )
             KOMODO_CONNECTING = -1;
 
@@ -2265,7 +2269,8 @@ bool myGetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlo
             }
             hashBlock = header.GetHash();
             if (txOut.GetHash() != hash)
-                return error("%s: txid mismatch", __func__);
+                //return error("%s: txid mismatch", __func__);
+                return error("%s: txid mismatch on disk=%s param=%s", __func__, txOut.GetHash().GetHex().c_str(), hash.GetHex().c_str());   //dimxy added
             //fprintf(stderr,"found on disk %s\n",hash.GetHex().c_str());
             return true;
         }
@@ -2321,7 +2326,8 @@ bool GetTransaction(const uint256 &hash, CTransaction &txOut, uint256 &hashBlock
             }
             hashBlock = header.GetHash();
             if (txOut.GetHash() != hash)
-                return error("%s: txid mismatch", __func__);
+                //return error("%s: txid mismatch", __func__);
+                return error("%s: txid mismatch on disk=%s param=%s", __func__, txOut.GetHash().GetHex().c_str(), hash.GetHex().c_str());   //dimxy added
             return true;
         }
     }
@@ -2765,10 +2771,21 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight)
 }
 
 bool CScriptCheck::operator()() {
-    const CScript &scriptSig = ptxTo->vin[nIn].scriptSig;
-    ServerTransactionSignatureChecker checker(ptxTo, nIn, amount, cacheStore, *txdata);
-    if (!VerifyScript(scriptSig, scriptPubKey, nFlags, checker, consensusBranchId, &error)) {
-        return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s", ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
+    if (vout!=0)
+    {
+        ServerTransactionSignatureChecker checker(ptxTo, n, amount, cacheStore, evalcodeChecker, *txdata);
+        if (checker.CheckCryptoCondition(scriptPubKey.GetCCV2SPK())!=1)
+        {
+            return ::error("CScriptCheck(): %s:%d CC validation failed: %s", ptxTo->GetHash().ToString(), n, ScriptErrorString(error));
+        }
+    }
+    else
+    {
+        const CScript &scriptSig = ptxTo->vin[n].scriptSig;
+        ServerTransactionSignatureChecker checker(ptxTo, n, amount, cacheStore, evalcodeChecker, *txdata);
+        if (!VerifyScript(scriptSig, scriptPubKey, nFlags, checker, consensusBranchId, &error)) {
+            return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s", ptxTo->GetHash().ToString(), n, ScriptErrorString(error));
+        }
     }
     return true;
 }
@@ -2892,6 +2909,7 @@ bool ContextualCheckInputs(
                            PrecomputedTransactionData& txdata,
                            const Consensus::Params& consensusParams,
                            uint32_t consensusBranchId,
+                           std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker,
                            std::vector<CScriptCheck> *pvChecks)
 {
     if (!tx.IsMint())
@@ -2918,7 +2936,7 @@ bool ContextualCheckInputs(
                 assert(coins);
 
                 // Verify signature
-                CScriptCheck check(*coins, tx, i, flags, cacheStore, consensusBranchId, &txdata);
+                CScriptCheck check(*coins, tx, i, flags, cacheStore, consensusBranchId, evalcodeChecker, &txdata);
                 if (pvChecks) {
                     pvChecks->push_back(CScriptCheck());
                     check.swap(pvChecks->back());
@@ -2931,7 +2949,7 @@ bool ContextualCheckInputs(
                         // avoid splitting the network between upgraded and
                         // non-upgraded nodes.
                         CScriptCheck check2(*coins, tx, i,
-                                            flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheStore, consensusBranchId, &txdata);
+                                            flags & ~STANDARD_NOT_MANDATORY_VERIFY_FLAGS, cacheStore, consensusBranchId, evalcodeChecker, &txdata);
                         if (check2())
                             return state.Invalid(false, REJECT_NONSTANDARD, strprintf("non-mandatory-script-verify-flag (%s)", ScriptErrorString(check.GetScriptError())));
                     }
@@ -2951,8 +2969,43 @@ bool ContextualCheckInputs(
     if (tx.IsCoinImport() || tx.IsPegsImport())
     {
         LOCK(cs_main);
-        ServerTransactionSignatureChecker checker(&tx, 0, 0, false, txdata);
+        ServerTransactionSignatureChecker checker(&tx, 0, 0, false, NULL,txdata);
         return VerifyCoinImport(tx.vin[0].scriptSig, checker, state);
+    }
+
+    return true;
+}
+
+bool ContextualCheckOutputs(
+                           const CTransaction& tx,
+                           CValidationState &state,
+                           bool fScriptChecks,
+                           PrecomputedTransactionData& txdata,
+                           std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker,
+                           std::vector<CScriptCheck> *pvChecks)
+{
+    if (!tx.IsCoinBase())
+    {
+        if (pvChecks)
+            pvChecks->reserve(tx.vout.size());
+
+        if (fScriptChecks) {
+            for (unsigned int i = 0; i < tx.vout.size(); i++) {
+                if (tx.vout[i].scriptPubKey.IsCCV2() )
+                {
+                    CScriptCheck check(tx.vout[i].scriptPubKey, tx.vout[i].nValue, tx, i, evalcodeChecker, &txdata);
+                    if (pvChecks)
+                    {
+                        pvChecks->push_back(CScriptCheck());
+                        check.swap(pvChecks->back());
+                    }
+                    else if (!check())
+                    {
+                        return state.DoS(100,false, REJECT_INVALID, strprintf("mandatory-script-verify-flag-failed (%s)", ScriptErrorString(check.GetScriptError())));
+                    }
+                }
+            }
+        }
     }
 
     return true;
@@ -3555,6 +3608,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
     }
     CCheckQueueControl<CScriptCheck> control(fExpensiveChecks && nScriptCheckThreads ? &scriptcheckqueue : NULL);
+    std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker(new CCheckCCEvalCodes());
 
     int64_t nTimeStart = GetTimeMicros();
     CAmount nFees = 0;
@@ -3687,7 +3741,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             //fprintf(stderr, "tx.%s nFees.%li interest.%li\n", tx.GetHash().ToString().c_str(), stakeTxValue, interest);
 
             std::vector<CScriptCheck> vChecks;
-            if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, flags, false, txdata[i], chainparams.GetConsensus(), consensusBranchId, nScriptCheckThreads ? &vChecks : NULL))
+            if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, flags, false, txdata[i], chainparams.GetConsensus(), consensusBranchId, evalcodeChecker, nScriptCheckThreads ? &vChecks : NULL))
+                return false;
+            if (!ContextualCheckOutputs(tx, state, fExpensiveChecks, txdata[i], evalcodeChecker, nScriptCheckThreads ? &vChecks : NULL))
                 return false;
             control.Add(vChecks);
         }
@@ -7340,6 +7396,11 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 pfrom->fDisconnect = true;
                 return false;
             }
+            if ( KOMODO_DEX_P2P != 0 && (pfrom->nServices & NODE_DEXP2P) == 0 )
+            {
+                pfrom->fDisconnect = true;
+                return false;
+            }
         }
         // Mark this node as currently connected, so we update its timestamp later.
         if (pfrom->fNetworkNode) {
@@ -7547,6 +7608,16 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             std::vector<uint8_t> payload;
             vRecv >> payload;
             komodo_nSPVresp(pfrom,payload);
+        }
+        return(true);
+    }
+    else if ( strCommand == "DEX" )
+    {
+        if ( KOMODO_DEX_P2P != 0 )
+        {
+            std::vector<uint8_t> payload;
+            vRecv >> payload;
+            komodo_DEXmsg(pfrom,payload);
         }
         return(true);
     }
@@ -7893,6 +7964,31 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             return true;
         }
 
+        bool hasNewHeaders = true;
+
+        // only KMD have checkpoints in sources, so, using IsInitialBlockDownload() here is
+        // not applicable for assetchains (!)
+        if (GetBoolArg("-fixibd", false) && ASSETCHAINS_SYMBOL[0] == 0 && IsInitialBlockDownload()) {
+
+            /**
+             * This is experimental feature avaliable only for KMD during initial block download running with
+             * -fixibd arg. Fix was offered by domob1812 here:
+             * https://github.com/bitcoin/bitcoin/pull/8054/files#diff-7ec3c68a81efff79b6ca22ac1f1eabbaR5099
+             * but later it was reverted bcz of synchronization stuck issues.
+             * Explanation:
+             * https://github.com/bitcoin/bitcoin/pull/8306#issuecomment-231584578
+             * Limiting this fix only to IBD and with special command line arg makes it safe, bcz
+             * default behaviour is to request new headers anyway.
+            */
+
+            // If we already know the last header in the message, then it contains
+            // no new information for us.  In this case, we do not request
+            // more headers later.  This prevents multiple chains of redundant
+            // getheader requests from running in parallel if triggered by incoming
+            // blocks while the node is still in initial headers sync.
+            hasNewHeaders = (mapBlockIndex.count(headers.back().GetHash()) == 0);
+        }
+
         CBlockIndex *pindexLast = NULL;
         BOOST_FOREACH(const CBlockHeader& header, headers) {
             //printf("size.%i, solution size.%i\n", (int)sizeof(header), (int)header.nSolution.size());
@@ -7918,7 +8014,15 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         if (pindexLast)
             UpdateBlockAvailability(pfrom->GetId(), pindexLast->GetBlockHash());
 
-        if (nCount == MAX_HEADERS_RESULTS && pindexLast) {
+        /* debug log */
+        // if (!hasNewHeaders && nCount == MAX_HEADERS_RESULTS && pindexLast) {
+        //         static int64_t bytes_saved;
+        //         bytes_saved += MAX_HEADERS_RESULTS * (CBlockHeader::HEADER_SIZE + 1348);
+        //         LogPrintf("[%d] don't request getheaders (%d) from peer=%d, bcz it's IBD and (%s) is already known!\n",
+        //             bytes_saved, pindexLast->GetHeight(), pfrom->id, headers.back().GetHash().ToString());
+        // }
+
+        if (nCount == MAX_HEADERS_RESULTS && pindexLast && hasNewHeaders) {
             // Headers message had its maximum size; the peer may have more headers.
             // TODO: optimize: if pindexLast is an ancestor of chainActive.Tip or pindexBestHeader, continue
             // from there instead.
@@ -8340,11 +8444,14 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
             }
             state.fShouldBan = false;
         }
+        if ( KOMODO_DEX_P2P != 0 && (pto->nServices & NODE_DEXP2P) != 0 )
+            komodo_DEXpoll(pto);
         if ( KOMODO_NSPV_SUPERLITE )
         {
             komodo_nSPV(pto);
             return(true);
         }
+
         BOOST_FOREACH(const CBlockReject& reject, state.rejects)
         pto->PushMessage("reject", (string)"block", reject.chRejectCode, reject.strRejectReason, reject.hashBlock);
         state.rejects.clear();

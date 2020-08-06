@@ -25,7 +25,8 @@ def test_decode_invalid_fulfillment():
     # This fulfillment payload has an invalid type ID but is otherwise valid
     invalid_type_id = unhex('bf632480206ee12ed43d7dce6fc0b2be20e6808380baafc03d400404bbf95165d7527b373a8100')
     assert cc_rfb(invalid_type_id) == 0
-    assert cc_rfb('\0') == 0
+    # We can't do this test: https://bugs.python.org/issue32745
+    # assert cc_rfb(' \0') == 0
     assert cc_rfb('') == 0
 
 
@@ -51,7 +52,8 @@ def test_decode_valid_condition():
 
 def test_decode_invalid_condition():
     assert 0 == cc_rcb("")
-    assert 0 == cc_rcb("\0")
+    # We can't do this test: https://bugs.python.org/issue32745
+    # assert 0 == cc_rcb("\0")
 
     # Bogus type ID
     assert 0 == cc_rcb(unhex('bf630c80016181030186a082020700'))
@@ -80,6 +82,28 @@ def test_non_canonical_secp256k1():
 def test_malleability_checked():
     assert     cc_rfb(b'\xa2\x13\xa0\x0f\xa0\x05\x80\x03abc\xa0\x06\x80\x04abcd\xa1\x00')
     assert not cc_rfb(b'\xa2\x13\xa0\x0f\xa0\x06\x80\x04abcd\xa0\x05\x80\x03abc\xa1\x00')
+
+
+def test_large_threshold():
+    conds = [{
+        'type': "secp256k1-sha-256",
+        "publicKey": "02D5D969305535AC29A77079C11D4F0DD40661CF96E04E974A5E8D7E374EE225AA"
+    }]
+
+
+    for i in range(250):
+        conds.append({
+            "type": "eval-sha-256",
+            "code": "VEVTVAE"
+        })
+
+    r = jsonRPC("encodeCondition", {
+        "type": "threshold-sha-256",
+        "subfulfillments": conds,
+        "threshold": 251
+    })
+    assert 'error' not in r, r
+
 
 
 so.cc_conditionUri.restype = ctypes.c_char_p

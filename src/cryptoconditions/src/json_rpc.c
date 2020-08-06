@@ -55,6 +55,8 @@ CC *cc_conditionFromJSON(cJSON *params, char *err) {
         strcpy(err, "\"type\" must be a string");
         return NULL;
     }
+    struct CCType *anon=&CC_AnonType;
+    if (strcmp(typeName->valuestring,"(anon)")==0) return anon->fromJSON(params,err);
     for (int i=0; i<CCTypeRegistryLength; i++) {
         if (CCTypeRegistry[i] != NULL) {
             if (0 == strcmp(typeName->valuestring, CCTypeRegistry[i]->name)) {
@@ -148,6 +150,25 @@ static cJSON *jsonDecodeFulfillment(cJSON *params, char *err) {
     cc_free(cond);
     return out;
 }
+
+static cJSON *jsonDecodeFulfillmentMixedMode(cJSON *params, char *err) {
+    size_t ffill_bin_len;
+    unsigned char *ffill_bin;
+    if (!jsonGetHex(params, "fulfillment", err, &ffill_bin, &ffill_bin_len))
+        return NULL;
+
+    CC *cond = cc_readFulfillmentBinaryMixedMode(ffill_bin, ffill_bin_len);
+    free(ffill_bin);
+    if (!cond) {
+        strcpy(err, "Invalid fulfillment payload");
+        return NULL;
+    }
+    cJSON *out = cc_conditionToJSON(cond);
+    cc_free(cond);
+    return out;
+}
+
+
 
 
 static cJSON *jsonDecodeCondition(cJSON *params, char *err) {
@@ -279,6 +300,7 @@ static JsonMethod cc_jsonMethods[] = {
     {"decodeCondition", &jsonDecodeCondition, "Decode a binary condition"},
     {"encodeFulfillment", &jsonEncodeFulfillment, "Encode a JSON condition to a fulfillment"},
     {"decodeFulfillment", &jsonDecodeFulfillment, "Decode a binary fulfillment"},
+    {"decodeFulfillmentMixed", &jsonDecodeFulfillmentMixedMode, "Decode a mixed mode binay fulfillment"},
     {"verifyFulfillment", &jsonVerifyFulfillment, "Verify a fulfillment"},
     {"signTreeEd25519", &jsonSignTreeEd25519, "Sign ed25519 condition nodes"},
     {"signTreeSecp256k1", &jsonSignTreeSecp256k1, "Sign secp256k1 condition nodes"},

@@ -62,8 +62,8 @@ void appendUriSubtypes(uint32_t mask, unsigned char *buf) {
 
 
 char *cc_conditionUri(const CC *cond) {
-    unsigned char *fp = cond->type->fingerprint(cond);
-    if (!fp) return NULL;
+    unsigned char *fp = calloc(1, 32);
+    cond->type->fingerprint(cond, fp);
 
     unsigned char *encoded = base64_encode(fp, 32);
 
@@ -116,18 +116,18 @@ uint32_t fromAsnSubtypes(const ConditionTypes_t types) {
 size_t cc_conditionBinary(const CC *cond, unsigned char *buf) {
     Condition_t *asn = calloc(1, sizeof(Condition_t));
     asnCondition(cond, asn);
+    size_t out = 0;
     asn_enc_rval_t rc = der_encode_to_buffer(&asn_DEF_Condition, asn, buf, 1000);
-    if (rc.encoded == -1) {
-        fprintf(stderr, "CONDITION NOT ENCODED\n");
-        return 0;
-    }
+    if (rc.encoded == -1) goto end;
+    out = rc.encoded;
+end:
     ASN_STRUCT_FREE(asn_DEF_Condition, asn);
-    return rc.encoded;
+    return out;
 }
 
 
-size_t cc_fulfillmentBinary(const CC *cond, unsigned char *buf, size_t length) {
-    Fulfillment_t *ffill = asnFulfillmentNew(cond);
+size_t cc_fulfillmentBinaryWithFlags(const CC *cond, unsigned char *buf, size_t length, bool flags) {
+    Fulfillment_t *ffill = asnFulfillmentNew(cond, flags);
     asn_enc_rval_t rc = der_encode_to_buffer(&asn_DEF_Fulfillment, ffill, buf, length);
     if (rc.encoded == -1) {
         fprintf(stderr, "FULFILLMENT NOT ENCODED\n");
@@ -137,18 +137,47 @@ size_t cc_fulfillmentBinary(const CC *cond, unsigned char *buf, size_t length) {
     return rc.encoded;
 }
 
+size_t cc_fulfillmentBinary(const CC *cond, unsigned char *buf, size_t length) {
+    return cc_fulfillmentBinaryWithFlags(cond, buf, length, 0);
+}
+
+size_t cc_fulfillmentBinaryMixedMode(const CC *cond, unsigned char *buf, size_t length) {
+    return cc_fulfillmentBinaryWithFlags(cond, buf, length, MixedMode);
+}
+
+
 
 void asnCondition(const CC *cond, Condition_t *asn) {
     asn->present = cc_isAnon(cond) ? cond->conditionType->asnType : cond->type->asnType;
     
-    // This may look a little weird - we dont have a reference here to the correct
-    // union choice for the condition type, so we just assign everything to the threshold
-    // type. This works out nicely since the union choices have the same binary interface.
-    CompoundSha256Condition_t *choice = &asn->choice.thresholdSha256;
-    choice->cost = cc_getCost(cond);
-    choice->fingerprint.buf = cond->type->fingerprint(cond);
-    choice->fingerprint.size = 32;
-    choice->subtypes = asnSubtypes(cond->type->getSubtypes(cond));
+    // Fixed previous implementation as it was treating every asn as thresholdSha256 type and it was memory leaking
+    // because SimpleSha256Condition_t types do not have subtypes so it couldn't free it in the end.
+    int typeId=cond->type->typeId;
+    if (asn->present==Condition_PR_thresholdSha256 || asn->present==Condition_PR_prefixSha256)
+    {
+        CompoundSha256Condition_t *sequence=asn->present==Condition_PR_thresholdSha256?&asn->choice.thresholdSha256:&asn->choice.prefixSha256;
+        sequence->cost = cc_getCost(cond);
+        sequence->fingerprint.buf = calloc(1, 32);
+        cond->type->fingerprint(cond,sequence->fingerprint.buf);
+        sequence->fingerprint.size = 32;
+        sequence->subtypes = asnSubtypes(cond->type->getSubtypes(cond));
+    }
+    else
+    {
+        SimpleSha256Condition_t *choice;
+        switch (asn->present)
+        {
+            case Condition_PR_preimageSha256: choice = &asn->choice.preimageSha256; break;
+            case Condition_PR_rsaSha256: choice = &asn->choice.rsaSha256; break;
+            case Condition_PR_ed25519Sha256: choice = &asn->choice.ed25519Sha256; break;
+            case Condition_PR_secp256k1Sha256: choice = &asn->choice.secp256k1Sha256; break;
+            case Condition_PR_evalSha256: choice = &asn->choice.evalSha256; break;
+        };
+        choice->cost = cc_getCost(cond);
+        choice->fingerprint.buf = calloc(1, 32);
+        cond->type->fingerprint(cond,choice->fingerprint.buf);
+        choice->fingerprint.size = 32;
+    }
 }
 
 
@@ -159,8 +188,8 @@ Condition_t *asnConditionNew(const CC *cond) {
 }
 
 
-Fulfillment_t *asnFulfillmentNew(const CC *cond) {
-    return cond->type->toFulfillment(cond);
+Fulfillment_t *asnFulfillmentNew(const CC *cond, FulfillmentFlags flags) {
+    return cond->type->toFulfillment(cond, flags);
 }
 
 
@@ -179,17 +208,17 @@ CCType *getTypeByAsnEnum(Condition_PR present) {
 }
 
 
-CC *fulfillmentToCC(Fulfillment_t *ffill) {
+CC *fulfillmentToCC(Fulfillment_t *ffill, const FulfillmentFlags flags) {
     CCType *type = getTypeByAsnEnum(ffill->present);
     if (!type) {
         fprintf(stderr, "Unknown fulfillment type: %i\n", ffill->present);
         return 0;
     }
-    return type->fromFulfillment(ffill);
+    return type->fromFulfillment(ffill, flags);
 }
 
 
-CC *cc_readFulfillmentBinary(const unsigned char *ffill_bin, size_t ffill_bin_len) {
+CC *cc_readFulfillmentBinaryWithFlags(const unsigned char *ffill_bin, size_t ffill_bin_len, FulfillmentFlags flags) {
     CC *cond = 0;
     unsigned char *buf = calloc(1,ffill_bin_len);
     Fulfillment_t *ffill = 0;
@@ -207,40 +236,24 @@ CC *cc_readFulfillmentBinary(const unsigned char *ffill_bin, size_t ffill_bin_le
         goto end;
     }
     
-    cond = fulfillmentToCC(ffill);
+    cond = fulfillmentToCC(ffill, flags);
 end:
     free(buf);
     if (ffill) ASN_STRUCT_FREE(asn_DEF_Fulfillment, ffill);
     return cond;
 }
 
-int cc_readFulfillmentBinaryExt(const unsigned char *ffill_bin, size_t ffill_bin_len, CC **ppcc) {
+CC *cc_readFulfillmentBinary(const unsigned char *ffill_bin, size_t ffill_bin_len) {
+    return cc_readFulfillmentBinaryWithFlags(ffill_bin, ffill_bin_len, 0);
+}
 
-    int error = 0;
-    unsigned char *buf = calloc(1,ffill_bin_len);
-    Fulfillment_t *ffill = 0;
-    asn_dec_rval_t rval = ber_decode(0, &asn_DEF_Fulfillment, (void **)&ffill, ffill_bin, ffill_bin_len);
-    if (rval.code != RC_OK) {
-        error = rval.code;
-        goto end;
-    }
-    // Do malleability check
-    asn_enc_rval_t rc = der_encode_to_buffer(&asn_DEF_Fulfillment, ffill, buf, ffill_bin_len);
-    if (rc.encoded == -1) {
-        fprintf(stderr, "FULFILLMENT NOT ENCODED\n");
-        error = -1;
-        goto end;
-    }
-    if (rc.encoded != ffill_bin_len || 0 != memcmp(ffill_bin, buf, rc.encoded)) {
-        error = (rc.encoded == ffill_bin_len) ? -3 : -2;
-        goto end;
-    }
-    
-    *ppcc = fulfillmentToCC(ffill);
-end:
-    free(buf);
-    if (ffill) ASN_STRUCT_FREE(asn_DEF_Fulfillment, ffill);
-    return error;
+CC *cc_readFulfillmentBinaryMixedMode(const unsigned char *ffill_bin, size_t ffill_bin_len) {
+    return cc_readFulfillmentBinaryWithFlags(ffill_bin, ffill_bin_len, MixedMode);
+}
+
+int cc_readFulfillmentBinaryExt(const unsigned char *ffill_bin, size_t ffill_bin_len, CC **ppcc) {
+    *ppcc = cc_readFulfillmentBinary(ffill_bin, ffill_bin_len);
+    return (*ppcc) ? 0 : -1;
 }
 
 
@@ -341,4 +354,11 @@ void cc_free(CC *cond) {
     if (cond)
         cond->type->free(cond);
     free(cond);
+}
+
+CC* cc_copy(CC *cond) {
+    CC *CCcopy=NULL;
+    if (cond)
+        CCcopy=cond->type->copy(cond);
+    return (CCcopy);
 }

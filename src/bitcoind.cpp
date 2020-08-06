@@ -69,7 +69,8 @@ CBlockIndex *komodo_chainactive(int32_t height);
 
 void WaitForShutdown(boost::thread_group* threadGroup)
 {
-    int32_t i,height; CBlockIndex *pindex; bool fShutdown = ShutdownRequested(); const uint256 zeroid;
+    int32_t i,height; CBlockIndex *pindex; const uint256 zeroid;
+    bool fShutdown = ShutdownRequested();
     // Tell the main threads to shutdown.
     if (komodo_currentheight()>KOMODO_EARLYTXID_HEIGHT && KOMODO_EARLYTXID!=zeroid && ((height=tx_height(KOMODO_EARLYTXID))==0 || height>KOMODO_EARLYTXID_HEIGHT))
     {
@@ -86,35 +87,14 @@ void WaitForShutdown(boost::thread_group* threadGroup)
     } //else fprintf(stderr,"cant find height 1\n");*/
     if ( ASSETCHAINS_CBOPRET != 0 )
         komodo_pricesinit();
+    /*
+        komodo_passport_iteration and komodo_cbopretupdate moved to a separate thread
+        ThreadUpdateKomodoInternals fired every second (see init.cpp), original wait
+        for shutdown loop restored.
+    */
     while (!fShutdown)
     {
-        //fprintf(stderr,"call passport iteration\n");
-        if ( ASSETCHAINS_SYMBOL[0] == 0 )
-        {
-            if ( KOMODO_NSPV_FULLNODE )
-                komodo_passport_iteration();
-            for (i=0; i<10; i++)
-            {
-                fShutdown = ShutdownRequested();
-                if ( fShutdown != 0 )
-                    break;
-                MilliSleep(1000);
-            }
-        }
-        else
-        {
-            //komodo_interestsum();
-            //komodo_longestchain();
-            if ( ASSETCHAINS_CBOPRET != 0 )
-                komodo_cbopretupdate(0);
-            for (i=0; i<=ASSETCHAINS_BLOCKTIME/5; i++)
-            {
-                fShutdown = ShutdownRequested();
-                if ( fShutdown != 0 )
-                    break;
-                MilliSleep(1000);
-            }
-        }
+        MilliSleep(200);
         fShutdown = ShutdownRequested();
     }
     if (threadGroup)
@@ -189,30 +169,32 @@ bool AppInit(int argc, char* argv[])
         }
         try
         {
-            ReadConfigFile(mapArgs, mapMultiArgs);
+            ReadConfigFile(mapArgs, mapMultiArgs,1);
         } catch (const missing_zcash_conf& e) {
             fprintf(stderr,
-                (_("Before starting komodod, you need to create a configuration file:\n"
-                   "%s\n"
-                   "It can be completely empty! That indicates you are happy with the default\n"
-                   "configuration of komodod. But requiring a configuration file to start ensures\n"
-                   "that komodod won't accidentally compromise your privacy if there was a default\n"
-                   "option you needed to change.\n"
-                   "\n"
-                   "You can look at the example configuration file for suggestions of default\n"
-                   "options that you may want to change. It should be in one of these locations,\n"
-                   "depending on how you installed Komodo:\n") +
-                 _("- Source code:  %s\n"
-                   "- .deb package: %s\n")).c_str(),
-                GetConfigFile().string().c_str(),
-                "contrib/debian/examples/komodo.conf",
-                "/usr/share/doc/komodo/examples/komodo.conf");
+                    (_("Before starting komodod, you need to create a configuration file:\n"
+                       "%s\n"
+                       "It can be completely empty! That indicates you are happy with the default\n"
+                       "configuration of komodod. But requiring a configuration file to start ensures\n"
+                       "that komodod won't accidentally compromise your privacy if there was a default\n"
+                       "option you needed to change.\n"
+                       "\n"
+                       "You can look at the example configuration file for suggestions of default\n"
+                       "options that you may want to change. It should be in one of these locations,\n"
+                       "depending on how you installed Komodo:\n") +
+                     _("- Source code:  %s\n"
+                       "- .deb package: %s\n")).c_str(),
+                    GetConfigFile().string().c_str(),
+                    "contrib/debian/examples/komodo.conf",
+                    "/usr/share/doc/komodo/examples/komodo.conf");
             return false;
         } catch (const std::exception& e) {
             fprintf(stderr,"Error reading configuration file: %s\n", e.what());
             return false;
         }
-
+        //extern uint16_t BITCOIND_RPCPORT;
+        //BITCOIND_RPCPORT = GetArg("-rpcport", BaseParams().RPCPort());
+        
         // Command-line RPC
         bool fCommandLine = false;
         for (int i = 1; i < argc; i++)

@@ -41,6 +41,7 @@
  * Verus EVAL_STAKEGUARD is 0x01
  */
 #define FOREACH_EVAL(EVAL)             \
+        EVAL(EVAL_ORACLESV2, 0xe0) \
         EVAL(EVAL_IMPORTPAYOUT, 0xe1)  \
         EVAL(EVAL_IMPORTCOIN,   0xe2)  \
         EVAL(EVAL_ASSETS,   0xe3)  \
@@ -60,6 +61,8 @@
         EVAL(EVAL_GATEWAYS, 0xf1) \
 		EVAL(EVAL_TOKENS, 0xf2) \
         EVAL(EVAL_IMPORTGATEWAY, 0xf3)  \
+        EVAL(EVAL_KOGS, 0xf4)  \
+        EVAL(EVAL_TOKENSV2, 0xf5) \
 
 
 // evalcodes 0x10 to 0x7f are reserved for cclib dynamic CC
@@ -71,6 +74,7 @@ typedef uint8_t EvalCode;
 
 class AppVM;
 class NotarisationData;
+class CCheckCCEvalCodes;
 
 
 class Eval
@@ -85,7 +89,7 @@ public:
     /*
      * Test validity of a CC_Eval node
      */
-    virtual bool Dispatch(const CC *cond, const CTransaction &tx, unsigned int nIn);
+    virtual bool Dispatch(const CC *cond, const CTransaction &tx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
 
     /*
      * Dispute a payout using a VM
@@ -135,7 +139,7 @@ public:
 
 
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn);
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
 
 /*
  * This is a global symbol that can be optionally defined or linked at runtime
@@ -298,6 +302,6 @@ typedef std::pair<uint256,MerkleBranch> TxProof;
 
 uint256 GetMerkleRoot(const std::vector<uint256>& vLeaves);
 struct CCcontract_info *CCinit(struct CCcontract_info *cp,uint8_t evalcode);
-bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction &tx, unsigned int nIn);
+bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction &tx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
 
 #endif /* CC_EVAL_H */

@@ -65,10 +65,8 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, 
     else if (pprivKey)
         key = *pprivKey;
     else if (!keystore || !keystore->GetKey(address, key))
-    {
-        fprintf(stderr,"keystore.%p error\n",keystore);
         return false;
-    }
+
     //fprintf(stderr,"privkey (%s) for %s\n",NSPV_wifstr,EncodeDestination(key.GetPubKey().GetID()).c_str());
 
     if (scriptCode.IsPayToCryptoCondition())
@@ -116,10 +114,7 @@ static bool Sign1(const CKeyID& address, const BaseSignatureCreator& creator, co
 {
     vector<unsigned char> vchSig;
     if (!creator.CreateSig(vchSig, address, scriptCode, consensusBranchId))
-    {
-        fprintf(stderr,"Sign1 creatsig error\n");
         return false;
-    }
     ret.push_back(vchSig);
     return true;
 }
@@ -251,6 +246,9 @@ static bool SignStepCC(const BaseSignatureCreator& creator, const CScript& scrip
     }
     else
     {
+        // NOTE: SignStepCC is not currently used in cc modules (we use FinalizeCCTx which signs cc vins itself)
+        // but if we try to use SignStepCC with a spk having a cc opret 
+        // this won't work because this parsing constructor COptCCParams wont parse without pubkey(s) in the cc opret but we do not add them when a cc vout is made
         p = COptCCParams(vParams[0]);
     }
     

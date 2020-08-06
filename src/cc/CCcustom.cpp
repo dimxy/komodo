@@ -25,6 +25,7 @@
 #include "CCHeir.h"
 #include "CCchannels.h"
 #include "CCOracles.h"
+#include "CCOraclesV2.h"
 #include "CCPrices.h"
 #include "CCPegs.h"
 #include "CCMarmara.h"
@@ -32,6 +33,7 @@
 #include "CCGateways.h"
 #include "CCtokens.h"
 #include "CCImportGateway.h"
+#include "CCKogs.h"
 
 /*
  CCcustom has most of the functions that need to be extended to create a new CC contract.
@@ -148,7 +150,7 @@ uint8_t HeirCCpriv[32] = { 0x9d, 0xa1, 0xf8, 0xf7, 0xba, 0x0a, 0x91, 0x36, 0x89,
 // Channels
 #define FUNCNAME IsChannelsInput
 #define EVALCODE EVAL_CHANNELS
-const char *ChannelsCCaddr = "RQy3rwX8sP9oDm3c39vGKA6H315cgtPLfr";
+const char *ChannelsCCaddr = "RMFcgWmKXgjpHKrRw5RsMtC24Pge6vyveR";
 const char *ChannelsNormaladdr = "RQUuT8zmkvDfXqECH4m3VD3SsHZAfnoh1v";
 char ChannelsCChexstr[67] = { "035debdb19b1c98c615259339500511d6216a3ffbeb28ff5655a7ef5790a12ab0b" };
 uint8_t ChannelsCCpriv[32] = { 0xec, 0x91, 0x36, 0x15, 0x2d, 0xd4, 0x48, 0x73, 0x22, 0x36, 0x4f, 0x6a, 0x34, 0x5c, 0x61, 0x0f, 0x01, 0xb4, 0x79, 0xe8, 0x1c, 0x2f, 0xa1, 0x1d, 0x4a, 0x0a, 0x21, 0x16, 0xea, 0x82, 0x84, 0x60 };
@@ -214,7 +216,7 @@ uint8_t PaymentsCCpriv[32] = { 0x03, 0xc9, 0x73, 0xc2, 0xb8, 0x30, 0x3d, 0xbd, 0
 // Gateways
 #define FUNCNAME IsGatewaysInput
 #define EVALCODE EVAL_GATEWAYS
-const char *GatewaysCCaddr = "RKWpoK6vTRtq5b9qrRBodLkCzeURHeEk33";
+const char *GatewaysCCaddr = "REc5YM9XW1izFh8u88x2D2yTDrr9h5aNFN";
 const char *GatewaysNormaladdr = "RGJKV97ZN1wBfunuMt1tebiiHENNEq73Yh"; // wif UxJFYqEvLAjWPPRvn8NN1fRWscBxQZXZB5BBgc3HiapKVQBYNcmo
 char GatewaysCChexstr[67] = { "03ea9c062b9652d8eff34879b504eda0717895d27597aaeb60347d65eed96ccb40" };
 uint8_t GatewaysCCpriv[32] = { 0xf7, 0x4b, 0x5b, 0xa2, 0x7a, 0x5e, 0x9c, 0xda, 0x89, 0xb1, 0xcb, 0xb9, 0xe6, 0x9c, 0x2c, 0x70, 0x85, 0x37, 0xdd, 0x00, 0x7a, 0x67, 0xff, 0x7c, 0x62, 0x1b, 0xe2, 0xfb, 0x04, 0x8f, 0x85, 0xbf };
@@ -252,6 +254,40 @@ uint8_t ImportGatewayCCpriv[32] = { 0x65, 0xef, 0x27, 0xeb, 0x3d, 0xb0, 0xb4, 0x
 #include "CCcustom.inc"
 #undef FUNCNAME
 #undef EVALCODE
+
+// Kogs
+#define FUNCNAME IsKogsInput
+#define EVALCODE EVAL_KOGS
+const char *KogsCCaddr = "RD3UQofnS7uqa9Z3cKC8cb9c95VvoxnPyo";
+const char *KogsNormaladdr = "RVH1M8ZmT2nPB7MW6726RRsxjY7D5FKQHa";
+char KogsCChexstr[67] = { "03c27db737b92826d37fb43f3fda3d1b1d258cd28b68fe4be605457bf9dd9e0218" };
+uint8_t KogsCCpriv[32] = { 0x9f, 0x9a, 0x85, 0x6d, 0xd9, 0x2b, 0xfe, 0xcb, 0xa1, 0x18, 0xca, 0x51, 0x06, 0x80, 0x87, 0x7f, 0x87, 0xaa, 0xef, 0x9c, 0x6e, 0xa0, 0x21, 0x21, 0xed, 0x1c, 0x89, 0x96, 0xc6, 0xe6, 0x93, 0x21 };
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
+// OraclesV2
+#define FUNCNAME IsOraclesV2Input
+#define EVALCODE EVAL_ORACLESV2
+const char *OraclesV2CCaddr = "RJgkaZ2e5Ygw8eKJHNozp2en7sdBj4Bw17";
+const char *OraclesV2Normaladdr = "RPKeRunEv8FwfFGxU3SoC1W4gEDgUBqUaS";
+char OraclesV2CChexstr[67] = { "02c03cdb8822daa30241cc137fbbee76ead55d7f92e667df1c8ce56e6e50824386" };
+uint8_t OraclesV2CCpriv[32] = { 0x18, 0x6A, 0xE7, 0x8C, 0x0E, 0x03, 0x3C, 0x5D, 0x6C, 0xE7, 0xE9, 0x8E, 0x0A, 0xCA, 0x94, 0x69, 0x6A, 0xEC, 0x5C, 0x84, 0x09, 0x28, 0xD4, 0x37, 0x17, 0xAF, 0xEF, 0x35, 0x3A, 0x0E, 0x19, 0x3F };
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
+// Tokens v2
+#define FUNCNAME IsTokensv2Input
+#define EVALCODE EVAL_TOKENSV2
+const char *Tokensv2CCaddr = "RSc4RycihBEWQP2GDvSYS46MvFJsTKaNVU";
+const char *Tokensv2Normaladdr = "RDVU97zvJamGmVBSUyTm7RcYZtxjriNGkj";
+char Tokensv2CChexstr[67] = { "032fd27f72591b02f13a7f9701246eb0296b2be7cfdad32c520e594844ec3d4801" };
+uint8_t Tokensv2CCpriv[32] = { 0xb5, 0xba, 0x92, 0x7f, 0x53, 0x45, 0x4f, 0xf8, 0xa4, 0xad, 0x0d, 0x38, 0x30, 0x4f, 0xd0, 0x97, 0xd1, 0xb7, 0x94, 0x1b, 0x1f, 0x52, 0xbd, 0xae, 0xa2, 0xe7, 0x49, 0x06, 0x2e, 0xd2, 0x2d, 0xa5 };
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
 
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
@@ -300,8 +336,9 @@ int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 
 struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
 {
-    // important to clear because not all members are always initialized!
-    memset(cp, '\0', sizeof(*cp));
+    // memset(cp, '\0', sizeof(*cp)); <-- it is not good to initialize objects like this. 
+	// special init func now used:
+    cp->init_to_zeros();
 
     cp->evalcode = evalcode;
     switch ( evalcode )
@@ -443,6 +480,31 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
 			cp->validate = ImportGatewayValidate;
 			cp->ismyvin = IsImportGatewayInput;
 			break;
+		case EVAL_KOGS:
+			strcpy(cp->unspendableCCaddr, KogsCCaddr);
+			strcpy(cp->normaladdr, KogsNormaladdr);
+			strcpy(cp->CChexstr, KogsCChexstr);
+			memcpy(cp->CCpriv, KogsCCpriv, 32);
+			cp->validate = KogsValidate;
+			cp->ismyvin = IsKogsInput;
+			break;
+        case EVAL_ORACLESV2:
+            strcpy(cp->unspendableCCaddr,OraclesV2CCaddr);
+            strcpy(cp->normaladdr,OraclesV2Normaladdr);
+            strcpy(cp->CChexstr,OraclesV2CChexstr);
+            memcpy(cp->CCpriv,OraclesV2CCpriv,32);
+            cp->validate = OraclesV2Validate;
+            cp->ismyvin = IsOraclesV2Input;
+            break;
+		case EVAL_TOKENSV2:
+			strcpy(cp->unspendableCCaddr, Tokensv2CCaddr);
+			strcpy(cp->normaladdr, Tokensv2Normaladdr);
+			strcpy(cp->CChexstr, Tokensv2CChexstr);
+			memcpy(cp->CCpriv, Tokensv2CCpriv, 32);
+			cp->validate = Tokensv2Validate;
+			cp->ismyvin = IsTokensv2Input;
+			break;
+
         default:
             if ( CClib_initcp(cp,evalcode) < 0 )
                 return(0);

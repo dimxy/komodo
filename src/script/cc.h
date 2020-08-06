@@ -62,7 +62,7 @@ CC* CCNewThreshold(int t, std::vector<CC*> v);
 /*
  * Turn a condition into a scriptPubKey
  */
-CScript CCPubKey(const CC *cond);
+CScript CCPubKey(const CC *cond,bool mixed=false);
 
 
 /*
@@ -101,5 +101,19 @@ bool GetPushData(const CScript &sig, std::vector<unsigned char> &data);
  * Get OP_RETURN data from a script
  */
 bool GetOpReturnData(const CScript &sig, std::vector<unsigned char> &data);
+
+
+extern const uint8_t CC_MIXED_MODE_PREFIX;
+
+/*
+ * Read a condition binary that might be mixed mode (prefixed with 'M')
+ */
+struct CC* cc_readConditionBinaryMaybeMixed(const uint8_t *condBin, size_t condBinLength);
+
+/*
+ * Perform a mixed mode verification (where the condition binary might have a Mixed Mode fulfillment)
+ */
+int cc_verifyMaybeMixed(const struct CC *cond, const uint256 sigHash,
+        const uint8_t *condBin, size_t condBinLength, VerifyEval verifyEval, void *evalContext);
 
 #endif /* SCRIPT_CC_H */
