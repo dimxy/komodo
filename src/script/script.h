@@ -195,10 +195,6 @@ enum opcodetype
 
     // template matching params
     OP_SMALLDATA = 0xf9,
-    OP_SMALLINTEGER = 0xfa,
-    OP_PUBKEYS = 0xfb,
-    OP_PUBKEYHASH = 0xfd,
-    OP_PUBKEY = 0xfe,
     OP_CRYPTOCONDITION = 0xfc,
 
     OP_INVALIDOPCODE = 0xff,
@@ -599,10 +595,14 @@ public:
     bool IsPayToCryptoCondition(CScript *ccSubScript, std::vector<std::vector<unsigned char>>& vSolutions) const;
     bool IsPayToCryptoCondition(CScript *ccSubScript) const;
     bool IsPayToCryptoCondition() const;
+    bool IsCCV2() const;
+    const std::vector<unsigned char> GetCCV2SPK() const;
+    bool HasEvalcodeCCV2(uint8_t eval) const;
     bool IsCoinImport() const;
     bool MayAcceptCryptoCondition() const;
 
     /** Called by IsStandardTx and P2SH/BIP62 VerifyScript (which makes it consensus-critical). */
+    bool IsPushOnly(const_iterator pc) const;
     bool IsPushOnly() const;
 
     /** if the front of the script has check lock time verify. this is a fairly simple check.

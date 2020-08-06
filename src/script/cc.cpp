@@ -84,13 +84,17 @@ CC* CCNewEval(std::vector<unsigned char> code)
 }
 
 
-CScript CCPubKey(const CC *cond)
+CScript CCPubKey(const CC *cond, bool mixed)
 {
-    unsigned char buf[1000];
-    size_t len = cc_conditionBinary(cond, buf);
+    unsigned char buf[1000]; size_t len;
+    if (mixed)
+    {
+        buf[0]='M';
+        len = cc_fulfillmentBinaryMixedMode(cond, buf+1,999)+1;
+    }
+    else len = cc_conditionBinary(cond, buf);
     return CScript() << std::vector<unsigned char>(buf, buf+len) << OP_CHECKCRYPTOCONDITION;
 }
-
 
 CScript CCSig(const CC *cond)
 {
@@ -157,4 +161,34 @@ bool GetOpReturnData(const CScript &sig, std::vector<unsigned char> &data)
             if (sig.GetOp(pc, opcode, data))
                 return opcode > OP_0 && opcode <= OP_PUSHDATA4;
     return false;
+}
+
+
+const uint8_t CC_MIXED_MODE_PREFIX = 'M';
+
+
+struct CC* cc_readConditionBinaryMaybeMixed(const uint8_t *condBin, size_t condBinLength)
+{
+    if (condBinLength == 0)
+        return NULL;
+
+    return condBin[0] == CC_MIXED_MODE_PREFIX ?
+        cc_readFulfillmentBinaryMixedMode(condBin+1, condBinLength-1) :
+        cc_readConditionBinary(condBin, condBinLength);
+}
+
+
+int cc_verifyMaybeMixed(const struct CC *cond, const uint256 sigHash,
+        const uint8_t *condBin, size_t condBinLength, VerifyEval verifyEval, void *evalContext)
+{
+    if (condBinLength == 0) return false;
+    uint8_t condBuf[1000];
+    if (condBin[0] == CC_MIXED_MODE_PREFIX) {
+        CC* condMixed = cc_readFulfillmentBinaryMixedMode(condBin+1, condBinLength-1);
+        if (!condMixed) return false;
+        condBinLength = cc_conditionBinary(condMixed, condBuf);
+        condBin = condBuf;
+        cc_free(condMixed);
+    }
+    return cc_verify(cond, sigHash.begin(), 32, 0, condBin, condBinLength, verifyEval, evalContext);
 }

@@ -88,11 +88,10 @@ void initVerify() {
 }
 
 
-static unsigned char *secp256k1Fingerprint(const CC *cond) {
+static void secp256k1Fingerprint(const CC *cond, uint8_t *out) {
     Secp256k1FingerprintContents_t *fp = calloc(1, sizeof(Secp256k1FingerprintContents_t));
-    //fprintf(stderr,"secpfinger %p %p size %d vs %d\n",fp,cond->publicKey,(int32_t)sizeof(Secp256k1FingerprintContents_t),(int32_t)SECP256K1_PK_SIZE);
     OCTET_STRING_fromBuf(&fp->publicKey, cond->publicKey, SECP256K1_PK_SIZE);
-    return hashFingerprintContents(&asn_DEF_Secp256k1FingerprintContents, fp);
+    hashFingerprintContents(&asn_DEF_Secp256k1FingerprintContents, fp, out);
 }
 
 
@@ -275,13 +274,13 @@ static void secp256k1ToJSON(const CC *cond, cJSON *params) {
 }
 
 
-static CC *secp256k1FromFulfillment(const Fulfillment_t *ffill) {
+static CC *secp256k1FromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags _flags) {
     return cc_secp256k1Condition(ffill->choice.secp256k1Sha256.publicKey.buf,
                                  ffill->choice.secp256k1Sha256.signature.buf);
 }
 
 
-static Fulfillment_t *secp256k1ToFulfillment(const CC *cond) {
+static Fulfillment_t *secp256k1ToFulfillment(const CC *cond, FulfillmentFlags _flags) {
     if (!cond->signature) {
         return NULL;
     }
@@ -308,10 +307,18 @@ static void secp256k1Free(CC *cond) {
     }
 }
 
+static CC* secp256k1Copy(const CC* cond)
+{
+    CC *condCopy = cc_new(CC_Secp256k1);
+    condCopy->publicKey=cond->publicKey;
+    condCopy->signature=cond->signature;
+    return (condCopy);
+}
+
 
 static uint32_t secp256k1Subtypes(const CC *cond) {
     return 0;
 }
 
 
-struct CCType CC_Secp256k1Type = { 5, "secp256k1-sha-256", Condition_PR_secp256k1Sha256, 0, &secp256k1Fingerprint, &secp256k1Cost, &secp256k1Subtypes, &secp256k1FromJSON, &secp256k1ToJSON, &secp256k1FromFulfillment, &secp256k1ToFulfillment, &secp256k1IsFulfilled, &secp256k1Free };
+struct CCType CC_Secp256k1Type = { 5, "secp256k1-sha-256", Condition_PR_secp256k1Sha256, 0, &secp256k1Fingerprint, &secp256k1Cost, &secp256k1Subtypes, &secp256k1FromJSON, &secp256k1ToJSON, &secp256k1FromFulfillment, &secp256k1ToFulfillment, &secp256k1IsFulfilled, &secp256k1Free, &secp256k1Copy };

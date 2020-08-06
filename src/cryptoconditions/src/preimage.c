@@ -44,15 +44,12 @@ static unsigned long preimageCost(const CC *cond) {
 }
 
 
-static unsigned char *preimageFingerprint(const CC *cond) {
-    unsigned char *hash = calloc(1, 32);
-    //fprintf(stderr,"preimage %p %p\n",hash,cond->preimage);
-    sha256(cond->preimage, cond->preimageLength, hash);
-    return hash;
+static void preimageFingerprint(const CC *cond, uint8_t *out) {
+    sha256(cond->preimage, cond->preimageLength, out);
 }
 
 
-static CC *preimageFromFulfillment(const Fulfillment_t *ffill) {
+static CC *preimageFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags _flags) {
     CC *cond = cc_new(CC_Preimage);
     PreimageFulfillment_t p = ffill->choice.preimageSha256;
     cond->preimage = calloc(1, p.preimage.size);
@@ -62,7 +59,7 @@ static CC *preimageFromFulfillment(const Fulfillment_t *ffill) {
 }
 
 
-static Fulfillment_t *preimageToFulfillment(const CC *cond) {
+static Fulfillment_t *preimageToFulfillment(const CC *cond, FulfillmentFlags _flags) {
     Fulfillment_t *ffill = calloc(1, sizeof(Fulfillment_t));
     ffill->present = Fulfillment_PR_preimageSha256;
     PreimageFulfillment_t *pf = &ffill->choice.preimageSha256;
@@ -85,5 +82,13 @@ static uint32_t preimageSubtypes(const CC *cond) {
     return 0;
 }
 
+static CC* preimageCopy(const CC* cond)
+{
+    CC *condCopy = cc_new(CC_Preimage);
+    condCopy->preimage = calloc(1, cond->preimageLength);
+    memcpy(condCopy->preimage, cond->preimage, cond->preimageLength);
+    condCopy->preimageLength = cond->preimageLength;
+    return (condCopy);
+}
 
-struct CCType CC_PreimageType = { 0, "preimage-sha-256", Condition_PR_preimageSha256, 0, &preimageFingerprint, &preimageCost, &preimageSubtypes, &preimageFromJSON, &preimageToJSON, &preimageFromFulfillment, &preimageToFulfillment, &preimageIsFulfilled, &preimageFree };
+struct CCType CC_PreimageType = { 0, "preimage-sha-256", Condition_PR_preimageSha256, 0, &preimageFingerprint, &preimageCost, &preimageSubtypes, &preimageFromJSON, &preimageToJSON, &preimageFromFulfillment, &preimageToFulfillment, &preimageIsFulfilled, &preimageFree, &preimageCopy };
