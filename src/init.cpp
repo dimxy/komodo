@@ -1649,6 +1649,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         bool checkval, fAddressIndex, fSpentIndex, fUnspentCCIndexTmp;
         pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex, dbCompression, dbMaxOpenFiles);
         fAddressIndex = GetBoolArg("-addressindex", DEFAULT_ADDRESSINDEX);
+        checkval = false;  // need to reinit checkval otherwise it might be undefined if ReadFlag returns false
         pblocktree->ReadFlag("addressindex", checkval);
         if ( checkval != fAddressIndex && fAddressIndex != 0 )
         {
@@ -1657,6 +1658,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             fReindex = true;
         }
         fSpentIndex = GetBoolArg("-spentindex", DEFAULT_SPENTINDEX);
+        checkval = false;  
         pblocktree->ReadFlag("spentindex", checkval);
         if ( checkval != fSpentIndex && fSpentIndex != 0 )
         {
@@ -1666,6 +1668,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         }
 
         fUnspentCCIndexTmp = GetBoolArg("-unspentccindex", DEFAULT_UNSPENTCCINDEX);
+        checkval = false;  
         pblocktree->ReadFlag("unspentccindex", checkval);
         if ( checkval != fUnspentCCIndexTmp && fUnspentCCIndexTmp != 0 )
         {
