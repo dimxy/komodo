@@ -439,10 +439,10 @@ bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubK
 bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk1, CPubKey pk2, bool mixed)
 {
 	CCwrapper payoutCond;
-    if (mixed)
-        payoutCond.reset(MakeTokensv2CCcond1of2(cp->evalcode, cp->evalcodeNFT, pk1, pk2));
-    else
+    if (!mixed)
         payoutCond.reset(MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeNFT, pk1, pk2));
+    else
+        payoutCond.reset(MakeTokensv2CCcond1of2(cp->evalcode, cp->evalcodeNFT, pk1, pk2));
 
 	destaddr[0] = 0;
 	if (payoutCond != nullptr)  //  if additionalTokensEvalcode2 not set then it is dual-eval cc else three-eval cc
@@ -1486,7 +1486,9 @@ bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
     return false;
 }
 
-// get OP_DROP data for mixed cc vouts:
+// get OP_DROP data for mixed cc vouts
+// the function returns OP_DROP data as OP_RETURN script. This looks strange but all cc modules have DecodeOpReturn-like functions 
+// that accept OP_RETURN scripts 
 bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret)
 {
     std::vector<vscript_t> vParams;
@@ -1498,7 +1500,6 @@ bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret)
         {
             //vscript_t vopret(vParams[0].begin() + 6, vParams[0].end());
             opret << OP_RETURN << vParams[0];  // return vData[1] as cc opret
-            std::cerr << __func__ << " ccopret=" << opret.ToString() << std::endl;
             return true;
         }
     }
@@ -1576,4 +1577,60 @@ UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vect
         result.push_back(Pair("mypk Normal Balance",ValueFromAmount(CCaddress_balance(destaddr,0))));
     }
     return(result);
+}
+
+// decode cc transaction:
+// try to find cc data in vout's opdrop or in the last vout opreturn
+// return funcid, version and creationid
+bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_t &funcid, uint8_t &version, uint256 &creationId)
+{
+    CScript opdrop;
+    vscript_t ccdata;
+
+    if (tx.vout.size() > 0)     
+    {
+        // note: assumes that this is a cc vout (does not check this)
+
+        // first try if OP_DROP data exists
+        bool usedOpreturn;
+        if (GetCCVDataAsOpret(tx.vout[n].scriptPubKey, opdrop))
+            GetOpReturnData(opdrop, ccdata), usedOpreturn = false;
+        else
+            GetOpReturnData(tx.vout.back().scriptPubKey, ccdata), usedOpreturn = true;  // use OP_RETURN in the last vout if no OP_DROP data
+
+        // use following algotithm to determine creationId
+        // get the evalcode from ccdata
+        // if no cc vins found with this evalcode this is the creation tx and creationId = tx.GetHash()
+        // else the creationId is after the version field: 'evalcode funcid version creationId'
+        if (ccdata.size() >= 3)  {
+            struct CCcontract_info *cp, C; 
+            cp = CCinit(&C, ccdata[0]);
+            int32_t i = 0;
+            for (; i < tx.vin.size(); i ++)
+                if (cp->ismyvin(tx.vin[i].scriptSig))
+                    break;
+            if (i == tx.vin.size()) 
+            {
+                creationId = tx.GetHash(); // tx is the creation tx
+                evalcode = ccdata[0];
+                funcid = ccdata[1];
+                version = ccdata[2];
+            }
+            else
+            {
+                uint256 encodedCrid;
+                if (ccdata.size() >= 3 + sizeof(uint256))   {  // get creationId from the ccdata
+                    bool isEof = true;
+                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; ss >> funcid; ss >> version; ss >> encodedCrid; isEof = ss.eof()) && isEof) {
+                        LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "failed to decode ccdata, isEof=" << isEof << " usedOpreturn=" << usedOpreturn << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
+                        return false;
+                    }
+                }
+                creationId = revuint256(encodedCrid);
+                //std::cerr << __func__ << " in opret found creationid=" << creationId.GetHex() << std::endl;
+            }
+        }
+        return true;
+    }
+    return false;
 }

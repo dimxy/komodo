@@ -110,6 +110,8 @@ bool fCoinbaseEnforcedProtectionEnabled = true;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
 bool fAlerts = DEFAULT_ALERTS;
+bool fUnspentCCIndex = false;
+
 /* If the tip is older than this (in seconds), the node is considered to be in initial block download.
  */
 int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
@@ -1930,7 +1932,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                     {
                         if (pfMissingInputs)
                             *pfMissingInputs = true;
-                        //fprintf(stderr,"missing inputs\n");
+                        fprintf(stderr,"%s missing inputs for tx %s prevout.hash=%s\n", __func__, tx.GetHash().GetHex().c_str(), txin.prevout.hash.GetHex().c_str());  //TODO: remove
                         return false; 
                         /*
                             https://github.com/zcash/zcash/blob/master/src/main.cpp#L1490
@@ -2115,6 +2117,10 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 if (fSpentIndex) {
                     pool.addSpentIndex(entry, view);
                 }
+
+                if (fUnspentCCIndex) {
+                    pool.addUnspentCCIndex(entry, view);  // add mempool unspent cc index for cc vin/vouts
+                }
             }
         }
     }
@@ -2182,6 +2188,18 @@ bool GetAddressUnspent(uint160 addressHash, int type,
     return true;
 }
 
+bool GetUnspentCCIndex(uint160 addressHash, uint256 creationId,
+                       std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, int32_t beginHeight, int32_t endHeight, int64_t maxOutputs)
+{
+    if (!fUnspentCCIndex)
+        return error("unspent cc index not enabled");
+
+    if (!pblocktree->ReadUnspentCCIndex(addressHash, creationId, unspentOutputs, beginHeight, endHeight, maxOutputs))
+        return error("unable to get outputs for address from unspent cc index");
+
+    return true;
+}
+
 struct CompareBlocksByHeightMain
 {
     bool operator()(const CBlockIndex* a, const CBlockIndex* b) const
@@ -2208,7 +2226,7 @@ struct CompareBlocksByHeightMain
     else return(coins.vout[n].nValue);
 }*/
 
-bool myAddtomempool(CTransaction &tx, CValidationState *pstate, bool fSkipExpiry)
+bool myAddtomempool(const CTransaction &tx, CValidationState *pstate, bool fSkipExpiry)
 {
     CValidationState state;
     if (!pstate)
@@ -3237,13 +3255,14 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspentIndex;
     std::vector<std::pair<CSpentIndexKey, CSpentIndexValue> > spentIndex;
+    std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentCCIndex; // index for cc transactions
 
     // undo transactions in reverse order
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction &tx = block.vtx[i];
         uint256 hash = tx.GetHash();
-        if (fAddressIndex) {
-
+        if (fAddressIndex || fUnspentCCIndex) 
+        {
             for (unsigned int k = tx.vout.size(); k-- > 0;) {
                 const CTxOut &out = tx.vout[k];
 
@@ -3253,11 +3272,36 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 int keyType = GetAddressType(out.scriptPubKey, vDest, txType, vSols);
                 if ( keyType != 0 )
                 {
-                    for (auto addr : vSols)
+                    if (fAddressIndex)  {
+                        for (auto addr : vSols)
+                        {
+                            uint160 addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
+                            addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, hash, k, false), out.nValue));
+                            addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, hash, k), CAddressUnspentValue()));
+                        }
+                    }
+                    if (fUnspentCCIndex) 
                     {
-                        uint160 addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
-                        addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, hash, k, false), out.nValue));
-                        addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, hash, k), CAddressUnspentValue()));
+                        if (keyType == 3)   // CC type
+                        {
+                            if (vSols.size() > 0)   
+                            {                                 
+                                uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address                                    
+                                uint256 creationId;
+                                uint8_t evalcode, funcid, version;
+                                CScript opreturn; //init as empty
+                                if (tx.vout.back().scriptPubKey.size() > 0 && tx.vout.back().scriptPubKey[0] == OP_RETURN)
+                                    opreturn = tx.vout.back().scriptPubKey;
+
+                                if (CCDecodeTxVout(tx, k, evalcode, funcid, version, creationId))  {
+                                    // set key for delete the current entry from unspent cc index
+                                    unspentCCIndex.push_back(make_pair(
+                                        CUnspentCCIndexKey(addrHash, creationId, hash, k), 
+                                        CUnspentCCIndexValue()));
+                                    //std::cerr << __func__ << " undoing cc tx=" << hash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -3305,22 +3349,51 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                     spentIndex.push_back(make_pair(CSpentIndexKey(input.prevout.hash, input.prevout.n), CSpentIndexValue()));
                 }
 
-                if (fAddressIndex) {
+                if (fAddressIndex || fUnspentCCIndex) {
                     const CTxOut &prevout = view.GetOutputFor(tx.vin[j]);
 
                     vector<vector<unsigned char>> vSols;
                     CTxDestination vDest;
                     txnouttype txType = TX_PUBKEYHASH;
                     int keyType = GetAddressType(prevout.scriptPubKey, vDest, txType, vSols);
-                    if ( keyType != 0 )
+                    if (keyType != 0)
                     {
-                        for (auto addr : vSols)
+                        if (fAddressIndex)
                         {
-                            uint160 addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
-                            // undo spending activity
-                            addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, hash, j, true), prevout.nValue * -1));
-                            // restore unspent index
-                            addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, input.prevout.hash, input.prevout.n), CAddressUnspentValue(prevout.nValue, prevout.scriptPubKey, undo.nHeight)));
+                            for (auto addr : vSols)
+                            {
+                                uint160 addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
+                                // undo spending activity
+                                addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, hash, j, true), prevout.nValue * -1));
+                                // restore unspent index
+                                addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, input.prevout.hash, input.prevout.n), CAddressUnspentValue(prevout.nValue, prevout.scriptPubKey, undo.nHeight)));
+                            }
+                        }
+                        if (fUnspentCCIndex) // support cc index for cc chains
+                        {
+                            if (keyType == 3)  // type CC
+                            {
+                                if (vSols.size() > 0)   
+                                {                                    
+                                    uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address
+                                    CTransaction vintx;
+                                    uint256 hashBlock;
+                                    
+                                    if (myGetTransaction(input.prevout.hash, vintx, hashBlock) && vintx.vout.size() > 0) {  // load previous tx to get opreturn
+                                        uint256 creationId;
+                                        uint8_t evalcode, funcid, version;
+                                        CScript prevOpreturn; //init as empty
+                                        if (vintx.vout.back().scriptPubKey.size() > 0 && vintx.vout.back().scriptPubKey[0] == OP_RETURN)
+                                            prevOpreturn = vintx.vout.back().scriptPubKey;
+
+                                        // restore prev entry:
+                                        if (CCDecodeTxVout(vintx, input.prevout.n, evalcode, funcid, version, creationId))
+                                            unspentCCIndex.push_back(make_pair(
+                                                CUnspentCCIndexKey(addrHash, creationId, input.prevout.hash, input.prevout.n), 
+                                                CUnspentCCIndexValue(prevout.nValue, prevout.scriptPubKey, prevOpreturn, undo.nHeight, evalcode, funcid, version)));
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -3360,6 +3433,12 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         }
         if (!pblocktree->UpdateAddressUnspentIndex(addressUnspentIndex)) {
             return AbortNode(state, "Failed to write address unspent index");
+        }
+    }
+
+    if (fUnspentCCIndex) {
+        if (!pblocktree->UpdateUnspentCCIndex(unspentCCIndex)) {
+            return AbortNode(state, "Failed to write unspent cc index");
         }
     }
 
@@ -3480,7 +3559,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         return(true);
     if ( KOMODO_STOPAT != 0 && pindex->GetHeight() > KOMODO_STOPAT )
         return(false);
-    //fprintf(stderr,"connectblock ht.%d\n",(int32_t)pindex->GetHeight());
+    fprintf(stderr,"connectblock ht.%d\n",(int32_t)pindex->GetHeight());
+
     AssertLockHeld(cs_main);
     bool fExpensiveChecks = true;
     if (fCheckpointsEnabled) {
@@ -3620,9 +3700,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     std::vector<std::pair<uint256, CDiskTxPos> > vPos;
     vPos.reserve(block.vtx.size());
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
+
     std::vector<std::pair<CAddressIndexKey, CAmount> > addressIndex;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > addressUnspentIndex;
     std::vector<std::pair<CSpentIndexKey, CSpentIndexValue> > spentIndex;
+    std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentCCIndex; // index for cc transactions
+
     // Construct the incremental merkle tree at the current
     // block position,
     auto old_sprout_tree_root = view.GetBestAnchor(SPROUT);
@@ -3674,7 +3757,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): JoinSplit requirements not met"),
                                  REJECT_INVALID, "bad-txns-joinsplit-requirements-not-met");
 
-            if (fAddressIndex || fSpentIndex)
+            if (fAddressIndex || fSpentIndex || fUnspentCCIndex)
             {
                 for (size_t j = 0; j < tx.vin.size(); j++) 
                 {
@@ -3687,22 +3770,55 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     txnouttype txType = TX_PUBKEYHASH;
                     uint160 addrHash;
                     int keyType = GetAddressType(prevout.scriptPubKey, vDest, txType, vSols);
-                    if ( keyType != 0 )
+                    if (fAddressIndex || fSpentIndex)
                     {
-                        for (auto addr : vSols)
+                        if ( keyType != 0 )
                         {
-                            addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
-                            // record spending activity
-                            addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, txhash, j, true), prevout.nValue * -1));
+                            for (auto addr : vSols)
+                            {
+                                addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
+                                // record spending activity
+                                addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, txhash, j, true), prevout.nValue * -1));
 
-                            // remove address from unspent index
-                            addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, input.prevout.hash, input.prevout.n), CAddressUnspentValue()));
+                                // remove address from unspent index
+                                addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, input.prevout.hash, input.prevout.n), CAddressUnspentValue()));
+                            }
+
+                            if (fSpentIndex) {
+                                // add the spent index to determine the txid and input that spent an output
+                                // and to find the amount and address from an input
+                                spentIndex.push_back(make_pair(CSpentIndexKey(input.prevout.hash, input.prevout.n), CSpentIndexValue(txhash, j, pindex->GetHeight(), prevout.nValue, keyType, addrHash)));
+                            }
                         }
+                    }
+                    if (fUnspentCCIndex) 
+                    {
+                        // erase spent cc entry
+                        if (keyType == 3)   
+                        {
+                            if (vSols.size() > 0)   
+                            {            
+                                CTransaction vintx;
+                                uint256 hashBlock;
 
-                        if (fSpentIndex) {
-                            // add the spent index to determine the txid and input that spent an output
-                            // and to find the amount and address from an input
-                            spentIndex.push_back(make_pair(CSpentIndexKey(input.prevout.hash, input.prevout.n), CSpentIndexValue(txhash, j, pindex->GetHeight(), prevout.nValue, keyType, addrHash)));
+                                if (myGetTransaction(input.prevout.hash, vintx, hashBlock) && vintx.vout.size() > 0)
+                                {                     
+                                    uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address                                    
+                                    uint256 creationId;
+                                    uint8_t evalcode, funcid, version;
+                                    CScript opreturn; //init as empty
+                                    if (vintx.vout.back().scriptPubKey.size() > 0 && vintx.vout.back().scriptPubKey[0] == OP_RETURN)
+                                        opreturn = tx.vout.back().scriptPubKey;
+
+                                    if (CCDecodeTxVout(vintx, input.prevout.n, evalcode, funcid, version, creationId))  {
+                                        // set key for delete the spent output
+                                        unspentCCIndex.push_back(make_pair(
+                                            CUnspentCCIndexKey(addrHash, creationId, input.prevout.hash, input.prevout.n), 
+                                            CUnspentCCIndexValue()));
+                                        std::cerr << __func__ << " erasing spent cc output evalcode=" << (int)evalcode << " Hash160(vSols[0])=" << Hash160(vSols[0]).GetHex() << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -3748,7 +3864,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             control.Add(vChecks);
         }
 
-        if (fAddressIndex) {
+        if (fAddressIndex || fUnspentCCIndex) // update address index, unspent index and cc index
+        {
             for (unsigned int k = 0; k < tx.vout.size(); k++) {
                 const CTxOut &out = tx.vout[k];
 
@@ -3758,16 +3875,42 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 CTxDestination vDest;
                 txnouttype txType = TX_PUBKEYHASH;
                 int keyType = GetAddressType(out.scriptPubKey, vDest, txType, vSols);
-                if ( keyType != 0 )
+                if (keyType != 0)
                 {
-                    for (auto addr : vSols)
+                    if (fAddressIndex)
                     {
-                        addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
-                        // record receiving activity
-                        addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, txhash, k, false), out.nValue));
+                        for (auto addr : vSols)
+                        {
+                            addrHash = addr.size() == 20 ? uint160(addr) : Hash160(addr);
+                            // record receiving activity
+                            addressIndex.push_back(make_pair(CAddressIndexKey(keyType, addrHash, pindex->GetHeight(), i, txhash, k, false), out.nValue));
 
-                        // record unspent output
-                        addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, txhash, k), CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->GetHeight())));
+                            // record unspent output
+                            addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(keyType, addrHash, txhash, k), CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->GetHeight())));
+                        }
+                    }
+                    if (fUnspentCCIndex) // support cc index for cc chains
+                    {
+                        if (keyType == 3)  // type CC
+                        {
+                            if (vSols.size() > 0)   
+                            {                                 
+                                uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address                                    
+                                uint256 creationId;
+                                uint8_t evalcode, funcid, version;
+                                CScript opreturn; //init as empty
+                                if (tx.vout.back().scriptPubKey.size() > 0 && tx.vout.back().scriptPubKey[0] == OP_RETURN)
+                                    opreturn = tx.vout.back().scriptPubKey;
+
+                                if (CCDecodeTxVout(tx, k, evalcode, funcid, version, creationId))  {
+                                    // record cc index output with spk and opreturn
+                                    unspentCCIndex.push_back(make_pair(
+                                        CUnspentCCIndexKey(addrHash, creationId, txhash, k), 
+                                        CUnspentCCIndexValue(tx.vout[k].nValue, tx.vout[k].scriptPubKey, opreturn, pindex->GetHeight(), evalcode, funcid, version)));
+                                    //std::cerr << __func__ << " adding to cc index tx=" << txhash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -3904,6 +4047,12 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
         if (!pblocktree->UpdateAddressUnspentIndex(addressUnspentIndex)) {
             return AbortNode(state, "Failed to write address unspent index");
+        }
+    }
+
+    if (fUnspentCCIndex)    {
+        if (!pblocktree->UpdateUnspentCCIndex(unspentCCIndex)) {
+            return AbortNode(state, "Failed to write address unspent cc index");
         }
     }
 
@@ -4306,6 +4455,83 @@ static int64_t nTimeFlush = 0;
 static int64_t nTimeChainState = 0;
 static int64_t nTimePostConnect = 0;
 
+
+// class to save mempool state and auto restore it (in destructor)
+// this is used for assets chains where we need to restore mempool state to make mempool clean up from the txns of a validated block 
+// if the block was failed to connect 
+class CMempoolStateSaver 
+{
+public: 
+    CMempoolStateSaver(const std::string & _caller) : isAssetChain(false), preventRestore(false), caller(_caller) {} 
+    void Save(bool _isAssetChain) 
+    {
+        isAssetChain = _isAssetChain;
+        if (isAssetChain)
+        {
+            LOCK2(cs_main, mempool.cs);
+            // remember all non-z txids currently in mempool
+            for (auto const & e : mempool.mapTx) {
+                const CTransaction &tx = e.GetTx();
+                const uint256 &hash = tx.GetHash();
+                if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) 
+                    mempoolState[hash] = true;
+            }
+        }
+    }
+
+    // prevent from restore from mempool state if the block was valid and connected okay
+    void PreventRestore() 
+    {
+        if (isAssetChain)   {
+            mempoolState.clear();
+            preventRestore = true;
+        }
+    } 
+
+private:
+    void _RestoreState()
+    {
+        if (isAssetChain)
+        {
+            if (!preventRestore)
+            {
+                LOCK2(cs_main, mempool.cs);
+
+                // remove txns that have been added in CheckBlock() for the connected block
+                std::list<CTransaction> txnsToRemove;
+                for (auto const & e : mempool.mapTx) {
+                    const CTransaction &tx = e.GetTx();
+                    uint256 hash = tx.GetHash();
+                    if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
+                        if (!mempoolState[hash])  
+                            txnsToRemove.push_back(tx); //   
+                    }                
+                }
+
+                // do actual remove
+                for (auto const & tx : txnsToRemove) {
+                    list<CTransaction> removed;
+                    mempool.remove(tx, removed, false);
+                    // std::cerr << __func__ << " mempool.removed=" << tx.GetHash().GetHex() << " " << removed.size() << std::endl;
+                }
+            }
+        }
+    }
+public:
+    // auto restore the saved mempool state
+    ~CMempoolStateSaver()
+    {
+        _RestoreState();
+    }
+
+private:
+    bool isAssetChain;
+    bool preventRestore;
+    std::map<uint256, bool> mempoolState;
+    std::string caller;
+};
+
+
 /**
  * Connect a new block to chainActive. pblock is either NULL or a pointer to a CBlock
  * corresponding to pindexNew, to bypass loading it again from disk.
@@ -4338,6 +4564,12 @@ bool static ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *
     LogPrint("bench", "  - Load block from disk: %.2fms [%.2fs]\n", (nTime2 - nTime1) * 0.001, nTimeReadFromDisk * 0.000001);
     {
         CCoinsViewCache view(pcoinsTip);
+
+        // save mempool state, for asset chains:
+        CMempoolStateSaver mempoolState(__func__);
+        mempoolState.Save(ASSETCHAINS_CC != 0);  
+        // The mempool will be restored to the initial state when mempoolState exits its scope (if any errors)
+
         bool rv = ConnectBlock(*pblock, state, pindexNew, view, false, true);
         KOMODO_CONNECTING = -1;
         GetMainSignals().BlockChecked(*pblock, state);
@@ -5268,32 +5500,36 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
     if ( ASSETCHAINS_CC != 0 && !fCheckPOW )
         return true;
 
-    if ( ASSETCHAINS_CC != 0 ) // CC contracts might refer to transactions in the current block, from a CC spend within the same block and out of order
+    if (ASSETCHAINS_CC != 0) // CC contracts might refer to transactions in the current block, from a CC spend within the same block and out of order
     {
         int32_t i,j,rejects=0,lastrejects=0;
         //fprintf(stderr,"put block's tx into mempool\n");
         // Copy all non Z-txs in mempool to temporary mempool because there can be tx in local mempool that make the block invalid.
-        LOCK2(cs_main,mempool.cs);
+        // LOCK2(cs_main,mempool.cs);
+        ENTER_CRITICAL_SECTION(cs_main);
+        ENTER_CRITICAL_SECTION(mempool.cs);
+
         //fprintf(stderr, "starting... mempoolsize.%ld\n",mempool.size());
         list<CTransaction> transactionsToRemove;
-        BOOST_FOREACH(const CTxMemPoolEntry& e, mempool.mapTx) {
+        for(const CTxMemPoolEntry& e : mempool.mapTx) {
             const CTransaction &tx = e.GetTx();
             const uint256 &hash = tx.GetHash();
-            if ( tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
+            if (tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) {
                 transactionsToRemove.push_back(tx);
                 tmpmempool.addUnchecked(hash,e,true);
             }
         }
-        BOOST_FOREACH(const CTransaction& tx, transactionsToRemove) {
+        for(const CTransaction& tx : transactionsToRemove) {
             list<CTransaction> removed;
             mempool.remove(tx, removed, false);
+            // std::cerr << __func__ << " removed to tmpmempool tx=" << tx.GetHash().GetHex() << std::endl;
         }
         // add all the txs in the block to the empty mempool.
         // CC validation shouldnt (cant) depend on the state of mempool!
-        while ( 1 )
+        while( true )
         {
             list<CTransaction> removed;
-            for (i=0; i<block.vtx.size(); i++)
+            for (int32_t i = 0; i < block.vtx.size(); i ++)
             {
                 CValidationState state; CTransaction Tx; 
                 const CTransaction &tx = (CTransaction)block.vtx[i];
@@ -5310,7 +5546,13 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
                         sTx = Tx;
                         ptx = &sTx;
                     } else rejects++;
+                    // std::cerr << __func__ << " myAddtomempool for block tx=" << tx.GetHash().GetHex() << " false" << std::endl;
                 }
+                else
+                {
+                    // std::cerr << __func__ << " myAddtomempool for block tx=" << tx.GetHash().GetHex() << " true" << std::endl;
+                }
+                
                 // here we remove any txs in the temp mempool that were included in the block.
                 tmpmempool.remove(tx, removed, false);
             }
@@ -5341,7 +5583,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
     }
 
     unsigned int nSigOps = 0;
-    BOOST_FOREACH(const CTransaction& tx, block.vtx)
+    for(const CTransaction& tx : block.vtx)
     {
         nSigOps += GetLegacySigOpCount(tx);
     }
@@ -5362,19 +5604,56 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
         SyncWithWallets(*ptx, &block);
     }
 
-    if ( ASSETCHAINS_CC != 0 )
+    if (ASSETCHAINS_CC != 0)
     {
-        LOCK2(cs_main,mempool.cs);
+        // LOCK2(cs_main, mempool.cs);
         // here we add back all txs from the temp mempool to the main mempool.
-        BOOST_FOREACH(const CTxMemPoolEntry& e, tmpmempool.mapTx)
+        for(const CTxMemPoolEntry& e : tmpmempool.mapTx)
         {
             const CTransaction &tx = e.GetTx();
-            const uint256 &hash = tx.GetHash();
+            const uint256 &hash = tx.GetHash();            
             mempool.addUnchecked(hash,e,true);
         }
         //fprintf(stderr, "finished adding back. mempoolsize.%ld\n",mempool.size());
         // empty the temp mempool for next time.
         tmpmempool.clear();
+        mempool.check(pcoinsTip);   // update coins cache for txns in mempool
+
+        CCoinsView dummy;
+        CCoinsViewCache view(&dummy);
+        CCoinsViewMemPool viewMemPool(pcoinsTip, mempool);
+        view.SetBackend(viewMemPool);
+
+        // update mempool indexes:
+        for(const CTxMemPoolEntry& e : mempool.mapTx)
+        {
+            const CTransaction &tx = e.GetTx();
+            if (!tx.IsCoinImport() && !fImporting && !fReindex)
+            {
+                if (view.HaveInputs(tx))   // also adds vin txns to CoinViewCache
+                {
+                    // Add memory address index
+                    if (fAddressIndex) {
+                        mempool.addAddressIndex(e, view);
+                    }
+
+                    // Add memory spent index
+                    if (fSpentIndex) {
+                        mempool.addSpentIndex(e, view);
+                    }
+
+                    if (fUnspentCCIndex) {
+                        mempool.addUnspentCCIndex(e, view);  // add mempool unspent cc index for cc vin/vouts
+                    }
+                }
+                else
+                {
+                    // std::cerr << __func__ << " view.HaveInputs(tx) failed for txid=" << tx.GetHash().GetHex() << std::endl;
+                }
+            }
+        }
+        LEAVE_CRITICAL_SECTION(mempool.cs);
+        LEAVE_CRITICAL_SECTION(cs_main);
     }
     return true;
 }
@@ -5831,6 +6110,12 @@ bool ProcessNewBlock(bool from_miner,int32_t height,CValidationState &state, CNo
     //fprintf(stderr,"ProcessBlock %d\n",(int32_t)chainActive.LastTip()->GetHeight());
     {
         LOCK(cs_main);
+
+        // save mempool state and clear it, for asset chains:
+        CMempoolStateSaver mempoolState(__func__);
+        mempoolState.Save(ASSETCHAINS_CC != 0);  // The mempool will be restored to the initial state when mempoolState exits its scope
+        // this mempol state should be restored after the exist of this block as there is no block connect done yet 
+
         if ( chainActive.LastTip() != 0 )
             komodo_currentheight_set(chainActive.LastTip()->GetHeight());
         checked = CheckBlock(&futureblock,height!=0?height:komodo_block2height(pblock),0,*pblock, state, verifier,0);
@@ -5888,6 +6173,11 @@ bool TestBlockValidity(CValidationState &state, const CBlock& block, CBlockIndex
     indexDummy.SetHeight(pindexPrev->GetHeight() + 1);
     // JoinSplit proofs are verified in ConnectBlock
     auto verifier = libzcash::ProofVerifier::Disabled();
+
+    // save mempool state and clear it, for asset chains:
+    CMempoolStateSaver mempoolState(__func__);
+    mempoolState.Save(ASSETCHAINS_CC != 0); // the mempool state will be restored when mempoolState exits its scope
+
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, pindexPrev))
     {
@@ -6264,6 +6554,9 @@ bool static LoadBlockIndexDB()
     pblocktree->ReadFlag("spentindex", fSpentIndex);
     LogPrintf("%s: spent index %s\n", __func__, fSpentIndex ? "enabled" : "disabled");
 
+    pblocktree->ReadFlag("unspentccindex", fUnspentCCIndex);
+    LogPrintf("%s: unspent cc index %s\n", __func__, fUnspentCCIndex ? "enabled" : "disabled");
+
     // Fill in-memory data
     BOOST_FOREACH(const PAIRTYPE(uint256, CBlockIndex*)& item, mapBlockIndex)
     {
@@ -6630,6 +6923,11 @@ bool InitBlockIndex() {
         fSpentIndex = GetBoolArg("-spentindex", DEFAULT_SPENTINDEX);
         pblocktree->WriteFlag("spentindex", fSpentIndex);
         fprintf(stderr,"fAddressIndex.%d/%d fSpentIndex.%d/%d\n",fAddressIndex,DEFAULT_ADDRESSINDEX,fSpentIndex,DEFAULT_SPENTINDEX);
+
+        fUnspentCCIndex = GetBoolArg("-unspentccindex", DEFAULT_SPENTINDEX);
+        pblocktree->WriteFlag("unspentccindex", true);
+        fprintf(stderr,"fUnspentCCIndex.%d\n", true);
+
         LogPrintf("Initializing databases...\n");
     }
     // Only add the genesis block if not reindexing (in which case we reuse the one already on disk)

@@ -51,6 +51,7 @@ bool IsTokenMarkerVout(CTxOut vout);
 int64_t GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool = false);
 UniValue TokenInfo(uint256 tokenid);
 UniValue TokenList();
+UniValue TokenV2List();
 
 ///template <class V> UniValue TokenBeginTransferTx(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, CAmount txfee);
 ///template <class V> UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, uint256 tokenid, const char *tokenaddr, std::vector<CPubKey> destpubkeys, const std::pair<CC*, uint8_t*> &probecond, CAmount amount, bool useMempool);

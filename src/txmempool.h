@@ -30,6 +30,8 @@
 #include "primitives/transaction.h"
 #include "sync.h"
 
+#include "unspentccindex.h"
+
 #undef foreach
 #include "boost/multi_index_container.hpp"
 #include "boost/multi_index/ordered_index.hpp"
@@ -187,6 +189,12 @@ private:
     typedef std::map<uint256, std::vector<CSpentIndexKey> > mapSpentIndexInserted;
     mapSpentIndexInserted mapSpentInserted;
 
+    typedef std::map<CUnspentCCIndexKey, CUnspentCCIndexValue, CUnspentCCIndexKeyCompare> mapUnspentCCIndexType;
+    mapUnspentCCIndexType mapUnspentCCIndex;
+
+    typedef std::map<uint256, std::vector<CUnspentCCIndexKey> > mapUnspentCCIndexInsertedType;
+    mapUnspentCCIndexInsertedType mapUnspentCCIndexInserted;
+
 public:
     std::map<COutPoint, CInPoint> mapNextTx;
     std::map<uint256, std::pair<double, CAmount> > mapDeltas;
@@ -212,6 +220,12 @@ public:
     void addSpentIndex(const CTxMemPoolEntry &entry, const CCoinsViewCache &view);
     bool getSpentIndex(CSpentIndexKey &key, CSpentIndexValue &value);
     bool removeSpentIndex(const uint256 txhash);
+
+    // unspent cc index support:
+    void addUnspentCCIndex(const CTxMemPoolEntry &entry, const CCoinsViewCache &view);
+    bool getUnspentCCIndex(const std::vector<std::pair<uint160, uint256> > &keys, std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &outputs);
+    bool removeUnspentCCIndex(const CTransaction &tx);
+
     void remove(const CTransaction &tx, std::list<CTransaction>& removed, bool fRecursive = false);
     void removeWithAnchor(const uint256 &invalidRoot, ShieldedType type);
     void removeForReorg(const CCoinsViewCache *pcoins, unsigned int nMemPoolHeight, int flags);

@@ -56,6 +56,9 @@ static const char DB_FLAG = 'F';
 static const char DB_REINDEX_FLAG = 'R';
 static const char DB_LAST_BLOCK = 'l';
 
+// cc module outputs index with opdrop or opreturn data
+static const char DB_ADDRESSUNSPENT_CC_INDEX = 'O';
+
 
 CCoinsViewDB::CCoinsViewDB(std::string dbName, size_t nCacheSize, bool fMemory, bool fWipe) : db(GetDataDir() / dbName, nCacheSize, fMemory, fWipe) {
 }
@@ -742,5 +745,62 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
         }
     }
 
+    return true;
+}
+
+// update or erase entry for unspent cc index
+bool CBlockTreeDB::UpdateUnspentCCIndex(const std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue > >&vect) {
+    CDBBatch batch(*this);
+    for (std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> >::const_iterator it=vect.begin(); it!=vect.end(); it++) {
+        if (it->second.IsNull()) {
+            batch.Erase(make_pair(DB_ADDRESSUNSPENT_CC_INDEX, it->first));
+        } else {
+            batch.Write(make_pair(DB_ADDRESSUNSPENT_CC_INDEX, it->first), it->second);
+        }
+    }
+    return WriteBatch(batch);
+}
+
+// read unspent cc index by address or address+creationid key
+bool CBlockTreeDB::ReadUnspentCCIndex(uint160 addressHash, uint256 creationid,
+                                           std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, int32_t beginHeight, int32_t endHeight, int64_t maxOutputs) {
+
+    boost::scoped_ptr<CDBIterator> pcursor(NewIterator());
+
+    if (creationid.IsNull())
+        pcursor->Seek(make_pair(DB_ADDRESSUNSPENT_CC_INDEX, CUnspentCCIndexKeyAddr(addressHash)));  //search first address
+    else
+        pcursor->Seek(make_pair(DB_ADDRESSUNSPENT_CC_INDEX, CUnspentCCIndexKeyCreationId(addressHash, creationid)));  // search first address+creationId
+
+    int64_t n = 0;
+    while (pcursor->Valid() && (maxOutputs <= 0 || n < maxOutputs)) {
+        boost::this_thread::interruption_point();
+        try {
+            CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+            pair<char, CUnspentCCIndexKey> keyObj;
+            pcursor->GetKey(keyObj);
+            char chType = keyObj.first;
+            CUnspentCCIndexKey indexKey = keyObj.second;
+
+            if (chType == DB_ADDRESSUNSPENT_CC_INDEX && indexKey.hashBytes == addressHash && (creationid.IsNull() || indexKey.creationid == creationid)) {
+                try {
+                    CUnspentCCIndexValue ccValue;
+                    pcursor->GetValue(ccValue);
+                    if ((beginHeight < 0 || ccValue.blockHeight >= beginHeight) && (endHeight < 0 || ccValue.blockHeight <= endHeight))   { 
+                        unspentOutputs.push_back(make_pair(indexKey, ccValue));
+                        n ++;
+                    }
+                    pcursor->Next();
+                } catch (const std::exception& e) {
+                    return error("failed to get unspent cc index value");
+                }
+            } 
+            else {
+                break;
+            }
+        } catch (const std::exception& e) {
+            break;
+        }
+    }
     return true;
 }

@@ -38,6 +38,9 @@ void RegisterRawTransactionRPCCommands(CRPCTable &tableRPC);
 void RegisterTokensRPCCommands(CRPCTable &tableRPC);
 // marmara cc rpcs:
 void RegisterMarmaraRPCCommands(CRPCTable &tableRPC);
+// cc utils rpcs:
+void RegisterCCUtilsRPCCommands(CRPCTable &tableRPC);
+
 
 static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
 {
@@ -48,6 +51,7 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
     RegisterRawTransactionRPCCommands(tableRPC);
     RegisterTokensRPCCommands(tableRPC);
     RegisterMarmaraRPCCommands(tableRPC);
+    RegisterCCUtilsRPCCommands(tableRPC);
 }
 
 #endif

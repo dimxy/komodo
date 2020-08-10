@@ -43,6 +43,7 @@
 #include "tinyformat.h"
 #include "txmempool.h"
 #include "uint256.h"
+#include "unspentccindex.h"
 
 #include <algorithm>
 #include <exception>
@@ -124,6 +125,8 @@ static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 //static const bool DEFAULT_SPENTINDEX = false;
 #define DEFAULT_ADDRESSINDEX (GetArg("-ac_cc",0) != 0 || GetArg("-ac_ccactivate",0) != 0)
 #define DEFAULT_SPENTINDEX (GetArg("-ac_cc",0) != 0 || GetArg("-ac_ccactivate",0) != 0)
+#define DEFAULT_UNSPENTCCINDEX (GetArg("-ac_cc",0) != 0 || GetArg("-ac_ccactivate",0) != 0)
+
 static const bool DEFAULT_TIMESTAMPINDEX = false;
 static const unsigned int DEFAULT_DB_MAX_OPEN_FILES = 1000;
 static const bool DEFAULT_DB_COMPRESSION = true;
@@ -845,6 +848,10 @@ bool GetAddressIndex(uint160 addressHash, int type,
 bool GetAddressUnspent(uint160 addressHash, int type,
                        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs);
 
+// get utxos from unspet cc index
+bool GetUnspentCCIndex(uint160 addressHash, uint256 creationId,
+                       std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, int32_t beginHeight, int32_t endHeight, int64_t maxOutputs);
+
 /** Functions for disk access for blocks */
 bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart);
 bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos,bool checkPOW);
@@ -988,5 +995,12 @@ uint64_t CalculateCurrentUsage();
 
 /** Return a CMutableTransaction with contextual default values based on set of consensus rules at height */
 CMutableTransaction CreateNewContextualCMutableTransaction(const Consensus::Params& consensusParams, int nHeight);
+
+/** 
+ * Extracts solutions and destination from scriptPubKey
+ * determines dest txType (pubkey or pubkey hash, script hash or CC)
+ */
+int8_t GetAddressType(const CScript &scriptPubKey, CTxDestination &vDest, txnouttype &txType, std::vector<std::vector<unsigned char>> &vSols);
+
 
 #endif // BITCOIN_MAIN_H

@@ -257,6 +257,7 @@ uint8_t DecodeTokenCreateOpRetV1(const CScript &scriptPubKey, std::vector<uint8_
     return (uint8_t)0;
 }
 
+// decode token opret for mixed mode cc
 uint8_t DecodeTokenCreateOpRetV2(const CScript &scriptPubKey, std::vector<uint8_t> &origpubkey, std::string &name, std::string &description, std::vector<vscript_t> &oprets)
 {
     vscript_t vopret, vblob;
@@ -359,7 +360,7 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
     return (uint8_t)0;
 }
 
-// decode token 2 opret: 
+// decode token v2 (mixed mode cc) opret: 
 // for 't' returns all data from opret, vopretExtra contains other contract's data (currently only assets'). 
 // for 'c' returns only funcid. NOTE: nonfungible data is not returned
 uint8_t DecodeTokenOpRetV2(const CScript scriptPubKey, uint256 &tokenid, std::vector<vscript_t> &oprets)
@@ -539,8 +540,6 @@ CC *MakeTokensv2CCcond1(uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
     std::vector<CC*> pks;
     pks.push_back(CCNewSecp256k1(pk));
 
-    //std::cerr << __func__ << " entered for evalcode=" << std::hex << (int)evalcode << " evalcode2=" << std::hex << (int)evalcode2 << std::endl;
-
     std::vector<CC*> thresholds;
     thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
     if (evalcode != EVAL_TOKENSV2)                                                    // if evalCode == EVAL_TOKENS, it is actually MakeCCcond1()!
@@ -559,7 +558,6 @@ CC *MakeTokensv2CCcond1(uint8_t evalcode, CPubKey pk) {
 // make three-eval (token+evalcode+evalcode2) cc vout:
 CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nValue, CPubKey pk, vscript_t* pvData)
 {
-    //std::cerr << __func__ << " entered for evalcode=" << std::hex << (int)evalcode << std::endl;
     CTxOut vout;
     CCwrapper payoutCond( MakeTokensv2CCcond1(evalcode, evalcode2, pk) );
     if (!CCtoAnon(payoutCond.get())) 

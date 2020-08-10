@@ -23,6 +23,7 @@
 
 #include "coins.h"
 #include "dbwrapper.h"
+#include "unspentccindex.h"
 
 #include <map>
 #include <string>
@@ -117,6 +118,10 @@ public:
     bool blockOnchainActive(const uint256 &hash);
     UniValue Snapshot(int top);
     bool Snapshot2(std::map <std::string, CAmount> &addressAmounts, UniValue *ret);
+
+    bool UpdateUnspentCCIndex(const std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue > >&vect);
+    bool ReadUnspentCCIndex(uint160 addressHash, uint256 creationid,
+                                 std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &vect, int32_t beginHeight, int32_t endHeight, int64_t maxOutputs);
 };
 
 #endif // BITCOIN_TXDB_H

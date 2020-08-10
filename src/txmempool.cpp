@@ -33,6 +33,8 @@
 #include "version.h"
 #define _COINBASE_MATURITY 100
 
+#include "cc/CCinclude.h"
+
 using namespace std;
 
 CTxMemPoolEntry::CTxMemPoolEntry():
@@ -159,26 +161,14 @@ void CTxMemPool::addAddressIndex(const CTxMemPoolEntry &entry, const CCoinsViewC
 
         vector<vector<unsigned char>> vSols;
         txnouttype txType = TX_PUBKEYHASH;
-        int keyType = 1;
-
         CTxDestination vDest;
-        if (Solver(prevout.scriptPubKey, txType, vSols) || ExtractDestination(prevout.scriptPubKey, vDest))
+        int keyType = GetAddressType(prevout.scriptPubKey, vDest, txType, vSols);
+        if (keyType != 0) 
         {
-            if (vDest.which())
-            {
-                uint160 hashBytes;
-                if (CBitcoinAddress(vDest).GetIndexKey(hashBytes, keyType, prevout.scriptPubKey.IsPayToCryptoCondition()))
-                {
-                    vSols.push_back(vector<unsigned char>(hashBytes.begin(), hashBytes.end()));
-                }
-            }
-            if (txType == TX_SCRIPTHASH)
-            {
-                keyType =  2;
-            }
             for (auto addr : vSols)
             {
-                CMempoolAddressDeltaKey key(keyType, addr.size() == 20 ? uint160(addr) : Hash160(addr), txhash, j, true);
+                // add index entry for vins:
+                CMempoolAddressDeltaKey key(keyType, addr.size() == 20 ? uint160(addr) : Hash160(addr), txhash, j, true);  
                 CMempoolAddressDelta delta(entry.GetTime(), prevout.nValue * -1, input.prevout.hash, input.prevout.n);
                 mapAddress.insert(make_pair(key, delta));
                 inserted.push_back(key);
@@ -192,24 +182,12 @@ void CTxMemPool::addAddressIndex(const CTxMemPoolEntry &entry, const CCoinsViewC
         vector<vector<unsigned char>> vSols;
         CTxDestination vDest;
         txnouttype txType = TX_PUBKEYHASH;
-        int keyType = 1;
-        if ((Solver(out.scriptPubKey, txType, vSols) || ExtractDestination(out.scriptPubKey, vDest)) && txType != TX_MULTISIG)
+        int keyType = GetAddressType(out.scriptPubKey, vDest, txType, vSols);
+        if (keyType != 0 && txType != TX_MULTISIG) 
         {
-            // if we failed to solve, and got a vDest, assume P2PKH or P2PK address returned
-            if (vDest.which())
-            {
-                uint160 hashBytes;
-                if (CBitcoinAddress(vDest).GetIndexKey(hashBytes, keyType, out.scriptPubKey.IsPayToCryptoCondition()))
-                {
-                    vSols.push_back(vector<unsigned char>(hashBytes.begin(), hashBytes.end()));
-                }
-            }
-            else if (txType == TX_SCRIPTHASH)
-            {
-                keyType =  2;
-            }
             for (auto addr : vSols)
             {
+                // add index entry for vouts:
                 CMempoolAddressDeltaKey key(keyType, addr.size() == 20 ? uint160(addr) : Hash160(addr), txhash, k, 0);
                 mapAddress.insert(make_pair(key, CMempoolAddressDelta(entry.GetTime(), out.nValue)));
                 inserted.push_back(key);
@@ -266,28 +244,13 @@ void CTxMemPool::addSpentIndex(const CTxMemPoolEntry &entry, const CCoinsViewCac
         vector<vector<unsigned char>> vSols;
         CTxDestination vDest;
         txnouttype txType = TX_PUBKEYHASH;
-        int keyType = 1;
-        // some non-standard types, like time lock coinbases, don't solve, but do extract
-        if ((Solver(prevout.scriptPubKey, txType, vSols) || ExtractDestination(prevout.scriptPubKey, vDest)) && txType != TX_MULTISIG)
+        int keyType = GetAddressType(prevout.scriptPubKey, vDest, txType, vSols);
+        if (keyType != 0 && txType != TX_MULTISIG) 
         {
-            // if we failed to solve, and got a vDest, assume P2PKH or P2PK address returned
-            if (vDest.which())
-            {
-                CKeyID kid;
-                if (CBitcoinAddress(vDest).GetKeyID(kid))
-                {
-                    vSols.push_back(vector<unsigned char>(kid.begin(), kid.end()));
-                }
-            }
-            else if (txType == TX_SCRIPTHASH)
-            {
-                keyType =  2;
-            }
             for (auto addr : vSols)
             {
                 CSpentIndexKey key = CSpentIndexKey(input.prevout.hash, input.prevout.n);
                 CSpentIndexValue value = CSpentIndexValue(txhash, j, -1, prevout.nValue, keyType, addr.size() == 20 ? uint160(addr) : Hash160(addr));
-
                 mapSpent.insert(make_pair(key, value));
                 inserted.push_back(key);
             }
@@ -297,7 +260,6 @@ void CTxMemPool::addSpentIndex(const CTxMemPoolEntry &entry, const CCoinsViewCac
             // don't know exactly how, but it was spent
             CSpentIndexKey key = CSpentIndexKey(input.prevout.hash, input.prevout.n);
             CSpentIndexValue value = CSpentIndexValue(txhash, j, -1, prevout.nValue, 0, uint160());
-
             mapSpent.insert(make_pair(key, value));
             inserted.push_back(key);
         }
@@ -334,6 +296,199 @@ bool CTxMemPool::removeSpentIndex(const uint256 txhash)
     return true;
 }
 
+void CTxMemPool::addUnspentCCIndex(const CTxMemPoolEntry &entry, const CCoinsViewCache &view)
+{
+    LOCK(cs);
+    const CTransaction& tx = entry.GetTx();
+    std::vector<CUnspentCCIndexKey> inserted;
+
+    uint256 txhash = tx.GetHash();
+    for (unsigned int j = 0; j < tx.vin.size(); j++) {
+        if (tx.IsPegsImport() && j==0) continue; 
+        const CTxIn input = tx.vin[j];
+        const CTxOut &prevout = view.GetOutputFor(input);
+
+        vector<vector<unsigned char>> vSols;
+        txnouttype txType = TX_PUBKEYHASH;
+        CTxDestination vDest;
+        int keyType = GetAddressType(prevout.scriptPubKey, vDest, txType, vSols);
+        if (keyType == 3)  // cc type
+        {
+            if (vSols.size() > 0)   
+            {                                    
+                uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address
+                uint256 hashBlock;
+                
+                const CTransaction& vintx = mapTx.find(input.prevout.hash)->GetTx(); // load previous mempool tx to get opreturn
+                // note we add only mempool tx into the unspent cc index
+                // so non-mempool txns spent by mempool txns will be found in the db cc index as unspent 
+                // that is, the caller should always check that vout is not spent in mempool.
+                // This limitation is because the coin cache does not store opreturns
+                if (!vintx.IsNull() && vintx.vout.size() > 0) {  
+                    uint256 creationId;
+                    uint8_t evalcode, funcid, version;
+                    CScript prevOpreturn; //init as empty
+                    if (vintx.vout.back().scriptPubKey.size() > 0 && vintx.vout.back().scriptPubKey[0] == OP_RETURN)
+                        prevOpreturn = vintx.vout.back().scriptPubKey;
+
+                    if (CCDecodeTxVout(vintx, input.prevout.n, evalcode, funcid, version, creationId))  {
+                        CUnspentCCIndexKey key(addrHash, creationId, input.prevout.hash, input.prevout.n);
+                        mapUnspentCCIndex.erase(key);
+                        std::cerr << __func__ << " removing previous from mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " input.prevout.hash=" << input.prevout.hash.GetHex() << " input.prevout.n=" << j << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " prevOpreturn.size()=" << prevOpreturn.size() << std::endl; 
+                        inserted.push_back(key);
+                    }
+                }
+            }
+        }
+    }
+
+    for (unsigned int k = 0; k < tx.vout.size(); k++) {
+        const CTxOut &out = tx.vout[k];
+
+        vector<vector<unsigned char>> vSols;
+        CTxDestination vDest;
+        txnouttype txType = TX_PUBKEYHASH;
+        int keyType = GetAddressType(out.scriptPubKey, vDest, txType, vSols);
+        if (keyType == 3 && txType != TX_MULTISIG)  // cc vout type
+        {
+             if (vSols.size() > 0)   
+            {                                 
+                uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address                                    
+                uint256 creationId;
+                uint8_t evalcode, funcid, version;
+                CScript opreturn; //init as empty
+                if (tx.vout.back().scriptPubKey.size() > 0 && tx.vout.back().scriptPubKey[0] == OP_RETURN)
+                    opreturn = tx.vout.back().scriptPubKey;
+
+                if (CCDecodeTxVout(tx, k, evalcode, funcid, version, creationId))  {
+                    // record cc index output with spk and opreturn
+                    CUnspentCCIndexKey key(addrHash, creationId, txhash, k);
+                    CUnspentCCIndexValue value(tx.vout[k].nValue, tx.vout[k].scriptPubKey, opreturn, 0, evalcode, funcid, version);
+                    mapUnspentCCIndex.insert(make_pair(key, value));
+                    std::cerr << __func__ << " adding to mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << " mapUnspentCCIndex.size=" << mapUnspentCCIndex.size() << std::endl; 
+                    inserted.push_back(key);
+                }
+            }
+        }
+    }
+
+    mapUnspentCCIndexInserted.insert(make_pair(txhash, inserted));
+}
+
+// finds outputs by hash160 of a cc address (creationid must by null)
+// or by a pair of hash160 of a cc address and creationid
+bool CTxMemPool::getUnspentCCIndex(const std::vector<std::pair<uint160, uint256> > &keys, std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &outputs)
+{
+    LOCK(cs);
+    for (std::vector<std::pair<uint160, uint256> >::const_iterator it = keys.begin(); it != keys.end(); it++) {
+        mapUnspentCCIndexType::iterator ait = mapUnspentCCIndex.lower_bound(CUnspentCCIndexKey((*it).first, (*it).second, zeroid, 0));        
+        while (ait != mapUnspentCCIndex.end() && (*ait).first.hashBytes == (*it).first && ((*ait).first.creationid == (*it).second || (*it).second.IsNull())) {
+            outputs.push_back(*ait);
+            ait++;
+        }
+
+        {
+            std::cerr << __func__ << " (*it).first=" << (*it).first.GetHex() << std::endl;
+            mapUnspentCCIndexType::iterator ait = mapUnspentCCIndex.lower_bound(CUnspentCCIndexKey((*it).first, (*it).second, zeroid, 0));        
+            while (ait != mapUnspentCCIndex.end() ) {
+                std::cerr << __func__ << " (*ait).first.hashBytes=" << (*ait).first.hashBytes.GetHex() << " (*ait).first.creationid=" << (*ait).first.creationid.GetHex() << " txhash=" << (*ait).first.txhash.GetHex() << " index=" << (*ait).first.index << std::endl;
+                ait++;
+            }
+        }
+    }
+    return true;
+}
+
+// erase tx unspent entry and restore previous as unspents
+bool CTxMemPool::removeUnspentCCIndex(const CTransaction &tx)
+{
+    LOCK(cs);
+    /* mapUnspentCCIndexInsertedType::iterator it = mapUnspentCCIndexInserted.find(txhash);
+
+    if (it != mapUnspentCCIndexInserted.end()) {
+        std::vector<CUnspentCCIndexKey> keys = (*it).second;
+        for (std::vector<CUnspentCCIndexKey>::iterator mit = keys.begin(); mit != keys.end(); mit++) {
+            mapUnspentCCIndex.erase(*mit);
+        }
+        mapUnspentCCIndexInserted.erase(it);
+    } */
+
+    uint256 txhash = tx.GetHash();
+    // restore previous mempool tx as unspents
+    for (unsigned int j = 0; j < tx.vin.size(); j++) {
+        if (tx.IsPegsImport() && j==0) continue; 
+        const CTxIn input = tx.vin[j];
+        //const CTxOut &prevout = view.GetOutputFor(input);
+
+        vector<vector<unsigned char>> vSols;
+        txnouttype txType = TX_PUBKEYHASH;
+        CTxDestination vDest;
+        //int keyType = GetAddressType(prevout.scriptPubKey, vDest, txType, vSols);
+        //if (keyType == 3)  // cc type
+        if (IsCCInput(tx.vin[j].scriptSig))
+        {
+            if (vSols.size() > 0)   
+            {                                    
+                uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address
+                uint256 hashBlock;
+                
+                const CTransaction& vintx = mapTx.find(input.prevout.hash)->GetTx(); // load previous mempool tx to get opreturn
+                // note we add only mempool tx into the unspent cc index
+                // so non-mempool txns spent by mempool txns will be found in the db cc index as unspent 
+                // that is, the caller should always check that vout is not spent in mempool.
+                // This limitation is because the coin cache does not store opreturns
+                if (!vintx.IsNull() && vintx.vout.size() > 0) {  
+                    uint256 creationId;
+                    uint8_t evalcode, funcid, version;
+                    CScript prevOpreturn; //init as empty
+                    if (vintx.vout.back().scriptPubKey.size() > 0 && vintx.vout.back().scriptPubKey[0] == OP_RETURN)
+                        prevOpreturn = vintx.vout.back().scriptPubKey;
+
+                    if (CCDecodeTxVout(vintx, input.prevout.n, evalcode, funcid, version, creationId))  {
+                        CUnspentCCIndexKey key(addrHash, creationId, input.prevout.hash, input.prevout.n);
+                        CUnspentCCIndexValue value(vintx.vout[input.prevout.n].nValue, vintx.vout[input.prevout.n].scriptPubKey, prevOpreturn, 0, evalcode, funcid, version);
+                        mapUnspentCCIndex.insert(make_pair(key, value));
+                        std::cerr << __func__ << " restoring previous to mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " input.prevout.hash=" << input.prevout.hash.GetHex() << " input.prevout.n=" << j << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " prevOpreturn.size()=" << prevOpreturn.size() << std::endl; 
+                        //inserted.push_back(key);
+                    }
+                }
+            }
+        }
+    }
+
+    // eraase entries for the tx
+    for (unsigned int k = 0; k < tx.vout.size(); k++) {
+        const CTxOut &out = tx.vout[k];
+
+        vector<vector<unsigned char>> vSols;
+        CTxDestination vDest;
+        txnouttype txType = TX_PUBKEYHASH;
+        int keyType = GetAddressType(out.scriptPubKey, vDest, txType, vSols);
+        if (keyType == 3 && txType != TX_MULTISIG)  // cc vout type
+        {
+             if (vSols.size() > 0)   
+            {                                 
+                uint160 addrHash = vSols[0].size() == 20 ? uint160(vSols[0]) : Hash160(vSols[0]); // use first vSol data as the address                                    
+                uint256 creationId;
+                uint8_t evalcode, funcid, version;
+                CScript opreturn; //init as empty
+                if (tx.vout.back().scriptPubKey.size() > 0 && tx.vout.back().scriptPubKey[0] == OP_RETURN)
+                    opreturn = tx.vout.back().scriptPubKey;
+
+                if (CCDecodeTxVout(tx, k, evalcode, funcid, version, creationId))  {
+                    // record cc index output with spk and opreturn
+                    CUnspentCCIndexKey key(addrHash, creationId, txhash, k);
+                    CUnspentCCIndexValue value(tx.vout[k].nValue, tx.vout[k].scriptPubKey, opreturn, 0, evalcode, funcid, version);
+                    mapUnspentCCIndex.erase(key);
+                    std::cerr << __func__ << " removing from mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
+                    //inserted.push_back(key);
+                }
+            }
+        }
+    }
+    return true;
+}
+
 void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& removed, bool fRecursive)
 {
     // Remove transaction from memory pool
@@ -360,6 +515,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             if (!mapTx.count(hash))
                 continue;
             const CTransaction& tx = mapTx.find(hash)->GetTx();
+            const CTransaction txCopy = tx; // save for cc index clean up 
             if (fRecursive) {
                 for (unsigned int i = 0; i < tx.vout.size(); i++) {
                     std::map<COutPoint, CInPoint>::iterator it = mapNextTx.find(COutPoint(hash, i));
@@ -387,6 +543,7 @@ void CTxMemPool::remove(const CTransaction &origTx, std::list<CTransaction>& rem
             minerPolicyEstimator->removeTx(hash);
             removeAddressIndex(hash);
             removeSpentIndex(hash);
+            removeUnspentCCIndex(txCopy);  // erase cc index entry if present
         }
     }
 }

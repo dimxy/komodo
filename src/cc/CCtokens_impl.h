@@ -17,7 +17,34 @@
 
 #include "CCtokens.h"
 #include "importcoin.h"
+#include "base58.h"
 
+// get non-fungible data from 'tokenbase' tx (the data might be empty)
+template <class V>
+void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
+{
+    CTransaction tokenbasetx;
+    uint256 hashBlock;
+
+    if (!myGetTransaction(tokenid, tokenbasetx, hashBlock)) {
+        LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "could not load token creation tx=" << tokenid.GetHex() << std::endl);
+        return;
+    }
+
+    vopretNonfungible.clear();
+    // check if it is non-fungible tx and get its second evalcode from non-fungible payload
+    if (tokenbasetx.vout.size() > 0) {
+        std::vector<uint8_t> origpubkey;
+        std::string name, description;
+        std::vector<vscript_t>  oprets;
+        uint8_t funcid;
+
+        if (IsTokenCreateFuncid(V::DecodeTokenCreateOpRet(tokenbasetx.vout.back().scriptPubKey, origpubkey, name, description, oprets))) {
+            if (oprets.size() > 0)
+                vopretNonfungible = oprets[0];
+        }
+    }
+}
 
 // overload, adds inputs from token cc addr and returns non-fungible opret payload if present
 // also sets evalcode in cp, if needed
@@ -26,7 +53,8 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 {
 	CAmount /*threshold, price,*/ totalinputs = 0; 
     int32_t n = 0; 
-	std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+	//std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+	std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
 
     if (cp->evalcode != V::EvalCode())
         LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "warning: EVAL_TOKENS *cp is needed but used evalcode=" << (int)cp->evalcode << std::endl);
@@ -35,54 +63,55 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     {
         // check if this is a NFT
         vscript_t vopretNonfungible;
-        GetNonfungibleData(tokenid, vopretNonfungible); //load NFT data 
+        GetNonfungibleData<V>(tokenid, vopretNonfungible); //load NFT data 
         if (vopretNonfungible.size() > 0)
             cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT, for signing
     }
 
-    //if (!useMempool)  // reserved for mempool use
-	    SetCCunspents(unspentOutputs, (char*)tokenaddr, true);
-    //else
-    //  SetCCunspentsWithMempool(unspentOutputs, (char*)tokenaddr, true);  // add tokens in mempool too
+    
+    SetCCunspentsCCIndex(unspentOutputs, tokenaddr, tokenid);
+    std::cerr << __func__ << " non mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
 
-    if (unspentOutputs.empty()) {
-        LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() no utxos for token dual/three eval addr=" << tokenaddr << " evalcode=" << (int)cp->evalcode << " additionalTokensEvalcode2=" << (int)cp->evalcodeNFT << std::endl);
+    if (useMempool)  {
+        AddCCunspentsCCIndexMempool(unspentOutputs, tokenaddr, tokenid);
+        std::cerr << __func__ << " with mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
     }
-
+        
 	// threshold = total / (maxinputs != 0 ? maxinputs : CC_MAXVINS);   // let's not use threshold
-
-	for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
+    LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found unspentOutputs=" << unspentOutputs.size() << std::endl);
+	//for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
+	for (std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
 	{
-        CTransaction vintx;
+        CTransaction tx;
         uint256 hashBlock;
 
 		//if (it->second.satoshis < threshold)            // this should work also for non-fungible tokens (there should be only 1 satoshi for non-fungible token issue)
 		//	continue;
+
         if (it->second.satoshis == 0)
             continue;  // skip null vins 
 
         if (std::find_if(mtx.vin.begin(), mtx.vin.end(), [&](const CTxIn &vin){ return vin.prevout.hash == it->first.txhash && vin.prevout.n == it->first.index; }) != mtx.vin.end())  
             continue;  // vin already added
 
-		if (myGetTransaction(it->first.txhash, vintx, hashBlock) != 0)
+		if (myGetTransaction(it->first.txhash, tx, hashBlock) != 0)
 		{
             char destaddr[KOMODO_ADDRESS_BUFSIZE];
-            //std::cerr << __func__ << " scriptPubKey.size()=" << vintx.vout[it->first.index].scriptPubKey.size() << " scriptPubKey=" << vintx.vout[it->first.index].scriptPubKey.ToString() << " scriptPubKey[0]" << (int)vintx.vout[it->first.index].scriptPubKey[0] << std::endl;
-			Getscriptaddress(destaddr, vintx.vout[it->first.index].scriptPubKey);
+			Getscriptaddress(destaddr, tx.vout[it->first.index].scriptPubKey);
 			if (strcmp(destaddr, tokenaddr) != 0 /*&& 
                 strcmp(destaddr, cp->unspendableCCaddr) != 0 &&   // TODO: check why this. Should not we add token inputs from unspendable cc addr if mypubkey is used?
                 strcmp(destaddr, cp->unspendableaddr2) != 0*/)      // or the logic is to allow to spend all available tokens (what about unspendableaddr3)?
 				continue;
 			
-            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() check vintx vout destaddress=" << destaddr << " amount=" << vintx.vout[it->first.index].nValue << std::endl);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "checked tx vout destaddress=" << destaddr << " amount=" << tx.vout[it->first.index].nValue << std::endl);
 
-			if (IsTokensvout<V>(true, true, cp, NULL, vintx, it->first.index, tokenid) > 0 && !myIsutxo_spentinmempool(ignoretxid,ignorevin,it->first.txhash, it->first.index))
+			if (IsTokensvout<V>(true, true, cp, NULL, tx, it->first.index, tokenid) > 0 && !myIsutxo_spentinmempool(ignoretxid, ignorevin, it->first.txhash, it->first.index))
 			{                
                 if (total != 0 && maxinputs != 0)  // if it is not just to calc amount...
 					mtx.vin.push_back(CTxIn(it->first.txhash, it->first.index, CScript()));
 
 				totalinputs += it->second.satoshis;
-                LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << "AddTokenCCInputs() adding input nValue=" << it->second.satoshis  << std::endl);
+                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "adding input nValue=" << it->second.satoshis  << std::endl);
 				n++;
 
 				if ((total > 0 && totalinputs >= total) || (maxinputs > 0 && n >= maxinputs))
@@ -103,7 +132,7 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     
     // check if this is a NFT
     vscript_t vopretNonfungible;
-    GetNonfungibleData(tokenid, vopretNonfungible);
+    GetNonfungibleData<V>(tokenid, vopretNonfungible);
     if (vopretNonfungible.size() > 0)
         cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT
     
@@ -264,7 +293,6 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << CCerror << "=" << total << std::endl);
         return NullUniValue;
 	}
-
 	cp = CCinit(&C, V::EvalCode());
 
 	if (txfee == 0)
@@ -277,7 +305,9 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
         return  NullUniValue;
     }
 
-    CAmount normalInputs = AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote);
+    // CAmount normalInputs = AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote);   // note: wallet scanning for inputs is slower than index scanning
+    CAmount normalInputs = AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, useMempool);
+
     if (normalInputs > 0)
 	{        
 		if ((inputs = AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, CC_MAXVINS, useMempool)) >= total)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
@@ -350,15 +380,14 @@ std::string TokenTransfer(CAmount txfee, uint256 tokenid, CPubKey destpubkey, CA
     cp = CCinit(&C, V::EvalCode());
 
     vscript_t vopretNonfungible;
-    GetNonfungibleData(tokenid, vopretNonfungible);
+    GetNonfungibleData<V>(tokenid, vopretNonfungible);
     if (vopretNonfungible.size() > 0)
         cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT
     GetTokensCCaddress(cp, tokenaddr, mypk, V::IsMixed());
 
-    UniValue sigData = TokenTransferExt<V>(CPubKey(), txfee, tokenid, tokenaddr, {}, {destpubkey}, total, false);
+    UniValue sigData = TokenTransferExt<V>(CPubKey(), txfee, tokenid, tokenaddr, {}, {destpubkey}, total, true);
     return ResultGetTx(sigData);
 }
-
 
 // returns token creation signed raw tx
 // params: txfee amount, token amount, token name and description, optional NFT data, 
@@ -404,14 +433,14 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
     CAmount totalInputs;
     // always add inputs only from the mypk passed in the param to prove the token creator has the token originator pubkey
     // This what the AddNormalinputsRemote does (and it is not necessary that this is done only for nspv calls):
-	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfeeCount * txfee, 0x10000)) > 0)
+	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfeeCount * txfee, 0x10000, addTxInMemory)) > 0)
 	{
         CAmount mypkInputs = TotalPubkeyNormalInputs(mtx, mypk);  
         if (mypkInputs < tokensupply) {     // check that the token amount is really issued with mypk (because in the wallet there may be some other privkeys)
             CCerror = "some inputs signed not with mypubkey (-pubkey=pk)";
             return NullUniValue;
         }
-  
+
         uint8_t destEvalCode = V::EvalCode();
         if( nonfungibleData.size() > 0 )
             destEvalCode = nonfungibleData.begin()[0];
@@ -429,7 +458,6 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
         }
 
 		sigData = V::FinalizeCCTx(isRemote, FINALIZECCTX_NO_CHANGE_WHEN_ZERO, cp, mtx, mypk, txfee, V::EncodeTokenCreateOpRet(vscript_t(mypk.begin(), mypk.end()), name, description, { nonfungibleData }));
-
         if (!ResultHasTx(sigData)) {
             CCerror = "couldnt finalize token tx";
             return NullUniValue;
@@ -450,7 +478,7 @@ template <class V>
 std::string CreateTokenLocal(CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData)
 {
     CPubKey nullpk = CPubKey();
-    UniValue sigData = CreateTokenExt<V>(nullpk, txfee, tokensupply, name, description, nonfungibleData, 0, false);
+    UniValue sigData = CreateTokenExt<V>(nullpk, txfee, tokensupply, name, description, nonfungibleData, 0, true); //TODO: temp true, set back to false
     return sigData[JSON_HEXTX].getValStr();
 }
 
@@ -578,46 +606,6 @@ UniValue TokenInfo(uint256 tokenid)
 	return result;
 }
 
-template <class V> 
-static UniValue TokenList()
-{
-	UniValue result(UniValue::VARR);
-	std::vector<uint256> txids;
-    std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentCCMarker;
-
-	struct CCcontract_info *cp, C; uint256 txid, hashBlock;
-	CTransaction vintx; std::vector<uint8_t> origpubkey;
-	std::string name, description;
-
-	cp = CCinit(&C, V::EvalCode());
-
-    auto addTokenId = [&](uint256 txid) {
-        if (myGetTransaction(txid, vintx, hashBlock) != 0) {
-            std::vector<vscript_t>  oprets;
-            if (vintx.vout.size() > 0 && V::DecodeTokenCreateOpRet(vintx.vout[vintx.vout.size() - 1].scriptPubKey, origpubkey, name, description, oprets) != 0) {
-                result.push_back(txid.GetHex());
-            }
-            else {
-                std::cerr << __func__ << " V::DecodeTokenCreateOpRet failed" <<std::endl;
-            }
-        }
-    };
-
-	SetCCtxids(txids, cp->normaladdr, false, cp->evalcode, 0, zeroid, 'c');                      // find by old normal addr marker
-   	for (std::vector<uint256>::const_iterator it = txids.begin(); it != txids.end(); it++) 	{
-        addTokenId(*it);
-	}
-
-    SetCCunspents(unspentCCMarker, cp->unspendableCCaddr, true);    // find by burnable validated cc addr marker
-    std::cerr << __func__ << " unspenCCMarker.size()=" << unspentCCMarker.size() << std::endl;
-    for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentCCMarker.begin(); it != unspentCCMarker.end(); it++) {
-        addTokenId(it->first.txhash);
-    }
-
-	return(result);
-}
-
-
 
 // extract cc token vins' pubkeys:
 template <class V>
@@ -663,10 +651,6 @@ bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::vector<CPubKey> &vin
 	}
 	return found;
 }
-
-
-
-
 
 // this is just for log messages indentation fur debugging recursive calls:
 extern thread_local uint32_t tokenValIndentSize;
@@ -728,36 +712,6 @@ static uint8_t ValidateTokenOpret(uint256 txid, const CScript &scriptPubKey, uin
     }
 	return (uint8_t)0;
 }
-
-
-
-// get non-fungible data from 'tokenbase' tx (the data might be empty)
-template <class V>
-void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
-{
-    CTransaction tokenbasetx;
-    uint256 hashBlock;
-
-    if (!myGetTransaction(tokenid, tokenbasetx, hashBlock)) {
-        LOGSTREAM(cctokens_log, CCLOG_INFO, stream << "GetNonfungibleData() could not load token creation tx=" << tokenid.GetHex() << std::endl);
-        return;
-    }
-
-    vopretNonfungible.clear();
-    // check if it is non-fungible tx and get its second evalcode from non-fungible payload
-    if (tokenbasetx.vout.size() > 0) {
-        std::vector<uint8_t> origpubkey;
-        std::string name, description;
-        std::vector<vscript_t>  oprets;
-        uint8_t funcid;
-
-        if (IsTokenCreateFuncid(V::DecodeTokenCreateOpRet(tokenbasetx.vout.back().scriptPubKey, origpubkey, name, description, oprets))) {
-            if (oprets.size() > 0)
-                vopretNonfungible = oprets[0];
-        }
-    }
-}
-
 
 // checks if any token vouts are sent to 'dead' pubkey
 template <class V>

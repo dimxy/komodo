@@ -72,6 +72,7 @@ Details.
 #include "../komodo_nSPV_defs.h"
 #include "../komodo_cJSON.h"
 #include "../init.h"
+#include "../unspentccindex.h"
 #include "rpc/server.h"
 
 #define CC_BURNPUBKEY "02deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddead" //!< 'dead' pubkey in hex for burning tokens (if tokens are sent to it, they become 'burned')
@@ -372,7 +373,7 @@ int64_t CCgettxout(uint256 txid,int32_t vout,int32_t mempoolflag,int32_t lockfla
 
 /// \cond INTERNAL
 bool myIsutxo_spentinmempool(uint256 &spenttxid,int32_t &spentvini,uint256 txid,int32_t vout);
-bool myAddtomempool(CTransaction &tx, CValidationState *pstate = NULL, bool fSkipExpiry = false);
+bool myAddtomempool(const CTransaction &tx, CValidationState *pstate = NULL, bool fSkipExpiry = false);
 bool mytxid_inmempool(uint256 txid);
 int32_t myIsutxo_spent(uint256 &spenttxid,uint256 txid,int32_t vout);
 int32_t myGet_mempool_txs(std::vector<CTransaction> &txs,uint8_t evalcode,uint8_t funcid);
@@ -781,6 +782,20 @@ int64_t CCduration(int32_t &numblocks,uint256 txid);
 bool ExactAmounts(Eval* eval, const CTransaction &tx, uint64_t txfee);
 bool CCOpretCheck(Eval* eval, const CTransaction &tx, bool no_burn, bool no_multi, bool last_vout);
 
+/// decodes cc transaction vout basic data: evalcode, funcid, version, creationId
+/// first tries to find cc data in vout's opdrop then in the last vout opreturn
+/// cc data must follow the common format: evalcode funcid version creationId
+/// if tx does not have evalcode cc vins the function treats the tx as the creation tx and sets creationId to tx.GetHash() 
+/// @param tx cc transaction
+/// @param n vout number to check
+/// @param[out] evalcode
+/// @param[out] funcid
+/// @param[out] version
+/// @param[out] creationId uint256 value euther from cc data or tx id itself
+/// @returns true if decoded okay
+bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_t &funcid, uint8_t &version, uint256 &creationId);
+
+
 /// @private
 uint256 CCOraclesReverseScan(char const *logcategory,uint256 &txid,int32_t height,uint256 reforacletxid,uint256 batontxid);
 /// @private
@@ -847,7 +862,31 @@ UniValue FinalizeCCV2Tx(bool remote, uint64_t mask, struct CCcontract_info *cp, 
 /// @param[out] unspentOutputs vector of pairs of address key and amount
 /// @param coinaddr address where unspent outputs are searched
 /// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
-void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs,char *coinaddr,bool CCflag = true);
+void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr,bool CCflag = true);
+
+/// SetCCunspentsWithMempool returns a vector of unspent outputs on an address, including outputs in mempool
+/// outputs that spent in mempool are removed 
+/// @param[out] unspentOutputs vector of pairs of address key and amount
+/// @param coinaddr address where unspent outputs are searched
+/// @param CCflag if true the function searches for cc outputs, otherwise for normal outputs
+void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *coinaddr, bool ccflag = true);
+
+/// SetCCunspents returns a vector of unspent outputs for a cc address and creationid of cc instance
+/// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
+/// @param coinaddr cc address where unspent outputs are searched
+/// @param creationid cc instance creationid for which outputs are searched
+void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId);
+
+/// SetCCunspents returns a vector of unspent outputs for a cc address
+/// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
+/// @param coinaddr cc address where unspent outputs are searched
+void SetCCunspentsCCIndex(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr);
+
+/// Adds mempool outputs to a vector of unspent outputs for a cc address
+/// @param[out] unspentOutputs vector of pairs of objects CAddressUnspentCCKey and CAddressUnspentCCValue
+/// @param coinaddr cc address where unspent outputs are searched
+/// @param creationId txid of cc instance creation tx, might be empty to return all txns on coinaddr 
+void AddCCunspentsCCIndexMempool(std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > &unspentOutputs, const char *coinaddr, uint256 creationId);
 
 /// SetCCtxids returns a vector of all outputs on an address
 /// @param[out] addressIndex vector of pairs of address index key and amount
@@ -906,7 +945,7 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinput
 /// @param total amount of inputs to add. If total equals to 0 the function does not add inputs but returns amount of all available normal inputs in the wallet
 /// @param maxinputs maximum number of inputs to add
 /// @returns amount of added normal inputs or amount of all normal inputs in the wallet
-int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs);
+int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs, bool mempool = false);
 
 /// CCutxovalue returns amount of an utxo. The function does this without loading the utxo transaction, by using address index only
 /// @param coinaddr address where the utxo is searched
