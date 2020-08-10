@@ -334,7 +334,7 @@ void CTxMemPool::addUnspentCCIndex(const CTxMemPoolEntry &entry, const CCoinsVie
                     if (CCDecodeTxVout(vintx, input.prevout.n, evalcode, funcid, version, creationId))  {
                         CUnspentCCIndexKey key(addrHash, creationId, input.prevout.hash, input.prevout.n);
                         mapUnspentCCIndex.erase(key);
-                        std::cerr << __func__ << " removing previous from mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " input.prevout.hash=" << input.prevout.hash.GetHex() << " input.prevout.n=" << j << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " prevOpreturn.size()=" << prevOpreturn.size() << std::endl; 
+                        //std::cerr << __func__ << " removing previous from mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " input.prevout.hash=" << input.prevout.hash.GetHex() << " input.prevout.n=" << j << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " prevOpreturn.size()=" << prevOpreturn.size() << std::endl; 
                         inserted.push_back(key);
                     }
                 }
@@ -365,7 +365,7 @@ void CTxMemPool::addUnspentCCIndex(const CTxMemPoolEntry &entry, const CCoinsVie
                     CUnspentCCIndexKey key(addrHash, creationId, txhash, k);
                     CUnspentCCIndexValue value(tx.vout[k].nValue, tx.vout[k].scriptPubKey, opreturn, 0, evalcode, funcid, version);
                     mapUnspentCCIndex.insert(make_pair(key, value));
-                    std::cerr << __func__ << " adding to mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << " mapUnspentCCIndex.size=" << mapUnspentCCIndex.size() << std::endl; 
+                    //std::cerr << __func__ << " adding to mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << " mapUnspentCCIndex.size=" << mapUnspentCCIndex.size() << std::endl; 
                     inserted.push_back(key);
                 }
             }
@@ -388,10 +388,10 @@ bool CTxMemPool::getUnspentCCIndex(const std::vector<std::pair<uint160, uint256>
         }
 
         {
-            std::cerr << __func__ << " (*it).first=" << (*it).first.GetHex() << std::endl;
+            //std::cerr << __func__ << " (*it).first=" << (*it).first.GetHex() << std::endl;
             mapUnspentCCIndexType::iterator ait = mapUnspentCCIndex.lower_bound(CUnspentCCIndexKey((*it).first, (*it).second, zeroid, 0));        
             while (ait != mapUnspentCCIndex.end() ) {
-                std::cerr << __func__ << " (*ait).first.hashBytes=" << (*ait).first.hashBytes.GetHex() << " (*ait).first.creationid=" << (*ait).first.creationid.GetHex() << " txhash=" << (*ait).first.txhash.GetHex() << " index=" << (*ait).first.index << std::endl;
+                //std::cerr << __func__ << " (*ait).first.hashBytes=" << (*ait).first.hashBytes.GetHex() << " (*ait).first.creationid=" << (*ait).first.creationid.GetHex() << " txhash=" << (*ait).first.txhash.GetHex() << " index=" << (*ait).first.index << std::endl;
                 ait++;
             }
         }
@@ -448,8 +448,7 @@ bool CTxMemPool::removeUnspentCCIndex(const CTransaction &tx)
                         CUnspentCCIndexKey key(addrHash, creationId, input.prevout.hash, input.prevout.n);
                         CUnspentCCIndexValue value(vintx.vout[input.prevout.n].nValue, vintx.vout[input.prevout.n].scriptPubKey, prevOpreturn, 0, evalcode, funcid, version);
                         mapUnspentCCIndex.insert(make_pair(key, value));
-                        std::cerr << __func__ << " restoring previous to mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " input.prevout.hash=" << input.prevout.hash.GetHex() << " input.prevout.n=" << j << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " prevOpreturn.size()=" << prevOpreturn.size() << std::endl; 
-                        //inserted.push_back(key);
+                        //std::cerr << __func__ << " restoring previous to mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " input.prevout.hash=" << input.prevout.hash.GetHex() << " input.prevout.n=" << j << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " prevOpreturn.size()=" << prevOpreturn.size() << std::endl; 
                     }
                 }
             }
@@ -480,8 +479,7 @@ bool CTxMemPool::removeUnspentCCIndex(const CTransaction &tx)
                     CUnspentCCIndexKey key(addrHash, creationId, txhash, k);
                     CUnspentCCIndexValue value(tx.vout[k].nValue, tx.vout[k].scriptPubKey, opreturn, 0, evalcode, funcid, version);
                     mapUnspentCCIndex.erase(key);
-                    std::cerr << __func__ << " removing from mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
-                    //inserted.push_back(key);
+                    //std::cerr << __func__ << " removing from mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
                 }
             }
         }
