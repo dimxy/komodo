@@ -3559,7 +3559,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         return(true);
     if ( KOMODO_STOPAT != 0 && pindex->GetHeight() > KOMODO_STOPAT )
         return(false);
-    fprintf(stderr,"connectblock ht.%d\n",(int32_t)pindex->GetHeight());
+    //fprintf(stderr,"connectblock ht.%d\n",(int32_t)pindex->GetHeight());
 
     AssertLockHeld(cs_main);
     bool fExpensiveChecks = true;
@@ -3815,7 +3815,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                         unspentCCIndex.push_back(make_pair(
                                             CUnspentCCIndexKey(addrHash, creationId, input.prevout.hash, input.prevout.n), 
                                             CUnspentCCIndexValue()));
-                                        std::cerr << __func__ << " erasing spent cc output evalcode=" << (int)evalcode << " Hash160(vSols[0])=" << Hash160(vSols[0]).GetHex() << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
+                                        //std::cerr << __func__ << " erasing spent cc output evalcode=" << (int)evalcode << " Hash160(vSols[0])=" << Hash160(vSols[0]).GetHex() << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << std::endl; 
                                     }
                                 }
                             }
