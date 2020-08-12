@@ -28,6 +28,15 @@ static PyObject* PyBlockchainGetHeight(PyObject* self, PyObject* args)
     return PyLong_FromLong(height);
 }
 
+static PyObject* PyBlockchainIsSapling(PyObject* self, PyObject* args)
+{
+    auto consensusBranchId = CurrentEpochBranchId(chainActive.Height() + 1, Params().GetConsensus());
+    // 0x76b809bb sapling
+    // 0x5ba81b19 overwinter
+    // 0 sprout
+    return (consensusBranchId == 0x76b809bb) ? Py_True : Py_False;
+}
+
 static PyObject* PyBlockchainRpc(PyObject* self, PyObject* args)
 {
     char* request; UniValue valRequest;
@@ -149,6 +158,9 @@ static PyObject* PyBlockchainGetTxConfirmed(PyObject* self, PyObject* args)
 static PyMethodDef PyBlockchainMethods[] = {
     {"get_height", PyBlockchainGetHeight, METH_NOARGS,
      "Get chain height.\n() -> int"},
+
+    {"is_sapling", PyBlockchainIsSapling, METH_NOARGS,
+     "Get is sapling active\n() -> bool"},
 
 /*
     {"decode_tx", PyBlockchainDecodeTx, METH_VARARGS,
