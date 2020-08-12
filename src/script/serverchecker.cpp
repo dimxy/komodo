@@ -122,15 +122,20 @@ int ServerTransactionSignatureChecker::CheckEvalCondition(const CC *cond) const
     return RunCCEval(cond, *txTo, nIn, evalcodeChecker);
 }
 
-int ServerTransactionSignatureChecker::CheckCryptoCondition(const std::vector<unsigned char> &condBin) const
+int ServerTransactionSignatureChecker::CheckCryptoCondition(const std::vector<unsigned char> &condBin, ScriptError *serror) const
 {
     CC* condMixed;
     if (condBin[0] == CC_MIXED_MODE_PREFIX)
     {
         condMixed = cc_readFulfillmentBinaryMixedMode((unsigned char*)condBin.data()+1, condBin.size()-1);
+        if (serror) *serror = SCRIPT_ERR_PUBKEYTYPE;
         if (!condMixed) return (false);
     }
-    else return (false);
+    else
+    {
+        if (serror) *serror = SCRIPT_ERR_PUBKEYTYPE;
+        return (false);
+    }
 
     VerifyEval eval = [] (CC *cond, void *checker) {
         return ((TransactionSignatureChecker*)checker)->CheckEvalCondition(cond);
@@ -138,8 +143,10 @@ int ServerTransactionSignatureChecker::CheckCryptoCondition(const std::vector<un
     if (cc_verifyEval(condMixed,eval,(void *)this))
     {
         cc_free(condMixed);
+        if (serror) *serror = SCRIPT_ERR_OK;
         return (true);
     }
+    if (serror) *serror = SCRIPT_ERR_EVAL_FALSE;
     cc_free(condMixed);
     return (false);    
 }
