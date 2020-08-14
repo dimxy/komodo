@@ -396,7 +396,7 @@ bool ValidateGatewaysVin(struct CCcontract_info *cp,Eval* eval, const CTransacti
 
 bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &tx, uint32_t nIn)
 {
-    int32_t numvins,numvouts,i,n,height,claimvout; uint8_t version,funcid,K,tmpK,M,N,taddr,prefix,prefix2,wiftype;
+    int32_t numvins,numvouts,i,n=0,height,claimvout; uint8_t version,funcid,K,tmpK,M,N,taddr,prefix,prefix2,wiftype;
     char str[65],destaddr[65],depositaddr[65],gatewaystokensaddr[65],gatewaysaddr[65]; std::vector<uint8_t> proof; int64_t datafee,fullsupply,totalsupply,amount,tmpamount; 
     std::vector<uint256> txids; std::vector<CPubKey> pubkeys,publishers,signingpubkeys,tmpsigningpubkeys; struct CCcontract_info *cpOracles,COracles,*cpTokens,CTokens;
     uint256 hashblock,txid,bindtxid,deposittxid,withdrawtxid,tmpwithdrawtxid,withdrawsigntxid,lasttxid,tmplasttxid,tokenid,tmptokenid,oracletxid,cointxid,tmptxid,merkleroot,mhash;
@@ -462,7 +462,7 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                         {
                             txid = it->first.txhash;
                             if ( myGetTransactionCCV2(cpOracles,txid,tmptx,hashblock) != 0 && tmptx.vout.size() > 0
-                                && DecodeOraclesV2OpRet(tmptx.vout[tx.vout.size()-1].scriptPubKey,version,tmptxid,tmppubkey,datafee) == 'R' && oracletxid == tmptxid)
+                                && DecodeOraclesV2OpRet(tmptx.vout[tmptx.vout.size()-1].scriptPubKey,version,tmptxid,tmppubkey,datafee) == 'R' && oracletxid == tmptxid)
                             {
                                 std::vector<CPubKey>::iterator it1 = std::find(pubkeys.begin(), pubkeys.end(), tmppubkey);
                                 if (it1 != pubkeys.end())
