@@ -765,10 +765,10 @@ int64_t CCfullsupplyV2(uint256 tokenid)
     struct CCcontract_info *cp,C;
 
     cp = CCinit(&C,EVAL_TOKENSV2);
-    if ( myGetTransactionCCV2(cp,tokenid,tx,hashBlock) != 0 && (numvouts= tx.vout.size()) > 0 )
+    if ( myGetTransactionCCV2(cp,tokenid,tx,hashBlock) != 0 )
     {
         std::vector<vscript_t> oprets;
-        if (V2::DecodeTokenCreateOpRet(tx.vout[numvouts-1].scriptPubKey,origpubkey,name,description,oprets))
+        if (V2::DecodeTokenCreateOpRet(tx.vout[tx.vout.size()-1].scriptPubKey,origpubkey,name,description,oprets))
         {
             return(tx.vout[1].nValue);
         }
@@ -817,7 +817,7 @@ int64_t CCtoken_balanceV2(char *coinaddr,uint256 reftokenid)
             char str[65];
 			std::vector<CPubKey> voutTokenPubkeys;
             std::vector<vscript_t>  oprets;
-            if ( reftokenid==txid || (V2::DecodeTokenOpRet(tx.vout[numvouts-1].scriptPubKey, tokenid, voutTokenPubkeys, oprets) != 0 && reftokenid == tokenid))
+            if ( reftokenid==txid || (V2::DecodeTokenOpRet(tx.vout[tx.vout.size()-1].scriptPubKey, tokenid, voutTokenPubkeys, oprets) != 0 && reftokenid == tokenid))
             {
                 sum += it->second.satoshis;
             }
