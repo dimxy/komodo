@@ -32,7 +32,7 @@ CScript EncodeGatewaysBindOpRet(uint8_t funcid,uint256 tokenid,std::string coin,
 {
     CScript opret; uint8_t evalcode = EVAL_GATEWAYS; vscript_t vopret;
     
-    vopret = E_MARSHAL(ss << evalcode << funcid << GATEWAYSCC_VERSION << coin << totalsupply << oracletxid << M << N << gatewaypubkeys << taddr << prefix << prefix2 << wiftype);
+    vopret = E_MARSHAL(ss << evalcode << funcid << (uint8_t)GATEWAYSCC_VERSION << coin << totalsupply << oracletxid << M << N << gatewaypubkeys << taddr << prefix << prefix2 << wiftype);
     return(V2::EncodeTokenOpRet(tokenid, {}, { vopret }));
 }
 
@@ -71,7 +71,7 @@ CScript EncodeGatewaysDepositOpRet(uint8_t funcid,uint256 tokenid,uint256 bindtx
 {
     vscript_t vopret; uint8_t evalcode = EVAL_GATEWAYS;
 
-    vopret = E_MARSHAL(ss << evalcode << funcid << GATEWAYSCC_VERSION << bindtxid << refcoin << publishers << txids << height << cointxid << claimvout << deposithex << proof << destpub << amount);
+    vopret = E_MARSHAL(ss << evalcode << funcid << (uint8_t)GATEWAYSCC_VERSION << bindtxid << refcoin << publishers << txids << height << cointxid << claimvout << deposithex << proof << destpub << amount);
     return(V2::EncodeTokenOpRet(tokenid, {}, { vopret }));
 }
 
@@ -97,7 +97,7 @@ CScript EncodeGatewaysWithdrawOpRet(uint8_t funcid,uint256 tokenid,uint256 bindt
 {
     uint8_t evalcode = EVAL_GATEWAYS; struct CCcontract_info *cp,C; vscript_t vopret;
 
-    vopret = E_MARSHAL(ss << evalcode << funcid << GATEWAYSCC_VERSION << bindtxid << mypk << refcoin << withdrawpub << amount);        
+    vopret = E_MARSHAL(ss << evalcode << funcid << (uint8_t)GATEWAYSCC_VERSION << bindtxid << mypk << refcoin << withdrawpub << amount);        
     return(V2::EncodeTokenOpRet(tokenid, {}, { vopret }));
 }
 
@@ -122,7 +122,7 @@ uint8_t DecodeGatewaysWithdrawOpRet(const CScript &scriptPubKey,uint8_t &version
 CScript EncodeGatewaysWithdrawSignOpRet(uint8_t funcid,uint256 withdrawtxid, uint256 lasttxid,std::vector<CPubKey> signingpubkeys,std::string refcoin,uint8_t K,std::string hex)
 {
     CScript opret; uint8_t evalcode = EVAL_GATEWAYS;
-    opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << GATEWAYSCC_VERSION << withdrawtxid << lasttxid << signingpubkeys << refcoin << K << hex);        
+    opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << (uint8_t)GATEWAYSCC_VERSION << withdrawtxid << lasttxid << signingpubkeys << refcoin << K << hex);        
     return(opret);
 }
 
@@ -143,7 +143,7 @@ CScript EncodeGatewaysMarkDoneOpRet(uint8_t funcid,uint256 withdrawtxid,CPubKey 
 {
     CScript opret; uint8_t evalcode = EVAL_GATEWAYS;
 
-    opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << GATEWAYSCC_VERSION << withdrawtxid << mypk << refcoin << withdrawsigntxid);        
+    opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << (uint8_t)GATEWAYSCC_VERSION << withdrawtxid << mypk << refcoin << withdrawsigntxid);        
     return(opret);
 }
 
