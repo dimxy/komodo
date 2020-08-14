@@ -466,7 +466,7 @@ bool GatewaysValidate(struct CCcontract_info *cp,Eval *eval,const CTransaction &
                             {
                                 std::vector<CPubKey>::iterator it1 = std::find(pubkeys.begin(), pubkeys.end(), tmppubkey);
                                 if (it1 != pubkeys.end())
-                                    publishers.push_back(tmppubkey);;
+                                    if (std::find(publishers.begin(), publishers.end(), tmppubkey)==publishers.end()) publishers.push_back(tmppubkey);;
                             }
                         }
                         if (pubkeys.size()!=publishers.size())
@@ -761,7 +761,7 @@ UniValue GatewaysBind(const CPubKey& pk, uint64_t txfee,std::string coin,uint256
         {
             std::vector<CPubKey>::iterator it1 = std::find(pubkeys.begin(), pubkeys.end(), regpk);
             if (it1 != pubkeys.end())
-                publishers.push_back(regpk);
+                if (std::find(publishers.begin(), publishers.end(), regpk)==publishers.end()) publishers.push_back(regpk);
         }
     }
     if (pubkeys.size()!=publishers.size())
