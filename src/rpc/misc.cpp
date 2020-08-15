@@ -1676,6 +1676,8 @@ UniValue pycli(const UniValue& params, bool fHelp, const CPubKey& mypk)
         throw runtime_error(msg);
     }
 
+    if (ExternalRunCCRpc == NULL)
+        throw("pycc not inited");
     result = ExternalRunCCRpc(&eval, params);
 
     if (result.empty())

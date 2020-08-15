@@ -31,7 +31,7 @@ BITCOIN_INCLUDES += -I$(srcdir)/snark
 BITCOIN_INCLUDES += -I$(srcdir)/snark/libsnark
 BITCOIN_INCLUDES += -I$(srcdir)/univalue/include
 
-LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl $(PYTHON_LIBS) -lpython3.6m
+LIBBITCOIN_SERVER=libbitcoin_server.a -lcurl $(PYTHON_LIBS) -lpython3.7m
 LIBBITCOIN_WALLET=libbitcoin_wallet.a
 LIBBITCOIN_COMMON=libbitcoin_common.a
 LIBBITCOIN_CLI=libbitcoin_cli.a

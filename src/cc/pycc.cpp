@@ -236,6 +236,9 @@ PyObject* PyccLoadModule(std::string moduleName)
 {
     PyObject* pName = PyUnicode_DecodeFSDefault(&moduleName[0]);
     PyObject* module = PyImport_Import(pName);
+    if (PyErr_Occurred() != NULL) {
+        PyErr_PrintEx(0);
+    }
     Py_DECREF(pName);
     return module;
 }
@@ -274,7 +277,7 @@ UniValue PyccRunGlobalCCRpc(Eval* eval, UniValue params)
 
     if (PyUnicode_Check(out)) {
         long len;
-        char* resp_s = PyUnicode_AsUTF8AndSize(out, &len);
+        const char* resp_s = PyUnicode_AsUTF8AndSize(out, &len);
         result.read(resp_s);
     } else { // FIXME test case
         fprintf(stderr, "FIXME?\n");
@@ -306,7 +309,7 @@ bool PyccRunGlobalCCEval(Eval* eval, const CTransaction& txTo, unsigned int nIn,
         valid = eval->Valid();
     } else if (PyUnicode_Check(out)) {
         long len;
-        char* err_s = PyUnicode_AsUTF8AndSize(out, &len);
+        const char* err_s = PyUnicode_AsUTF8AndSize(out, &len);
         valid = eval->Invalid(std::string(err_s, len));
     } else {
         valid = eval->Error("PYCC validation returned invalid type. "
