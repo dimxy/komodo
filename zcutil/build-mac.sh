@@ -58,11 +58,11 @@ make all
 cd $WD
 
 ./autogen.sh
-# CPPFLAGS="-I$PREFIX/include -arch x86_64 -I/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.7/Headers" LDFLAGS="-L$PREFIX/lib -L/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.7/lib/ -arch x86_64 -Wl,-no_pie" \
-# CXXFLAGS='-arch x86_64 -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/ -I$PREFIX/include -fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -g -Wl,-undefined -Wl,dynamic_lookup -Wno-attributes -Wl,-rpath,/Library/Developer/CommandLineTools/Library/Frameworks' \
-CPPFLAGS="-I$PREFIX/include -arch x86_64 -I/usr/local/opt/python@3.7/Frameworks/Python.framework/Headers" LDFLAGS="-L$PREFIX/lib -L/usr/local/opt/python@3.7/Frameworks/Python.framework/Versions/Current/lib -arch x86_64 -Wl,-no_pie" \
-CXXFLAGS='-arch x86_64 -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/ -I$PREFIX/include -fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -g -Wl,-undefined -Wl,dynamic_lookup -Wno-attributes' \
+CPPFLAGS="-I$PREFIX/include -arch x86_64 -I/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.7/Headers" LDFLAGS="-L$PREFIX/lib -L/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.7/lib/ -arch x86_64 -Wl,-no_pie" \
+CXXFLAGS='-arch x86_64 -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/ -I$PREFIX/include -fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -g -Wl,-undefined -Wl,dynamic_lookup -Wno-attributes -Wl,-rpath,/Library/Developer/CommandLineTools/Library/Frameworks' \
+## CPPFLAGS="-I$PREFIX/include -arch x86_64 -I/usr/local/opt/python@3.7/Frameworks/Python.framework/Headers" LDFLAGS="-L$PREFIX/lib -L/usr/local/opt/python@3.7/Frameworks/Python.framework/Versions/Current/lib -arch x86_64 -Wl,-no_pie" \
+## CXXFLAGS='-arch x86_64 -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/ -I$PREFIX/include -L/usr/local/opt/python@3.7/Frameworks/Python.framework/Versions/Current/lib -fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -g -Wl,-undefined -Wl,dynamic_lookup -Wno-attributes' \
 
-./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" --enable-pycc
+./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" --enable-pycc LDFLAGS="-L$PREFIX/lib -L/usr/local/opt/python@3.7/Frameworks/Python.framework/Versions/Current/lib -arch x86_64 -Wl,-no_pie"
 
 make "$@" V=1 NO_GTEST=1 STATIC=1
