@@ -832,6 +832,7 @@ public:
         std::swap(error, check.error);
         std::swap(txdata, check.txdata);
         std::swap(vout,check.vout);
+        evalcodeChecker.swap(check.evalcodeChecker);
     }
 
     ScriptError GetScriptError() const { return error; }
