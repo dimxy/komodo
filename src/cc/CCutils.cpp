@@ -1587,6 +1587,17 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
     CScript opdrop;
     vscript_t ccdata;
 
+    bool isMay2020Active;
+    int32_t firstBytes;
+    if (GetLatestTimestamp(komodo_currentheight()) < MAY2020_NNELECTION_HARDFORK)   {
+        isMay2020Active = false;
+        firstBytes = 2;
+    }
+    else    {
+        isMay2020Active = true;
+        firstBytes = 3;
+    }
+
     if (tx.vout.size() > 0)     
     {
         // note: assumes that this is a cc vout (does not check this)
@@ -1602,26 +1613,28 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
         // get the evalcode from ccdata
         // if no cc vins found with this evalcode this is the creation tx and creationId = tx.GetHash()
         // else the creationId is after the version field: 'evalcode funcid version creationId'
-        if (ccdata.size() >= 3)  {
+        if (ccdata.size() >= firstBytes)  {
             struct CCcontract_info *cp, C; 
             cp = CCinit(&C, ccdata[0]);
             int32_t i = 0;
             for (; i < tx.vin.size(); i ++)
                 if (cp->ismyvin(tx.vin[i].scriptSig))
                     break;
+            version = 0;
             if (i == tx.vin.size()) 
             {
                 creationId = tx.GetHash(); // tx is the creation tx
                 evalcode = ccdata[0];
                 funcid = ccdata[1];
-                version = ccdata[2];
+                if (isMay2020Active)
+                    version = ccdata[2];
             }
             else
             {
                 uint256 encodedCrid;
-                if (ccdata.size() >= 3 + sizeof(uint256))   {  // get creationId from the ccdata
+                if (ccdata.size() >= firstBytes + sizeof(uint256))   {  // get creationId from the ccdata
                     bool isEof = true;
-                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; ss >> funcid; ss >> version; ss >> encodedCrid; isEof = ss.eof()) && isEof) {
+                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; if (isMay2020Active) { ss >> funcid; } ss >> version; ss >> encodedCrid; isEof = ss.eof()) && isEof) {
                         LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "failed to decode ccdata, isEof=" << isEof << " usedOpreturn=" << usedOpreturn << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
                         return false;
                     }
