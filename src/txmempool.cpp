@@ -300,7 +300,7 @@ void CTxMemPool::addUnspentCCIndex(const CTxMemPoolEntry &entry, const CCoinsVie
 {
     LOCK(cs);
     const CTransaction& tx = entry.GetTx();
-    std::vector<CUnspentCCIndexKey> inserted;
+    // std::vector<CUnspentCCIndexKey> inserted;
 
     uint256 txhash = tx.GetHash();
     for (unsigned int j = 0; j < tx.vin.size(); j++) {
@@ -335,7 +335,7 @@ void CTxMemPool::addUnspentCCIndex(const CTxMemPoolEntry &entry, const CCoinsVie
                         CUnspentCCIndexKey key(addrHash, creationId, input.prevout.hash, input.prevout.n);
                         mapUnspentCCIndex.erase(key);
                         std::cerr << __func__ << " removing previous from mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " input.prevout.hash=" << input.prevout.hash.GetHex() << " input.prevout.n=" << j << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " prevOpreturn.size()=" << prevOpreturn.size() << std::endl; 
-                        inserted.push_back(key);
+                        // inserted.push_back(key);
                     }
                 }
             }
@@ -366,13 +366,12 @@ void CTxMemPool::addUnspentCCIndex(const CTxMemPoolEntry &entry, const CCoinsVie
                     CUnspentCCIndexValue value(tx.vout[k].nValue, tx.vout[k].scriptPubKey, opreturn, 0, evalcode, funcid, version);
                     mapUnspentCCIndex.insert(make_pair(key, value));
                     std::cerr << __func__ << " adding to mempool cc index addrHash=" << addrHash.GetHex() << " tx=" << txhash.GetHex() << " nvout=" << k << " evalcode=" << (int)evalcode << " creationId=" << creationId.GetHex() << " opreturn.size()=" << opreturn.size() << " mapUnspentCCIndex.size=" << mapUnspentCCIndex.size() << std::endl; 
-                    inserted.push_back(key);
+                    // inserted.push_back(key);
                 }
             }
         }
     }
-
-    mapUnspentCCIndexInserted.insert(make_pair(txhash, inserted));
+    // mapUnspentCCIndexInserted.insert(make_pair(txhash, inserted));
 }
 
 // finds outputs by hash160 of a cc address (creationid must by null)

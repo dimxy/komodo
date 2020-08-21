@@ -1598,7 +1598,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
         else
             GetOpReturnData(tx.vout.back().scriptPubKey, ccdata), usedOpreturn = true;  // use OP_RETURN in the last vout if no OP_DROP data
 
-        // use following algotithm to determine creationId
+        // use following algorithm to determine creationId
         // get the evalcode from ccdata
         // if no cc vins found with this evalcode this is the creation tx and creationId = tx.GetHash()
         // else the creationId is after the version field: 'evalcode funcid version creationId'
@@ -1626,8 +1626,10 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                         return false;
                     }
                 }
+                std::cerr << __func__ << " ccdata=" << HexStr(ccdata) << std::endl;
+                std::cerr << __func__ << " in opret found encodedCrid=" << encodedCrid.GetHex() << std::endl;
                 creationId = revuint256(encodedCrid);
-                //std::cerr << __func__ << " in opret found creationid=" << creationId.GetHex() << std::endl;
+                std::cerr << __func__ << " in opret found creationid=" << creationId.GetHex() << std::endl;
             }
         }
         return true;

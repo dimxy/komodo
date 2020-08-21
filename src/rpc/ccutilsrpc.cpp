@@ -35,7 +35,7 @@ UniValue listccunspents(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
 	UniValue resarray(UniValue::VARR);
     bool fUnspentCCIndexTmp = false;
-
+    
 	if (fHelp || (params.size() < 1 || params.size() > 2))
 		throw runtime_error("listccunspents ccadress [creationid]\n");
 
