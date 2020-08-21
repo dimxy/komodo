@@ -1634,7 +1634,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                 uint256 encodedCrid;
                 if (ccdata.size() >= firstBytes + sizeof(uint256))   {  // get creationId from the ccdata
                     bool isEof = true;
-                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; if (isMay2020Active) { ss >> funcid; } ss >> version; ss >> encodedCrid; isEof = ss.eof()) && isEof) {
+                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; ss >> funcid; if (isMay2020Active) { ss >> version; } ss >> encodedCrid; isEof = ss.eof()) && isEof) {
                         LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "failed to decode ccdata, isEof=" << isEof << " usedOpreturn=" << usedOpreturn << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
                         return false;
                     }
