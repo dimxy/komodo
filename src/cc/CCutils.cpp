@@ -1579,24 +1579,36 @@ UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vect
     return(result);
 }
 
-// decode cc transaction:
+// check special case for evalcodes if ccdata might contain or not the version field 
+bool CCDataHasVersion(const vuint8_t &ccdata)
+{
+    if (ccdata.size() >= 2)   {
+        switch(ccdata[0])  { // check for each evalcode
+        case EVAL_TOKENS:
+            if (ccdata[1] == 'C' || ccdata[1] == 'T')
+                return true;
+            else
+                return false;
+        // add specific cases for evalcodes when both versioned and non-versioned opreturns or ccdata might present
+        // put here a rule how to determine if version field is present
+        
+        default:    
+            // assume we do not have old-style cc by default
+            return true;
+        }
+    }
+    return false;
+}
+
+// decode cc transaction's opdrop or opreturn:
 // try to find cc data in vout's opdrop or in the last vout opreturn
-// return funcid, version and creationid
+// returns funcid, version and creationid
+// NOTE: if for a cc module you might have both versioned or non-versioned opdrop or opreturn
+// you need to add a rule to check this in CCDataHasVersion()
 bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_t &funcid, uint8_t &version, uint256 &creationId)
 {
     CScript opdrop;
     vscript_t ccdata;
-
-    bool isMay2020Active;
-    int32_t firstBytes;
-    if (GetLatestTimestamp(komodo_currentheight()) < MAY2020_NNELECTION_HARDFORK)   {
-        isMay2020Active = false;
-        firstBytes = 2;
-    }
-    else    {
-        isMay2020Active = true;
-        firstBytes = 3;
-    }
 
     if (tx.vout.size() > 0)     
     {
@@ -1608,6 +1620,11 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
             GetOpReturnData(opdrop, ccdata), usedOpreturn = false;
         else
             GetOpReturnData(tx.vout.back().scriptPubKey, ccdata), usedOpreturn = true;  // use OP_RETURN in the last vout if no OP_DROP data
+
+        int32_t firstBytes = 2;
+        bool hasVersion = CCDataHasVersion(ccdata);
+        if (hasVersion)
+            firstBytes ++;
 
         // use following algorithm to determine creationId
         // get the evalcode from ccdata
@@ -1626,7 +1643,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                 creationId = tx.GetHash(); // tx is the creation tx
                 evalcode = ccdata[0];
                 funcid = ccdata[1];
-                if (isMay2020Active)
+                if (hasVersion)
                     version = ccdata[2];
             }
             else
@@ -1634,7 +1651,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                 uint256 encodedCrid;
                 if (ccdata.size() >= firstBytes + sizeof(uint256))   {  // get creationId from the ccdata
                     bool isEof = true;
-                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; ss >> funcid; if (isMay2020Active) { ss >> version; } ss >> encodedCrid; isEof = ss.eof()) && isEof) {
+                    if (!E_UNMARSHAL(ccdata, ss >> evalcode; ss >> funcid; if (hasVersion) { ss >> version; } ss >> encodedCrid; isEof = ss.eof()) && isEof) {
                         LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "failed to decode ccdata, isEof=" << isEof << " usedOpreturn=" << usedOpreturn << " tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl);
                         return false;
                     }
