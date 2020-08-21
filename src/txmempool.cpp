@@ -388,7 +388,7 @@ bool CTxMemPool::getUnspentCCIndex(const std::vector<std::pair<uint160, uint256>
         }
 
         {
-            std::cerr << __func__ << " (*it).first=" << (*it).first.GetHex() << std::endl;
+            std::cerr << __func__ << " (*it).first=" << (*it).first.GetHex() << " mapUnspentCCIndex.size()=" << mapUnspentCCIndex.size() << std::endl;
             mapUnspentCCIndexType::iterator ait = mapUnspentCCIndex.lower_bound(CUnspentCCIndexKey((*it).first, (*it).second, zeroid, 0));        
             while (ait != mapUnspentCCIndex.end() ) {
                 std::cerr << __func__ << " (*ait).first.hashBytes=" << (*ait).first.hashBytes.GetHex() << " (*ait).first.creationid=" << (*ait).first.creationid.GetHex() << " txhash=" << (*ait).first.txhash.GetHex() << " index=" << (*ait).first.index << std::endl;
