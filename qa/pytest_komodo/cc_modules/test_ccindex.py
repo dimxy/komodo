@@ -112,6 +112,7 @@ def test_ccindex(test_params):
 
     rpc.setgenerate(True, 1)
     while True:
+        print("waiting until mempool empty...")
         time.sleep(10)
         mempool = rpc.getrawmempool()
         if len(mempool) == 0:
