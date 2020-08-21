@@ -1639,10 +1639,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                         return false;
                     }
                 }
-                std::cerr << __func__ << " ccdata=" << HexStr(ccdata) << std::endl;
-                std::cerr << __func__ << " in opret found encodedCrid=" << encodedCrid.GetHex() << std::endl;
                 creationId = revuint256(encodedCrid);
-                std::cerr << __func__ << " in opret found creationid=" << creationId.GetHex() << std::endl;
             }
         }
         return true;
