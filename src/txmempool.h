@@ -192,9 +192,6 @@ private:
     typedef std::map<CUnspentCCIndexKey, CUnspentCCIndexValue, CUnspentCCIndexKeyCompare> mapUnspentCCIndexType;
     mapUnspentCCIndexType mapUnspentCCIndex;
 
-    typedef std::map<uint256, std::vector<CUnspentCCIndexKey> > mapUnspentCCIndexInsertedType;
-    mapUnspentCCIndexInsertedType mapUnspentCCIndexInserted;
-
 public:
     std::map<COutPoint, CInPoint> mapNextTx;
     std::map<uint256, std::pair<double, CAmount> > mapDeltas;
