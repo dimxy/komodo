@@ -72,7 +72,7 @@ UniValue listccunspents(const UniValue& params, bool fHelp, const CPubKey& mypk)
     };
 
     SetCCunspentsCCIndex(unspentOutputs, ccaddr.c_str(), creationid);
-    std::cerr << __func__ << " non mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
+    // std::cerr << __func__ << " non mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
     for( auto const &o : unspentOutputs)    {
         uint256 spenttxid;
         int32_t spentvin;
@@ -81,7 +81,7 @@ UniValue listccunspents(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
 
     AddCCunspentsCCIndexMempool(unspentOutputsMem, ccaddr.c_str(), creationid);
-    std::cerr << __func__ << " with mempool unspentOutputsMem.size=" << unspentOutputsMem.size() << std::endl;
+    // std::cerr << __func__ << " with mempool unspentOutputsMem.size=" << unspentOutputsMem.size() << std::endl;
      
     for( auto const &o : unspentOutputsMem)    {
         addUniElem(o, zeroid, 0);

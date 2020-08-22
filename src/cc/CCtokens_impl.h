@@ -70,11 +70,11 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 
     
     SetCCunspentsCCIndex(unspentOutputs, tokenaddr, tokenid);
-    std::cerr << __func__ << " non mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
+    // std::cerr << __func__ << " non mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
 
     if (useMempool)  {
         AddCCunspentsCCIndexMempool(unspentOutputs, tokenaddr, tokenid);
-        std::cerr << __func__ << " with mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
+        // std::cerr << __func__ << " with mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
     }
         
 	// threshold = total / (maxinputs != 0 ? maxinputs : CC_MAXVINS);   // let's not use threshold
@@ -119,8 +119,6 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 			}
 		}
 	}
-
-	//std::cerr << "AddTokenCCInputs() found totalinputs=" << totalinputs << std::endl;
 	return(totalinputs);
 }
 
