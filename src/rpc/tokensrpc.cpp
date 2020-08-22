@@ -262,34 +262,45 @@ UniValue tokentransfer(const UniValue& params, bool fHelp, const CPubKey& remote
 UniValue tokentransfermany(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ); 
+    UniValue jsonParams; 
+
     std::string hex; 
-    CAmount amount; 
-    uint256 tokenid;
+    //CAmount amount; 
+    //uint256 tokenid;
     const CAmount txfee = 10000;
     
     CCerror.clear();
 
-    if ( fHelp || params.size() < 3)
-        throw runtime_error("tokentransfermany tokenid1 tokenid2 ... destpubkey amount \n");
+    if ( fHelp || params.size() != 1)
+        throw runtime_error("tokentransfermany '[{\"tokenid\": tokenid, \"destpk\": pubkey, \"amount\": satoshis}, {...}, ...]' \n");
     if ( ensure_CCrequirements(EVAL_TOKENS) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
 
-    std::vector<uint256> tokenids;
-    int i = 0;
-    for (; i < params.size() - 2; i ++)
-    {
-        uint256 tokenid = Parseuint256((char *)params[i].get_str().c_str());
-        if( tokenid == zeroid )    
-            return MakeResultError("invalid tokenid");
-        tokenids.push_back(tokenid);
+    if (params[0].getType() == UniValue::VOBJ)       // as json in {...}
+        jsonParams = params[0].get_obj();
+    else if (params[0].getType() == UniValue::VSTR)  // as json in quoted string '{...}'
+        jsonParams.read(params[0].get_str().c_str());
+
+    if (jsonParams.getType() != UniValue::VARR || jsonParams.empty())
+        throw runtime_error("parameter must be an array\n");    
+
+    // parse json '[ {"tokenid": ..., "destpk": ..., "amount": ...}, {...}, ...]'
+    typedef std::tuple<uint256, CPubKey, CAmount> destParamsType;
+    std::vector<destParamsType> vDestParams;
+    for (int32_t i = 0; i < jsonParams.get_array().size(); i ++)    {
+        UniValue iParam = jsonParams.get_array()[i];
+        uint256 tokenid = Parseuint256(iParam["tokenid"].getValStr().c_str());
+        if (tokenid.IsNull())
+            throw runtime_error("invalid tokenid in param " + std::to_string(i+1));    
+        CPubKey destpk = CPubKey(ParseHex(iParam["destpk"].getValStr()));
+        if (!destpk.IsValid())
+            throw runtime_error("invalid destpk in param " + std::to_string(i+1));    
+        CAmount amount = atoll(iParam["amount"].getValStr().c_str());
+        if (amount <= 0 )
+            throw runtime_error("invalid amount in param " + std::to_string(i+1));    
+        destParamsType d = std::make_tuple(tokenid, destpk, amount);
+        vDestParams.push_back(d); 
     }
-    CPubKey destpk = pubkey2pk(ParseHex(params[i++].get_str().c_str()));
-	if (destpk.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) 
-        return MakeResultError("invalid destpubkey");
-    
-    amount = atoll(params[i].get_str().c_str()); 
-    if( amount <= 0 )    
-        return MakeResultError("amount must be positive");
     
     if (!EnsureWalletIsAvailable(false))
         throw runtime_error("wallet is required");
@@ -305,9 +316,13 @@ UniValue tokentransfermany(const UniValue& params, bool fHelp, const CPubKey& re
     if (ResultIsError(beginResult)) 
         return beginResult;
     
-    for (const auto &tokenid : tokenids)
+    for (const auto &d : vDestParams)
     {
         vuint8_t vnftData;
+
+        uint256 tokenid = std::get<0>(d);
+        CPubKey destpk = std::get<1>(d);
+        CAmount amount = std::get<2>(d);
         GetNonfungibleData(tokenid, vnftData);
         CC* probeCond;
         if (vnftData.size() > 0)
@@ -322,13 +337,13 @@ UniValue tokentransfermany(const UniValue& params, bool fHelp, const CPubKey& re
         cpTokens->evalcodeNFT = vnftData.size() > 0 ? vnftData[0] : 0;
         GetTokensCCaddress(cpTokens, tokenaddr, mypk);
 
-        UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, destpk, tokenid, tokenaddr, { destpk }, {probeCond, mypriv}, amount, false);
+        UniValue addtxResult = TokenAddTransferVout(mtx, cpTokens, mypk, tokenid, tokenaddr, { destpk }, {probeCond, mypriv}, amount, false);
         cc_free(probeCond);
         memset(mypriv, '\0', sizeof(mypriv));
         if (ResultIsError(addtxResult)) 
             return MakeResultError( ResultGetError(addtxResult) + " " + tokenid.GetHex() );
     }
-    UniValue sigData = TokenFinalizeTransferTx(mtx, cpTokens, remotepk, txfee, CScript());
+    UniValue sigData = TokenFinalizeTransferTx(mtx, cpTokens, remotepk, txfee, CScript()); // send remotepk/nullpk to indicate either remote or local call
     RETURN_IF_ERROR(CCerror);
     if (ResultHasTx(sigData) > 0)
         result = sigData;
