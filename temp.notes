@@ -1,0 +1,69 @@
+cc_cli / PyccRunGlobalCCRpc
+    this is used in conjunction with a new rpc method `pycli` 
+    this allows the daemon to call `cc_cli` from active.py, from there arbitary python logic can be defined in "functions" field of cc_info
+    This can be thought of as a way of implementing komodo-cli commands in python. It is needed to build transactions using the pycctx rust app. 
+    TODO: change the name of these functions. Currently, they include "rpc", but technically, this does not use the rpc interface.
+
+chain.is_sapling() / PyBlockchainIsSapling
+    very simple function to allow pyCC App to automatically detect whether a chain has sapling activated
+    used to sign txes accordingly
+
+cc_block_eval
+    this is called just before a block is fully validated in ContextualCheckBlock 
+    it will send the output of tempBlockToJSON for current block being validated and prev block to cc_block_eval within active.py
+    this tempBlockToJSON function is only sending minimal data about the blocks right now, but if anything else is needed, can simply change the UniValue 
+        uses JSON format, so adding additional fields in the future will not break backwards compatibility
+
+    an additional validation case is introduced by a "fauximport" tx 
+        this tx type imitates a .IsCoinImport() tx, but doesn't neccesarily have to be a coin import. This is done to force miners to create some transaction at the end of their blocks.( and presumably include some module-specific data in this tx ) 
+        This transaction will be forced through cc_eval and should be caught with `if eval_code == b'\xe2':` This eval code should never be used otherwise. 
+        This is a very special case that can enable pycc to mint coins and define subsidy of blocks. For now, I have disabled it's ability to mint coins from within CheckBlock, but it can easily be reactivated, maybe as an ac_param. 
+
+MakeFauxImportTx
+    for the state machine at least, this tx could include several OP_RETURNS.( this tx bypasses .IsStandard() checks by being directly placed into blocks by miners ) I plan to make it one OP_RETURN per pyCC module with an FSM
+        since this tx does not have to abide by .IsStandard() we may not even have to use the OP_RETURN op code. Could be raw data in case this data must not be pruned.
+    at 10k per OP_RETURN, we can have ~19 seperate OP_RETURNs within the 200k tx limit. If this proves not to be enough, we could always set a special case for tx size limit or implement multiple fauximport txes. 
+
+
+MakeState(prevstate, states)
+    this function will be used to both create the fauximporttx as a miner and by all nodes to validate the proported states from the miner 
+    it allows a module to implement an arbitary FSM, the events and states are defined within each individual pyCC module
+        we will want to define several "standard events" such as 
+            notarizations being added to ntz db 
+            new blocks
+            block subsidy change - pretty rare occurence, probably not that useful
+            PoSblock/PoWblock
+
+    in most cases, events should not be triggered by end users
+        most cases will be "chain events"(notarizations, blocks, etc)
+        or "admin events" - trusted key(s) can trigger a state change
+
+    events can be triggered by end users, but miner-censorship becomes an issue
+        the order of the events matter, so a miner could do nasty things by reordering txes to suite their interests
+        non "chain events" should have a reasonably large transaction fee that will outweight any incentives to not include them in blocks
+            non "chain events" may need to be forced to be the first or last transactions within a block
+
+TODO:
+There are many places where I have added `FIXME ac_ param` comments. Each of these are currently hardcoded and logic will need to be determined by ac_params
+
+I first set out to test whether this FSM concept was viable. As a result, this is hardcoded to a single OP_RETURN to function with a module named "state"
+    change MakeFauxImportOpret to MakeFauxImportTx 
+        build an OP_RETURN per CC module 
+
+    change the MakeState logic, both the cc_cli logic and cc_block_eval logic to incorporate multiple FSMs 
+
+    make a standard way of defining states and events from within each individual module
+
+    make a way of using "standard chain events" - new POW block, new POS block, new notarization
+        need a special field for these in tempBlockToJSON function
+
+
+
+
+
+
+
+
+
+
+
