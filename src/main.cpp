@@ -64,6 +64,8 @@
 #include <boost/thread.hpp>
 #include <boost/static_assert.hpp>
 
+#include "cc/pycc.h" // FIXME if build flag
+
 using namespace std;
 
 #if defined(NDEBUG)
@@ -80,6 +82,9 @@ using namespace std;
 CCriticalSection cs_main;
 extern uint8_t NOTARY_PUBKEY33[33];
 extern int32_t KOMODO_LOADINGBLOCKS,KOMODO_LONGESTCHAIN,KOMODO_INSYNC,KOMODO_CONNECTING,KOMODO_EXTRASATOSHI;
+
+
+
 int32_t KOMODO_NEWBLOCKS;
 int32_t komodo_block2pubkey33(uint8_t *pubkey33,CBlock *block);
 //void komodo_broadcast(CBlock *pblock,int32_t limit);
@@ -1412,7 +1417,14 @@ bool CheckTransaction(uint32_t tiptime,const CTransaction& tx, CValidationState 
                             REJECT_INVALID, "bad-txns-stakingtx");
         }
     }
-    
+
+    if ( tx.IsCoinImport() ){ // FIXME write a test for this to ensure this works as intended. 
+        if (txIndex != numTxs-1){
+            return state.DoS(100, error("CheckTransaction(): fauximport tx is not last tx"),
+                    REJECT_INVALID, "bad-txns-fauximport");
+        }
+    }
+
     // Don't count coinbase transactions because mining skews the count
     if (!tx.IsCoinBase()) {
         transactionsValidated.increment();
@@ -3268,7 +3280,6 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
         {
             CCoinsModifier outs = view.ModifyCoins(hash);
             outs->ClearUnspendable();
-
             CCoins outsBlock(tx, pindex->GetHeight());
             // The CCoins serialization does not serialize negative numbers.
             // No network rules currently depend on the version here, so an inconsistency is harmless
@@ -3326,7 +3337,7 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 }
             }
         }
-        else if (tx.IsCoinImport() || tx.IsPegsImport())
+        else if ( 0 ) //tx.IsCoinImport() || tx.IsPegsImport()) // FIXME ac_ param
         {
             RemoveImportTombstone(tx, view);
         }
@@ -5262,6 +5273,20 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
             return state.DoS(100, error("CheckBlock: more than one coinbase"),
                              REJECT_INVALID, "bad-cb-multiple");
 
+    // this will be a literal transaction, so we can easily store pycc-specific block data 
+    // is a very special case as this allows pycc to mint coins, be careful 
+    if (1) // make an ac_ param  FIXME 
+    {
+        if ( height > 1 ){
+            CTransaction last_tx = block.vtx.back();
+            // FIXME if pycc requires coin minting abilities, this if must change and inflation logic of this tx will rely 100% on PYCC code
+            if ( !(last_tx.IsCoinImport()) || last_tx.GetValueOut() > 0 ) 
+            {
+                return state.DoS(100, error("CheckBlock: last tx is not faux-import"),
+                                 REJECT_INVALID, "invalid-pycc-eval");
+            }
+        }
+    }
     // Check transactions
     CTransaction sTx;
     CTransaction *ptx = NULL;
@@ -5297,7 +5322,7 @@ bool CheckBlock(int32_t *futureblockp,int32_t height,CBlockIndex *pindex,const C
             {
                 CValidationState state; CTransaction Tx; 
                 const CTransaction &tx = (CTransaction)block.vtx[i];
-                if ( tx.IsCoinBase() || !tx.vjoinsplit.empty() || !tx.vShieldedSpend.empty() || (i == block.vtx.size()-1 && komodo_isPoS((CBlock *)&block,height,0) != 0) )
+                if ( tx.IsCoinImport() || tx.IsCoinBase() || !tx.vjoinsplit.empty() || !tx.vShieldedSpend.empty() || (i == block.vtx.size()-1 && komodo_isPoS((CBlock *)&block,height,0) != 0) )
                     continue;
                 Tx = tx;
                 if ( myAddtomempool(Tx, &state, true) == false ) // happens with out of order tx in block on resync
@@ -5509,6 +5534,26 @@ bool ContextualCheckBlock(int32_t slowflag,const CBlock& block, CValidationState
             return state.DoS(100, error("%s: block height mismatch in coinbase", __func__), REJECT_INVALID, "bad-cb-height");
         }
     }
+
+    // FIXME if ac_ param
+    CBlock prevblock;
+    if (nHeight > 2 ){
+        if (!ReadBlockFromDisk(prevblock, pindexPrev, 1)){
+            fprintf(stderr, "PYCC Can't read previous block from Disk!");
+            return(0);
+        }
+    }
+
+
+    // FIXME CONTEXT
+
+    if ( nHeight > 2 && !(ExternalRunBlockEval(block, prevblock)) ) 
+    {
+        // it would be optimal to have ExternalRunBlockEval return not just a bool, but message, state and DOS ban score
+        return state.DoS(100, error("CheckBlock: pyCC block eval failed"),
+                     REJECT_INVALID, "invalid-pycc-eval"); 
+    }
+
     return true;
 }
 

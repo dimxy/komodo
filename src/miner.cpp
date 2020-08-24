@@ -66,6 +66,8 @@
 
 #include "cc/CCMarmara.h"
 
+#include "importcoin.h" // FIXME if PYCC build flag?
+
 using namespace std;
 
 //////////////////////////////////////////////////////////////////////////////
@@ -163,6 +165,7 @@ int32_t komodo_getnotarizedheight(uint32_t timestamp,int32_t height, uint8_t *sc
 CScript komodo_mineropret(int32_t nHeight);
 bool komodo_appendACscriptpub();
 CScript komodo_makeopret(CBlock *pblock, bool fNew);
+CScript MakeFauxImportOpret(std::vector<CTransaction> &txs, CBlockIndex* blockindex);
 
 int32_t komodo_waituntilelegible(uint32_t blocktime, int32_t stakeHeight, uint32_t delay)
 {
@@ -921,6 +924,49 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             }
             if ( ptr!=0 ) free(ptr);
         }
+        // this transaction, fauximport, is a special case transaction with no (real) inputs 
+        // what this does is allow us to trigger pycc validaton(cc_eval) at every block with special case eval code b'\xe2'
+        // we can store the sum of state changes in this transaction, allowing the state to easily be rolled back with a reorg
+        // be aware the b'\xe2' eval code 
+        // ***IS ABLE TO MINT COINS IF THE PYCC LOGIC ALLOWS IT***
+        else if ( 1 && nHeight > 1) { // FIXME ac_ param
+            ImportProof proofNull;
+            std::vector<CTxOut> dummy_vouts;
+
+            // we need a dummy transaction for COutPoint, 
+            // doesn't matter what it is as long as it's unique, maybe nHeight is sufficient 
+            CMutableTransaction txDum = CreateNewContextualCMutableTransaction(consensusParams, nHeight);
+            txDum.vin.resize(1);
+            txDum.vin[0].prevout.SetNull();
+            txDum.vin[0].scriptSig = (CScript() << nHeight << CScriptNum(1));
+
+            // at this point we can assume any CC txes in mempool have had their state changes validated by cc_eval
+            // we now need to iterate through them, parse any state changes from opret
+            // send state changes(in order) to pycc to be evaluted and return the proper opreturn with updated global state
+
+            dummy_vouts.resize(1);
+            dummy_vouts[0].nValue = 0;
+            // this could be anything or even non-existent, could be useful to use a checksum of sorts
+            dummy_vouts[0].scriptPubKey = CScript() << ParseHex(CRYPTO777_PUBSECPSTR) << OP_CHECKSIG; 
+
+            CScript myopret = MakeFauxImportOpret(pblock->vtx, pindexPrev); // pindexPrev
+            if ( myopret == CScript() ) {
+                fprintf(stderr, "a succesful failure\n");
+                LEAVE_CRITICAL_SECTION(cs_main); // FIXME test if this is neccesary
+                LEAVE_CRITICAL_SECTION(mempool.cs);
+                return(0);
+            }
+            CMutableTransaction fauximport = CreateNewContextualCMutableTransaction(consensusParams, nHeight);
+
+            CScript scriptSig;
+            scriptSig << E_MARSHAL(ss << EVAL_IMPORTCOIN);      // simple payload for coins
+            fauximport.vin.push_back(CTxIn(COutPoint(txDum.GetHash(), 10e8), scriptSig));
+            fauximport.vout.push_back(CTxOut(0, myopret));
+
+            //CMutableTransaction fauximport = MakeImportCoinTransaction(proofNull, txDum, dummy_vouts);
+
+            pblock->vtx.push_back(CTransaction(fauximport));
+        }
         else if ( ASSETCHAINS_CC == 0 && pindexPrev != 0 && ASSETCHAINS_STAKED == 0 && (ASSETCHAINS_SYMBOL[0] != 0 || IS_KOMODO_NOTARY == 0 || My_notaryid < 0) )
         {
             CValidationState state;
@@ -937,7 +983,11 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             }
             //fprintf(stderr,"valid\n");
         }
+
+
     }
+
+
     if ( ASSETCHAINS_SYMBOL[0] == 0 || (ASSETCHAINS_SYMBOL[0] != 0 && !isStake) )
     {
         LEAVE_CRITICAL_SECTION(cs_main);

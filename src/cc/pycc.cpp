@@ -11,10 +11,6 @@
 #include <univalue.h>
 #include "CCinclude.h"
 
-//extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry); 
-//#include "../core_io.h" // used by PyBlockchainDecodeTx
-
-
 
 
 Eval* getEval(PyObject* self)
@@ -67,6 +63,7 @@ static PyObject* PyBlockchainRpc(PyObject* self, PyObject* args)
     return PyUnicode_FromString("RPC parse error, must be object");
 }
 
+// FIXME remove this, is now irrelevant as hardcoded c++ CCs will not interact with pyCCs
 static PyObject* PyBlockchainEvalInfo(PyObject* self, PyObject* args)
 {
     int8_t eval_int; struct CCcontract_info *cp,C;
@@ -252,6 +249,7 @@ PyObject* PyccGetFunc(PyObject* pyccModule, std::string funcName)
 
 
 PyObject* pyccGlobalEval = NULL;
+PyObject* pyccGlobalBlockEval = NULL;
 PyObject* pyccGlobalRpc = NULL;
 
 UniValue PyccRunGlobalCCRpc(Eval* eval, UniValue params)
@@ -270,7 +268,6 @@ UniValue PyccRunGlobalCCRpc(Eval* eval, UniValue params)
         fprintf(stderr, "pycli PyErr_Occurred\n");
         return result;
     }
-
 
     if (PyUnicode_Check(out)) {
         long len;
@@ -317,6 +314,144 @@ bool PyccRunGlobalCCEval(Eval* eval, const CTransaction& txTo, unsigned int nIn,
     return valid;
 }
 
+// this is decoding a block that is not yet in the index, therefore is a limited version of blocktoJSON function from blockchain.cpp
+// can add any additional data to this result UniValue and it will be passed to cc_block_eval every time komodod validates a block
+// FIXME determine if anything else is needed; remove or use txDetails
+//       make a seperate field for "cc_spend" and include all other txes in "tx" field
+UniValue tempblockToJSON(const CBlock& block, bool txDetails = true)
+{
+    UniValue result(UniValue::VOBJ);
+    uint256 notarized_hash, notarized_desttxid; int32_t prevMoMheight, notarized_height;
+    result.push_back(Pair("hash", block.GetHash().GetHex()));
+    UniValue txs(UniValue::VARR);
+    BOOST_FOREACH(const CTransaction&tx, block.vtx)
+    {
+        for (std::vector<CTxIn>::const_iterator vit=tx.vin.begin(); vit!=tx.vin.end(); vit++){
+            const CTxIn &vin = *vit;
+            if (tx.vout.back().scriptPubKey.IsOpReturn() && IsCCInput(vin.scriptSig))
+            {
+                std::string txHex;
+                txHex = EncodeHexTx(tx);
+                txs.push_back(txHex);
+                break;
+            }
+        }
+    }
+    result.push_back(Pair("minerstate_tx", EncodeHexTx(block.vtx.back())));
+    result.push_back(Pair("tx", txs));
+    result.push_back(Pair("time", block.GetBlockTime()));
+    return result;
+}
+
+UniValue tempblockindexToJSON(CBlockIndex* blockindex){
+    CBlock block;
+    UniValue result(UniValue::VOBJ);
+    if (!ReadBlockFromDisk(block, blockindex, 1)){
+        fprintf(stderr, "Can't read previous block from Disk!");
+        return(result);
+    }
+    result = tempblockToJSON(block, 1);
+    return(result);
+}
+
+
+// the MakeState special case for pycli is expecting ["MakeState", prevblockhash, cc_spendopret0, cc_spendopret1, ...]
+// as a result of this, CC validation must ensure that each CC spend has a valid OP_RETURN
+// FIXME think it may do this already, but double check. If a CC spend with unparseable OP_RETURN can enter the mempool
+// it will cause miners to be unable to produce valid blocks 
+CScript MakeFauxImportOpret(std::vector<CTransaction> &txs, CBlockIndex* blockindex)
+{
+    UniValue oprets(UniValue::VARR);
+    UniValue resp(UniValue::VOBJ);
+    Eval eval;
+    CScript result;
+    
+    UniValue prevblockJSON(UniValue::VOBJ);
+    prevblockJSON = tempblockindexToJSON(blockindex);
+
+    if ( prevblockJSON.empty() ) {
+        fprintf(stderr, "PyCC block db error, probably daemon needs rescan or resync");
+        return CScript();
+    }
+    std::string prevvalStr = prevblockJSON.write(0, 0);
+    //char* prevblockChr = const_cast<char*> (prevvalStr.c_str());
+
+    oprets.push_back("MakeState");
+    oprets.push_back(prevvalStr);
+    for (std::vector<CTransaction>::const_iterator it=txs.begin(); it!=txs.end(); it++)
+    {
+        const CTransaction &tx = *it;
+        for (std::vector<CTxIn>::const_iterator vit=tx.vin.begin(); vit!=tx.vin.end(); vit++){
+            const CTxIn &vin = *vit;
+            if (tx.vout.back().scriptPubKey.IsOpReturn() && IsCCInput(vin.scriptSig))
+            {
+                oprets.push_back(HexStr(tx.vout.back().scriptPubKey.begin(), tx.vout.back().scriptPubKey.end()));
+                break;
+            }
+        }
+    }
+    // this sends ["MakeState", "prevblockJSON", [cc_spend_oprets]]
+    resp = ExternalRunCCRpc(&eval, oprets);
+
+    if (resp.empty()) return CScript();
+
+    std::string valStr = resp.write(0, 0);
+    //char* valChr = const_cast<char*> (valStr.c_str());
+
+    result = CScript() <<  OP_RETURN << E_MARSHAL(ss << valStr);
+    return( result );
+}
+
+
+
+
+bool PyccRunGlobalBlockEval(const CBlock& block, const CBlock& prevblock)
+{
+    UniValue blockJSON(UniValue::VOBJ);
+    UniValue prevblockJSON(UniValue::VOBJ);
+
+
+
+    prevblockJSON = tempblockToJSON(prevblock); // FIXME this could maybe use typical blockToJSON instead, gives more data
+    std::string prevvalStr = prevblockJSON.write(0, 0);
+    char* prevblockChr = const_cast<char*> (prevvalStr.c_str());
+
+    blockJSON = tempblockToJSON(block);
+    std::string valStr = blockJSON.write(0, 0);
+    char* blockChr = const_cast<char*> (valStr.c_str());
+
+    PyObject* out = PyObject_CallFunction(
+            pyccGlobalBlockEval,
+            "ss", blockChr, prevblockChr);
+    bool valid;
+    // FIXME do python defined DOS ban scores
+
+    if (PyErr_Occurred() != NULL) {
+        PyErr_PrintEx(0);
+        fprintf(stderr, "PYCC module raised an exception\n");
+        return false; //state.DoS(100, error("CheckBlock: PYCC module raised an exception"),
+                                 //REJECT_INVALID, "invalid-pycc-block-eval"); 
+    }
+    if (out == Py_None) {
+        valid = true;
+    } else if (PyUnicode_Check(out)) {
+        long len;
+        char* err_s = PyUnicode_AsUTF8AndSize(out, &len);
+        //valid = eval->Invalid(std::string(err_s, len));
+        fprintf(stderr, "PYCC module returned string: %s \n", err_s);
+        valid = false;
+    } else {
+        fprintf(stderr, ("PYCC validation returned invalid type. "
+                         "Should return None on success or a unicode error message on failure"));
+        valid = false;
+        //valid = eval->Error("PYCC validation returned invalid type. "
+          //                  "Should return None on success or a unicode error message on failure");
+    }
+    Py_DECREF(out);
+    return valid;
+}
+
+
 
 void PyccGlobalInit(std::string moduleName)
 {
@@ -328,6 +463,7 @@ void PyccGlobalInit(std::string moduleName)
     }
 
     pyccGlobalEval = PyccGetFunc(pyccModule, "cc_eval");
+    pyccGlobalBlockEval = PyccGetFunc(pyccModule, "cc_block_eval");
     pyccGlobalRpc = PyccGetFunc(pyccModule, "cc_cli");
 
     if (!pyccGlobalEval) {
@@ -339,7 +475,14 @@ void PyccGlobalInit(std::string moduleName)
         exit(1);
     }
 
+    if (!pyccGlobalBlockEval) { // FIXME if ac_ param
+        printf("Python module \"%s\" does not export \"cc_block_eval\" or not callable\n", &moduleName[0]);
+        exit(1);
+    }
+
+
     ExternalRunCCEval = &PyccRunGlobalCCEval;
+    ExternalRunBlockEval = &PyccRunGlobalBlockEval;
     ExternalRunCCRpc = &PyccRunGlobalCCRpc;
 }
 
