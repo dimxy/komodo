@@ -1260,11 +1260,13 @@ UniValue GatewaysSignedWithdraws(const CPubKey& pk, uint256 bindtxid,std::string
 
 UniValue GatewaysList()
 {
-    UniValue result(UniValue::VARR); std::vector<uint256> txids; struct CCcontract_info *cp,C; uint256 txid,hashBlock,oracletxid,tokenid;
-    CTransaction vintx; std::string coin; int64_t totalsupply; char str[65],depositaddr[64]; uint8_t version,M,N,taddr,prefix,prefix2,wiftype; std::vector<CPubKey> pubkeys;
+    UniValue result(UniValue::VARR); std::vector<uint256> txids; struct CCcontract_info *cp,C; uint256 txid,hashBlock,oracletxid,tokenid; CPubKey Gatewayspk;
+    CTransaction vintx; std::string coin; int64_t totalsupply; char str[65],depositaddr[64],gatewaysaddr[64]; uint8_t version,M,N,taddr,prefix,prefix2,wiftype; std::vector<CPubKey> pubkeys;
     
     cp = CCinit(&C,EVAL_GATEWAYS);
-    SetCCtxids(txids,cp->unspendableCCaddr,true,cp->evalcode,CC_MARKER_VALUE,zeroid,'B');
+    Gatewayspk = GetUnspendable(cp,0);
+    GetCCaddress(cp,gatewaysaddr,Gatewayspk,true);
+    SetCCtxids(txids,gatewaysaddr,true,cp->evalcode,CC_MARKER_VALUE,zeroid,'B');
     for (std::vector<uint256>::const_iterator it=txids.begin(); it!=txids.end(); it++)
     {
         txid = *it;
