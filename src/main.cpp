@@ -5547,12 +5547,12 @@ bool ContextualCheckBlock(int32_t slowflag,const CBlock& block, CValidationState
 
     // FIXME CONTEXT
 
-    if ( nHeight > 2 && !(ExternalRunBlockEval(block, prevblock)) ) 
+    /*if ( nHeight > 2 && !(ExternalRunBlockEval(block, prevblock)) ) 
     {
         // it would be optimal to have ExternalRunBlockEval return not just a bool, but message, state and DOS ban score
         return state.DoS(100, error("CheckBlock: pyCC block eval failed"),
                      REJECT_INVALID, "invalid-pycc-eval"); 
-    }
+    }*/
 
     return true;
 }
