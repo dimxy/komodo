@@ -422,7 +422,7 @@ CScript MakeFauxImportOpret(std::vector<CTransaction> &txs, CBlockIndex* blockin
                 }
 
                 //oprets.push_back(HexStr(tx.vout.back().scriptPubKey.begin(), tx.vout.back().scriptPubKey.end()));
-                break;
+                // break;  // why break??
             }
         }
     }
