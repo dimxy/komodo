@@ -273,7 +273,7 @@ UniValue PyccRunGlobalCCRpc(Eval* eval, UniValue params)
 
     if (PyUnicode_Check(out)) {
         long len;
-        char* resp_s = PyUnicode_AsUTF8AndSize(out, &len);
+        const char* resp_s = PyUnicode_AsUTF8AndSize(out, &len);
         result.read(resp_s);
     } else { // FIXME test case
         fprintf(stderr, "FIXME?\n");
@@ -305,7 +305,7 @@ bool PyccRunGlobalCCEval(Eval* eval, const CTransaction& txTo, unsigned int nIn,
         valid = eval->Valid();
     } else if (PyUnicode_Check(out)) {
         long len;
-        char* err_s = PyUnicode_AsUTF8AndSize(out, &len);
+        const char* err_s = PyUnicode_AsUTF8AndSize(out, &len);
         valid = eval->Invalid(std::string(err_s, len));
     } else {
         valid = eval->Error("PYCC validation returned invalid type. "
@@ -394,7 +394,7 @@ CScript MakeFauxImportOpret(std::vector<CTransaction> &txs, CBlockIndex* blockin
                     bool r = false; 
 
                     if (cc_typeId(cond) == CC_Eval && cond->codeLength == 1) {
-                        (std::vector<uint8_t>*)_.context->push_back(cond->code[0]);  // store eval code in cc_visitor context which is & of vector of unit8_t var
+                        ((std::vector<uint8_t>*)(_.context))->push_back(cond->code[0]);  // store eval code in cc_visitor context which is & of vector of unit8_t var
                         r = true;
                     }
                     // false for a match, true for continue
@@ -416,7 +416,10 @@ CScript MakeFauxImportOpret(std::vector<CTransaction> &txs, CBlockIndex* blockin
                                 //mapOprets[e] = UniValue(UniValue::VARR);  // init first time
                                 mapOprets.emplace(e, UniValue(UniValue::VARR));  // init firs time 
                             
-                            mapOprets[e].push_back(HexStr(tx.vout.back().scriptPubKey.begin(), tx.vout.back().scriptPubKey.end()));
+                            std::string strOpret = HexStr(tx.vout.back().scriptPubKey.begin(), tx.vout.back().scriptPubKey.end());
+                            const std::vector<UniValue> &vuni = mapOprets[e].getValues();
+                            if (std::find_if(vuni.begin(), vuni.end(), [&](UniValue el) { return el.getValStr() == strOpret; }) == vuni.end())
+                                mapOprets[e].push_back(strOpret);
                         }
                     }
                 }
@@ -478,7 +481,7 @@ bool PyccRunGlobalBlockEval(const CBlock& block, const CBlock& prevblock)
         valid = true;
     } else if (PyUnicode_Check(out)) {
         long len;
-        char* err_s = PyUnicode_AsUTF8AndSize(out, &len);
+        const char* err_s = PyUnicode_AsUTF8AndSize(out, &len);
         //valid = eval->Invalid(std::string(err_s, len));
         fprintf(stderr, "PYCC module returned string: %s \n", err_s);
         valid = false;
