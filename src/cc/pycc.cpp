@@ -378,7 +378,7 @@ CScript MakeFauxImportOpret(std::vector<CTransaction> &txs, CBlockIndex* blockin
     std::string prevvalStr = prevblockJSON.write(0, 0);
     //char* prevblockChr = const_cast<char*> (prevvalStr.c_str());
 
-    std::map<uint8_t, UniValue> mapOprets;
+    std::map< std::vector<uint8_t>, UniValue> mapOprets;
     oprets.push_back("MakeState");
     oprets.push_back(prevvalStr);
     for (std::vector<CTransaction>::const_iterator it=txs.begin(); it!=txs.end(); it++)
@@ -389,12 +389,15 @@ CScript MakeFauxImportOpret(std::vector<CTransaction> &txs, CBlockIndex* blockin
             if (tx.vout.size() > 0 && tx.vout.back().scriptPubKey.IsOpReturn() && IsCCInput(vin.scriptSig))
             {
 
-                std::vector<uint8_t> vevalcode;
+                std::vector< std::vector<uint8_t> > vevalcode;
                 auto findEval = [](CC *cond, struct CCVisitor _) {
                     bool r = false; 
 
-                    if (cc_typeId(cond) == CC_Eval && cond->codeLength == 1) {
-                        ((std::vector<uint8_t>*)(_.context))->push_back(cond->code[0]);  // store eval code in cc_visitor context which is & of vector of unit8_t var
+                    if (cc_typeId(cond) == CC_Eval) {
+                        std::vector<uint8_t> evalcode;
+                        for(int i = 0; i < cond->codeLength; i ++)
+                            evalcode.push_back(cond->code[i]);
+                        ((std::vector< std::vector<uint8_t> >*)(_.context))->push_back(evalcode);  // store eval code in cc_visitor context which is & of vector of unit8_t var
                         r = true;
                     }
                     // false for a match, true for continue
