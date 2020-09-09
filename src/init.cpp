@@ -98,7 +98,6 @@ extern bool komodo_dailysnapshot(int32_t height);
 extern int32_t KOMODO_LOADINGBLOCKS;
 extern bool VERUS_MINTBLOCKS;
 extern char ASSETCHAINS_SYMBOL[];
-extern uint8_t  ASSETCHAINS_PUBLIC;
 extern int32_t KOMODO_SNAPSHOT_INTERVAL;
 
 extern void komodo_init(int32_t height);
@@ -136,6 +135,9 @@ enum BindFlags {
 };
 
 static const char* FEE_ESTIMATES_FILENAME="fee_estimates.dat";
+
+static const char* DEFAULT_ASMAP_FILENAME="ip_asn.map";
+
 CClientUIInterface uiInterface; // Declared but not defined in ui_interface.h
 
 //////////////////////////////////////////////////////////////////////////////
@@ -409,6 +411,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-spentindex", strprintf(_("Maintain a full spent index, used to query the spending txid and input index for an outpoint (default: %u)"), DEFAULT_SPENTINDEX));
     strUsage += HelpMessageGroup(_("Connection options:"));
     strUsage += HelpMessageOpt("-addnode=<ip>", _("Add a node to connect to and attempt to keep the connection open"));
+    strUsage += HelpMessageOpt("-asmap=<file>", strprintf("Specify asn mapping used for bucketing of the peers (default: %s). Relative paths will be prefixed by the net-specific datadir location.", DEFAULT_ASMAP_FILENAME));
     strUsage += HelpMessageOpt("-banscore=<n>", strprintf(_("Threshold for disconnecting misbehaving peers (default: %u)"), 100));
     strUsage += HelpMessageOpt("-bantime=<n>", strprintf(_("Number of seconds to keep misbehaving peers from reconnecting (default: %u)"), 86400));
     strUsage += HelpMessageOpt("-bind=<addr>", _("Bind to given address and always listen on it. Use [host]:port notation for IPv6"));
@@ -1049,6 +1052,31 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             LogPrintf("%s: parameter interaction: -externalip set -> setting -discover=0\n", __func__);
     }
 
+    // Read asmap file if configured
+    if (mapArgs.count("-asmap")) {
+        fs::path asmap_path = fs::path(GetArg("-asmap", ""));
+        if (asmap_path.empty()) {
+            asmap_path = DEFAULT_ASMAP_FILENAME;
+        }
+        if (!asmap_path.is_absolute()) {
+            asmap_path = GetDataDir() / asmap_path;
+        }
+        if (!fs::exists(asmap_path)) {
+            InitError(strprintf(_("Could not find asmap file %s"), asmap_path));
+            return false;
+        }
+        std::vector<bool> asmap = CAddrMan::DecodeAsmap(asmap_path);
+        if (asmap.size() == 0) {
+            InitError(strprintf(_("Could not parse asmap file %s"), asmap_path));
+            return false;
+        }
+        const uint256 asmap_version = SerializeHash(asmap);
+        addrman.m_asmap = std::move(asmap); // //node.connman->SetAsmap(std::move(asmap));
+        LogPrintf("Using asmap version %s for IP bucketing\n", asmap_version.ToString());
+    } else {
+        LogPrintf("Using /16 prefix for IP bucketing\n");
+    }
+
     if (GetBoolArg("-salvagewallet", false)) {
         // Rewrite just private keys: rescan to find transactions
         if (SoftSetBoolArg("-rescan", true))
@@ -1398,12 +1426,8 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
     if ( KOMODO_NSPV_FULLNODE )
     {
-        if ( ASSETCHAINS_PUBLIC ) {
-            LogPrintf("Skipping zksnark circuit param loading on ac_public chain\n");
-        } else {
-            // Initialize Zcash circuit parameters
-            ZC_LoadParams(chainparams);
-        }
+        // Initialize Zcash circuit parameters
+        ZC_LoadParams(chainparams);
     }
     /* Start the RPC server already.  It will be started in "warmup" mode
      * and not really process calls already (but it will signify connections
@@ -1484,7 +1508,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // -proxy sets a proxy for all outgoing network traffic
     // -noproxy (or -proxy=0) as well as the empty string can be used to not set a proxy, this is the default
     std::string proxyArg = GetArg("-proxy", "");
-    SetLimited(NET_TOR);
+    SetLimited(NET_ONION);
     if (proxyArg != "" && proxyArg != "0") {
         proxyType addrProxy = proxyType(CService(proxyArg, 9050), proxyRandomize);
         if (!addrProxy.IsValid())
@@ -1492,9 +1516,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
         SetProxy(NET_IPV4, addrProxy);
         SetProxy(NET_IPV6, addrProxy);
-        SetProxy(NET_TOR, addrProxy);
+        SetProxy(NET_ONION, addrProxy);
         SetNameProxy(addrProxy);
-        SetLimited(NET_TOR, false); // by default, -proxy sets onion as reachable, unless -noonion later
+        SetLimited(NET_ONION, false); // by default, -proxy sets onion as reachable, unless -noonion later
     }
 
     // -onion can be used to set only a proxy for .onion, or override normal proxy for .onion addresses
@@ -1503,13 +1527,13 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     std::string onionArg = GetArg("-onion", "");
     if (onionArg != "") {
         if (onionArg == "0") { // Handle -noonion/-onion=0
-            SetLimited(NET_TOR); // set onions as unreachable
+            SetLimited(NET_ONION); // set onions as unreachable
         } else {
             proxyType addrOnion = proxyType(CService(onionArg, 9050), proxyRandomize);
             if (!addrOnion.IsValid())
                 return InitError(strprintf(_("Invalid -onion address: '%s'"), onionArg));
-            SetProxy(NET_TOR, addrOnion);
-            SetLimited(NET_TOR, false);
+            SetProxy(NET_ONION, addrOnion);
+            SetLimited(NET_ONION, false);
         }
     }
 
@@ -1590,20 +1614,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         InitBlockIndex();
         SetRPCWarmupFinished();
         uiInterface.InitMessage(_("Done loading"));
-        if ( KOMODO_DEX_P2P != 0 )
-        {
-            void komodo_DEX_init();
-            void komodo_DEX_pubkeyupdate();
-            komodo_DEX_init();
-            nLocalServices |= NODE_DEXP2P;
-            bool fFirstRun = true;
-            pwalletMain = new CWallet(GetArg("-wallet", "wallet.dat"));
-            DBErrors nLoadWalletRet = pwalletMain->LoadWallet(fFirstRun);
-            fprintf(stderr,"pwalletMain.%p errors %d DB_LOAD_OK.%d\n",pwalletMain,(int32_t)nLoadWalletRet,(int32_t)DB_LOAD_OK);
-            komodo_DEX_pubkeyupdate();
-        }
-        if ( pwalletMain == 0 )
-            pwalletMain = new CWallet("tmptmp.wallet");
+        pwalletMain = new CWallet("tmptmp.wallet");
         return !fRequestShutdown;
     }
     // ********************************************************* Step 7: load block chain
@@ -1992,15 +2003,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
             uiInterface.InitMessage(_("Pruning blockstore..."));
             PruneAndFlush();
         }
-    }
-    if ( KOMODO_DEX_P2P != 0 )
-    {
-        void komodo_DEX_init();
-        komodo_DEX_init();
-        nLocalServices |= NODE_DEXP2P;
-        if ( KOMODO_DEX_P2P > 1 )
-            nLocalServices |= NODE_DEXP2P_INDEXED;
-        fprintf(stderr,"nLocalServices %llx %d\n",(long long)nLocalServices,KOMODO_DEX_P2P);
     }
     if ( KOMODO_NSPV == 0 )
     {

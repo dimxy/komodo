@@ -187,6 +187,7 @@ BITCOIN_CORE_H = \
   crypto/haraka_portable.h \
   crypto/verus_hash.h \
   deprecation.h \
+  fs.h \
   hash.h \
   httprpc.h \
   httpserver.h \
@@ -245,6 +246,7 @@ BITCOIN_CORE_H = \
   txdb.h \
   txmempool.h \
   ui_interface.h \
+  util/asmap.h \
   uint256.h \
   uint252.h \
   undo.h \
@@ -290,24 +292,17 @@ libbitcoin_server_a_SOURCES = \
   cc/import.cpp \
   cc/importgateway.cpp \
   cc/CCassetsCore.cpp \
-  cc/old/CCassetsCore_v0.cpp \
-  cc/CCassetstx.cpp \
-  cc/old/CCassetstx_v0.cpp \
   cc/CCcustom.cpp \
   cc/CCtx.cpp \
   cc/CCutils.cpp \
-  cc/CCvalidation.cpp \
   cc/CCtokens.cpp \
-  cc/old/CCtokens_v0.cpp \
   cc/assets.cpp \
-  cc/old/assets_v0.cpp \
   cc/faucet.cpp \
   cc/rewards.cpp \
   cc/dice.cpp \
   cc/lotto.cpp \
   cc/fsm.cpp \
   cc/heir.cpp \
-  cc/old/heir_v0.cpp \
   cc/oracles.cpp \
   cc/prices.cpp \
   cc/pegs.cpp \
@@ -317,11 +312,9 @@ libbitcoin_server_a_SOURCES = \
   cc/channels.cpp \
   cc/auction.cpp \
   cc/betprotocol.cpp \
-  cc/pricesfeed.cpp \
-  cc/priceslibs/cjsonpointer.cpp \
-  cc/kogs.cpp \
   chain.cpp \
   checkpoints.cpp \
+  fs.cpp \
   crosschain.cpp \
   crosschain_authority.cpp \
   crypto/haraka.h \
@@ -353,9 +346,6 @@ libbitcoin_server_a_SOURCES = \
   rpc/net.cpp \
   rpc/rawtransaction.cpp \
   rpc/server.cpp \
-  rpc/tokensrpc.cpp \
-  rpc/pricesrpc.cpp \
-  rpc/marmararpc.cpp \
   script/serverchecker.cpp \
   script/sigcache.cpp \
   timedata.cpp \
@@ -402,6 +392,9 @@ libbitcoin_wallet_a_SOURCES = \
   transaction_builder.cpp \
   wallet/rpcdisclosure.cpp \
   wallet/rpcdump.cpp \
+  cc/CCtokens.cpp \
+  cc/CCassetsCore.cpp \
+  cc/CCassetstx.cpp \
   cc/CCtx.cpp \
   wallet/rpcwallet.cpp \
   wallet/wallet.cpp \
@@ -506,9 +499,7 @@ libbitcoin_common_a_SOURCES = \
   script/standard.cpp \
   transaction_builder.cpp \
   cc/CCtokenutils.cpp \
-  cc/old/CCtokenutils_v0.cpp \
   cc/CCutilbits.cpp \
-  gmp_i64.c \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
 
@@ -533,11 +524,16 @@ libbitcoin_util_a_SOURCES = \
   utilmoneystr.cpp \
   utilstrencodings.cpp \
   utiltime.cpp \
+  util/asmap.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
 
 if GLIBC_BACK_COMPAT
 libbitcoin_util_a_SOURCES += compat/glibc_compat.cpp
+endif
+
+if ENABLE_TESTS
+libbitcoin_server_a_SOURCES += rpc/testtransactions.cpp
 endif
 
 
@@ -767,7 +763,6 @@ clean-local:
 	-$(MAKE) -C secp256k1 clean
 	-$(MAKE) -C snark clean
 	-$(MAKE) -C univalue clean
-	-$(MAKE) -C cryptoconditions clean
 	rm -f leveldb/*/*.gcno leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
 

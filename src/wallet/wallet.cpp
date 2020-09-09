@@ -1607,7 +1607,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
         bool fInsertedNew = ret.second;
         if (fInsertedNew)
         {
-            wtx.nTimeReceived = GetAdjustedTime();
+            wtx.nTimeReceived = GetTime();
             wtx.nOrderPos = IncOrderPosNext(pwalletdb);
 
             wtx.nTimeSmart = wtx.nTimeReceived;
@@ -3876,33 +3876,30 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 BOOST_FOREACH (const CRecipient& recipient, vecSend)
                 {
                     CTxOut txout(recipient.nAmount, recipient.scriptPubKey);
-                    if ( txout.scriptPubKey[0] != OP_RETURN )
+
+                    if (recipient.fSubtractFeeFromAmount)
                     {
-                        if (recipient.fSubtractFeeFromAmount)
+                        txout.nValue -= nFeeRet / nSubtractFeeFromAmount; // Subtract fee equally from each selected recipient
+
+                        if (fFirst) // first receiver pays the remainder not divisible by output count
                         {
-                            txout.nValue -= nFeeRet / nSubtractFeeFromAmount; // Subtract fee equally from each selected recipient
-                            
-                            if (fFirst) // first receiver pays the remainder not divisible by output count
-                            {
-                                fFirst = false;
-                                txout.nValue -= nFeeRet % nSubtractFeeFromAmount;
-                            }
+                            fFirst = false;
+                            txout.nValue -= nFeeRet % nSubtractFeeFromAmount;
                         }
-                        //fprintf(stderr,"txout: %02x %02x %02x\n",txout.scriptPubKey[0],txout.scriptPubKey[1],txout.scriptPubKey[2]);
-                        
-                        if ( txout.IsDust(::minRelayTxFee))
+                    }
+
+                    if (txout.IsDust(::minRelayTxFee))
+                    {
+                        if (recipient.fSubtractFeeFromAmount && nFeeRet > 0)
                         {
-                            if (recipient.fSubtractFeeFromAmount && nFeeRet > 0)
-                            {
-                                if (txout.nValue < 0)
-                                    strFailReason = _("The transaction amount is too small to pay the fee");
-                                else
-                                    strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
-                            }
+                            if (txout.nValue < 0)
+                                strFailReason = _("The transaction amount is too small to pay the fee");
                             else
-                                strFailReason = _("Transaction amount too small");
-                            return false;
+                                strFailReason = _("The transaction amount is too small to send after the fee has been deducted");
                         }
+                        else
+                            strFailReason = _("Transaction amount too small");
+                        return false;
                     }
                     txNew.vout.push_back(txout);
                 }
