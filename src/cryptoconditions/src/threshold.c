@@ -104,6 +104,13 @@ static unsigned char *thresholdFingerprint(const CC *cond) {
         asn_set_add(&fp->subconditions2, asnCond);
     }
     qsort(fp->subconditions2.list.array, cond->size, sizeof(Condition_t*), cmpConditionBin);
+    printf("subconds begin\n");
+    for (int i=0; i<cond->size; i++) {
+        unsigned char buf[BUF_SIZE];
+        asn_enc_rval_t r0 = der_encode_to_buffer(&asn_DEF_Condition, (Condition_t*)fp->subconditions2.list.array[i], buf, BUF_SIZE);
+        printf("asn=%s\n", cc_hex_encode(buf, r0.encoded));
+    }
+    printf("subconds end\n");
     return hashFingerprintContents(&asn_DEF_ThresholdFingerprintContents, fp);
 }
 
