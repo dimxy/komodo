@@ -84,7 +84,7 @@ int32_t NSPV_rwutxoresp(int32_t rwflag,uint8_t *serialized,struct NSPV_utxoresp 
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->extradata),&ptr->extradata);
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->vout),&ptr->vout);
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->height),&ptr->height);
-    len += util_rwscript(rwflag, &serialized[len], ptr->script_len, ptr->script);
+    len += util_rwscript(rwflag, &serialized[len], &ptr->script_len, &ptr->script);
 
     return(len);
 }

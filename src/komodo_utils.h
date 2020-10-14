@@ -986,50 +986,51 @@ int32_t iguana_rwbignum(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *
 
 // read/write script into buffer with varint support
 // returns size of written/read space including len and script
-uint32_t util_rwscript(int32_t rwflag, uint8_t *serialized, uint32_t len, uint8_t *p)
+uint32_t util_rwscript(int32_t rwflag, uint8_t *serialized, uint32_t *plen, uint8_t **pp)
 {
     int32_t i = 0;
     if ( rwflag == 0 )
     {
         // read
         if (serialized[0] < 0xfd) {
-            len = serialized[0];
+            *plen = serialized[0];
             i = 1;
         } else if (serialized[0] == 0xfd) {
-            *(uint8_t*)&len = serialized[1]; 
-            *((uint8_t*)&len+1) = serialized[2];
+            *(uint8_t*)plen = serialized[1]; 
+            *((uint8_t*)plen+1) = serialized[2];
             i = 3; 
         } else if (serialized[0] == 0xfe) {
-            *(uint8_t*)&len = serialized[1]; 
-            *((uint8_t*)&len+1) = serialized[2];
-            *((uint8_t*)&len+2) = serialized[3];
-            *((uint8_t*)&len+3) = serialized[4];
+            *(uint8_t*)plen = serialized[1]; 
+            *((uint8_t*)plen+1) = serialized[2];
+            *((uint8_t*)plen+2) = serialized[3];
+            *((uint8_t*)plen+3) = serialized[4];
             i = 5; 
         }
-        memcpy(p, serialized+i, len);
+        *pp = (uint8_t*)malloc(*plen);
+        memcpy(*pp, serialized+i, *plen);
     }
     else
     {
         // write
-        if (len < 0xfd) {
-            serialized[0] = len;
+        if (*plen < 0xfd) {
+            serialized[0] = *plen;
             i = 1;
-        } else if (len <= 0xffff) {
+        } else if (*plen <= 0xffff) {
             serialized[0] = 0xfd;
-            serialized[1] = *(uint8_t*)&len; 
-            serialized[2] = *((uint8_t*)&len+1);
+            serialized[1] = *(uint8_t*)plen; 
+            serialized[2] = *((uint8_t*)plen+1);
             i = 3; 
-        } else if (len <= 0xffffffff) {
+        } else if (*plen <= 0xffffffff) {
             serialized[0] = 0xfe;
-            serialized[1] = *(uint8_t*)&len; 
-            serialized[2] = *((uint8_t*)&len+1);
-            serialized[3] = *((uint8_t*)&len+2);
-            serialized[4] = *((uint8_t*)&len+3);
+            serialized[1] = *(uint8_t*)plen; 
+            serialized[2] = *((uint8_t*)plen+1);
+            serialized[3] = *((uint8_t*)plen+2);
+            serialized[4] = *((uint8_t*)plen+3);
             i = 5; 
         }
-        memcpy(serialized+i, p, len);
+        memcpy(serialized+i, *pp, *plen);
     }
-    return(len+i);
+    return(*plen+i);
 }
 
 
