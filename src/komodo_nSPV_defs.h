@@ -78,6 +78,8 @@ struct NSPV_utxoresp
     uint256 txid;
     int64_t satoshis,extradata;
     int32_t vout,height;
+    uint8_t *script;
+    uint32_t script_len;
 };
 
 struct NSPV_utxosresp

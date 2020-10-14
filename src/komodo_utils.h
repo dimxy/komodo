@@ -984,6 +984,55 @@ int32_t iguana_rwbignum(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *
     return(len);
 }
 
+// read/write script into buffer with varint support
+// returns size of written/read space including len and script
+uint32_t util_rwscript(int32_t rwflag, uint8_t *serialized, uint32_t len, uint8_t *p)
+{
+    int32_t i = 0;
+    if ( rwflag == 0 )
+    {
+        // read
+        if (serialized[0] < 0xfd) {
+            len = serialized[0];
+            i = 1;
+        } else if (serialized[0] == 0xfd) {
+            *(uint8_t*)&len = serialized[1]; 
+            *((uint8_t*)&len+1) = serialized[2];
+            i = 3; 
+        } else if (serialized[0] == 0xfe) {
+            *(uint8_t*)&len = serialized[1]; 
+            *((uint8_t*)&len+1) = serialized[2];
+            *((uint8_t*)&len+2) = serialized[3];
+            *((uint8_t*)&len+3) = serialized[4];
+            i = 5; 
+        }
+        memcpy(p, serialized+i, len);
+    }
+    else
+    {
+        // write
+        if (len < 0xfd) {
+            serialized[0] = len;
+            i = 1;
+        } else if (len <= 0xffff) {
+            serialized[0] = 0xfd;
+            serialized[1] = *(uint8_t*)&len; 
+            serialized[2] = *((uint8_t*)&len+1);
+            i = 3; 
+        } else if (len <= 0xffffffff) {
+            serialized[0] = 0xfe;
+            serialized[1] = *(uint8_t*)&len; 
+            serialized[2] = *((uint8_t*)&len+1);
+            serialized[3] = *((uint8_t*)&len+2);
+            serialized[4] = *((uint8_t*)&len+3);
+            i = 5; 
+        }
+        memcpy(serialized+i, p, len);
+    }
+    return(len+i);
+}
+
+
 int32_t komodo_scriptitemlen(int32_t *opretlenp,uint8_t *script)
 {
     int32_t opretlen,len = 0;

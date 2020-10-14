@@ -84,6 +84,8 @@ int32_t NSPV_rwutxoresp(int32_t rwflag,uint8_t *serialized,struct NSPV_utxoresp 
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->extradata),&ptr->extradata);
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->vout),&ptr->vout);
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->height),&ptr->height);
+    len += util_rwscript(rwflag, &serialized[len], ptr->script_len, ptr->script);
+
     return(len);
 }
 
@@ -99,11 +101,14 @@ int32_t NSPV_rwutxosresp(int32_t rwflag,uint8_t *serialized,struct NSPV_utxosres
             len += NSPV_rwutxoresp(rwflag,&serialized[len],&ptr->utxos[i]);
     }
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->total),&ptr->total);
+    std::cerr << __func__ << " ptr->total=" << ptr->total << std::endl;
+    std::cerr << __func__ << " ptr->interest=" << ptr->interest << std::endl;
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->interest),&ptr->interest);
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->nodeheight),&ptr->nodeheight);
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->filter),&ptr->filter);
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->CCflag),&ptr->CCflag);
     len += iguana_rwnum(rwflag,&serialized[len],sizeof(ptr->skipcount),&ptr->skipcount);
+
     if ( rwflag != 0 )
     {
         memcpy(&serialized[len],ptr->coinaddr,sizeof(ptr->coinaddr));
@@ -121,8 +126,12 @@ void NSPV_utxosresp_purge(struct NSPV_utxosresp *ptr)
 {
     if ( ptr != 0 )
     {
-        if ( ptr->utxos != 0 )
+        if ( ptr->utxos != 0 ) {
+            for (int i = 0; i < ptr->numutxos; i ++)
+                if (ptr->utxos[i].script)
+                    free(ptr->utxos[i].script);
             free(ptr->utxos);
+        }
         memset(ptr,0,sizeof(*ptr));
     }
 }

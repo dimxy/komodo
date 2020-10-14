@@ -178,10 +178,11 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp *ptr,char *coinaddr,bool isCC
     SetCCunspents(unspentOutputs,coinaddr,isCC);
     maxlen = MAX_BLOCK_SIZE(tipheight) - 512;
     maxlen /= sizeof(*ptr->utxos);
+
     strncpy(ptr->coinaddr,coinaddr,sizeof(ptr->coinaddr)-1);
     ptr->CCflag = isCC;
     ptr->filter = filter;
-    if ( skipcount < 0 )
+    if (skipcount < 0)
         skipcount = 0;
     if ( (ptr->numutxos= (int32_t)unspentOutputs.size()) >= 0 && ptr->numutxos < maxlen )
     {
@@ -203,25 +204,39 @@ int32_t NSPV_getaddressutxos(struct NSPV_utxosresp *ptr,char *coinaddr,bool isCC
                         ptr->utxos[ind].vout = (int32_t)it->first.index;
                         ptr->utxos[ind].satoshis = it->second.satoshis;
                         ptr->utxos[ind].height = it->second.blockHeight;
+                        ptr->utxos[ind].script_len = it->second.script.size();
+                        std::cerr << __func__ << " ptr->utxos[ind].script_len=" << ptr->utxos[ind].script_len << std::endl;
+                        ptr->utxos[ind].script = (uint8_t*)malloc(ptr->utxos[ind].script_len);
+                        memcpy(ptr->utxos[ind].script, &(it->second.script.front()), ptr->utxos[ind].script_len);
+
                         if ( ASSETCHAINS_SYMBOL[0] == 0 && it->second.satoshis >= 10*COIN )
                         {
-                            ptr->utxos[n].extradata = komodo_accrued_interest(&txheight,&locktime,ptr->utxos[ind].txid,ptr->utxos[ind].vout,ptr->utxos[ind].height,ptr->utxos[ind].satoshis,tipheight);
+                            ptr->utxos[ind].extradata = komodo_accrued_interest(&txheight,&locktime,ptr->utxos[ind].txid,ptr->utxos[ind].vout,ptr->utxos[ind].height,ptr->utxos[ind].satoshis,tipheight);
                             interest += ptr->utxos[ind].extradata;
+                            std::cerr << __func__ << " ptr->utxos[ind].extradata=" << ptr->utxos[ind].extradata << std::endl;
                         }
-                        ind++;
                         total += it->second.satoshis;
+                        std::cerr << __func__ << " ptr->utxos[ind].script_len(2)=" << ptr->utxos[ind].script_len << std::endl;
+
+                        len += sizeof(ptr->utxos[ind].txid) + sizeof(ptr->utxos[ind].vout) + sizeof(ptr->utxos[ind].satoshis) + sizeof(ptr->utxos[ind].height) + sizeof(ptr->utxos[n].extradata) + ptr->utxos[ind].script_len + 5; // 5 is reserve for varint script_len encoding from 1...5b
+                        std::cerr << __func__ << " len=" << len << std::endl;
+                        ind++;
                     }
                     n++;
                 }
             }
         }
         ptr->numutxos = ind;
+        len += sizeof(ptr->numutxos);
         if ( len < maxlen )
         {
-            len = (int32_t)(sizeof(*ptr) + sizeof(*ptr->utxos)*ptr->numutxos - sizeof(ptr->utxos));
+            //len = (int32_t)(sizeof(*ptr) + sizeof(*ptr->utxos)*ptr->numutxos - sizeof(ptr->utxos));
             //fprintf(stderr,"getaddressutxos for %s -> n.%d:%d total %.8f interest %.8f len.%d\n",coinaddr,n,ptr->numutxos,dstr(total),dstr(interest),len);
             ptr->total = total;
             ptr->interest = interest;
+            len += sizeof(ptr->coinaddr) + sizeof(ptr->CCflag) + sizeof(ptr->filter) + sizeof(ptr->nodeheight) + sizeof(ptr->skipcount) + sizeof(ptr->total) + sizeof(ptr->interest);
+            std::cerr << __func__ << " len2=" << len << " ptr->interest=" << ptr->interest << std::endl;
+
             return(len);
         }
     }
@@ -955,7 +970,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     {
                         response.resize(1 + slen);
                         response[0] = NSPV_UTXOSRESP;
-                        if ( NSPV_rwutxosresp(1,&response[1],&U) == slen )
+                        if ( NSPV_rwutxosresp(1,&response[1],&U) <= slen )  // reserved buf might be of bigger size
                         {
                             pfrom->PushMessage("nSPV",response);
                             pfrom->prevtimes[ind] = timestamp;
