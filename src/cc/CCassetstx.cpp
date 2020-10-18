@@ -188,7 +188,7 @@ UniValue CreateBuyOffer(const CPubKey &mypk, int64_t txfee, int64_t bidamount, u
         txfee = 10000;
 
     // use AddNormalinputsRemote to sign only with mypk
-    if ((inputs = AddNormalinputsRemote(mtx, mypk, bidamount+(txfee+ASSETS_MARKER_AMOUNT), 0x10000)) > 0)   
+    if ((inputs = AddNormalinputsRemote(mtx, mypk, bidamount+(txfee+ASSETS_MARKER_AMOUNT), 0x10000, NULL)) > 0)   
     {
 		if (inputs < bidamount+txfee) {
 			CCerror = strprintf("insufficient coins to make buy offer");
@@ -232,7 +232,7 @@ UniValue CreateSell(const CPubKey &mypk, int64_t txfee, int64_t numtokens, uint2
     if (txfee == 0)
         txfee = 10000;
 
-    if (AddNormalinputsRemote(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000) > 0)   // use AddNormalinputsRemote to sign with mypk
+    if (AddNormalinputsRemote(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000, NULL) > 0)   // use AddNormalinputsRemote to sign with mypk
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
 		// add single-eval tokens (or non-fungible tokens):
@@ -357,7 +357,7 @@ UniValue CancelBuyOffer(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint2
         txfee = 10000;
 
     // add normal inputs only from my mypk (not from any pk in the wallet) to validate the ownership of the canceller
-    if (AddNormalinputsRemote(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000, NULL) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
         if (myGetTransaction(bidtxid, vintx, hashBlock) && vintx.vout.size() > ASSETS_GLOBALADDR_VOUT)
@@ -412,7 +412,7 @@ UniValue CancelSell(const CPubKey &mypk, int64_t txfee,uint256 assetid,uint256 a
         txfee = 10000;
 
     // add normal inputs only from my mypk (not from any pk in the wallet) to validate the ownership
-    if (AddNormalinputsRemote(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000) > 0)
+    if (AddNormalinputsRemote(mtx, mypk, txfee+ASSETS_MARKER_AMOUNT, 0x10000, NULL) > 0)
     {
         mask = ~((1LL << mtx.vin.size()) - 1);
         if (myGetTransaction(asktxid, vintx, hashBlock) != 0 && vintx.vout.size() > 0)

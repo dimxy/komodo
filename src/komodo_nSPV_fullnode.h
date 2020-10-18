@@ -43,7 +43,9 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     { "kogscommitrandoms", true },   { "kogsrevealrandoms", true }, { "kogsgetrandom", true }, { "kogsdepositedtokenobjectlist", true },
     // tokens:
     { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokencancelask", true }, { "tokencancelbid", true }, 
-    { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false }
+    { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true }, { "tokencreate", false },
+    // helper methods for nspv clients:
+    { "createtxwithnormalinputs", true }
 };
 
 struct NSPV_ntzargs
@@ -719,6 +721,7 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json,int n)
             if (ptr->json == NULL)   // allocate response buf
                 ptr->json = (char*)malloc(response.size());
             memcpy(ptr->json, response.c_str(), response.size());
+            ptr->json_len = response.size();
             len+=response.size();
             return (len);
         }
@@ -743,6 +746,7 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json,int n)
     if (ptr->json == NULL)   // allocate response buf
         ptr->json = (char*)malloc(response.size());
     memcpy(ptr->json, response.c_str(), response.size());
+    ptr->json_len = response.size();
     len+=response.size();
     return (len);
 }
@@ -1187,27 +1191,68 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
         {
             if ( timestamp > pfrom->prevtimes[ind] )
             {
-                struct NSPV_remoterpcresp R = { "", NULL }; int32_t p;
-                p = 1;
-                p+=iguana_rwnum(0,&request[p],sizeof(slen),&slen);
-                memset(&R,0,sizeof(R));
-                if (request.size() == p+slen && (slen=NSPV_remoterpc(&R,(char *)&request[p],slen))>0 )
+                struct NSPV_remoterpcresp R = { "", NULL }; 
+                int32_t reqlen, resplen;
+                int32_t hdrlen = 1;
+                hdrlen += iguana_rwnum(0, &request[hdrlen], sizeof(reqlen), &reqlen);
+                if (request.size() == hdrlen + reqlen && (resplen = NSPV_remoterpc(&R, (char *)&request[hdrlen], reqlen)) > 0)
                 {
-                    response.resize(1 + slen);
+                    response.resize(1 + resplen);
                     response[0] = NSPV_REMOTERPCRESP;
-                    NSPV_rwremoterpcresp(1,&response[1],&R,slen);
+                    NSPV_rwremoterpcresp(1, &response[1], &R, resplen);
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
                     LogPrint("nspv", "pushed NSPV_REMOTERPCRESP response method %s to peer %d\n", R.method, pfrom->id);
                     LogPrint("nspv-details", "NSPV_REMOTERPCRESP response details: json %s to peer %d\n", R.json, pfrom->id);
 
+                    if (R.json)
+                        free(R.json);
                     NSPV_remoterpc_purge(&R);
-                }  
+                }
+                else 
+                    LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
 
-                //free resp buf:
-                if (R.json)
-                    free(R.json);
+                
             }
+            else
+                LogPrint("nspv", "bad timestamp for request type %d from peer %d\n", request[0], pfrom->id);
+        }
+        else if ( request[0] == NSPV_REMOTERPC+1 )  // version with varbuffer support
+        {
+            if ( timestamp > pfrom->prevtimes[ind] )
+            {
+                struct NSPV_remoterpcresp R = { "", NULL, 0 }; 
+                uint8_t *jsonbuf = NULL;
+                uint32_t jsonlen;
+                uint32_t hdrlen = 1;
+                uint32_t reqlen = util_rwvarbuffer(0, &request[hdrlen], &jsonlen, &jsonbuf);
+
+                if (request.size() == hdrlen + reqlen && NSPV_remoterpc(&R, (char *)jsonbuf, jsonlen) > 0)
+                {
+                    response.resize(1 + sizeof(R.method) + sizeof(uint32_t) + R.json_len); //add 4 byte for varlen 
+                    response[0] = NSPV_REMOTERPCRESP+1;
+                    uint32_t wroff = 1;
+                    wroff += iguana_rwbuf(1, &response[wroff], sizeof(R.method), (uint8_t*)R.method); // 
+                    uint32_t respJsonLen = R.json_len;
+                    uint8_t *respJsonPtr = (uint8_t*)R.json;
+                    util_rwvarbuffer(1, &response[wroff], &respJsonLen, &respJsonPtr);
+
+                    pfrom->PushMessage("nSPV",response);
+                    pfrom->prevtimes[ind] = timestamp;
+                    LogPrint("nspv", "pushed NSPV_REMOTERPCRESP response method %s to peer %d\n", R.method, pfrom->id);
+                    LogPrint("nspv-details", "NSPV_REMOTERPCRESP response details: json %s to peer %d\n", R.json, pfrom->id);
+
+                    if (R.json)
+                        free(R.json);
+                    NSPV_remoterpc_purge(&R);
+                    if (jsonbuf)
+                        free(jsonbuf);
+                }
+                else 
+                    LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
+            }
+            else
+                LogPrint("nspv", "bad timestamp for request type %d from peer %d\n", request[0], pfrom->id);
         }
         else if (request[0] == NSPV_CCMODULEUTXOS)  // get cc module utxos from coinaddr for the requested amount, evalcode, funcid list and txid
         {

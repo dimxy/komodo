@@ -190,6 +190,7 @@ struct NSPV_remoterpcresp
 {
     char method[64];
     char *json;
+    uint32_t json_len;
 };
 
 #endif // KOMODO_NSPV_DEFSH

@@ -1230,7 +1230,7 @@ UniValue CreateTokenExt(const CPubKey &remotepk, int64_t txfee, int64_t tokensup
     CAmount totalInputs;
     // always add inputs only from the mypk passed in the param to prove the token creator has the token originator pubkey
     // This what the AddNormalinputsRemote does (and it is not necessary that this is done only for nspv calls):
-	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfeeCount * txfee, 0x10000, addTxInMemory)) > 0)
+	if ((totalInputs = AddNormalinputsRemote(mtx, mypk, tokensupply + txfeeCount * txfee, 0x10000, NULL, addTxInMemory)) > 0)
 	{
         /* do not need this as AddNormalinputsRemote always add from mypk only:
         int64_t mypkInputs = TotalPubkeyNormalInputs(mtx, mypk);  
@@ -1321,7 +1321,7 @@ UniValue TokenBeginTransferTx(CMutableTransaction &mtx, struct CCcontract_info *
 		txfee = 10000;
 
     mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    int64_t normalInputs = AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, true);
+    int64_t normalInputs = AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, NULL, true);
     if (normalInputs <= 0)
 	{
         return MakeResultError("cannot find normal inputs");
@@ -1472,7 +1472,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, int64_t txfee, uint256 tokeni
         return  NullUniValue;
     }
 
-    int64_t normalInputs = AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, useMempool);
+    int64_t normalInputs = AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, NULL, useMempool);
     if (normalInputs > 0)
 	{
 		mask = ~((1LL << mtx.vin.size()) - 1);  // seems, mask is not used anymore

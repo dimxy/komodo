@@ -379,7 +379,7 @@ int32_t myGet_mempool_txs(std::vector<CTransaction> &txs,uint8_t evalcode,uint8_
 /// \cond INTERNAL
 int32_t iguana_rwnum(int32_t rwflag,uint8_t *serialized,int32_t len,void *endianedp);
 int32_t iguana_rwbignum(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *endianedp);
-uint32_t util_rwscript(int32_t rwflag, uint8_t *serialized, uint32_t *plen, uint8_t **pp);
+uint32_t util_rwvarbuffer(int32_t rwflag, uint8_t *serialized, uint32_t *plen, uint8_t **pp);
 /// \endcond
 
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
@@ -866,7 +866,7 @@ int64_t AddNormalinputs2(CMutableTransaction &mtx,int64_t total,int32_t maxinput
 /// @param total amount of inputs to add. If total equals to 0 the function does not add inputs but returns amount of all available normal inputs in the wallet
 /// @param maxinputs maximum number of inputs to add
 /// @returns amount of added normal inputs or amount of all normal inputs in the wallet
-int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs, bool mempool = false);
+int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t total, int32_t maxinputs, std::vector<CTransaction> *pvintxns, bool mempool = false);
 
 /// CCutxovalue returns amount of an utxo. The function does this without loading the utxo transaction, by using address index only
 /// @param coinaddr address where the utxo is searched

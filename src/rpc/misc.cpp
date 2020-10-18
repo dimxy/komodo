@@ -1663,6 +1663,41 @@ UniValue decodeccopret(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return result;
 }
 
+UniValue createtxwithnormalinputs(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() != 1)
+    {
+        string msg = "addnormalinputs amount\n"
+            "\nReturns a new tx with added normal inputs and previous txns. Note that the caller must add the change output\n"
+            "\nArguments:\n"
+            //"address which utxos are added from\n"
+            "amount (in satoshi) which will be added as normal inputs (equal or more)\n"
+            "Result: json object with created tx and added vin txns\n\n";
+        throw runtime_error(msg);
+    }
+    /*std::string address = params[0].get_str();
+    if (!CBitcoinAddress(address.c_str()).IsValid())
+        throw runtime_error("address invalid");*/
+    CAmount amount = atoll(params[0].get_str().c_str());
+    if (amount <= 0)
+        throw runtime_error("amount invalid");
+
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    std::vector<CTransaction> vintxns;
+    CAmount added = AddNormalinputsRemote(mtx, remotepk, amount, CC_MAXVINS, &vintxns);
+    if (added < amount)
+        throw runtime_error("could not find normal inputs");
+
+    UniValue result (UniValue::VOBJ);
+    UniValue array (UniValue::VARR);
+
+    result.pushKV("txhex", HexStr(E_MARSHAL(ss << mtx)));
+    for (auto const &vtx : vintxns) 
+        array.push_back(HexStr(E_MARSHAL(ss << vtx)));
+    result.pushKV("previousTxns", array);
+    return result;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         okSafeMode
   //  --------------------- ------------------------  -----------------------  ----------
@@ -1671,6 +1706,7 @@ static const CRPCCommand commands[] =
     { "util",               "z_validateaddress",      &z_validateaddress,      true  }, /* uses wallet if enabled */
     { "util",               "createmultisig",         &createmultisig,         true  },
     { "util",               "verifymessage",          &verifymessage,          true  },
+    { "util",               "createtxwithnormalinputs",          &createtxwithnormalinputs,          true  },
 
     /* Not shown in help */
     { "hidden",             "setmocktime",            &setmocktime,            true  },

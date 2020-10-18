@@ -984,9 +984,9 @@ int32_t iguana_rwbignum(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *
     return(len);
 }
 
-// read/write script into buffer with varint support
+// read/write varbuffer (prefixed with varint length) into/from *pp buffer
 // returns size of written/read space including len and script
-uint32_t util_rwscript(int32_t rwflag, uint8_t *serialized, uint32_t *plen, uint8_t **pp)
+uint32_t util_rwvarbuffer(int32_t rwflag, uint8_t *serialized, uint32_t *plen, uint8_t **pp)
 {
     int32_t i = 0;
     if ( rwflag == 0 )
