@@ -144,6 +144,8 @@ inline uint160 Hash160(const prevector<N, unsigned char>& vch)
     return Hash160(vch.begin(), vch.end());
 }
 
+#include "utilstrencodings.h"
+
 /** A writer stream (for serialization) that computes a 256-bit hash. */
 class CHashWriter
 {
@@ -196,6 +198,8 @@ public:
             32,
             NULL,    // No salt.
             personal) == 0);
+        state_log(&state);
+
     }
 
     int GetType() const { return nType; }
@@ -203,6 +207,7 @@ public:
 
     CBLAKE2bWriter& write(const char *pch, size_t size) {
         crypto_generichash_blake2b_update(&state, (const unsigned char*)pch, size);
+        state_log(&state);
         return (*this);
     }
 
