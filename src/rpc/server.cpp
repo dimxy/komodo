@@ -432,7 +432,7 @@ static const CRPCCommand vRPCCommands[] =
     { "DEX",   "DEX_streamsub",         &DEX_streamsub, true },
     { "DEX",   "DEX_notarize",          &DEX_notarize, true },
 
-    // fsm
+    // nspv
     { "nSPV",   "nspv_getinfo",         &nspv_getinfo, true },
     { "nSPV",   "nspv_login",           &nspv_login, true },
     { "nSPV",   "nspv_listunspent",     &nspv_listunspent,  true },
@@ -461,6 +461,8 @@ static const CRPCCommand vRPCCommands[] =
     { "faucet",       "faucetfund",      &faucetfund,         true },
     { "faucet",       "faucetget",       &faucetget,          true },
     { "faucet",       "faucetaddress",   &faucetaddress,      true },
+    { "hidden",       "faucetaddccinputs",   &faucetaddccinputs,  true },
+
 
 		// Heir
 	{ "heir",       "heiraddress",   &heiraddress,      true },

@@ -302,6 +302,7 @@ extern UniValue faucetfund(const UniValue& params, bool fHelp, const CPubKey& my
 extern UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue faucetaddress(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue faucetinfo(const UniValue& params, bool fHelp, const CPubKey& mypk);
+extern UniValue faucetaddccinputs(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue rewardsinfo(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue rewardslist(const UniValue& params, bool fHelp, const CPubKey& mypk);
 extern UniValue rewardsaddress(const UniValue& params, bool fHelp, const CPubKey& mypk);

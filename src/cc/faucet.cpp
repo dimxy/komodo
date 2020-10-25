@@ -141,7 +141,7 @@ bool FaucetValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx
 
 // helper functions for rpc calls in rpcwallet.cpp
 
-int64_t AddFaucetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey pk,int64_t total,int32_t maxinputs)
+int64_t AddFaucetInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey pk, int64_t total, int32_t maxinputs, std::vector<CTransaction> *pvintxns)
 {
     char coinaddr[64]; int64_t threshold,nValue,price,totalinputs = 0; uint256 txid,hashBlock; std::vector<uint8_t> origpubkey; CTransaction vintx; int32_t vout,n = 0;
     std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
@@ -164,8 +164,12 @@ int64_t AddFaucetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPub
         {
             if ( (nValue= IsFaucetvout(cp,vintx,vout)) > 1000000 && myIsutxo_spentinmempool(ignoretxid,ignorevin,txid,vout) == 0 )
             {
-                if ( total != 0 && maxinputs != 0 )
+                if ( total != 0 && maxinputs != 0 )  {
                     mtx.vin.push_back(CTxIn(txid,vout,CScript()));
+                    if (pvintxns != NULL)
+                        if (std::find(pvintxns->begin(), pvintxns->end(), vintx) == pvintxns->end())
+                            pvintxns->push_back(vintx);  // add vintx for remote client
+                }
                 nValue = it->second.satoshis;
                 totalinputs += nValue;
                 n++;

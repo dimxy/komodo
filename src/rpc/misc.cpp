@@ -1667,7 +1667,7 @@ UniValue createtxwithnormalinputs(const UniValue& params, bool fHelp, const CPub
 {
     if (fHelp || params.size() != 1)
     {
-        string msg = "addnormalinputs amount\n"
+        string msg = "createtxwithnormalinputs amount\n"
             "\nReturns a new tx with added normal inputs and previous txns. Note that the caller must add the change output\n"
             "\nArguments:\n"
             //"address which utxos are added from\n"
@@ -1706,10 +1706,11 @@ static const CRPCCommand commands[] =
     { "util",               "z_validateaddress",      &z_validateaddress,      true  }, /* uses wallet if enabled */
     { "util",               "createmultisig",         &createmultisig,         true  },
     { "util",               "verifymessage",          &verifymessage,          true  },
-    { "util",               "createtxwithnormalinputs",          &createtxwithnormalinputs,          true  },
 
     /* Not shown in help */
     { "hidden",             "setmocktime",            &setmocktime,            true  },
+    { "hidden",               "createtxwithnormalinputs",          &createtxwithnormalinputs,          true  },
+
 };
 
 void RegisterMiscRPCCommands(CRPCTable &tableRPC)

@@ -1055,10 +1055,6 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
                 up->vout = vout;
                 sum += up->nValue;
 
-                if (pvintxns != NULL)   {
-                    if (std::find(pvintxns->begin(), pvintxns->end(), tx) == pvintxns->end())
-                        pvintxns->push_back(tx);  // add ony unique vin txns
-                }
                 //fprintf(stderr,"add %.8f to vins array.%d of %d\n",(double)up->nValue/COIN,n,maxinputs);
                 if (n >= maxinputs || sum >= total)
                     break;
@@ -1125,6 +1121,18 @@ int64_t AddNormalinputsRemote(CMutableTransaction &mtx, CPubKey mypk, int64_t to
         }
         up = &utxos[ind];
         mtx.vin.push_back(CTxIn(up->txid, up->vout, CScript()));
+        if (pvintxns != NULL)   
+        {  
+            // add vin txns for nspv clients:
+            if (std::find_if(pvintxns->begin(), pvintxns->end(), [&](const CTransaction &tx){ return tx.GetHash() == up->txid; } ) == pvintxns->end()) // add ony unique vin txns
+            {
+                CTransaction vintx;
+                uint256 hashBlock;
+                myGetTransaction(up->txid, vintx, hashBlock);
+                if (!vintx.IsNull())
+                    pvintxns->push_back(vintx);  
+            }
+        }
 
         if (LockUtxoInMemory::isLockUtxoActive())
             LockUtxoInMemory::LockUtxo(up->txid, up->vout); // lock utxo to prevent adding it to other mtx objects

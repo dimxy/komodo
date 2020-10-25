@@ -30,7 +30,11 @@ static std::map<std::string,bool> nspv_remote_commands =  {
 {"channelslist", true},{"channelsinfo", true},{"oraclescreate", true},{"oraclesfund", true},{"oraclesregister", true},{"oraclessubscribe", true}, 
 {"oraclesdata", true},{"oraclesinfo", false},{"oracleslist", false},{"gatewaysbind", true},{"gatewaysdeposit", true},{"gatewayswithdraw", true},
 {"gatewayswithdrawsign", true},{"gatewaysmarkdone", true},{"gatewayspendingdeposits", true},{"gatewayspendingsignwithdraws", true},{"gatewayssignedwithdraws", true},
-{"gatewaysinfo", false},{"gatewayslist", false},{"faucetfund", true},{"faucetget", true},{"pegscreate", true},{"pegsfund", true},{"pegsget", true},{"pegsclose", true},
+{"gatewaysinfo", false},{"gatewayslist", false},
+
+{"faucetfund", true},{"faucetget", true}, {"faucetaddccinputs", true},
+
+{"pegscreate", true},{"pegsfund", true},{"pegsget", true},{"pegsclose", true},
 {"pegsclose", true},{"pegsredeem", true},{"pegsexchange", true},{"pegsliquidate", true},{"pegsaccounthistory", true},{"pegsaccountinfo", true},{"pegsworstaccounts", true},
 {"pegsinfo", true},{ "marmaralock", false },{ "marmaraissue", false },{ "marmaratransfer", true },{ "marmarareceive", true },{ "marmarainfo", true },{ "marmaracreditloop", true },
     // kogs:
@@ -912,9 +916,9 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
     int32_t len,slen,ind,reqheight,n; std::vector<uint8_t> response; uint32_t timestamp = (uint32_t)time(NULL);
     if ( (len= request.size()) > 0 )
     {
-        if ( (ind= request[0]>>1) >= sizeof(pfrom->prevtimes)/sizeof(*pfrom->prevtimes) )
+        if ((ind = request[0]>>1) >= sizeof(pfrom->prevtimes)/sizeof(*pfrom->prevtimes) )
             ind = (int32_t)(sizeof(pfrom->prevtimes)/sizeof(*pfrom->prevtimes)) - 1;
-        if ( pfrom->prevtimes[ind] > timestamp )
+        if (pfrom->prevtimes[ind] > timestamp )
             pfrom->prevtimes[ind] = 0;
         LogPrint("nspv", "processing getnSPV request id=%d from peer %d\n", request[0], pfrom->id);
         if ( request[0] == NSPV_INFO ) // info
@@ -981,8 +985,14 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                         }
                         NSPV_utxosresp_purge(&U);
                     }
+                    else
+                        LogPrint("nspv", "incorrect response formed for type %d (NSPV_UTXOS) from peer %d\n", request[0], pfrom->id);
                 }
+                else
+                    LogPrint("nspv", "could not parse request type %d (NSPV_UTXOS) from peer %d\n", request[0], pfrom->id);
             }
+            else
+                LogPrint("nspv", "bad timestamp for request type %d (NSPV_UTXOS) from peer %d\n", request[0], pfrom->id);
         }
         else if ( request[0] == NSPV_TXIDS )
         {
@@ -1210,12 +1220,10 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     NSPV_remoterpc_purge(&R);
                 }
                 else 
-                    LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
-
-                
+                    LogPrint("nspv", "could not parse request type %d (NSPV_REMOTERPC) from peer %d\n", request[0], pfrom->id);
             }
             else
-                LogPrint("nspv", "bad timestamp for request type %d from peer %d\n", request[0], pfrom->id);
+                LogPrint("nspv", "bad timestamp for request type %d (NSPV_REMOTERPC) from peer %d\n", request[0], pfrom->id);
         }
         else if ( request[0] == NSPV_REMOTERPC+1 )  // version with varbuffer support
         {
@@ -1240,7 +1248,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                     pfrom->PushMessage("nSPV",response);
                     pfrom->prevtimes[ind] = timestamp;
                     LogPrint("nspv", "pushed NSPV_REMOTERPCRESP response method %s to peer %d\n", R.method, pfrom->id);
-                    LogPrint("nspv-details", "NSPV_REMOTERPCRESP response details: json %s to peer %d\n", R.json, pfrom->id);
+                    LogPrint("nspv-details", "NSPV_REMOTERPCRESP response details: json %.*s to peer %d\n", R.json_len, R.json, pfrom->id);
 
                     if (R.json)
                         free(R.json);
@@ -1249,10 +1257,10 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
                         free(jsonbuf);
                 }
                 else 
-                    LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
+                    LogPrint("nspv", "could not parse request type %d (NSPV_REMOTERPCv2) from peer %d\n", request[0], pfrom->id);
             }
             else
-                LogPrint("nspv", "bad timestamp for request type %d from peer %d\n", request[0], pfrom->id);
+                LogPrint("nspv", "bad timestamp for request type %d (NSPV_REMOTERPCv2) from peer %d\n", request[0], pfrom->id);
         }
         else if (request[0] == NSPV_CCMODULEUTXOS)  // get cc module utxos from coinaddr for the requested amount, evalcode, funcid list and txid
         {

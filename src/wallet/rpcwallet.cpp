@@ -7059,6 +7059,45 @@ UniValue faucetget(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return(result);
 }
 
+UniValue faucetaddccinputs(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() != 1)
+    {
+        string msg = "faucetaddccinputs amount\n"
+            "\nReturns a new tx with added normal inputs and previous txns. Note that the caller must add the change output\n"
+            "\nArguments:\n"
+            //"address which utxos are added from\n"
+            "amount (in satoshi) which will be added as normal inputs (equal or more)\n"
+            "Result: json object with created tx and added vin txns\n\n";
+        throw runtime_error(msg);
+    }
+    /*std::string address = params[0].get_str();
+    if (!CBitcoinAddress(address.c_str()).IsValid())
+        throw runtime_error("address invalid");*/
+    CAmount amount = atoll(params[0].get_str().c_str());
+    if (amount <= 0)
+        throw runtime_error("amount invalid");
+
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    std::vector<CTransaction> vintxns;
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_FAUCET);
+    CPubKey faucetpk = GetUnspendable(cp,0);
+
+    CAmount added = AddFaucetInputs(cp, mtx, faucetpk, amount, CC_MAXVINS, &vintxns);
+    if (added < amount)
+        throw runtime_error("could not find normal inputs");
+
+    UniValue result (UniValue::VOBJ);
+    UniValue array (UniValue::VARR);
+
+    result.pushKV("txhex", HexStr(E_MARSHAL(ss << mtx)));
+    for (auto const &vtx : vintxns) 
+        array.push_back(HexStr(E_MARSHAL(ss << vtx)));
+    result.pushKV("previousTxns", array);
+    return result;
+}
+
 uint32_t pricesGetParam(UniValue param) {
     uint32_t filter = 0;
     if (STR_TOLOWER(param.get_str()) == "all")
