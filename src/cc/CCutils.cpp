@@ -521,7 +521,7 @@ bool Myprivkey(uint8_t myprivkey[])
             {
                 memcpy(myprivkey,vchSecret.begin(),32);
                 memset((uint8_t *)vchSecret.begin(),0,32);
-                if ( 0 )
+                if ( false )
                 {
                     for (i=0; i<32; i++)
                         fprintf(stderr,"0x%02x, ",myprivkey[i]);

@@ -33,6 +33,7 @@
 #include "CCtokens.h"
 #include "CCImportGateway.h"
 #include "CCKogs.h"
+#include "CCCoinPool.h"
 
 /*
  CCcustom has most of the functions that need to be extended to create a new CC contract.
@@ -265,6 +266,18 @@ uint8_t KogsCCpriv[32] = { 0x9f, 0x9a, 0x85, 0x6d, 0xd9, 0x2b, 0xfe, 0xcb, 0xa1,
 #undef FUNCNAME
 #undef EVALCODE
 
+// CoinPool
+#define FUNCNAME IsCoinPoolInput
+#define EVALCODE EVAL_COINPOOL
+const char *CoinPoolCCaddr = "RNmcwU7BwJe6QvgjrEAQVhkiWMNTqpbb52";
+const char *CoinPoolNormaladdr = "RWUneGoXHkHL7wmQNadWi9qhy4Co3uuVkE";
+char CoinPoolCChexstr[67] = { "02cd0121c4d999eae890828522995fb1cc6850e26c37463a115cb36db53ad06463" };
+//uint8_t CoinPoolCCpriv[32] = { 0x0d, 0xf0, 0x44, 0xc4, 0xbe, 0xd3, 0x3b, 0x74, 0xaf, 0x69, 0x6b, 0x05, 0x1d, 0xbf, 0x70, 0x14, 0x2f, 0xc3, 0xa7, 0x8d, 0xa3, 0x47, 0x38, 0xc0, 0x33, 0x6f, 0x50, 0x15, 0xe3, 0xd2, 0x85, 0xee };
+uint8_t CoinPoolCCpriv[32] = { 0xe1, 0x33, 0x5d, 0x96, 0x52, 0x30, 0xdc, 0x1d, 0xb0, 0x5b, 0x4b, 0x48, 0x8f, 0x71, 0xc4, 0x94, 0x49, 0xcc, 0x59, 0xdc, 0xe2, 0xf8, 0xff, 0xaf, 0xb7, 0x4a, 0x0a, 0xa8, 0xcd, 0x9a, 0x8b, 0x11 };
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
 
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
@@ -465,6 +478,14 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
 			cp->validate = KogsValidate;
 			cp->ismyvin = IsKogsInput;
 			break;
+        case EVAL_COINPOOL:
+			strcpy(cp->unspendableCCaddr, CoinPoolCCaddr);
+			strcpy(cp->normaladdr, CoinPoolNormaladdr);
+			strcpy(cp->CChexstr, CoinPoolCChexstr);
+			memcpy(cp->CCpriv, CoinPoolCCpriv, 32);
+			cp->validate = CoinPoolValidate;
+			cp->ismyvin = IsCoinPoolInput;
+            break;
 
         default:
             if ( CClib_initcp(cp,evalcode) < 0 )
