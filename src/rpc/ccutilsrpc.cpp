@@ -94,7 +94,6 @@ UniValue listccunspents(const UniValue& params, bool fHelp, const CPubKey& mypk)
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
-  // Marmara
      // tokens & assets
 	{ "ccutils",      "listccunspents",    &listccunspents,      true }
 };

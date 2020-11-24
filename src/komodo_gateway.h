@@ -16,7 +16,6 @@
 
 // paxdeposit equivalent in reverse makes opreturn and KMD does the same in reverse
 #include "komodo_defs.h"
-#include "cc/CCMarmara.h"
 
 #include "cc/CCPrices.h"
 #include "cc/pricesfeed.h"
@@ -741,15 +740,6 @@ int32_t komodo_check_deposit(int32_t height,const CBlock& block,uint32_t prevtim
                     }
                 }
             }
-        }
-    }
-    if ( height > 0 && ASSETCHAINS_MARMARA != 0 && (height & 1) == 0 )
-    {
-		std::string errmsg;
-        if ( MarmaraValidateCoinbase(height,block.vtx[0], errmsg) < 0 )
-        {
-            fprintf(stderr,"MARMARA validate coinbase error ht.%d %s\n",height, errmsg.c_str());
-            return(-1);
         }
     }
     // we don't want these checks in VRSC, leave it at the Sapling upgrade
@@ -2724,11 +2714,7 @@ void komodo_createminerstransactions()
     CBlockIndex *pIndexTip = chainActive.LastTip();
     int32_t nHeight = pIndexTip ? pIndexTip->GetHeight() : 0;
 
-    if(ASSETCHAINS_MARMARA != 0)   
-    {
-        MarmaraRunAutoSettlement(nHeight, minersTransactions);        // run Marmara autosettlement, returns settlement transactions
-    }
-    // TODO create 'kogs' transactions...
+    // call here creation of 'miners' transactions...
 
     // send miner created transaction
     CPubKey minerpk = pubkey2pk(Mypubkey());

@@ -22,7 +22,6 @@
 #include "komodo_defs.h"
 #include "script/standard.h"
 #include "cc/CCinclude.h"
-#include "cc/CCMarmara.h"
 
 const char *LOG_KOMODOBITCOIND = "komodostaking";
 
@@ -650,21 +649,8 @@ uint32_t komodo_txtime(CScript &opret,uint64_t *valuep,uint256 hash, int32_t n, 
 
     if (n < numvouts)  
     {
-        bool isCCOpret = false;
         *valuep = tx.vout[n].nValue;
-
-        if (ASSETCHAINS_MARMARA)
-        {
-            // get staking utxo opret
-            // first try if cc opret exists
-            if (tx.vout[n].scriptPubKey.IsPayToCryptoCondition())
-            {
-                if (MyGetCCopret(tx.vout[n].scriptPubKey, opret))
-                    isCCOpret = true;
-            }
-        }
-        if (!isCCOpret)  
-            opret = tx.vout[numvouts-1].scriptPubKey;  // if no cc opret then use opret in the last vout 
+        opret = tx.vout[numvouts-1].scriptPubKey;  
 
         if (ExtractDestination(tx.vout[n].scriptPubKey, address))
         {
@@ -686,10 +672,6 @@ CBlockIndex *komodo_getblockindex(uint256 hash)
 static int32_t GetStakeMultiplier(CTransaction &tx, int32_t nvout)
 {
     int32_t multiplier = 1; // default value
-
-    if (ASSETCHAINS_MARMARA != 0) {
-        multiplier = MarmaraGetStakeMultiplier(tx, nvout);
-    }
 
     CAmount nValue = (nvout >= 0 && nvout < tx.vout.size() ? tx.vout[nvout].nValue : -1);
     LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG2, stream << "stake multiplier=" << multiplier << " nValue=" << nValue << std::endl);  
@@ -752,9 +734,7 @@ int32_t komodo_newStakerActive(int32_t height, uint32_t timestamp)
 
 int32_t komodo_hasOpRet(int32_t height, uint32_t timestamp)
 {    
-    // dimxy: marmara now has ccopret for staking, so vout num = 1 for marmara staking txns
-    // only old marmara testers MCL0 chain does have vout=2 but it should not be used any more
-    return((/* ASSETCHAINS_MARMARA!=0 || */ komodo_newStakerActive(height, timestamp) == 1));
+    return((komodo_newStakerActive(height, timestamp) == 1));
 }
 
 bool komodo_checkopret(CBlock *pblock, CScript &merkleroot)
@@ -793,7 +773,6 @@ uint256 komodo_calcmerkleroot(CBlock *pblock, uint256 prevBlockHash, int32_t nHe
 
 // checks if block is PoS: 
 // last tx should point to the previous staking utxo (that is spent to self)
-// for Marmara cc there is an additional check of staking tx (opret)
 // returns 1 if this is PoS block and 0 if false 
 int32_t komodo_isPoS(CBlock *pblock, int32_t height,CTxDestination *addressout)
 {
@@ -826,17 +805,7 @@ int32_t komodo_isPoS(CBlock *pblock, int32_t height,CTxDestination *addressout)
                 {
                     if ( pblock->vtx[n-1].vout[0].nValue == value && strcmp(destaddr,voutaddr) == 0 )
                     {
-                        if ( ASSETCHAINS_MARMARA == 0 )
-                            return(1);
-                        else 
-                        {
-                            // marmara code:
-                            // MarmaraValidateStakeTx does all required checks for stake tx:
-                            int32_t marmara_validate_staketx = MarmaraValidateStakeTx(destaddr, prevTxOpret, pblock->vtx[n - 1], height);
-                            LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_DEBUG1, stream << "ht=" << height << " MarmaraValidateStakeTx returned=" << marmara_validate_staketx << std::endl);
-                            return marmara_validate_staketx;
-                            // end marmara code
-                        }
+                        return(1);
                     }
                     else
                     {
@@ -2746,7 +2715,7 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
     if (!EnsureWalletIsAvailable(0))
         return 0;
 
-    const bool needSpecialStakeUtxo = (ASSETCHAINS_MARMARA != 0);   //conditions of contracts or params for which non-basic utxo for staking are needed
+    const bool needSpecialStakeUtxo = false;   //conditions of contracts or params for which non-basic utxo for staking are needed
 
     bnTarget.SetCompact(nBits, &fNegative, &fOverflow);
     assert(pwalletMain != NULL);
@@ -2825,10 +2794,6 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
         else  
         {
             // placeholder for special staking utxo cases:
-            // marmara case:
-            if (ASSETCHAINS_MARMARA != 0) {
-                array = MarmaraGetStakingUtxos(array, &numkp, &maxkp, hashbuf);
-            }
         }
         lasttime = (uint32_t)time(NULL);
         //fprintf(stderr,"finished kp data of utxo for staking %u ht.%d numkp.%d maxkp.%d\n",(uint32_t)time(NULL),nHeight,numkp,maxkp);
@@ -2907,7 +2872,6 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
             txNew.vout[1].nValue = 0;
         } 
         CTransaction txNewConst(txNew);
-        if( !ASSETCHAINS_MARMARA )
         {
             signSuccess = ProduceSignature(TransactionSignatureCreator(&keystore, &txNewConst, 0, *utxovaluep, SIGHASH_ALL), best_scriptPubKey, sigdata, consensusBranchId);
             UpdateTransaction(txNew, 0, sigdata);
@@ -2916,14 +2880,6 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
             for (i = 0; i < siglen; i++)
                 utxosig[i] = ptr[i];
             *utxovaluep = newStakerActive != 0 ? tocoinbase : txNew.vout[0].nValue+txfee;
-        }
-        else
-        {
-            siglen = MarmaraSignature(utxosig,txNew);  // add marmara opret and sign the stake tx 
-            if (siglen > 0)
-                signSuccess = true;
-            else 
-                signSuccess = false;
         }
         if (!signSuccess)
             LOGSTREAMFN(LOG_KOMODOBITCOIND, CCLOG_ERROR, stream << "failed to create signature\n");

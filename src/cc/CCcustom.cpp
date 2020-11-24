@@ -28,7 +28,6 @@
 #include "CCOraclesV2.h"
 #include "CCPrices.h"
 #include "CCPegs.h"
-#include "CCMarmara.h"
 #include "CCPayments.h"
 #include "CCGateways.h"
 #include "CCtokens.h"
@@ -191,7 +190,7 @@ uint8_t PegsCCpriv[32] = { 0x52, 0x56, 0x4c, 0x78, 0x87, 0xf7, 0xa2, 0x39, 0xb0,
 #undef FUNCNAME
 #undef EVALCODE
 
-// Marmara
+// Marmara (reserved evalcode, the source moved to the marmara repo)
 #define FUNCNAME IsMarmaraInput
 #define EVALCODE EVAL_MARMARA
 const char *MarmaraCCaddr = "RGLSRDnUqTB43bYtRtNVgmwSSd1sun2te8";
@@ -444,7 +443,7 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
             strcpy(cp->normaladdr,MarmaraNormaladdr);
             strcpy(cp->CChexstr,MarmaraCChexstr);
             memcpy(cp->CCpriv,MarmaraCCpriv,32);
-            cp->validate = MarmaraValidate;
+            cp->validate = NULL;
             cp->ismyvin = IsMarmaraInput;
             break;
         case EVAL_PAYMENTS:

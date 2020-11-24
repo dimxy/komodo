@@ -785,7 +785,6 @@ UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& remote
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
-  // Marmara
      // tokens & assets
 	{ "tokens",       "assetsaddress",    &assetsaddress,      true },
     { "tokens",       "tokeninfo",        &tokeninfo,         true },

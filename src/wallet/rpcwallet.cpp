@@ -5608,14 +5608,13 @@ int32_t verus_staked(CBlock *pBlock, CMutableTransaction &txNew, uint32_t &nBits
 #include "../cc/CCGateways.h"
 #include "../cc/CCPrices.h"
 #include "../cc/CCHeir.h"
-#include "../cc/CCMarmara.h"
 #include "../cc/CCPayments.h"
 #include "../cc/CCPegs.h"
 
 int32_t ensure_CCrequirements(uint8_t evalcode)
 {
     CCerror = "";
-    if ( ASSETCHAINS_CCDISABLES[evalcode] != 0 || (evalcode == EVAL_MARMARA && ASSETCHAINS_MARMARA == 0) )
+    if ( ASSETCHAINS_CCDISABLES[evalcode] != 0 )
     {
         // check if a height activation has been set. 
         fprintf(stderr, "evalcode.%i activates at height. %i current height.%i\n", evalcode, mapHeightEvalActivate[evalcode], komodo_currentheight());

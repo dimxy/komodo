@@ -314,7 +314,6 @@ libbitcoin_server_a_SOURCES = \
   cc/oraclesV2.cpp \
   cc/prices.cpp \
   cc/pegs.cpp \
-  cc/marmara.cpp \
   cc/payments.cpp \
   cc/gatewaysV2.cpp \
   cc/channelsV2.cpp \
@@ -359,7 +358,6 @@ libbitcoin_server_a_SOURCES = \
   rpc/server.cpp \
   rpc/tokensrpc.cpp \
   rpc/pricesrpc.cpp \
-  rpc/marmararpc.cpp \
   rpc/ccutilsrpc.cpp \
   script/serverchecker.cpp \
   script/sigcache.cpp \
