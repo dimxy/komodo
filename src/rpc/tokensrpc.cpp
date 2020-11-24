@@ -390,11 +390,11 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
     {
         vuint8_t vnftData;
         GetNonfungibleData(tokenid, vnftData);
-        CC *probeCond;
+        std::shared_ptr<CC> probeCond;
         if (vnftData.size() > 0)
-            probeCond = V::MakeTokensCCcond1(vnftData[0], mypk);
+            probeCond.reset( V::MakeTokensCCcond1(vnftData[0], mypk) );
         else
-            probeCond = MakeCCcond1(V::EvalCode(), mypk);
+            probeCond.reset( MakeCCcond1(V::EvalCode(), mypk) );
 
         uint8_t mypriv[32];
         Myprivkey(mypriv);

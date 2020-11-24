@@ -167,7 +167,7 @@ UniValue TokenBeginTransferTx(CMutableTransaction &mtx, struct CCcontract_info *
 }
 
 template<class V>
-UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, uint256 tokenid, const char *tokenaddr, std::vector<CPubKey> destpubkeys, const std::pair<CC*, uint8_t*> &probecond, CAmount amount, bool useMempool)
+UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, uint256 tokenid, const char *tokenaddr, std::vector<CPubKey> destpubkeys, const std::pair<std::shared_ptr<CC>, uint8_t*> &probecond, CAmount amount, bool useMempool)
 {
     if (V::EvalCode() == EVAL_TOKENS)   {
         if (!TokensIsVer1Active(NULL))
@@ -205,8 +205,7 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
         if (probecond.first != nullptr)
         {
             // add probe cc and kogs priv to spend from kogs global pk
-            std::shared_ptr<CC> cond(probecond.first);
-            CCAddVintxCond(cp, cond, probecond.second);
+            CCAddVintxCond(cp, probecond.first, probecond.second);
         }
 
         CScript opret = V::EncodeTokenOpRet(tokenid, destpubkeys, {});
@@ -283,7 +282,7 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
 // total - token amount to transfer
 // returns: signed transfer tx in hex
 template <class V>
-UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, CAmount total, bool useMempool)
+UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<std::shared_ptr<CC>, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, CAmount total, bool useMempool)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CAmount CCchange = 0, inputs = 0;  
@@ -343,8 +342,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
             // add optional probe conds to non-usual sign vins
             for (const auto &p : probeconds)
             {
-                std::shared_ptr<CC> cond(p.first);
-                CCAddVintxCond(cp, cond, p.second);
+                CCAddVintxCond(cp, p.first, p.second);
             }
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
