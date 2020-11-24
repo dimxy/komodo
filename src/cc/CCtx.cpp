@@ -727,11 +727,7 @@ void SetCCunspentsWithMempool(std::vector<std::pair<CAddressUnspentKey, CAddress
         else
             it++;
     } */
-    //std::cerr << __func__ << " unspentOutputs.size=" << unspentOutputs.size() << std::endl;
-
     AddCCunspentsInMempool(unspentOutputs, coinaddr, ccflag);
-    //std::cerr << __func__ << " unspentOutputs.size with mempool=" << unspentOutputs.size() << std::endl;
-
 }
 
 

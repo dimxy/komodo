@@ -51,9 +51,8 @@ void GetNonfungibleData(uint256 tokenid, vscript_t &vopretNonfungible)
 template <class V>
 CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool)
 {
-	CAmount /*threshold, price,*/ totalinputs = 0; 
+	CAmount totalinputs = 0; 
     int32_t n = 0; 
-	//std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
 	std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
 
     if (cp->evalcode != V::EvalCode())
@@ -68,18 +67,13 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
             cp->evalcodeNFT = vopretNonfungible.begin()[0];  // set evalcode of NFT, for signing
     }
 
-    
     SetCCunspentsCCIndex(unspentOutputs, tokenaddr, tokenid);
-    std::cerr << __func__ << " non mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
-
     if (useMempool)  {
         AddCCunspentsCCIndexMempool(unspentOutputs, tokenaddr, tokenid);
-        std::cerr << __func__ << " with mempool unspentOutputs.size=" << unspentOutputs.size() << std::endl;
     }
         
 	// threshold = total / (maxinputs != 0 ? maxinputs : CC_MAXVINS);   // let's not use threshold
     LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found unspentOutputs=" << unspentOutputs.size() << std::endl);
-	//for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
 	for (std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
 	{
         CTransaction tx;
