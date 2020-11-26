@@ -532,12 +532,12 @@ int64_t AddChannelsInputs(struct CCcontract_info *cp,CMutableTransaction &mtx, C
         mtx.vin.push_back(CTxIn(txid,0,CScript()));
         if (tokenid!=zeroid)
         {
-            std::shared_ptr<CC> cond(V2::MakeTokensCCcond1of2(cp->evalcode,srcpub,destpub));
+            CCwrapper cond(V2::MakeTokensCCcond1of2(cp->evalcode,srcpub,destpub));
             CCAddVintxCond(cp,cond,0);
         }
         else
         {
-            std::shared_ptr<CC> cond(MakeCCcond1of2(cp->evalcode,srcpub,destpub));
+            CCwrapper cond(MakeCCcond1of2(cp->evalcode,srcpub,destpub));
             CCAddVintxCond(cp,cond);
         }
         mtx.vin.push_back(CTxIn(txid,marker,CScript()));
@@ -569,7 +569,7 @@ UniValue ChannelOpen(const CPubKey& pk, uint64_t txfee,CPubKey destpub,int32_t n
     if (tokenid!=zeroid)
     {
         tokens=AddTokenCCInputs<V2>(cpTokens, mtx, mypk, tokenid, funds, 64, false);   
-        std::shared_ptr<CC> cond(V2::MakeTokensCCcond1(cpTokens->evalcode,mypk));
+        CCwrapper cond(V2::MakeTokensCCcond1(cpTokens->evalcode,mypk));
         CCAddVintxCond(cp,cond); 
         amount=AddNormalinputs(mtx,mypk,txfee+2*CC_MARKER_VALUE,5,pk.IsValid());
     }

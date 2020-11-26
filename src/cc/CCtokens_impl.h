@@ -161,7 +161,7 @@ UniValue TokenBeginTransferTx(CMutableTransaction &mtx, struct CCcontract_info *
 }
 
 template<class V>
-UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, uint256 tokenid, const char *tokenaddr, std::vector<CPubKey> destpubkeys, const std::pair<std::shared_ptr<CC>, uint8_t*> &probecond, CAmount amount, bool useMempool)
+UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, uint256 tokenid, const char *tokenaddr, std::vector<CPubKey> destpubkeys, const std::pair<CCwrapper, uint8_t*> &probecond, CAmount amount, bool useMempool)
 {
     if (V::EvalCode() == EVAL_TOKENS)   {
         if (!TokensIsVer1Active(NULL))
@@ -276,7 +276,7 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
 // total - token amount to transfer
 // returns: signed transfer tx in hex
 template <class V>
-UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<std::shared_ptr<CC>, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, CAmount total, bool useMempool)
+UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CCwrapper, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, CAmount total, bool useMempool)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	CAmount CCchange = 0, inputs = 0;  
@@ -551,6 +551,7 @@ UniValue TokenInfo(uint256 tokenid)
 	result.push_back(Pair("owner", HexStr(origpubkey)));
 	result.push_back(Pair("name", name));
 
+
     CAmount supply = 0, output;
     for (int v = 0; v < tokenbaseTx.vout.size(); v++)
         if ((output = IsTokensvout<V>(false, true, cpTokens, NULL, tokenbaseTx, v, tokenid)) > 0)
@@ -558,11 +559,12 @@ UniValue TokenInfo(uint256 tokenid)
 	result.push_back(Pair("supply", supply));
 	result.push_back(Pair("description", description));
 
-    //GetOpretBlob(oprets, OPRETID_NONFUNGIBLEDATA, vopretNonfungible);
     if (oprets.size() > 0)
         vopretNonfungible = oprets[0];
     if( !vopretNonfungible.empty() )    
         result.push_back(Pair("data", HexStr(vopretNonfungible)));
+    result.push_back(Pair("version", DecodeTokenOpretVersion(tokenbaseTx.vout.back().scriptPubKey)));
+    result.push_back(Pair("IsMixed", V::EvalCode() == V2::EvalCode() ? "yes" : "no"));
 
     if (tokenbaseTx.IsCoinImport()) { // if imported token
         ImportProof proof;

@@ -37,25 +37,12 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
 
 // wrappers for tokens cc v1 or v2
 std::string CreateTokenLocal(CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData);
-///template <class V> UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t markerEvalCode, bool addTxInMemory);
-
-///template <class V> std::string TokenTransfer(CAmount txfee, uint256 assetid, CPubKey destpk, CAmount total);
-///template <class V> UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, std::vector<CPubKey> destpubkeys, int64_t total, bool useMempool = false);
-//UniValue TokenTransferSpk(const CPubKey &remotepk, int64_t txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CC*, uint8_t*>> probeconds, const CScript &spk, int64_t total, const std::vector<CPubKey> &voutPubkeys, bool useMempool = false);
-//CAmount HasBurnedTokensvouts(const CTransaction& tx, uint256 reftokenid);
-//CPubKey GetTokenOriginatorPubKey(CScript scriptPubKey);
 bool IsTokenMarkerVout(CTxOut vout);
-
-///template <class V> std::string CreateTokenLocal(int64_t txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData);
 
 int64_t GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool = false);
 UniValue TokenInfo(uint256 tokenid);
 UniValue TokenList();
 UniValue TokenV2List();
-
-///template <class V> UniValue TokenBeginTransferTx(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, CAmount txfee);
-///template <class V> UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, uint256 tokenid, const char *tokenaddr, std::vector<CPubKey> destpubkeys, const std::pair<CC*, uint8_t*> &probecond, CAmount amount, bool useMempool);
-///template <class V> UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_info *cp, const CPubKey &remotepk, CAmount txfee, const CScript &opret);
 
 /// Adds token inputs to transaction object. If tokenid is a non-fungible token then the function will set additionalTokensEvalcode2 variable in the cp object to the eval code from NFT data to spend NFT outputs properly
 /// @param cp CCcontract_info structure
@@ -66,15 +53,23 @@ UniValue TokenV2List();
 /// @param maxinputs maximum number of inputs to add. If 0 then CC_MAXVINS define is used
 //CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool = false);
 
-/// @private overload used in kogs
-//CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, char *tokenaddr, uint256 tokenid, CAmount total, int32_t maxinputs, vscript_t &vopretNonfungible);
-
-/// An overload that also returns NFT data in vopretNonfungible parameter
-/// the rest parameters are the same as in the first AddTokenCCInputs overload
+/// Adds token inputs to transaction object. If tokenid is a non-fungible token then the function will set evalCodeNFT variable in the cp object to the eval code from tokencreate tx NFT data to spend NFT outputs properly
+/// @param cp CCcontract_info structure
+/// @param mtx mutable transaction object
+/// @param tokenaddr address where token inputs to add
+/// @param tokenid id of token which inputs to add
+/// @param total amount to add (if total==0 no inputs are added and all available amount is returned)
+/// @param maxinputs maximum number of inputs to add. If 0 then CC_MAXVINS define is used
 /// @see AddTokenCCInputs
 CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const char *tokenaddr, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool = false);
 
-/// @private overload used in old cc
+/// Adds token inputs to transaction object. If tokenid is a non-fungible token then the function will set evalCodeNFT variable in the cp object to the eval code from tokencreate tx NFT data to spend NFT outputs properly
+/// @param cp CCcontract_info structure
+/// @param mtx mutable transaction object
+/// @param pk pubkey from which the token cc address will be created and token inputs are added
+/// @param tokenid id of token which inputs to add
+/// @param total amount to add (if total==0 no inputs are added and all available amount is returned)
+/// @param maxinputs maximum number of inputs to add. If 0 then CC_MAXVINS define is used
 CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool = false);
 
 /// @private overload used in old assets
@@ -429,5 +424,6 @@ template <class V> bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::v
 template <class V> bool IsTokenMarkerVout(CTxOut vout);
 /// @private 
 bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret);  // tmp
+uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey);
 
 #endif

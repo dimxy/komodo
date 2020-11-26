@@ -203,7 +203,7 @@ CPubKey OracleV2BatonPk(char *batonaddr,struct CCcontract_info *cp)
     {
         secp256k1_ec_pubkey_serialize(ctx,(unsigned char*)batonpk.begin(),&clen,&pubkey,SECP256K1_EC_COMPRESSED);
         Getscriptaddress(batonaddr,MakeCC1voutMixed(cp->evalcode,0,batonpk).scriptPubKey);
-        std::shared_ptr<CC> cond(MakeCCcond1(cp->evalcode,batonpk));
+        CCwrapper cond(MakeCCcond1(cp->evalcode,batonpk));
         CCAddVintxCond(cp,cond,batonpriv);
     } else fprintf(stderr,"error creating pubkey\n");
     memset(priv,0,sizeof(priv));

@@ -390,7 +390,7 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
     {
         vuint8_t vnftData;
         GetNonfungibleData(tokenid, vnftData);
-        std::shared_ptr<CC> probeCond;
+        CCwrapper probeCond;
         if (vnftData.size() > 0)
             probeCond.reset( V::MakeTokensCCcond1(vnftData[0], mypk) );
         else
@@ -413,7 +413,7 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
     if (ResultHasTx(sigData) > 0)
         result = sigData;
     else
-        result = MakeResultError("could not transfer token: " + ResultGetError(sigData) );
+        result = MakeResultError("could not transfer token: " + ResultGetError(sigData));
     return result;
 }
 

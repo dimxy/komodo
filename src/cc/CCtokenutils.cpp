@@ -42,12 +42,10 @@ bool TokensIsVer1Active(const Eval *eval)
 
     bool isTimev1 = true;
     if (eval == NULL)   {
-        // std::cerr << __func__ << " komodo_currentheight()=" << komodo_currentheight() << " GetLatestTimestamp(komodo_currentheight())=" << GetLatestTimestamp(komodo_currentheight()) << std::endl;
         if (GetLatestTimestamp(komodo_currentheight()) < MAY2020_NNELECTION_HARDFORK)
             isTimev1 = false;
     }
     else   {
-        // std::cerr << __func__ << " eval->GetCurrentHeight()=" << eval->GetCurrentHeight() << " GetLatestTimestamp(eval->GetCurrentHeight())=" << GetLatestTimestamp(eval->GetCurrentHeight()) << std::endl;
         if (GetLatestTimestamp(eval->GetCurrentHeight()) < MAY2020_NNELECTION_HARDFORK)
             isTimev1 = false;
     }
@@ -589,4 +587,39 @@ CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk1, 
     return MakeTokensCC1of2voutMixed(evalcode, 0, nValue, pk1, pk2, pvData);
 }
 
+// decodes token opret version, current values: 
+// 0 before June2020, 
+// 1 after June2020 (also EVAL_TOKENSV2 mixed mode)
+uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey)
+{
+    uint8_t funcId, evalCode, version = 0xFF;
+    vscript_t vopret;
 
+    GetOpReturnData(scriptPubKey, vopret);
+    // tokenid = zeroid; this was incorrect: cleared the passed tokenid if creation tx
+
+    if (vopret.size() >= 2)
+    {
+        evalCode = vopret[0];
+        funcId = vopret[1];
+        if (evalCode == EVAL_TOKENS)   {
+            if (funcId == 'c' || funcId == 't') {
+                version = 0;
+                return version;
+            }
+            if (funcId == 'C' || funcId == 'T')   {
+                if (vopret.size() >= 3)  {
+                    version = vopret[2];
+                    return version;
+                }
+            }
+        }
+        if (evalCode == EVAL_TOKENSV2)   {
+            if (vopret.size() >= 3)  {
+                version = vopret[2];
+                return version;
+            }
+        }
+    }
+    return version;
+}

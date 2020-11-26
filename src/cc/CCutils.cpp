@@ -1293,27 +1293,20 @@ void komodo_DEX_pubkey(bits256 &pubkey)
 }
 
 // add probe vintx conditions for making CCSig in FinalizeCCTx
-void CCAddVintxCond(struct CCcontract_info *cp, std::shared_ptr<CC> cond, const uint8_t *priv)
+void CCAddVintxCond(struct CCcontract_info *cp, const CCwrapper &condWrapped, const uint8_t *priv)
 {
-    struct CCVintxProbe ccprobe;
-
     if (cp == NULL) return;
-    if (cond == NULL) return;
+    if (condWrapped.get() == NULL) return;
 
-    ccprobe.CCwrapped.reset(cond.get());
-    if( priv != NULL )
-        memcpy(ccprobe.CCpriv, priv, sizeof(ccprobe.CCpriv) / sizeof(ccprobe.CCpriv[0]));
-    else
-        memset(ccprobe.CCpriv, '\0', sizeof(ccprobe.CCpriv) / sizeof(ccprobe.CCpriv[0]));
-
+    struct CCVintxProbe ccprobe(condWrapped, priv);
     cp->CCvintxprobes.push_back(ccprobe);
 }
 
-std::ostream& operator<<(std::ostream& os, const CCwrapper& cc)
+/*std::ostream& operator<<(std::ostream& os, const CCwrapper& cc)
 {
     os << cc_conditionToJSONString(cc.get());
     return os;
-}
+}*/
 
 int32_t oracle_format(uint256 *hashp,int64_t *valp,char *str,uint8_t fmt,uint8_t *data,int32_t offset,int32_t datalen)
 {

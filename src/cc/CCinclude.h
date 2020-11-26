@@ -138,45 +138,77 @@ struct CC_meta
 };
 /// \endcond
 
-// class CCWrapper encapsulates and stores cryptocondition encoded in shared_ptr
-// stored cc is used as probe in FinalizeCCtx to find vintx cc vout and make matching tx.vin.scriptSig
-// class CCwrapper {
-// public:
-//     CCwrapper() { }
-//     CCwrapper(CC *cond):cc(cond,[](CC *p) {
-//            cc_free(p);
-//         }) { }
-//     void setCC(CC *cond)
-//     {
-//         std::shared_ptr<CC> tmp(cond,[](CC *p) {
-//            cc_free(p);
-//         });
-//         cc=std::move(tmp);
-//     }
-
-//     CC *getCC() {
-//         return (cc.get());
-//     }
-//     int use_count() const { return cc.use_count(); }
-
-//     ~CCwrapper() { }
-
-// private:
-//     std::shared_ptr<CC> cc;
-// };
-typedef std::shared_ptr<CC> CCW_;
-class CCwrapper : public CCW_
+// class CCWrapper encapsulates and stores cryptocondition and mimics unique_ptr interface
+// allows to init, assign and compare, does auto cc_free for the encapsulated cc
+// also used as probe in FinalizeCCtx to find spent cc vouts and make the matching tx.vin.scriptSig
+class CCwrapper 
 {
 public:
-    CCwrapper() {}
-    CCwrapper(CC* cond):CCW_(cond,[](CC *p) {
-           if (p) cc_free(p);
-        }) {}
-    CCwrapper copy() const
+    CCwrapper() : m_cond(NULL)
     {
-        return CCwrapper(cc_copy(this->get()));
     }
-    friend std::ostream& operator<<(std::ostream& os, const CCwrapper& cc);
+
+    CCwrapper(const CC* cond) 
+    {
+        m_cond = (CC*)cond;
+    }
+
+    CCwrapper(const CCwrapper &condWrapped)
+    {
+        m_cond = NULL;
+        if (condWrapped.get() != NULL)   {
+            CC *cc = cc_copy(condWrapped.get());
+            std::cerr << __func__ << " calling reset for cc_copy(condWrapped.get())=" << cc << std::endl;
+            reset(cc);
+        }
+    }
+
+    bool operator==(const CC *cond) const {
+        return this->get() == cond;
+    }
+
+    bool operator!=(const CC *cond) const {
+        return this->get() != cond;
+    }
+
+    bool operator==(const CCwrapper &condWrapped) const {
+        return this->get() == condWrapped.get();
+    }
+
+    bool operator!=(const CCwrapper &condWrapped) const {
+        return this->get() != condWrapped.get();
+    }
+
+    CCwrapper operator=(const CCwrapper &src)
+    {
+        CCwrapper dst;
+        if (src.get() != NULL)
+            dst.reset(cc_copy(src.get()));
+        return dst;
+    }
+
+    void reset(const CC* cond)
+    {
+        if (m_cond) {
+            cc_free(m_cond);
+        }
+        m_cond = (CC*)cond;
+    }
+
+    CC *get() const
+    {
+        return m_cond;
+    }
+
+    ~CCwrapper()
+    {
+        if (m_cond) {
+            cc_free(m_cond);
+        }
+    }
+    //friend std::ostream& operator<<(std::ostream& os, const CCwrapper& cc);
+private:
+    CC *m_cond;  // do not use const as non-const CC* is used all through the code
 };
 
 // struct with cc and privkey 
@@ -185,7 +217,15 @@ public:
 struct CCVintxProbe {
     CCwrapper CCwrapped;
     uint8_t   CCpriv[32];
-    ~CCVintxProbe() { memset(CCpriv, '\0', sizeof(CCpriv)); }
+
+    CCVintxProbe(CCwrapper condWrapped, const uint8_t *priv) : CCwrapped(condWrapped) {
+        memset(CCpriv, '\0', sizeof(CCpriv));
+        if (priv)
+            memcpy(CCpriv, priv, sizeof(CCpriv));
+    }
+    ~CCVintxProbe() { 
+        memset(CCpriv, '\0', sizeof(CCpriv)); 
+    }
 };
 /// CC contract (Antara module) info structure that contains data used for signing and validation of cc contract transactions
 struct CCcontract_info
@@ -967,7 +1007,7 @@ int64_t CCutxovalue(char *coinaddr,uint256 utxotxid,int32_t utxovout,int32_t CCf
 int32_t CC_vinselect(int32_t *aboveip, int64_t *abovep, int32_t *belowip, int64_t *belowp, struct CC_utxo utxos[], int32_t numunspents, int64_t value);
 
 /// @private
-void CCAddVintxCond(struct CCcontract_info *cp, std::shared_ptr<CC> cond, const uint8_t *priv = NULL);
+void CCAddVintxCond(struct CCcontract_info *cp, const CCwrapper &condWrapped, const uint8_t *priv = NULL);
 
 /// @private
 bool NSPV_SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey,uint32_t nTime);
