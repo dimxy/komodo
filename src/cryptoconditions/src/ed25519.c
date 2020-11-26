@@ -182,8 +182,12 @@ static uint32_t ed25519Subtypes(const CC *cond) {
 static CC* ed25519Copy(const CC* cond)
 {
     CC *condCopy = cc_new(CC_Ed25519);
-    condCopy->publicKey=cond->publicKey;
-    condCopy->signature=cond->signature;
+    condCopy->publicKey = calloc(1, 32);
+    memcpy(condCopy->publicKey, cond->publicKey, 32);
+    if (cond->signature) {
+        condCopy->signature = calloc(1, 64);
+        memcpy(condCopy->signature, cond->signature, 64);
+    }
     return (condCopy);
 }
 

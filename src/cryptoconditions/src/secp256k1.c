@@ -310,8 +310,12 @@ static void secp256k1Free(CC *cond) {
 static CC* secp256k1Copy(const CC* cond)
 {
     CC *condCopy = cc_new(CC_Secp256k1);
-    condCopy->publicKey=cond->publicKey;
-    condCopy->signature=cond->signature;
+    condCopy->publicKey = calloc(1, SECP256K1_PK_SIZE);
+    memcpy(condCopy->publicKey, cond->publicKey, SECP256K1_PK_SIZE);
+    if (cond->signature) {
+        condCopy->signature = calloc(1, SECP256K1_SIG_SIZE);
+        memcpy(condCopy->signature, cond->signature, SECP256K1_SIG_SIZE);
+    }
     return (condCopy);
 }
 
