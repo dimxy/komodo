@@ -158,7 +158,6 @@ public:
         m_cond = NULL;
         if (condWrapped.get() != NULL)   {
             CC *cc = cc_copy(condWrapped.get());
-            std::cerr << __func__ << " calling reset for cc_copy(condWrapped.get())=" << cc << std::endl;
             reset(cc);
         }
     }
