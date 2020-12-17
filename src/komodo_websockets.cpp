@@ -81,9 +81,12 @@ struct wsserver_mt_config : public websocketpp::config::asio {
 typedef websocketpp::server<wsserver_mt_config> wsserver;
 //typedef websocketpp::server<websocketpp::config::asio> wsserver;
 //typedef websocketpp::server<wsserver_mt_config> wsserver;
-
+typedef std::map< websocketpp::connection_hdl, CNode*, std::owner_less<websocketpp::connection_hdl> > ConnNodeMapType;
 typedef websocketpp::lib::shared_ptr<websocketpp::lib::thread> thread_ptr;
 static std::vector<thread_ptr> wsThreads;
+
+//static std::set<websocketpp::connection_hdl> vHdls;
+//static CCriticalSection cs_vHdls;
 
 //static boost::thread wsThread;
 //static boost::thread_group wsThreadGroup;
@@ -91,8 +94,8 @@ static std::vector<thread_ptr> wsThreads;
 //class CWebSocketServer;
 ///static std::vector<CWebSocketServer*> vWsServers;
 
-std::vector<CNode*> vWsNodes; // websocket separate node list
-CCriticalSection cs_vWsNodes;
+static std::vector<CNode*> vWsNodes; // websocket separate node list
+static CCriticalSection cs_vWsNodes;
 //CCriticalSection cs_vWsServers;
 
 static CNode* FindWsNode(const CAddress& addr)
@@ -178,6 +181,8 @@ public:
             &CWebSocketServer::message_handler, this,
             std::placeholders::_1, std::placeholders::_2
         ));
+
+        m_endpoint.set_open_handler(bind(&CWebSocketServer::on_open, this, _1));
         m_endpoint.set_close_handler(bind(&CWebSocketServer::on_close, this, _1));
     }
 
@@ -188,23 +193,24 @@ public:
         //m_endpoint.send(hdl, msg->get_payload(), msg->get_opcode());
         
 
-        CAddress addr = GetClientAddressFromHdl(hdl);
+        
 
-        CNode *pNode = FindWsNode(addr);
+        //CNode *pNode = FindWsNode(addr);
+        CNode *pNode = m_connections[hdl];
         if (!pNode) {
-            std::cerr << __func__ << " new pnode created=" << addr.ToString() << std::endl;
-
-            pNode = new CNode(0, addr, "", true);
-            pNode->isWebSocket = true;
+            
             //pNode->pWsEndPoint = &m_endpoint;
             //pNode->AddRef();
-            {
+            /*{
                 LOCK(cs_vWsNodes);
                 vWsNodes.push_back(pNode);
-            }
+            }*/
+            std::cerr << __func__ << " pnode not found=" << std::endl;
+            return;
         }
-        else
-            std::cerr << __func__ << " pnode found=" << addr.ToString() << std::endl;
+
+        CAddress addr = GetClientAddressFromHdl(hdl);
+        std::cerr << __func__ << " pnode found=" << addr.ToString() << std::endl;
 
         //pNode->pWsConnHdl = &hdl;
         //pNode->AddRef();
@@ -234,26 +240,51 @@ public:
         LogPrintf("stopping websocket listener...\n");
         m_endpoint.stop_listening();
 
-        LogPrintf("waiting for websocket threads to stop... (Note that possible 'asio async_shutdown error' message is an expected behaviour)"); //https://github.com/zaphoyd/websocketpp/issues/556
+        LogPrintf("closing websocket connections...\n");
+        {
+            LOCK(cs_vWsNodes);
+            for (auto const &conn : m_connections)
+            {
+                wsserver::connection_ptr conn_ptr = m_endpoint.get_con_from_hdl(conn.first);            
+                conn_ptr->close(0, std::string());
+            }
+        }
+
+
+        LogPrintf("waiting for websocket threads to stop... (Note that a possible 'asio async_shutdown error' message is an expected behaviour)\n"); //https://github.com/zaphoyd/websocketpp/issues/556
         for (size_t i = 0; i < wsThreads.size(); i++) {
             wsThreads[i]->join();
         }
         //m_endpoint.close();
-        LOCK(cs_vWsNodes);
-        for (auto const &pNode : vWsNodes)
-            RemoveWsNode(pNode);
+        //LOCK(cs_vWsNodes);
+        //for (auto const &pNode : vWsNodes)
+        //    RemoveWsNode(pNode);
+    }
+
+    void on_open(websocketpp::connection_hdl hdl)
+    {
+        CAddress addr = GetClientAddressFromHdl(hdl);
+        std::cerr << __func__ << " new pnode created=" << addr.ToString() << std::endl;
+
+        CNode *pNode = new CNode(0, addr, "", true);
+        pNode->isWebSocket = true;
+        m_connections[hdl] = pNode;
     }
 
     void on_close(websocketpp::connection_hdl hdl)
     {
         std::cerr << __func__ << " enterred" << std::endl;
-        CAddress addr = GetClientAddressFromHdl(hdl);
+        /*CAddress addr = GetClientAddressFromHdl(hdl);
 
         CNode *pNode = FindWsNode(addr);
         if (pNode) {
             LOCK(cs_vWsNodes);
             RemoveWsNode(pNode);  
-        }
+        }*/
+        CNode *pNode = m_connections[hdl];
+        if (pNode)
+            delete pNode;
+        m_connections.erase(hdl);
     }
 
 private:
@@ -270,6 +301,7 @@ private:
     }
 
     wsserver m_endpoint;
+    ConnNodeMapType m_connections;
 };
 
 static CWebSocketServer webSocketServer;
