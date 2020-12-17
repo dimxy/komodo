@@ -90,6 +90,10 @@
 
 #include "librustzcash.h"
 
+#ifdef ENABLE_WEBSOCKETS
+#include "komodo_websockets.h"
+#endif
+
 using namespace std;
 
 #include "komodo_defs.h"
@@ -230,6 +234,10 @@ void Shutdown()
     StopREST();
     StopRPC();
     StopHTTPServer();
+#ifdef ENABLE_WEBSOCKETS
+    StopWebSockets();
+#endif
+
 #ifdef ENABLE_WALLET
     if (pwalletMain)
         pwalletMain->Flush(false);
@@ -915,6 +923,10 @@ bool AppInitServers(boost::thread_group& threadGroup)
         return false;
     if (!StartHTTPServer())
         return false;
+    
+#ifdef ENABLE_WEBSOCKETS
+    StartWebSockets();
+#endif
     return true;
 }
 

@@ -306,6 +306,11 @@ public:
     CBloomFilter* pfilter;
     int nRefCount;
     NodeId id;
+
+#ifdef ENABLE_WEBSOCKETS
+    bool isWebSocket;
+#endif
+
 protected:
 
     // Denial-of-service detection/prevention

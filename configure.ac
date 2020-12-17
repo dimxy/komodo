@@ -195,6 +195,13 @@ AC_ARG_ENABLE([werror],
     [enable_werror=$enableval],
     [enable_werror=no])
 
+# Enable websockets listener
+AC_ARG_ENABLE([websockets],
+  [AS_HELP_STRING([--enable-websockets],
+  [enable websockets (default is no)])],
+  [enable_websockets=$enableval],
+  [enable_websockets=no])
+
 AC_LANG_PUSH([C++])
 AX_CHECK_COMPILE_FLAG([-Werror],[CXXFLAG_WERROR="-Werror"],[CXXFLAG_WERROR=""])
 
@@ -612,6 +619,15 @@ else
     AC_DEFINE(ENABLE_PROTON, 0, [Define to 1 to enable Proton functions])
 fi
 
+dnl enable websockets
+AC_MSG_CHECKING([if websockets should be enabled])
+if test x$enable_websockets != xno; then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE_UNQUOTED([ENABLE_WEBSOCKETS],[1],[Define to 1 to enable websockets listener])
+else
+  AC_MSG_RESULT(no)
+fi
+
 if test x$build_bitcoin_utils$build_bitcoind$use_tests = xnonono; then
     use_boost=no
 else
@@ -905,6 +921,7 @@ AM_CONDITIONAL([HARDEN],[test x$use_hardening = xyes])
 AM_CONDITIONAL([EXPERIMENTAL_ASM],[test x$experimental_asm = xyes])
 AM_CONDITIONAL([ASAN],[test x$use_asan = xyes])
 AM_CONDITIONAL([TSAN],[test x$use_tsan = xyes])
+AM_CONDITIONAL([ENABLE_WEBSOCKETS],[test x$enable_websockets = xyes])
 
 AC_DEFINE(CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MAJOR, [Major version])
 AC_DEFINE(CLIENT_VERSION_MINOR, _CLIENT_VERSION_MINOR, [Minor version])

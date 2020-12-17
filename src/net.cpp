@@ -606,6 +606,7 @@ void CNode::copyStats(CNodeStats &stats)
 // requires LOCK(cs_vRecvMsg)
 bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
 {
+    std::cerr << "pch=" << HexStr(pch, pch+nBytes) << std::endl;
     while (nBytes > 0) {
 
         // get current incomplete message, or create a new one
@@ -2145,6 +2146,10 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     fPingQueued = false;
     nMinPingUsecTime = std::numeric_limits<int64_t>::max();
 
+#ifdef ENABLE_WEBSOCKETS
+    isWebSocket = false;
+#endif
+
     {
         LOCK(cs_nLastNodeId);
         id = nLastNodeId++;
@@ -2261,7 +2266,12 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
 
     // If write queue empty, attempt "optimistic write"
     if (it == vSendMsg.begin()) {
+#ifdef ENABLE_WEBSOCKETS
+        if (!isWebSocket)  // for websocket will be sending in message_handler
+            SocketSendData(this);
+#else
         SocketSendData(this);
+#endif
         // LogPrint("net2", "%s socket send data, peer=%d\n", __func__, this->id);
     }
 
