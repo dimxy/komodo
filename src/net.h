@@ -46,6 +46,10 @@
 #include <boost/foreach.hpp>
 #include <boost/signals2/signal.hpp>
 
+#ifdef ENABLE_WEBSOCKETS
+#include "komodo_websockets.h"
+#endif
+
 class CAddrMan;
 class CBlockIndex;
 class CScheduler;
@@ -309,6 +313,7 @@ public:
 
 #ifdef ENABLE_WEBSOCKETS
     bool isWebSocket;
+    wsserver::connection_ptr wsconn_ptr;
 #endif
 
 protected:

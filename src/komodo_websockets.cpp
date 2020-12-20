@@ -53,35 +53,12 @@
 
 #include "komodo_websockets.h"
 
-// The ASIO_STANDALONE define is necessary to use the standalone version of Asio.
-// Remove if you are using Boost Asio.
-// #define ASIO_STANDALONE
-#include <websocketpp/config/asio_no_tls.hpp>
-#include <websocketpp/server.hpp>
-#include <websocketpp/endpoint.hpp>
-#include <websocketpp/connection.hpp>
-#include <websocketpp/extensions/permessage_deflate/enabled.hpp>
-
-struct wsserver_mt_config : public websocketpp::config::asio {
-    // pull default settings from our core config
-    static bool const enable_multithreading = true;
-
-    struct transport_config : public core::transport_config {
-        static bool const enable_multithreading = true;
-    };
-        
-    /// permessage_compress extension
-    struct permessage_deflate_config {};
-
-    typedef websocketpp::extensions::permessage_deflate::enabled
-        <permessage_deflate_config> permessage_deflate_type;
-};
 
 
-typedef websocketpp::server<wsserver_mt_config> wsserver;
 //typedef websocketpp::server<websocketpp::config::asio> wsserver;
 //typedef websocketpp::server<wsserver_mt_config> wsserver;
-typedef std::map< websocketpp::connection_hdl, CNode*, std::owner_less<websocketpp::connection_hdl> > ConnNodeMapType;
+
+//typedef std::map< websocketpp::connection_hdl, CNode*, std::owner_less<websocketpp::connection_hdl> > ConnNodeMapType;
 typedef websocketpp::lib::shared_ptr<websocketpp::lib::thread> thread_ptr;
 static std::vector<thread_ptr> wsThreads;
 
@@ -94,23 +71,28 @@ static std::vector<thread_ptr> wsThreads;
 //class CWebSocketServer;
 ///static std::vector<CWebSocketServer*> vWsServers;
 
-static std::vector<CNode*> vWsNodes; // websocket separate node list
-static CCriticalSection cs_vWsNodes;
+//static std::vector<CNode*> vWsNodes; // websocket separate node list
+//static CCriticalSection cs_vWsNodes;
 //CCriticalSection cs_vWsServers;
 
-static CNode* FindWsNode(const CAddress& addr)
+//static CNode* FindWsNode(const CAddress& addr)
+static CNode* FindWsNode(wsserver::connection_ptr conn_ptr)
 {
-    LOCK(cs_vWsNodes);
-    BOOST_FOREACH(CNode* pnode, vWsNodes)
-        if (pnode->addr == addr)
+    //LOCK(cs_vWsNodes);
+    LOCK(cs_vNodes);
+    BOOST_FOREACH(CNode* pnode, vNodes)
+        if (pnode->wsconn_ptr == conn_ptr)
             return (pnode);
     return NULL;
 }
 
 static void RemoveWsNode(const CNode *pNode)
 {
-    AssertLockHeld(cs_vWsNodes);
-    vWsNodes.erase(remove(vWsNodes.begin(), vWsNodes.end(), pNode), vWsNodes.end());
+//  AssertLockHeld(cs_vWsNodes);
+    AssertLockHeld(cs_vNodes);
+    //vWsNodes.erase(remove(vWsNodes.begin(), vWsNodes.end(), pNode), vWsNodes.end());
+    vNodes.erase(remove(vNodes.begin(), vNodes.end(), pNode), vNodes.end());
+
     delete pNode;
 }
 
@@ -165,25 +147,56 @@ void WebSocketSendData(wsserver *pServer, websocketpp::connection_hdl hdl, CNode
 
 class CWebSocketServer {
 public:
-    void init() {
+    bool init() {
 
         LogPrintf("starting websocket listener...\n");
 
-         // Set logging settings
-        m_endpoint.set_error_channels(websocketpp::log::elevel::all);
-        m_endpoint.set_access_channels(websocketpp::log::alevel::all ^ websocketpp::log::alevel::frame_payload);
+        try {
 
-        // Initialize Asio
-        m_endpoint.init_asio();
+            // Set logging settings
+            m_endpoint.set_error_channels(websocketpp::log::elevel::all);
+            m_endpoint.set_access_channels(websocketpp::log::alevel::all ^ websocketpp::log::alevel::frame_payload);
 
-        // Set the default message handler to the echo handler
-        m_endpoint.set_message_handler(std::bind(
-            &CWebSocketServer::message_handler, this,
-            std::placeholders::_1, std::placeholders::_2
-        ));
+            // Initialize Asio
+            m_endpoint.init_asio();
+            //m_endpoint.set_reuse_addr(true);
 
-        m_endpoint.set_open_handler(bind(&CWebSocketServer::on_open, this, _1));
-        m_endpoint.set_close_handler(bind(&CWebSocketServer::on_close, this, _1));
+            // Set the default message handler to the echo handler
+            m_endpoint.set_message_handler(std::bind(
+                &CWebSocketServer::message_handler, this,
+                std::placeholders::_1, std::placeholders::_2
+            ));
+
+            m_endpoint.set_open_handler(bind(&CWebSocketServer::on_open, this, _1));
+            m_endpoint.set_close_handler(bind(&CWebSocketServer::on_close, this, _1));
+
+        } 
+        catch (websocketpp::exception const & e) {
+            LogPrintf("websockets init failed: %s \n", e.what());
+            return false;
+        }
+        return true;
+    }
+    
+    bool run() 
+    {
+        try {
+            // Listen on port 9002
+            m_endpoint.listen(8192);
+
+            // Queues a connection accept operation
+            m_endpoint.start_accept();
+
+            // Start the Asio io_service run loop
+            //m_endpoint.run();
+            for (int i = 0; i < 4; i ++)
+                wsThreads.push_back(websocketpp::lib::make_shared<websocketpp::lib::thread>(&wsserver::run, &m_endpoint));
+        } 
+        catch (websocketpp::exception const & e) {
+            LogPrintf("websockets run failed: %s \n", e.what());
+            return false;
+        }
+        return true;
     }
 
     void message_handler(websocketpp::connection_hdl hdl, wsserver::message_ptr msg) {
@@ -193,10 +206,8 @@ public:
         //m_endpoint.send(hdl, msg->get_payload(), msg->get_opcode());
         
 
-        
-
-        //CNode *pNode = FindWsNode(addr);
-        CNode *pNode = m_connections[hdl];
+        CNode *pNode = FindWsNode(m_endpoint.get_con_from_hdl(hdl));
+        //CNode *pNode = m_connections[hdl];
         if (!pNode) {
             
             //pNode->pWsEndPoint = &m_endpoint;
@@ -222,31 +233,22 @@ public:
         //pNode->Release();
     }
 
-    void run() 
-    {
-        // Listen on port 9002
-        m_endpoint.listen(8192);
-
-        // Queues a connection accept operation
-        m_endpoint.start_accept();
-
-        // Start the Asio io_service run loop
-        //m_endpoint.run();
-        for (int i = 0; i < 4; i ++)
-            wsThreads.push_back(websocketpp::lib::make_shared<websocketpp::lib::thread>(&wsserver::run, &m_endpoint));
-    }
     void stop()
     {
         LogPrintf("stopping websocket listener...\n");
-        m_endpoint.stop_listening();
+        websocketpp::lib::error_code ec;
+        m_endpoint.stop_listening(ec);
 
         LogPrintf("closing websocket connections...\n");
         {
-            LOCK(cs_vWsNodes);
-            for (auto const &conn : m_connections)
+            //LOCK(cs_vWsNodes);
+            LOCK(cs_vNodes);
+            //for (auto const &conn : m_connections)
+            BOOST_FOREACH(CNode* pnode, vNodes)
+            if (pnode->wsconn_ptr != NULL)
             {
-                wsserver::connection_ptr conn_ptr = m_endpoint.get_con_from_hdl(conn.first);            
-                conn_ptr->close(0, std::string());
+                //wsserver::connection_ptr conn_ptr = m_endpoint.get_con_from_hdl(conn.first);            
+                pnode->wsconn_ptr->close(0, std::string());
             }
         }
 
@@ -259,6 +261,9 @@ public:
         //LOCK(cs_vWsNodes);
         //for (auto const &pNode : vWsNodes)
         //    RemoveWsNode(pNode);
+        while(!m_endpoint.stopped())
+            MilliSleep(250);
+
     }
 
     void on_open(websocketpp::connection_hdl hdl)
@@ -268,23 +273,29 @@ public:
 
         CNode *pNode = new CNode(0, addr, "", true);
         pNode->isWebSocket = true;
-        m_connections[hdl] = pNode;
+        pNode->wsconn_ptr = m_endpoint.get_con_from_hdl(hdl);
+        pNode->AddRef();
+        {
+            LOCK(cs_vNodes);
+            vNodes.push_back(pNode);
+        }
+        //m_connections[hdl] = pNode;
     }
 
     void on_close(websocketpp::connection_hdl hdl)
     {
         std::cerr << __func__ << " enterred" << std::endl;
-        /*CAddress addr = GetClientAddressFromHdl(hdl);
+        /*CAddress addr = GetClientAddressFromHdl(hdl);*/
 
-        CNode *pNode = FindWsNode(addr);
+        CNode *pNode = FindWsNode(m_endpoint.get_con_from_hdl(hdl));
         if (pNode) {
-            LOCK(cs_vWsNodes);
+            LOCK(cs_vNodes);
             RemoveWsNode(pNode);  
-        }*/
-        CNode *pNode = m_connections[hdl];
+        }
+        //CNode *pNode = m_connections[hdl];
         if (pNode)
             delete pNode;
-        m_connections.erase(hdl);
+        //m_connections.erase(hdl);
     }
 
 private:
@@ -301,7 +312,7 @@ private:
     }
 
     wsserver m_endpoint;
-    ConnNodeMapType m_connections;
+    //ConnNodeMapType m_connections;
 };
 
 static CWebSocketServer webSocketServer;
@@ -318,32 +329,39 @@ static CWebSocketServer webSocketServer;
     }
 }*/
 
-void StartWebSockets() {
+static bool bWebSocketsStarted = false; 
+bool StartWebSockets() {
     //wssserver.init();
     //wsThread = boost::thread(RunWsServer);
     //for (int i = 0; i < 4; i ++)
     //    wsThreadGroup.create_thread(RunWsServer);
     //wssserver.run();
-    webSocketServer.init();
-    webSocketServer.run();
+    if (!webSocketServer.init())
+        return false;
+    if (!webSocketServer.run())
+        return false;
+    bWebSocketsStarted = true;
+    return true;
 }
 
 void StopWebSockets() 
 {
-    webSocketServer.stop();
-    /*if (!vWsServers.empty()) 
-    {
-        LOCK(cs_vWsServers);
+    if (bWebSocketsStarted) {
+        webSocketServer.stop();
+        /*if (!vWsServers.empty()) 
+        {
+            LOCK(cs_vWsServers);
 
-        std::cerr << __func__ << " stopping websocket listeners..." << std::endl;
-        for (auto const &pWsServer : vWsServers) 
-            pWsServer->stop();
-        
-        std::cerr << __func__ << " waiting for websocket threads to stop... (Note that possible 'asio async_shutdown error' is an expected behaviour)" << std::endl; //https://github.com/zaphoyd/websocketpp/issues/556
-        wsThreadGroup.join_all();
+            std::cerr << __func__ << " stopping websocket listeners..." << std::endl;
+            for (auto const &pWsServer : vWsServers) 
+                pWsServer->stop();
+            
+            std::cerr << __func__ << " waiting for websocket threads to stop... (Note that possible 'asio async_shutdown error' is an expected behaviour)" << std::endl; //https://github.com/zaphoyd/websocketpp/issues/556
+            wsThreadGroup.join_all();
 
-        for (auto const &pWsServer : vWsServers) 
-            delete pWsServer;
-        vWsServers.clear();
-    }*/
+            for (auto const &pWsServer : vWsServers) 
+                delete pWsServer;
+            vWsServers.clear();
+        }*/
+    }
 }

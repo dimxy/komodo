@@ -2148,6 +2148,7 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
 
 #ifdef ENABLE_WEBSOCKETS
     isWebSocket = false;
+    wsconn_ptr = NULL;
 #endif
 
     {

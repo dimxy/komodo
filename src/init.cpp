@@ -925,7 +925,8 @@ bool AppInitServers(boost::thread_group& threadGroup)
         return false;
     
 #ifdef ENABLE_WEBSOCKETS
-    StartWebSockets();
+    if (!StartWebSockets())
+        return false;
 #endif
     return true;
 }
