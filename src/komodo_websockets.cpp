@@ -110,7 +110,7 @@ void WebSocketSendData(wsserver *pServer, websocketpp::connection_hdl hdl, CNode
         pServer->send(hdl, &data[pnode->nSendOffset], nBytes, websocketpp::frame::opcode::binary, ec);
 
         if (!ec) {
-            pnode->nLastSend = GetTime();
+            pnode->nLastSend = GetTime();  // needed to prevent inactivity disconnect
             pnode->nSendBytes += nBytes;
             pnode->nSendOffset += nBytes;
             pnode->RecordBytesSent(nBytes);
@@ -159,7 +159,10 @@ public:
 
             // Initialize Asio
             m_endpoint.init_asio();
-            //m_endpoint.set_reuse_addr(true);
+            m_endpoint.set_reuse_addr(true);  // this would prevent komodod restart failure on the socket in use 
+                                              // bcz the ws socket might be in CLOSE_WAIT state for a long time komodod has finished (especially if local app has not close the socket), 
+                                              // however this is not recommended as allows for other apps to  use this socket as shared (security issue)
+                                              // looks like still a websocketpp issue with socket shutdown 
 
             // Set the default message handler to the echo handler
             m_endpoint.set_message_handler(std::bind(
@@ -221,14 +224,22 @@ public:
         }
 
         CAddress addr = GetClientAddressFromHdl(hdl);
-        std::cerr << __func__ << " pnode found=" << addr.ToString() << std::endl;
+        std::cerr << __func__ << " pnode found=" << addr.ToString() << " id=" << pNode->id << std::endl;
 
         //pNode->pWsConnHdl = &hdl;
         //pNode->AddRef();
+        LOCK(pNode->cs_vRecvMsg);
         if (pNode->ReceiveMsgBytes(msg->get_payload().c_str(), msg->get_payload().size())) {
             if (ProcessMessages(pNode)) {
                 WebSocketSendData(&m_endpoint, hdl, pNode);
             }
+            pNode->nLastRecv = GetTime(); // needed to prevent inactivity disconnect
+            pNode->nRecvBytes += msg->get_payload().size();
+            pNode->RecordBytesRecv(msg->get_payload().size());
+        }
+        else {
+            LogPrintf("error websocket message processing, disconnecting peer %d\n", pNode->id);
+            pNode->wsconn_ptr->close(websocketpp::close::status::unsupported_data, std::string());
         }
         //pNode->Release();
     }
@@ -245,13 +256,12 @@ public:
             LOCK(cs_vNodes);
             //for (auto const &conn : m_connections)
             BOOST_FOREACH(CNode* pnode, vNodes)
-            if (pnode->wsconn_ptr != NULL)
+            if (pnode->isWebSocket && pnode->wsconn_ptr != NULL)
             {
                 //wsserver::connection_ptr conn_ptr = m_endpoint.get_con_from_hdl(conn.first);            
-                pnode->wsconn_ptr->close(0, std::string());
+                pnode->wsconn_ptr->close(websocketpp::close::status::going_away, std::string());
             }
         }
-
 
         LogPrintf("waiting for websocket threads to stop... (Note that a possible 'asio async_shutdown error' message is an expected behaviour)\n"); //https://github.com/zaphoyd/websocketpp/issues/556
         for (size_t i = 0; i < wsThreads.size(); i++) {
@@ -271,7 +281,7 @@ public:
         CAddress addr = GetClientAddressFromHdl(hdl);
         std::cerr << __func__ << " new pnode created=" << addr.ToString() << std::endl;
 
-        CNode *pNode = new CNode(0, addr, "", true);
+        CNode *pNode = new CNode(INVALID_SOCKET, addr, "", true);  // not used hSocket for websockets
         pNode->isWebSocket = true;
         pNode->wsconn_ptr = m_endpoint.get_con_from_hdl(hdl);
         pNode->AddRef();
@@ -293,8 +303,8 @@ public:
             RemoveWsNode(pNode);  
         }
         //CNode *pNode = m_connections[hdl];
-        if (pNode)
-            delete pNode;
+        //if (pNode)
+        //    delete pNode;
         //m_connections.erase(hdl);
     }
 

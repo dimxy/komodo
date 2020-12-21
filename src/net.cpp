@@ -695,6 +695,11 @@ int CNetMessage::readData(const char *pch, unsigned int nBytes)
 // requires LOCK(cs_vSend)
 void SocketSendData(CNode *pnode)
 {
+#ifdef ENABLE_WEBSOCKETS
+    if (pnode->isWebSocket)  // for websocket it will be sending in message_handler
+        return;
+#endif
+
     std::deque<CSerializeData>::iterator it = pnode->vSendMsg.begin();
 
     while (it != pnode->vSendMsg.end()) {
@@ -2267,12 +2272,7 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
 
     // If write queue empty, attempt "optimistic write"
     if (it == vSendMsg.begin()) {
-#ifdef ENABLE_WEBSOCKETS
-        if (!isWebSocket)  // for websocket will be sending in message_handler
-            SocketSendData(this);
-#else
         SocketSendData(this);
-#endif
         // LogPrint("net2", "%s socket send data, peer=%d\n", __func__, this->id);
     }
 
