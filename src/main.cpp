@@ -7476,7 +7476,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     pfrom->PushAddress(addr);
                 }
 
-/* #ifdef ENABLE_WEBSOCKETS
+#ifdef ENABLE_WEBSOCKETS
                 // no need to do this for non-inbounds:
                 // advertise websocket listening address
                 CAddress wsaddr = GetLocalWebSocketAddress(&pfrom->addr);
@@ -7485,11 +7485,11 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     LogPrintf("ProcessMessages: advertizing websocket address %s\n", wsaddr.ToString());
                     pfrom->PushAddress(wsaddr);
                 } else if (IsPeerAddrLocalGood(pfrom)) {
-                    wsaddr.SetIP(pfrom->addrLocal);
+                    wsaddr.SetIP(CNetAddr(pfrom->addrLocal.ToStringIP()));
                     LogPrintf("ProcessMessages: advertizing websocket address %s\n", wsaddr.ToString());
                     pfrom->PushAddress(wsaddr);
                 }
-#endif  */              
+#endif                
             }
 
 
