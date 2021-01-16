@@ -7479,7 +7479,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 /* #ifdef ENABLE_WEBSOCKETS
                 // no need to do this for non-inbounds:
                 // advertise websocket listening address
-                CAddress wsaddr = GetLocalWebsocketAddress(&pfrom->addr);
+                CAddress wsaddr = GetLocalWebSocketAddress(&pfrom->addr);
                 if (wsaddr.IsRoutable())
                 {
                     LogPrintf("ProcessMessages: advertizing websocket address %s\n", wsaddr.ToString());

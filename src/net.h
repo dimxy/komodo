@@ -160,7 +160,7 @@ bool IsReachable(enum Network net);
 bool IsReachable(const CNetAddr &addr);
 CAddress GetLocalAddress(const CNetAddr *paddrPeer = NULL);
 #ifdef ENABLE_WEBSOCKETS
-CAddress GetLocalWebsocketAddress(const CNetAddr *paddrPeer = NULL);
+CAddress GetLocalWebSocketAddress(const CNetAddr *paddrPeer = NULL);
 #endif
 
 extern bool fDiscover;

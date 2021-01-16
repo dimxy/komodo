@@ -261,7 +261,7 @@ void AdvertizeLocalWebSockets(CNode *pnode)
 {
     if (/*fListen && <-- TODO add this flag*/ pnode->fSuccessfullyConnected)
     {
-        CAddress addrLocal = GetLocalWebsocketAddress(&pnode->addr);
+        CAddress addrLocal = GetLocalWebSocketAddress(&pnode->addr);
         // If discovery is enabled, sometimes give our peer the address it
         // tells us that it sees us as in case it has a better idea of our
         // address than we do.
