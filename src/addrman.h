@@ -556,7 +556,7 @@ public:
             Check();
             Attempt_(addr, nTime);
             Check();
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman unlocked" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman unlocked" << std::endl;
         }
     }
 

@@ -265,11 +265,11 @@ void AdvertizeLocalWebSockets(CNode *pnode)
         // If discovery is enabled, sometimes give our peer the address it
         // tells us that it sees us as in case it has a better idea of our
         // address than we do.
-        /*if (IsPeerAddrLocalGood(pnode) && (!addrLocal.IsRoutable() ||
+        if (IsPeerAddrLocalGood(pnode) && (!addrLocal.IsRoutable() ||
              GetRand((GetnScore(addrLocal) > LOCAL_MANUAL) ? 8:2) == 0))
         {
             addrLocal.SetIP(pnode->addrLocal);
-        }*/
+        }
         if (addrLocal.IsRoutable())
         {
             LogPrintf("AdvertizeLocal: advertizing websocket address %s\n", addrLocal.ToString());

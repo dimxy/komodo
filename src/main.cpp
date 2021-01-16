@@ -7485,7 +7485,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     LogPrintf("ProcessMessages: advertizing websocket address %s\n", wsaddr.ToString());
                     pfrom->PushAddress(wsaddr);
                 } else if (IsPeerAddrLocalGood(pfrom)) {
-                    wsaddr.SetIP(CNetAddr(pfrom->addrLocal.ToStringIP()));
+                    wsaddr.SetIP(pfrom->addrLocal);
                     LogPrintf("ProcessMessages: advertizing websocket address %s\n", wsaddr.ToString());
                     pfrom->PushAddress(wsaddr);
                 }
