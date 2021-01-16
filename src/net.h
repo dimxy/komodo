@@ -94,6 +94,7 @@ CNode* FindNode(const CService& ip);
 CNode* ConnectNode(CAddress addrConnect, const char *pszDest = NULL);
 bool OpenNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant *grantOutbound = NULL, const char *strDest = NULL, bool fOneShot = false);
 unsigned short GetListenPort();
+unsigned short GetWebsocketListenPort();
 bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
 void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler);
 bool StopNode();
@@ -143,6 +144,9 @@ enum
 
 bool IsPeerAddrLocalGood(CNode *pnode);
 void AdvertizeLocal(CNode *pnode);
+#ifdef ENABLE_WEBSOCKETS
+void AdvertizeLocalWebSockets(CNode *pnode);
+#endif
 void SetLimited(enum Network net, bool fLimited = true);
 bool IsLimited(enum Network net);
 bool IsLimited(const CNetAddr& addr);
@@ -155,7 +159,9 @@ bool GetLocal(CService &addr, const CNetAddr *paddrPeer = NULL);
 bool IsReachable(enum Network net);
 bool IsReachable(const CNetAddr &addr);
 CAddress GetLocalAddress(const CNetAddr *paddrPeer = NULL);
-
+#ifdef ENABLE_WEBSOCKETS
+CAddress GetLocalWebsocketAddress(const CNetAddr *paddrPeer = NULL);
+#endif
 
 extern bool fDiscover;
 extern bool fListen;
@@ -341,6 +347,11 @@ public:
     bool fGetAddr;
     std::set<uint256> setKnown;
 
+/* #ifdef ENABLE_WEBSOCKETS
+    std::vector<CAddress> vWsAddrToSend;
+    CRollingBloomFilter wsaddrKnown;
+#endif */
+
     // inventory based relay
     mruset<CInv> setInventoryKnown;
     std::vector<CInv> vInventoryToSend;
@@ -428,6 +439,7 @@ public:
         // Known checking here is only to save space from duplicates.
         // SendMessages will filter it again for knowns that were added
         // after addresses were pushed.
+        std::cerr << __func__ << " addr.IsValid()=" << addr.IsValid() << " !addrKnown.contains(addr.GetKey())=" << !addrKnown.contains(addr.GetKey()) << std::endl;
         if (addr.IsValid() && !addrKnown.contains(addr.GetKey())) {
             if (vAddrToSend.size() >= MAX_ADDR_TO_SEND) {
                 vAddrToSend[insecure_rand() % vAddrToSend.size()] = addr;

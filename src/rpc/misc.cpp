@@ -1698,6 +1698,53 @@ UniValue createtxwithnormalinputs(const UniValue& params, bool fHelp, const CPub
     return result;
 }
 
+/*UniValue getnspvpeers(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() != 1)
+    {
+        string msg = "getnspvpeers\n"
+            "\nReturns an array of peers supporting the nspv service\n";
+        throw runtime_error(msg);
+    }
+
+    UniValue result (UniValue::VOBJ);
+    UniValue array (UniValue::VARR);
+    LOCK(cs_)
+    result.pushKV("txhex", HexStr(E_MARSHAL(ss << mtx)));
+    for (auto const &vtx : vintxns) 
+        array.push_back(HexStr(E_MARSHAL(ss << vtx)));
+    result.pushKV("previousTxns", array);
+    return result;
+}*/
+
+#include "addrman.h"
+UniValue printaddrman(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() != 1)
+    {
+        string msg = "printaddrman\n"
+            "\nReturns an array of addresses\n";
+        throw runtime_error(msg);
+    }
+
+    std::vector<CAddress> addrs = addrman.GetAddr();
+    UniValue result (UniValue::VOBJ);
+    UniValue array (UniValue::VARR);
+    for(auto const & a : addrs) {
+        UniValue e(UniValue::VOBJ);
+
+        e.pushKV("address", a.ToString());
+        std::ostringstream strhex;
+        strhex << std::hex << a.nServices;
+        e.pushKV("services", strhex.str());
+        array.push_back(e);
+    }
+    result.pushKV("addresses", array);
+
+    return result;
+}
+
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         okSafeMode
   //  --------------------- ------------------------  -----------------------  ----------
@@ -1710,7 +1757,9 @@ static const CRPCCommand commands[] =
     /* Not shown in help */
     { "hidden",             "setmocktime",            &setmocktime,            true  },
     { "hidden",               "createtxwithnormalinputs",          &createtxwithnormalinputs,          true  },
+    { "hidden",               "printaddrman",          &printaddrman,          true  },
 
+ //   { "hidden",               "getnspvpeers",          &getnspvpeers,          true  },
 };
 
 void RegisterMiscRPCCommands(CRPCTable &tableRPC)

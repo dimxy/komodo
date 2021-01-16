@@ -133,6 +133,12 @@ unsigned short GetListenPort()
     return (unsigned short)(GetArg("-port", Params().GetDefaultPort()));
 }
 
+unsigned short GetWebSocketListenPort()
+{
+    //printf("Listenport.%u\n",Params().GetDefaultPort());
+    return (unsigned short)(GetArg("-wsport", 8192));
+}
+
 // find 'best' local address for a particular peer
 bool GetLocal(CService& addr, const CNetAddr *paddrPeer)
 {
@@ -196,6 +202,22 @@ CAddress GetLocalAddress(const CNetAddr *paddrPeer)
     return ret;
 }
 
+#ifdef ENABLE_WEBSOCKETS
+CAddress GetLocalWebSocketAddress(const CNetAddr *paddrPeer)
+{
+    CAddress ret(CService("0.0.0.0", GetWebSocketListenPort()), 0);
+    /* TODO: decide if we need bound to specific address websocket listeners
+    CService addr;
+    if (GetLocal(addr, paddrPeer))
+    {
+        ret = CAddress(addr);
+    }*/
+    ret.nServices = NODE_WEBSOCKETS;
+    ret.nTime = GetAdjustedTime();
+    return ret;
+}
+#endif 
+
 int GetnScore(const CService& addr)
 {
     LOCK(cs_mapLocalHost);
@@ -232,6 +254,30 @@ void AdvertizeLocal(CNode *pnode)
         }
     }
 }
+
+#ifdef ENABLE_WEBSOCKETS
+// advertizes websockets listen address
+void AdvertizeLocalWebSockets(CNode *pnode)
+{
+    if (/*fListen && <-- TODO add this flag*/ pnode->fSuccessfullyConnected)
+    {
+        CAddress addrLocal = GetLocalWebsocketAddress(&pnode->addr);
+        // If discovery is enabled, sometimes give our peer the address it
+        // tells us that it sees us as in case it has a better idea of our
+        // address than we do.
+        /*if (IsPeerAddrLocalGood(pnode) && (!addrLocal.IsRoutable() ||
+             GetRand((GetnScore(addrLocal) > LOCAL_MANUAL) ? 8:2) == 0))
+        {
+            addrLocal.SetIP(pnode->addrLocal);
+        }*/
+        if (addrLocal.IsRoutable())
+        {
+            LogPrintf("AdvertizeLocal: advertizing websocket address %s\n", addrLocal.ToString());
+            pnode->PushAddress(addrLocal);
+        }
+    }
+}
+#endif
 
 // learn a new local address
 bool AddLocal(const CService& addr, int nScore)
@@ -1444,6 +1490,12 @@ void ThreadOpenConnections()
             if (!addr.IsValid() || setConnected.count(addr.GetGroup()) || IsLocal(addr))
                 break;
 
+#ifdef ENABLE_WEBSOCKETS
+            // do not connect to websocket nodes (looks like this is to add event for non-websocket version):
+            if ((addr.nServices & NODE_NETWORK) == 0)
+                continue;
+#endif
+
             // If we didn't find an appropriate destination after trying 100 addresses fetched from addrman,
             // stop this loop, and let the outer loop run again (which sleeps, adds seed nodes, recalculates
             // already-connected network ranges, ...) before trying new addrman addresses.
@@ -1627,6 +1679,10 @@ void ThreadMessageHandler()
             }
             boost::this_thread::interruption_point();
 
+#ifdef ENABLE_WEBSOCKETS
+            if (pnode->isWebSocket)   
+            {
+#endif
             // Send messages
             {
                 TRY_LOCK(pnode->cs_vSend, lockSend);
@@ -1636,6 +1692,9 @@ void ThreadMessageHandler()
                     // LogPrint("net2", "SendMessages after\n");
                 }
             }
+#ifdef ENABLE_WEBSOCKETS
+            }
+#endif
             boost::this_thread::interruption_point();
         }
 

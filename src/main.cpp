@@ -7475,7 +7475,24 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                     LogPrintf("ProcessMessages: advertizing address %s\n", addr.ToString());
                     pfrom->PushAddress(addr);
                 }
+
+/* #ifdef ENABLE_WEBSOCKETS
+                // no need to do this for non-inbounds:
+                // advertise websocket listening address
+                CAddress wsaddr = GetLocalWebsocketAddress(&pfrom->addr);
+                if (wsaddr.IsRoutable())
+                {
+                    LogPrintf("ProcessMessages: advertizing websocket address %s\n", wsaddr.ToString());
+                    pfrom->PushAddress(wsaddr);
+                } else if (IsPeerAddrLocalGood(pfrom)) {
+                    wsaddr.SetIP(pfrom->addrLocal);
+                    LogPrintf("ProcessMessages: advertizing websocket address %s\n", wsaddr.ToString());
+                    pfrom->PushAddress(wsaddr);
+                }
+#endif  */              
             }
+
+
 
             // Get recent addresses
             if (pfrom->fOneShot || pfrom->nVersion >= CADDR_TIME_VERSION || addrman.size() < 1000)
@@ -7739,6 +7756,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         
         pfrom->vAddrToSend.clear();
         vector<CAddress> vAddr = addrman.GetAddr();
+        std::cerr << __func__ << " vAddr.size=" << vAddr.size() << std::endl;
         BOOST_FOREACH(const CAddress &addr, vAddr)
             pfrom->PushAddress(addr);
     }
@@ -8519,6 +8537,9 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
 
                 // Rebroadcast our address
                 AdvertizeLocal(pnode);
+#ifdef ENABLE_WEBSOCKETS
+                AdvertizeLocalWebSockets(pnode);
+#endif
             }
             if (!vNodes.empty())
                 nLastRebroadcast = GetTime();
@@ -8532,6 +8553,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
             LOCK(cs_vNodes);
             BOOST_FOREACH(CNode* pnode, vNodes)
             {
+                std::cerr << __func__ << " checking lastClientAddrCheck pnode->fClient=" << pnode->fClient << " GetTime() - pnode->sentAddrTime > 60=" <<(GetTime() - pnode->sentAddrTime > 60) << std::endl;
                 if (pnode->fClient)
                 {
                     // clear addr sent status after timeout
@@ -8581,6 +8603,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                     if (vAddr.size() >= 1000)
                     {
                         pto->PushMessage("addr", vAddr);
+                        LogPrint("net", "sent %d addresses to peer %d\n", vAddr.size(), pto->id);
                         vAddr.clear();
                     }
                 }
@@ -8591,6 +8614,34 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
                 LogPrint("net", "sent %d addresses to peer %d\n", vAddr.size(), pto->id);
             }
         }
+
+/* #ifdef ENABLE_WEBSOCKETS
+        if (fSendTrickle)
+        {
+            vector<CAddress> vWsAddr;
+            vWsAddr.reserve(pto->vWsAddrToSend.size());
+            BOOST_FOREACH(const CAddress& wsaddr, pto->vWsAddrToSend)
+            {
+                if (!pto->wsaddrKnown.contains(wsaddr.GetKey()))
+                {
+                    pto->wsaddrKnown.insert(wsaddr.GetKey());
+                    vWsAddr.push_back(wsaddr);
+                    // receiver rejects addr messages larger than 1000
+                    if (vWsAddr.size() >= 1000)
+                    {
+                        pto->PushMessage("wsaddr", vWsAddr);
+                        LogPrint("net", "sent %d websocket addresses to peer %d\n", vWsAddr.size(), pto->id);
+                        vWsAddr.clear();
+                    }
+                }
+            }
+            pto->vWsAddrToSend.clear();
+            if (!vWsAddr.empty())   {
+                pto->PushMessage("wsaddr", vWsAddr);
+                LogPrint("net", "sent %d websocket addresses to peer %d\n", vWsAddr.size(), pto->id);
+            }
+        }
+#endif */
 
         CNodeState &state = *State(pto->GetId());
         if (state.fShouldBan) {
