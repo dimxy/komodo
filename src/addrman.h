@@ -503,13 +503,13 @@ public:
     {
         bool fRet = false;
         {
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman staring to lock" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman staring to lock" << std::endl;
             LOCK(cs);
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman locked" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman locked" << std::endl;
             Check();
             fRet |= Add_(addr, source, nTimePenalty);
             Check();
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman unlocked" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman unlocked" << std::endl;
         }
         if (fRet)
             LogPrint("addrman", "Added %s from %s: %i tried, %i new\n", addr.ToStringIPPort(), source.ToString(), nTried, nNew);
@@ -521,14 +521,14 @@ public:
     {
         int nAdd = 0;
         {
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " multiple addrman staring to lock" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " multiple addrman staring to lock" << std::endl;
             LOCK(cs);
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " multiple addrman locked" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " multiple addrman locked" << std::endl;
             Check();
             for (std::vector<CAddress>::const_iterator it = vAddr.begin(); it != vAddr.end(); it++)
                 nAdd += Add_(*it, source, nTimePenalty) ? 1 : 0;
             Check();
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " multiple addrman unlocked" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " multiple addrman unlocked" << std::endl;
         }
         if (nAdd)
             LogPrint("addrman", "Added %i addresses from %s: %i tried, %i new\n", nAdd, source.ToString(), nTried, nNew);
@@ -550,9 +550,9 @@ public:
     void Attempt(const CService &addr, int64_t nTime = GetAdjustedTime())
     {
         {
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman starting to lock" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman starting to lock" << std::endl;
             LOCK(cs);
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman locked" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman locked" << std::endl;
             Check();
             Attempt_(addr, nTime);
             Check();
@@ -567,13 +567,13 @@ public:
     {
         CAddrInfo addrRet;
         {
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman starting to lock" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman starting to lock" << std::endl;
             LOCK(cs);
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman locked" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman locked" << std::endl;
             Check();
             addrRet = Select_(newOnly);
             Check();
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman unlocked" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman unlocked" << std::endl;
         }
         return addrRet;
     }
@@ -584,7 +584,7 @@ public:
         Check();
         std::vector<CAddress> vAddr;
         {
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " starting to lock" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " starting to lock" << std::endl;
             LOCK(cs);
             /*TRY_LOCK(cs, locked);  // addrman might be locked for a long time in Select(). Better to return empty addresses and not block ProcessMessages 
             if (!locked)  {
@@ -594,7 +594,7 @@ public:
                 return vAddr;
             }*/
             GetAddr_(vAddr);
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " locked returning size=" << vAddr.size() << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " locked returning size=" << vAddr.size() << std::endl;
         }
         Check();
         return vAddr;
@@ -604,13 +604,13 @@ public:
     void Connected(const CService &addr, int64_t nTime = GetAdjustedTime())
     {
         {
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " starting to lock" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " starting to lock" << std::endl;
             LOCK(cs);
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman locked" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " addrman locked" << std::endl;
             Check();
             Connected_(addr, nTime);
             Check();
-            std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " unlocked" << std::endl;
+            //std::cerr << __func__ << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << " unlocked" << std::endl;
         }
     }
 
