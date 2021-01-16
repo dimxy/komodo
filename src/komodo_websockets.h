@@ -33,6 +33,7 @@ struct wsserver_mt_config : public websocketpp::config::asio {
 typedef websocketpp::server<wsserver_mt_config> wsserver;
 
 bool StartWebSockets();
+void SetWebSocketsWarmupFinished();
 void StopWebSockets();
 
 #endif 

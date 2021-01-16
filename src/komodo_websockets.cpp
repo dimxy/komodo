@@ -53,7 +53,9 @@
 
 #include "komodo_websockets.h"
 
-
+static bool bWebSocketsStarted = false; 
+static bool fWebSocketsInWarmup = true;
+static CCriticalSection cs_wsWarmup;
 
 //typedef websocketpp::server<websocketpp::config::asio> wsserver;
 //typedef websocketpp::server<wsserver_mt_config> wsserver;
@@ -172,7 +174,7 @@ public:
 
             m_endpoint.set_open_handler(bind(&CWebSocketServer::on_open, this, _1));
             m_endpoint.set_close_handler(bind(&CWebSocketServer::on_close, this, _1));
-
+            m_endpoint.set_validate_handler(bind(&CWebSocketServer::on_validate, this, _1));
         } 
         catch (websocketpp::exception const & e) {
             LogPrintf("websockets init failed: %s \n", e.what());
@@ -231,6 +233,8 @@ public:
         LOCK(pNode->cs_vRecvMsg);
         if (pNode->ReceiveMsgBytes(msg->get_payload().c_str(), msg->get_payload().size())) {
             if (ProcessMessages(pNode)) {
+                LOCK(pNode->cs_vSend);
+                SendMessages(pNode, true);
                 WebSocketSendData(&m_endpoint, hdl, pNode);
             }
             pNode->nLastRecv = GetTime(); // needed to prevent inactivity disconnect
@@ -276,6 +280,12 @@ public:
 
     }
 
+private:
+    bool on_validate(websocketpp::connection_hdl hdl)
+    {
+        return !fWebSocketsInWarmup;
+    }
+
     void on_open(websocketpp::connection_hdl hdl)
     {
         CAddress addr = GetClientAddressFromHdl(hdl);
@@ -308,8 +318,8 @@ public:
         //m_connections.erase(hdl);
     }
 
-private:
-    CAddress GetClientAddressFromHdl(websocketpp::connection_hdl hdl) {
+    CAddress GetClientAddressFromHdl(websocketpp::connection_hdl hdl) 
+    {
         wsserver::connection_ptr conn_ptr = m_endpoint.get_con_from_hdl(hdl);
         std::string sAddr = conn_ptr->get_remote_endpoint();
         //std::string host = conn_ptr->get_host();
@@ -339,7 +349,7 @@ static CWebSocketServer webSocketServer;
     }
 }*/
 
-static bool bWebSocketsStarted = false; 
+
 bool StartWebSockets() {
     //wssserver.init();
     //wsThread = boost::thread(RunWsServer);
@@ -353,6 +363,14 @@ bool StartWebSockets() {
     bWebSocketsStarted = true;
     return true;
 }
+
+void SetWebSocketsWarmupFinished()
+{
+    LOCK(cs_wsWarmup);
+    assert(fWebSocketsInWarmup);
+    fWebSocketsInWarmup = false;
+}
+
 
 void StopWebSockets() 
 {
