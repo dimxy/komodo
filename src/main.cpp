@@ -7650,8 +7650,10 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 }
             }
             // Do not store addresses outside our network
-            if (fReachable)
+            if (fReachable)  {
                 vAddrOk.push_back(addr);
+                std::cerr << __func__ << "cmd \"addr\" storing addr=" << addr.ToString() << std::endl;
+            }
         }
         addrman.Add(vAddrOk, pfrom->addr, 2 * 60 * 60);
         if (vAddr.size() < 1000)
