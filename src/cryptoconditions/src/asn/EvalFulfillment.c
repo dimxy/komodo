@@ -16,7 +16,17 @@ static asn_TYPE_member_t asn_MBR_EvalFulfillment_1[] = {
 		0,
 		"code"
 		},
+	{ ATF_NOFLAGS, 0, offsetof(struct EvalFulfillment, param),
+		(ASN_TAG_CLASS_CONTEXT | (0 << 2)),
+		-1,	/* IMPLICIT tag at current level */
+		&asn_DEF_OCTET_STRING,
+		0,	/* Defer constraints checking to the member type */
+		0,	/* PER is not compiled, use -gen-PER */
+		0,
+		"param"
+		},
 };
+
 static const ber_tlv_tag_t asn_DEF_EvalFulfillment_tags_1[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
@@ -52,7 +62,7 @@ asn_TYPE_descriptor_t asn_DEF_EvalFulfillment = {
 		/sizeof(asn_DEF_EvalFulfillment_tags_1[0]), /* 1 */
 	0,	/* No PER visible constraints */
 	asn_MBR_EvalFulfillment_1,
-	1,	/* Elements count */
+	2,	/* Elements count */
 	&asn_SPC_EvalFulfillment_specs_1	/* Additional specs */
 };
 
