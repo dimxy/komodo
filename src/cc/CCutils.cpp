@@ -17,6 +17,8 @@
  CCutils has low level functions that are universally useful for all contracts.
  */
 
+#include <sstream>
+
 #include "CCinclude.h"
 #include "CCtokens.h"
 #include "komodo_structs.h"
@@ -1757,4 +1759,165 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
         return true;
     }
     return false;
+}
+
+
+// cc validators' implementations
+
+static bool OutputMustPayAmount(struct CCcontract_info *cp, Eval *eval, const CTransaction &tx, int32_t ivin, const UniValue &args) 
+{
+    std::cerr << __func__ << " enterred, params:" << std::endl;
+    for (int i = 0; i < args.size(); i ++) 
+        std::cerr << args[i].getValStr() << ", ";
+    std::cerr << std::endl;
+    return true;
+}
+
+// framework for eval parameters parsing:
+struct CValidatorBinding {
+    std::string name;   // eval function name
+    std::vector<UniValue::VType> argTypes; // eval funtion argument types
+    bool (*pValidator)(struct CCcontract_info *cp, Eval *eval, const CTransaction &tx, int32_t ivin, const UniValue &args); // eval function pointer
+};
+
+static CValidatorBinding validatorBindings[] = {
+    { "OutputMustPayAmount", { UniValue::VNUM }, OutputMustPayAmount },
+};
+
+static CValidatorBinding *ParseEvalParam(const vuint8_t &vparam, UniValue &args)
+{
+
+    std::string strEvalParam((const char*)vparam.data(), (const char*)vparam.data() + vparam.size());
+    std::stringstream ss(strEvalParam);
+
+    std::string name;
+    args.clear();
+    args.setArray();
+
+    // parse function name
+    int ch = ss.get();
+    while(!ss.eof() && !std::isspace(ch) && ch != '(' && std::isalnum(ch))
+        name += ch, ch = ss.get();
+    
+    // skip spaces
+    while (!ss.eof() && std::isspace(ch))
+        ch = ss.get();    
+
+    if (ss.eof())  {
+        std::cerr << __func__ << " bad eval params format, unexpected eof" << std::endl;
+        return NULL;
+    }
+
+    if (ch != '(')  {
+        std::cerr << __func__ << " bad eval params format, unexpected char '" << (char)ch << "'" << std::endl;
+        return NULL;
+    }
+
+    if (name.empty())   {
+        std::cerr << __func__ << " bad function name" << std::endl;
+        return NULL;
+    }
+
+    while(true)    {
+        std::string arg;
+
+        // skip spaces
+        ch = ss.get();
+        while (!ss.eof() && std::isspace(ch))
+            ch = ss.get();  
+        if (ss.eof())   {
+            std::cerr << __func__ << " bad eval params, unexpected eof" << std::endl;
+            return NULL;
+        }
+
+        if (ch == '"')  {  // parse quoted string
+            int prevCh = ch;
+            ch = ss.get();
+            while(!ss.eof() && !(ch == '"' && prevCh != '\\')) // allow escaped quote char
+                arg += ch, prevCh = ch, ch = ss.get();
+            if (!ss.eof())
+                args.push_back(arg);
+        }
+        else if (std::isdigit(ch)) {
+            while(!ss.eof() && (std::isdigit(ch) || ch == '.')) // allow decimal point
+                arg += ch, ch = ss.get();
+            if (!ss.eof()) {
+                if (arg.find('.') == std::string::npos)
+                    args.push_back(atoll(arg.c_str()));
+                else    {
+                    UniValue strNum(UniValue::VSTR);
+                    strNum.setStr(arg);
+                    args.push_back(AmountFromValue(strNum));
+                }
+            }
+        }
+        else if (ch == 't' && ss.get() == 'r' && ss.get() == 'u' && ss.get() == 'e' )   {
+            args.push_back(true);
+        }
+        else if (ch == 'f' && ss.get() == 'a' && ss.get() == 'l' && ss.get() == 's' && ss.get() == 'e' )   {
+            args.push_back(false);
+        }
+
+        if (ss.eof())   {
+            std::cerr << __func__ << " bad eval params arg, unexpected eof" << std::endl;
+            return NULL;
+        }
+
+        // skip spaces
+        while (!ss.eof() && std::isspace(ch))
+            ch = ss.get(); 
+
+        if (ss.eof())   {
+            std::cerr << __func__ << " bad eval params, unexpected eof" << std::endl;
+            return NULL;
+        }
+        // expecting ',' or ')'
+        if (ch != ',' && ch != ')') {
+            std::cerr << __func__ << " bad eval params, unexpected delimiter '"  << (char)ch  << "'" << std::endl;
+            return NULL;
+        }
+        if (ch == ')')
+            break;
+    }
+
+    // skip spaces
+    ch = ss.get();
+    while (!ss.eof() && std::isspace(ch))
+        ch = ss.get(); 
+    if (!ss.eof())  {
+        std::cerr << __func__ << " bad eval params, unexpected end char \'" << (char)ch << "\' (" << ch << ")" << std::endl;
+        return NULL;
+    }
+
+    int i;
+    for (i = 0; i < (sizeof(validatorBindings) / sizeof(validatorBindings[0])); i ++)
+        if (name == validatorBindings[i].name)
+            break;
+    if (i == sizeof(validatorBindings) / sizeof(validatorBindings[0]))   {
+        std::cerr << __func__ << " eval function not found: " << name << std::endl;
+        return NULL;
+    }
+
+    if (validatorBindings[i].argTypes.size() != args.size())  {
+        std::cerr << __func__ << " eval function args count " << args.size() << " invalid for " << name << std::endl;
+        return NULL;
+    }
+
+    for (int j = 0; j < validatorBindings[i].argTypes.size(); j ++)     {
+        if (validatorBindings[i].argTypes[j] != args[j].getType())  {
+            std::cerr << __func__ << " eval function args type " << args[j].getType() << " invalid for " << name << std::endl;
+            return NULL;
+        }
+    }
+    return &validatorBindings[i];
+}
+
+bool ProcessEvalParam(struct CCcontract_info *cp, Eval *eval, const CTransaction &tx, int32_t ivin)
+{
+    UniValue args(UniValue::VARR);
+    CValidatorBinding *pBinding = ParseEvalParam(eval->evalParam, args);
+    if (pBinding == NULL)
+        return false;
+
+    return pBinding->pValidator(cp, eval, tx, ivin, args);
 }
