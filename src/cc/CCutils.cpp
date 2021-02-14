@@ -52,11 +52,31 @@ CC *MakeCCcond1of2(uint8_t evalcode,CPubKey pk1,CPubKey pk2)
     return CCNewThreshold(2, {condCC, Sig});
 }
 
+CC *MakeCCcond1of2(uint8_t evalcode, std::vector<unsigned char> param, CPubKey pk1,CPubKey pk2)
+{
+    std::vector<CC*> pks;
+    pks.push_back(CCNewSecp256k1(pk1));
+    pks.push_back(CCNewSecp256k1(pk2));
+    CC *condCC = CCNewEval(E_MARSHAL(ss << evalcode), param);
+    CC *Sig = CCNewThreshold(1, pks);
+    return CCNewThreshold(2, {condCC, Sig});
+}
+
 CC *MakeCCcond1(uint8_t evalcode,CPubKey pk)
 {
     std::vector<CC*> pks;
     pks.push_back(CCNewSecp256k1(pk));
     CC *condCC = CCNewEval(E_MARSHAL(ss << evalcode));
+    CC *Sig = CCNewThreshold(1, pks);
+    return CCNewThreshold(2, {condCC, Sig});
+}
+
+CC *MakeCCcond1(uint8_t evalcode, std::vector<unsigned char> param, CPubKey pk)
+{
+    std::vector<CC*> pks;
+    pks.push_back(CCNewSecp256k1(pk));
+    CC *condCC = CCNewEval(E_MARSHAL(ss << evalcode), param);
+    std::cerr << __func__ << " param=" << (char*)param.data() << std::endl;
     CC *Sig = CCNewThreshold(1, pks);
     return CCNewThreshold(2, {condCC, Sig});
 }
@@ -109,6 +129,41 @@ CTxOut MakeCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<std
         std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
         //vPubKeys.push_back(pk);   // Warning: if add a pubkey here, the Solver function will add it to vSolutions and ExtractDestination might use it to get the spk address (such result might not be expected)
         COptCCParams ccp = COptCCParams(COptCCParams::VERSION, evalcode, 1, 1, vPubKeys, (*vData));
+        vout.scriptPubKey << ccp.AsVector() << OP_DROP;
+    }
+    return(vout);
+}
+
+CTxOut MakeCC1vout(uint8_t evalcode, std::vector<unsigned char> param, CAmount nValue, CPubKey pk, std::vector<std::vector<unsigned char>>* vData)
+{
+    CTxOut vout;
+    CCwrapper payoutCond(MakeCCcond1(evalcode, param, pk));
+    vout = CTxOut(nValue, CCPubKey(payoutCond.get()));
+    if (vData)
+    {
+        //std::vector<std::vector<unsigned char>> vtmpData = std::vector<std::vector<unsigned char>>(vData->begin(), vData->end());
+        std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
+        //vPubKeys.push_back(pk);   // Warning: if add a pubkey here, the Solver function will add it to vSolutions and ExtractDestination might use it to get the spk address (such result might not be expected)
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION, evalcode, 1, 1, vPubKeys, (*vData));
+        vout.scriptPubKey << ccp.AsVector() << OP_DROP;
+    }
+    return(vout);
+}
+
+CTxOut MakeCC1of2vout(uint8_t evalcode, std::vector<unsigned char> param, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<std::vector<unsigned char>>* vData)
+{
+    CTxOut vout;
+    CCwrapper payoutCond(MakeCCcond1of2(evalcode, param, pk1, pk2));
+    vout = CTxOut(nValue, CCPubKey(payoutCond.get()));
+    if (vData)
+    {
+        //std::vector<std::vector<unsigned char>> vtmpData = std::vector<std::vector<unsigned char>>(vData->begin(), vData->end());
+        std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
+        // skip pubkeys. These need to maybe be optional and we need some way to get them out that is easy!
+        // this is for multisig
+        //vPubKeys.push_back(pk1);  // Warning: if add a pubkey here, the Solver function will add it to vSolutions and ExtractDestination might use it to get the spk address (such result might not be expected)
+        //vPubKeys.push_back(pk2);
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION, evalcode, 1, 2, vPubKeys, (*vData));
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
     return(vout);

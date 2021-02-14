@@ -33,6 +33,8 @@
 #include "CCtokens.h"
 #include "CCImportGateway.h"
 #include "CCKogs.h"
+#include "CCBasic1.h"
+
 
 /*
  CCcustom has most of the functions that need to be extended to create a new CC contract.
@@ -287,6 +289,13 @@ uint8_t Tokensv2CCpriv[32] = { 0xb5, 0xba, 0x92, 0x7f, 0x53, 0x45, 0x4f, 0xf8, 0
 #undef FUNCNAME
 #undef EVALCODE
 
+// Basic1
+#define FUNCNAME IsBasic1Input
+#define EVALCODE EVAL_BASIC1
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
 
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
@@ -502,6 +511,11 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
 			memcpy(cp->CCpriv, Tokensv2CCpriv, 32);
 			cp->validate = Tokensv2Validate;
 			cp->ismyvin = IsTokensv2Input;
+			break;
+
+		case EVAL_BASIC1:
+			cp->validate = Basic1Validate;
+			cp->ismyvin = IsBasic1Input;
 			break;
 
         default:

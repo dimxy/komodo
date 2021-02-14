@@ -298,7 +298,8 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
 						othercond1of2tokens = MakeTokensCCcond1of2(cp->evalcode, cp->evalcodeNFT, cp->tokens1of2pk[0], cp->tokens1of2pk[1]);
 					cond = othercond1of2tokens;
 				}
-                else
+                // alway use probes: 
+                // else
                 {
                     flag = 0;
                     if ( pubkeys != NULL_pubkeys )
@@ -328,6 +329,7 @@ UniValue FinalizeCCTxExt(bool remote, uint64_t CCmask, struct CCcontract_info *c
                                 Getscriptaddress(coinaddr, CCPubKey(vectcond));
                                 // std::cerr << __func__ << " destaddr=" << destaddr << " coinaddr=" << coinaddr << std::endl;
                                 if (strcmp(destaddr, coinaddr) == 0) {
+                                    std::cerr << __func__ << " found cc probe: destaddr=" << destaddr << " probeaddr=" << coinaddr << std::endl;
                                     if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
                                         privkey = t.CCpriv;
                                     else

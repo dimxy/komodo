@@ -88,6 +88,10 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,s
         }
     }
     std::vector<uint8_t> vparams(cond->code+1, cond->code+cond->codeLength);
+
+    if (!cc_isAnon(cond) && cond->param)    {
+        this->evalParam = std::vector<uint8_t>(cond->param, cond->param+cond->paramLength);
+    }
     if ( ecode >= EVAL_FIRSTUSER && ecode <= EVAL_LASTUSER )
     {
         if ( ASSETCHAINS_CCLIB.size() > 0 && ASSETCHAINS_CCLIB == CClib_name() )
