@@ -16,6 +16,7 @@
 #include "asn/Condition.h"
 #include "asn/Fulfillment.h"
 #include "asn/EvalFulfillment.h"
+#include "asn/EvalFingerprintContents.h"
 #include "asn/OCTET_STRING.h"
 //#include "../include/cryptoconditions.h"
 #include "internal.h"
@@ -25,10 +26,16 @@
 struct CCType CC_EvalType;
 
 
+/* changed to asn serialised
 static void evalFingerprint(const CC *cond, uint8_t *out) {
     sha256(cond->code, cond->codeLength, out);
+}*/
+static void evalFingerprint(const CC *cond, uint8_t *out) {
+    EvalFingerprintContents_t *fp = calloc(1, sizeof(EvalFingerprintContents_t));
+    OCTET_STRING_fromBuf(&fp->code, cond->code, cond->codeLength);
+    OCTET_STRING_fromBuf(&fp->param, cond->param, cond->paramLength);
+    hashFingerprintContents(&asn_DEF_EvalFingerprintContents, fp, out);
 }
-
 
 static unsigned long evalCost(const CC *cond) {
     return 1048576;  // Pretty high
