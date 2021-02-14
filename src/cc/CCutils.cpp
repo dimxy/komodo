@@ -1833,10 +1833,16 @@ static CValidatorBinding *ParseEvalParam(const vuint8_t &vparam, UniValue &args)
         if (ch == '"')  {  // parse quoted string
             int prevCh = ch;
             ch = ss.get();
-            while(!ss.eof() && !(ch == '"' && prevCh != '\\')) // allow escaped quote char
-                arg += ch, prevCh = ch, ch = ss.get();
-            if (!ss.eof())
+            while(!ss.eof() && !(ch == '"' && prevCh != '\\'))  {   // allow escaped quote char
+                if (ch != '\\' || prevCh == '\\')
+                    arg += ch;   // skip escape
+                prevCh = ch;
+                ch = ss.get();
+            }
+            if (!ss.eof())  {
                 args.push_back(arg);
+                ch = ss.get();  // skip ending quote
+            }
         }
         else if (std::isdigit(ch)) {
             while(!ss.eof() && (std::isdigit(ch) || ch == '.')) // allow decimal point
