@@ -266,6 +266,12 @@ protected:
     //! Select several addresses at once.
     void GetAddr_(std::vector<CAddress> &vAddr);
 
+#ifdef ENABLE_WEBSOCKETS
+    //! Actual function to select several at most N addresses at once.
+    void GetAddrAtMost_(std::vector<CAddress> &vAddr);
+    void GetAddrInfoAll_(std::vector<CAddrInfo> &vAddrInfo);
+#endif
+
     //! Mark an entry as currently-connected-to.
     void Connected_(const CService &addr, int64_t nTime);
 
@@ -631,6 +637,40 @@ public:
         Check();
         return vAddr;
     }
+
+#ifdef ENABLE_WEBSOCKETS
+    //! Return at most N addresses, selected at random.
+    std::vector<CAddress> GetAddrAtMost()
+    {
+        Check();
+        std::vector<CAddress> vAddr;
+        {
+            LOCK(cs);
+            GetAddrAtMost_(vAddr);
+        }
+        Check();
+        return vAddr;
+    }
+
+    //! Return all addrinfo.
+    std::vector<CAddrInfo> GetAddrInfoAll()
+    {
+        Check();
+        std::vector<CAddrInfo> vAddrInfo;
+        {
+            LOCK(cs);
+            GetAddrInfoAll_(vAddrInfo);
+        }
+        Check();
+        return vAddrInfo;
+    }
+    
+    // for debugging: access to addrinfo private member
+    CNetAddr GetSource(CAddrInfo addrInfo)
+    {
+        return addrInfo.source;
+    }
+#endif    
 
     //! Mark an entry as currently-connected-to.
     void Connected(const CService &addr, int64_t nTime = GetTime())

@@ -44,7 +44,7 @@ cat <<EOF
 Usage:
 $0 --help
 Show this help message and exit.
-$0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --enable-proton ] [ --disable-libs ] [ MAKEARGS... ]
+$0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --enable-proton ] [ --disable-libs ] [--enable-websockets] [ MAKEARGS... ]
 Build Zcash and most of its transitive dependencies from
 source. MAKEARGS are applied to both dependencies and Zcash itself.
 If --enable-lcov is passed, Zcash is configured to add coverage
@@ -92,6 +92,14 @@ PROTON_ARG=''
 shift
 fi
 
+# If --enable-websockets is the next argument, enable websockets support for nspv clients:
+WEBSOCKETS_ARG=''
+if [ "x${1:-}" = 'x--enable-websockets' ]
+then
+WEBSOCKETS_ARG='--enable-websockets=yes'
+shift
+fi
+
 eval "$MAKE" --version
 as --version
 ld -v
@@ -99,7 +107,7 @@ ld -v
 HOST="$HOST" BUILD="$BUILD" NO_PROTON="$PROTON_ARG" "$MAKE" "$@" -C ./depends/ V=1
 ./autogen.sh
 
-CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" "$CONFIGURE_FLAGS" CXXFLAGS='-g'
+CONFIG_SITE="$PWD/depends/$HOST/share/config.site" ./configure "$HARDENING_ARG" "$LCOV_ARG" "$TEST_ARG" "$MINING_ARG" "$PROTON_ARG" "$WEBSOCKETS_ARG" "$CONFIGURE_FLAGS" CXXFLAGS='-g'
 
 #BUILD CCLIB
 

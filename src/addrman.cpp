@@ -377,8 +377,10 @@ CAddrInfo CAddrMan::Select_(bool newOnly)
                 nKBucketPos = (nKBucketPos + insecure_rand()) % ADDRMAN_BUCKET_SIZE;
                 if (i++ > kMaxRetries)
                     return CAddrInfo();
-                if (i % kRetriesBetweenSleep == 0 && !nKey.IsNull())
-                    MilliSleep(kRetrySleepInterval);
+                // TODO: decide on this delay, turning it off as it creates 2-3 min addrman locks!
+                // origin: https://github.com/zcash/zcash/issues/997
+                // if (i % kRetriesBetweenSleep == 0 && !nKey.IsNull())  
+                //    MilliSleep(kRetrySleepInterval);
             }
             int nId = vvTried[nKBucket][nKBucketPos];
             assert(mapInfo.count(nId) == 1);
@@ -399,8 +401,10 @@ CAddrInfo CAddrMan::Select_(bool newOnly)
                 nUBucketPos = (nUBucketPos + insecure_rand()) % ADDRMAN_BUCKET_SIZE;
                 if (i++ > kMaxRetries)
                     return CAddrInfo();
-                if (i % kRetriesBetweenSleep == 0 && !nKey.IsNull())
-                    MilliSleep(kRetrySleepInterval);
+                // TODO: decide on this delay, turning it off as it creates 2-3 min addrman locks!
+                // origin: https://github.com/zcash/zcash/issues/997
+                // if (i % kRetriesBetweenSleep == 0 && !nKey.IsNull())
+                //    MilliSleep(kRetrySleepInterval);
             }
             int nId = vvNew[nUBucket][nUBucketPos];
             assert(mapInfo.count(nId) == 1);
@@ -512,6 +516,38 @@ void CAddrMan::GetAddr_(std::vector<CAddress>& vAddr)
             vAddr.push_back(ai);
     }
 }
+
+#ifdef ENABLE_WEBSOCKETS
+// get no more than N addresses for clients (do not use 23% limit assuming there are no many websockets listeners in the net)
+void CAddrMan::GetAddrAtMost_(std::vector<CAddress>& vAddr)
+{
+    unsigned int nNodes = vRandom.size();
+    if (nNodes > 1000)  // actually MAX_ADDR_TO_SEND
+        nNodes = 1000;
+
+    // gather a list of random nodes, skipping those of low quality
+    for (unsigned int n = 0; n < vRandom.size(); n++) {
+        if (vAddr.size() >= nNodes)
+            break;
+
+        int nRndPos = RandomInt(vRandom.size() - n) + n;
+        SwapRandom(n, nRndPos);
+        assert(mapInfo.count(vRandom[n]) == 1);
+
+        const CAddrInfo& ai = mapInfo[vRandom[n]];
+        if (!ai.IsTerrible())
+            vAddr.push_back(ai);
+    }
+}
+
+// get all addrinfo for printing
+void CAddrMan::GetAddrInfoAll_(std::vector<CAddrInfo>& vAddrInfo)
+{
+    for (auto const i : mapInfo) {
+       vAddrInfo.push_back(i.second);
+    }
+}
+#endif
 
 void CAddrMan::Connected_(const CService& addr, int64_t nTime)
 {

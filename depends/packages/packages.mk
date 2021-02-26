@@ -47,8 +47,8 @@ native_packages := native_ccache
 wallet_packages=bdb
 
 ifeq ($(host_os),linux)
-	packages := boost openssl libevent zeromq $(zcash_packages) googletest libcurl #googlemock
+	packages := boost openssl libevent zeromq $(zcash_packages) googletest libcurl websocketspp #googlemock
 else
-	packages := boost openssl libevent zeromq $(zcash_packages) libcurl googletest #googlemock
+	packages := boost openssl libevent zeromq $(zcash_packages) libcurl googletest websocketspp #googlemock
 endif
 

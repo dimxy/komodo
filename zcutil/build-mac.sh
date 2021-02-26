@@ -18,7 +18,7 @@ Usage:
 $0 --help
   Show this help message and exit.
 
-$0 [ --enable-lcov ] [ MAKEARGS... ]
+$0 [ --enable-lcov ] [--enable-websockets] [ MAKEARGS... ]
   Build Zcash and most of its transitive dependencies from
   source. MAKEARGS are applied to both dependencies and Zcash itself. If
   --enable-lcov is passed, Zcash is configured to add coverage
@@ -35,6 +35,14 @@ then
     LCOV_ARG='--enable-lcov'
     HARDENING_ARG='--disable-hardening'
     shift
+fi
+
+# If --enable-websockets is the next argument, enable websockets support for nspv clients:
+WEBSOCKETS_ARG=''
+if [ "x${1:-}" = 'x--enable-websockets' ]
+then
+WEBSOCKETS_ARG='--enable-websockets=yes'
+shift
 fi
 
 TRIPLET=`./depends/config.guess`
@@ -60,6 +68,6 @@ cd $WD
 ./autogen.sh
 CPPFLAGS="-I$PREFIX/include -arch x86_64" LDFLAGS="-L$PREFIX/lib -arch x86_64 -Wl,-no_pie" \
 CXXFLAGS='-arch x86_64 -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/ -I$PREFIX/include -fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -g -Wl,-undefined -Wl,dynamic_lookup' \
-./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG"
+./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" "$WEBSOCKETS_ARG"
 
 make "$@" V=1 NO_GTEST=1 STATIC=1

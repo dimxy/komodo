@@ -7498,6 +7498,10 @@ void static ProcessGetData(CNode* pfrom)
     }
 }
 
+#ifdef ENABLE_WEBSOCKETS
+bool ProcessWsMessage(CNode* pfrom, std::string strCommand, CDataStream& vRecv, int64_t nTimeReceived);
+#endif
+
 #include "komodo_nSPV_defs.h"
 #include "komodo_nSPV.h"            // shared defines, structs, serdes, purge functions
 #include "komodo_nSPV_fullnode.h"   // nSPV fullnode handling of the getnSPV request messages
@@ -8594,7 +8598,13 @@ bool ProcessMessages(CNode* pfrom)
         bool fRet = false;
         try
         {
-            fRet = ProcessMessage(pfrom, strCommand, vRecv, msg.nTime);
+#ifdef ENABLE_WEBSOCKETS
+            if (pfrom->hSocket != INVALID_SOCKET || !(fRet = ProcessWsMessage(pfrom, strCommand, vRecv, msg.nTime))) {
+#endif
+                fRet = ProcessMessage(pfrom, strCommand, vRecv, msg.nTime);
+#ifdef ENABLE_WEBSOCKETS
+            }
+#endif
             boost::this_thread::interruption_point();
         }
         catch (const std::ios_base::failure& e)

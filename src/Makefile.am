@@ -270,6 +270,9 @@ BITCOIN_CORE_H = \
   zmq/zmqnotificationinterface.h \
   zmq/zmqpublishnotifier.h
 
+if ENABLE_WEBSOCKETS
+  BITCOIN_CORE_H += komodo_websockets.h
+endif
 
 obj/build.h: FORCE
 	@$(MKDIR_P) $(builddir)/obj
@@ -367,6 +370,10 @@ libbitcoin_server_a_SOURCES = \
   validationinterface.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
+
+if ENABLE_WEBSOCKETS
+  libbitcoin_server_a_SOURCES += komodo_websockets.cpp
+endif
 
 if ENABLE_ZMQ
 libbitcoin_zmq_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(ZMQ_CFLAGS)
