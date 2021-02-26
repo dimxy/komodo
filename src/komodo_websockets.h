@@ -17,7 +17,7 @@
 #include <websocketpp/client.hpp>
 #include <websocketpp/endpoint.hpp>
 #include <websocketpp/connection.hpp>
-#include <websocketpp/extensions/permessage_deflate/enabled.hpp>
+//#include <websocketpp/extensions/permessage_deflate/enabled.hpp>
 
 static const int WSADDR_VERSION = 170008;
 
@@ -30,10 +30,10 @@ struct wsserver_mt_config : public websocketpp::config::asio {
     };
         
     /// permessage_compress extension
-    struct permessage_deflate_config {};
+    //struct permessage_deflate_config {};
 
-    typedef websocketpp::extensions::permessage_deflate::enabled
-        <permessage_deflate_config> permessage_deflate_type;
+    //typedef websocketpp::extensions::permessage_deflate::enabled
+    //    <permessage_deflate_config> permessage_deflate_type;
 };
 
 //typedef websocketpp::endpoint<websocketpp::connection<websocketpp::config>, websocketpp::config> wsendpoint;
