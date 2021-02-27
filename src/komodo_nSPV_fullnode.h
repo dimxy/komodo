@@ -33,7 +33,10 @@ static std::map<std::string,bool> nspv_remote_commands =  {
 {"pegsinfo", true},
     // tokens:
     { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokencancelask", true }, { "tokencancelbid", true }, 
-    { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false }
+    { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false },
+    // faucet
+    { "addfaucetinputs", true }, { "faucetfund", true }, { "faucet", true },{ "tokencreate", false }
+
 };
 
 struct NSPV_ntzargs
