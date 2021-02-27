@@ -28,5 +28,7 @@ bool FaucetValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx
 UniValue FaucetFund(const CPubKey& mypk,uint64_t txfee,int64_t funds);
 UniValue FaucetGet(const CPubKey& mypk,uint64_t txfee);
 UniValue FaucetInfo();
+int64_t AddFaucetInputs(struct CCcontract_info *cp,CMutableTransaction &mtx,CPubKey pk,int64_t total,int32_t maxinputs);
+
 
 #endif
