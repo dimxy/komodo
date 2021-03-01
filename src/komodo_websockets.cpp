@@ -644,7 +644,7 @@ class CWebSocketServer : public CWsEndpointWrapper {
 public:
     bool init() {
 
-        LogPrintf("starting websocket listener...\n");
+        LogPrintf("Starting websockets listener\n");
 
         try {
 

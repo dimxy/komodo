@@ -90,6 +90,10 @@
 
 #include "librustzcash.h"
 
+#ifdef ENABLE_WEBSOCKETS
+#include "komodo_websockets.h"
+#endif
+
 using namespace std;
 
 #include "komodo_defs.h"
@@ -234,6 +238,9 @@ void Shutdown()
     StopREST();
     StopRPC();
     StopHTTPServer();
+#ifdef ENABLE_WEBSOCKETS
+    StopWebSockets();
+#endif
 #ifdef ENABLE_WALLET
     if (pwalletMain)
         pwalletMain->Flush(false);
@@ -917,6 +924,10 @@ bool AppInitServers(boost::thread_group& threadGroup)
         return false;
     if (!StartHTTPServer())
         return false;
+#ifdef ENABLE_WEBSOCKETS
+    if (!StartWebSockets(threadGroup))
+        return false;
+#endif
     return true;
 }
 
@@ -1618,6 +1629,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         pcoinsTip = new CCoinsViewCache(pcoinscatcher);
         InitBlockIndex();
         SetRPCWarmupFinished();
+#ifdef ENABLE_WEBSOCKETS
+        SetWebSocketsWarmupFinished();
+#endif
         uiInterface.InitMessage(_("Done loading"));
         if ( KOMODO_DEX_P2P != 0 )
         {
