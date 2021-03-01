@@ -7142,6 +7142,14 @@ UniValue faucetaddccinputs(const UniValue& params, bool fHelp, const CPubKey& re
     if (added < amount)
         throw runtime_error("could not find normal inputs");
 
+    for (auto const & vin : mtx.vin)    {
+        CTransaction tx;
+        uint256 hashBlock;
+        if (myGetTransaction(vin.prevout.hash, tx, hashBlock))
+            vintxns.push_back(tx);
+    }
+
+
     UniValue result (UniValue::VOBJ);
     UniValue array (UniValue::VARR);
 
