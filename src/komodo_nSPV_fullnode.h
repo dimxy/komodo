@@ -35,8 +35,7 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokencancelask", true }, { "tokencancelbid", true }, 
     { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false },
     // faucet
-    { "addfaucetinputs", true }, { "faucetfund", true }, { "faucet", true },{ "tokencreate", false }
-
+    { "addfaucetinputs", true }, { "faucetfund", true }, { "faucetget", true },
 };
 
 struct NSPV_ntzargs
@@ -694,6 +693,8 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp *ptr,char *json,int n)
         {
             rpc_result = JSONRPCReplyObj(result, NullUniValue, jreq.id);
             response=rpc_result.write();
+            ptr->json = (char*)malloc(response.size()); // allocate response buf
+            memcpy(ptr->json, response.c_str(), response.size());
             memcpy(ptr->json,response.c_str(),response.size());
             len+=response.size();
             return (len);
@@ -878,364 +879,379 @@ int32_t NSPV_getspentinfo(struct NSPV_spentinfo *ptr,uint256 txid,int32_t vout)
 
 void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a request
 {
-    int32_t len,slen,ind,reqheight,n; std::vector<uint8_t> response; uint32_t timestamp = (uint32_t)time(NULL);
-    if ( (len= request.size()) > 0 )
+    int32_t len,slen,ind,reqheight,n; std::vector<uint8_t> response; 
+    uint32_t timestamp = (uint32_t)time(NULL);
+
+    if ((len = request.size()) == 0)    {
+        LogPrint("nspv", "bad request length from peer %d\n", pfrom->id);
+        return;
+    }
+    
+    if ((ind = request[0]>>1) >= sizeof(pfrom->prevtimes)/sizeof(*pfrom->prevtimes))
+        ind = (int32_t)(sizeof(pfrom->prevtimes)/sizeof(*pfrom->prevtimes)) - 1;
+    if (pfrom->prevtimes[ind] > timestamp)
+        pfrom->prevtimes[ind] = 0;
+
+    if (timestamp <= pfrom->prevtimes[ind]) {
+        LogPrint("nspv", "bad timestamp for request type %d from peer %d\n", request[0], pfrom->id);
+        return;
+    }
+
+    if ( request[0] == NSPV_INFO ) // info
     {
-        if ( (ind= request[0]>>1) >= sizeof(pfrom->prevtimes)/sizeof(*pfrom->prevtimes) )
-            ind = (int32_t)(sizeof(pfrom->prevtimes)/sizeof(*pfrom->prevtimes)) - 1;
-        if ( pfrom->prevtimes[ind] > timestamp )
-            pfrom->prevtimes[ind] = 0;
-        if ( request[0] == NSPV_INFO ) // info
+        //fprintf(stderr,"check info %u vs %u, ind.%d\n",timestamp,pfrom->prevtimes[ind],ind);
+        struct NSPV_inforesp I;
+        if ( len == 1+sizeof(reqheight) )
+            iguana_rwnum(0,&request[1],sizeof(reqheight),&reqheight);
+        else reqheight = 0;
+        //fprintf(stderr,"request height.%d\n",reqheight);
+        memset(&I,0,sizeof(I));
+        if ( (slen= NSPV_getinfo(&I,reqheight)) > 0 )
         {
-            //fprintf(stderr,"check info %u vs %u, ind.%d\n",timestamp,pfrom->prevtimes[ind],ind);
-            if ( timestamp > pfrom->prevtimes[ind] )
+            response.resize(1 + slen);
+            response[0] = NSPV_INFORESP;
+            //fprintf(stderr,"slen.%d version.%d\n",slen,I.version);
+            if ( NSPV_rwinforesp(1,&response[1],&I) == slen )
             {
-                struct NSPV_inforesp I;
-                if ( len == 1+sizeof(reqheight) )
-                    iguana_rwnum(0,&request[1],sizeof(reqheight),&reqheight);
-                else reqheight = 0;
-                //fprintf(stderr,"request height.%d\n",reqheight);
-                memset(&I,0,sizeof(I));
-                if ( (slen= NSPV_getinfo(&I,reqheight)) > 0 )
+                //fprintf(stderr,"send info resp to id %d\n",(int32_t)pfrom->id);
+                pfrom->PushMessage("nSPV",response);
+                pfrom->prevtimes[ind] = timestamp;
+            }
+            NSPV_inforesp_purge(&I);
+        } else {
+            LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
+        }
+    }
+    else if ( request[0] == NSPV_UTXOS )
+    {
+        //fprintf(stderr,"utxos: %u > %u, ind.%d, len.%d\n",timestamp,pfrom->prevtimes[ind],ind,len);
+        struct NSPV_utxosresp U;
+        if ( len < 64+5 && (request[1] == len-3 || request[1] == len-7 || request[1] == len-11) )
+        {
+            int32_t skipcount = 0; char coinaddr[64]; uint8_t filter; uint8_t isCC = 0;
+            memcpy(coinaddr,&request[2],request[1]);
+            coinaddr[request[1]] = 0;
+            if ( request[1] == len-3 )
+                isCC = (request[len-1] != 0);
+            else if ( request[1] == len-7 )
+            {
+                isCC = (request[len-5] != 0);
+                iguana_rwnum(0,&request[len-4],sizeof(skipcount),&skipcount);
+            }
+            else
+            {
+                isCC = (request[len-9] != 0);
+                iguana_rwnum(0,&request[len-8],sizeof(skipcount),&skipcount);
+                iguana_rwnum(0,&request[len-4],sizeof(filter),&filter);
+            }
+            if ( 0 && isCC != 0 )
+                fprintf(stderr,"utxos %s isCC.%d skipcount.%d filter.%x\n",coinaddr,isCC,skipcount,filter);
+            memset(&U,0,sizeof(U));
+            if ( (slen= NSPV_getaddressutxos(&U,coinaddr,isCC,skipcount,filter)) > 0 )
+            {
+                response.resize(1 + slen);
+                response[0] = NSPV_UTXOSRESP;
+                if ( NSPV_rwutxosresp(1,&response[1],&U) == slen )
                 {
+                    pfrom->PushMessage("nSPV",response);
+                    pfrom->prevtimes[ind] = timestamp;
+                }
+                NSPV_utxosresp_purge(&U);
+            }
+        } else {
+            LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
+        }
+    }
+    else if ( request[0] == NSPV_TXIDS )
+    {
+        
+        struct NSPV_txidsresp T;
+        if ( len < 64+5 && (request[1] == len-3 || request[1] == len-7 || request[1] == len-11) )
+        {
+            int32_t skipcount = 0; char coinaddr[64]; uint32_t filter; uint8_t isCC = 0;
+            memcpy(coinaddr,&request[2],request[1]);
+            coinaddr[request[1]] = 0;
+            if ( request[1] == len-3 )
+                isCC = (request[len-1] != 0);
+            else if ( request[1] == len-7 )
+            {
+                isCC = (request[len-5] != 0);
+                iguana_rwnum(0,&request[len-4],sizeof(skipcount),&skipcount);
+            }
+            else
+            {
+                isCC = (request[len-9] != 0);
+                iguana_rwnum(0,&request[len-8],sizeof(skipcount),&skipcount);
+                iguana_rwnum(0,&request[len-4],sizeof(filter),&filter);
+            }
+            if ( 0 && isCC != 0 )
+                fprintf(stderr,"txids %s isCC.%d skipcount.%d filter.%d\n",coinaddr,isCC,skipcount,filter);
+            memset(&T,0,sizeof(T));
+            if ( (slen= NSPV_getaddresstxids(&T,coinaddr,isCC,skipcount,filter)) > 0 )
+            {
+//fprintf(stderr,"slen.%d\n",slen);
+                response.resize(1 + slen);
+                response[0] = NSPV_TXIDSRESP;
+                if ( NSPV_rwtxidsresp(1,&response[1],&T) == slen )
+                {
+                    pfrom->PushMessage("nSPV",response);
+                    pfrom->prevtimes[ind] = timestamp;
+                }
+                NSPV_txidsresp_purge(&T);
+            }
+        } else {
+            fprintf(stderr,"len.%d req1.%d\n",len,request[1]);
+            LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
+        }
+    }
+    else if ( request[0] == NSPV_MEMPOOL )
+    {
+        struct NSPV_mempoolresp M; char coinaddr[64];
+        if ( len < sizeof(M)+64 )
+        {
+            int32_t vout; uint256 txid; uint8_t funcid,isCC = 0;
+            n = 1;
+            n += iguana_rwnum(0,&request[n],sizeof(isCC),&isCC);
+            n += iguana_rwnum(0,&request[n],sizeof(funcid),&funcid);
+            n += iguana_rwnum(0,&request[n],sizeof(vout),&vout);
+            n += iguana_rwbignum(0,&request[n],sizeof(txid),(uint8_t *)&txid);
+            slen = request[n++];
+            if ( slen < 63 )
+            {
+                memcpy(coinaddr,&request[n],slen), n += slen;
+                coinaddr[slen] = 0;
+                if ( isCC != 0 )
+                    fprintf(stderr,"(%s) isCC.%d funcid.%d %s/v%d len.%d slen.%d\n",coinaddr,isCC,funcid,txid.GetHex().c_str(),vout,len,slen);
+                memset(&M,0,sizeof(M));
+                if ( (slen= NSPV_mempooltxids(&M,coinaddr,isCC,funcid,txid,vout)) > 0 )
+                {
+                    //fprintf(stderr,"NSPV_mempooltxids slen.%d\n",slen);
                     response.resize(1 + slen);
-                    response[0] = NSPV_INFORESP;
-                    //fprintf(stderr,"slen.%d version.%d\n",slen,I.version);
-                    if ( NSPV_rwinforesp(1,&response[1],&I) == slen )
+                    response[0] = NSPV_MEMPOOLRESP;
+                    if ( NSPV_rwmempoolresp(1,&response[1],&M) == slen )
                     {
-                        //fprintf(stderr,"send info resp to id %d\n",(int32_t)pfrom->id);
                         pfrom->PushMessage("nSPV",response);
                         pfrom->prevtimes[ind] = timestamp;
                     }
-                    NSPV_inforesp_purge(&I);
+                    NSPV_mempoolresp_purge(&M);
                 }
             }
+        } else {
+            fprintf(stderr,"len.%d req1.%d\n",len,request[1]);
+            LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
         }
-        else if ( request[0] == NSPV_UTXOS )
+    }
+    else if ( request[0] == NSPV_NTZS )
+    {
+        struct NSPV_ntzsresp N; int32_t height;
+        if ( len == 1+sizeof(height) )
         {
-            //fprintf(stderr,"utxos: %u > %u, ind.%d, len.%d\n",timestamp,pfrom->prevtimes[ind],ind,len);
-            if ( timestamp > pfrom->prevtimes[ind] )
+            iguana_rwnum(0,&request[1],sizeof(height),&height);
+            memset(&N,0,sizeof(N));
+            if ( (slen= NSPV_getntzsresp(&N,height)) > 0 )
             {
-                struct NSPV_utxosresp U;
-                if ( len < 64+5 && (request[1] == len-3 || request[1] == len-7 || request[1] == len-11) )
+                response.resize(1 + slen);
+                response[0] = NSPV_NTZSRESP;
+                if ( NSPV_rwntzsresp(1,&response[1],&N) == slen )
                 {
-                    int32_t skipcount = 0; char coinaddr[64]; uint8_t filter; uint8_t isCC = 0;
-                    memcpy(coinaddr,&request[2],request[1]);
-                    coinaddr[request[1]] = 0;
-                    if ( request[1] == len-3 )
-                        isCC = (request[len-1] != 0);
-                    else if ( request[1] == len-7 )
+                    pfrom->PushMessage("nSPV",response);
+                    pfrom->prevtimes[ind] = timestamp;
+                }
+                NSPV_ntzsresp_purge(&N);
+            }
+        } else {
+            LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
+        }
+    }
+    else if ( request[0] == NSPV_NTZSPROOF )
+    {
+        struct NSPV_ntzsproofresp P; uint256 prevntz,nextntz;
+        if ( len == 1+sizeof(prevntz)+sizeof(nextntz) )
+        {
+            iguana_rwbignum(0,&request[1],sizeof(prevntz),(uint8_t *)&prevntz);
+            iguana_rwbignum(0,&request[1+sizeof(prevntz)],sizeof(nextntz),(uint8_t *)&nextntz);
+            memset(&P,0,sizeof(P));
+            if ( (slen= NSPV_getntzsproofresp(&P,prevntz,nextntz)) > 0 )
+            {
+                // fprintf(stderr,"slen.%d msg prev.%s next.%s\n",slen,prevntz.GetHex().c_str(),nextntz.GetHex().c_str());
+                response.resize(1 + slen);
+                response[0] = NSPV_NTZSPROOFRESP;
+                if ( NSPV_rwntzsproofresp(1,&response[1],&P) == slen )
+                {
+                    pfrom->PushMessage("nSPV",response);
+                    pfrom->prevtimes[ind] = timestamp;
+                }
+                NSPV_ntzsproofresp_purge(&P);
+            } else fprintf(stderr,"err.%d\n",slen);
+        } else {
+            LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
+        }
+
+    }
+    else if ( request[0] == NSPV_TXPROOF )
+    {
+        struct NSPV_txproof P; uint256 txid; int32_t height,vout;
+        if ( len == 1+sizeof(txid)+sizeof(height)+sizeof(vout) )
+        {
+            iguana_rwnum(0,&request[1],sizeof(height),&height);
+            iguana_rwnum(0,&request[1+sizeof(height)],sizeof(vout),&vout);
+            iguana_rwbignum(0,&request[1+sizeof(height)+sizeof(vout)],sizeof(txid),(uint8_t *)&txid);
+            //fprintf(stderr,"got txid %s/v%d ht.%d\n",txid.GetHex().c_str(),vout,height);
+            memset(&P,0,sizeof(P));
+            if ( (slen= NSPV_gettxproof(&P,vout,txid,height)) > 0 )
+            {
+                //fprintf(stderr,"slen.%d\n",slen);
+                response.resize(1 + slen);
+                response[0] = NSPV_TXPROOFRESP;
+                if ( NSPV_rwtxproof(1,&response[1],&P) == slen )
+                {
+                    //fprintf(stderr,"send response\n");
+                    pfrom->PushMessage("nSPV",response);
+                    pfrom->prevtimes[ind] = timestamp;
+                }
+                NSPV_txproof_purge(&P);
+            } else fprintf(stderr,"gettxproof error.%d\n",slen);
+        } else {
+            fprintf(stderr,"txproof reqlen.%d\n",len);
+            LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
+        }
+    }
+    else if ( request[0] == NSPV_SPENTINFO )
+    {
+        struct NSPV_spentinfo S; int32_t vout; uint256 txid;
+        if ( len == 1+sizeof(txid)+sizeof(vout) )
+        {
+            iguana_rwnum(0,&request[1],sizeof(vout),&vout);
+            iguana_rwbignum(0,&request[1+sizeof(vout)],sizeof(txid),(uint8_t *)&txid);
+            memset(&S,0,sizeof(S));
+            if ( (slen= NSPV_getspentinfo(&S,txid,vout)) > 0 )
+            {
+                response.resize(1 + slen);
+                response[0] = NSPV_SPENTINFORESP;
+                if ( NSPV_rwspentinfo(1,&response[1],&S) == slen )
+                {
+                    pfrom->PushMessage("nSPV",response);
+                    pfrom->prevtimes[ind] = timestamp;
+                }
+                NSPV_spentinfo_purge(&S);
+            }
+        }  else {
+            LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
+        }
+    }
+    else if ( request[0] == NSPV_BROADCAST )
+    {
+        struct NSPV_broadcastresp B; uint32_t n,offset; uint256 txid;
+        if ( len > 1+sizeof(txid)+sizeof(n) )
+        {
+            iguana_rwbignum(0,&request[1],sizeof(txid),(uint8_t *)&txid);
+            iguana_rwnum(0,&request[1+sizeof(txid)],sizeof(n),&n);
+            memset(&B,0,sizeof(B));
+            offset = 1 + sizeof(txid) + sizeof(n);
+            if ( n < MAX_TX_SIZE_AFTER_SAPLING && request.size() == offset+n && (slen= NSPV_sendrawtransaction(&B,&request[offset],n)) > 0 )
+            {
+                response.resize(1 + slen);
+                response[0] = NSPV_BROADCASTRESP;
+                if ( NSPV_rwbroadcastresp(1,&response[1],&B) == slen )
+                {
+                    pfrom->PushMessage("nSPV",response);
+                    pfrom->prevtimes[ind] = timestamp;
+                }
+                NSPV_broadcast_purge(&B);
+            }
+        } else {
+            LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
+        }
+    }
+    else if ( request[0] == NSPV_REMOTERPC )
+    {
+        struct NSPV_remoterpcresp R; 
+        int32_t p;
+        p = 1;
+        p+=iguana_rwnum(0,&request[p],sizeof(slen),&slen);
+        memset(&R,0,sizeof(R));
+        if (request.size() == p+slen && (slen=NSPV_remoterpc(&R,(char *)&request[p],slen))>0 )
+        {
+            response.resize(1 + slen);
+            response[0] = NSPV_REMOTERPCRESP;
+            NSPV_rwremoterpcresp(1,&response[1],&R,slen);
+            pfrom->PushMessage("nSPV", response);
+            pfrom->prevtimes[ind] = timestamp;
+            LogPrint("nspv", "pushed NSPV_REMOTERPCRESP response method %s to peer %d\n", R.method, pfrom->id);
+            std::cerr << __func__ << " NSPV_REMOTERPCRESP response details: json=" << R.json << " peer=" << pfrom->id << std::endl;
+
+            NSPV_remoterpc_purge(&R);
+        }                
+        else {
+            LogPrint("nspv", "could not parse request type %d from peer %d\n", request[0], pfrom->id);
+        }
+    }
+    else if (request[0] == NSPV_CCMODULEUTXOS)  // get cc module utxos from coinaddr for the requested amount, evalcode, funcid list and txid
+    {
+        //fprintf(stderr,"utxos: %u > %u, ind.%d, len.%d\n",timestamp,pfrom->prevtimes[ind],ind,len);
+        struct NSPV_utxosresp U;
+        char coinaddr[64];
+        int64_t amount;
+        uint8_t evalcode;
+        char funcids[27];
+        uint256 filtertxid;
+        bool errorFormat = false;
+        const int32_t BITCOINADDRESSMINLEN = 20;
+
+        int32_t minreqlen = sizeof(uint8_t) + sizeof(uint8_t) + BITCOINADDRESSMINLEN + sizeof(amount) + sizeof(evalcode) + sizeof(uint8_t) + sizeof(filtertxid);
+        int32_t maxreqlen = sizeof(uint8_t) + sizeof(uint8_t) + sizeof(coinaddr)-1 + sizeof(amount) + sizeof(evalcode) + sizeof(uint8_t) + sizeof(funcids)-1 + sizeof(filtertxid);
+
+        if (len >= minreqlen && len <= maxreqlen)
+        {
+            n = 1;
+            int32_t addrlen = request[n++];
+            if (addrlen < sizeof(coinaddr))
+            {
+                memcpy(coinaddr, &request[n], addrlen);
+                coinaddr[addrlen] = 0;
+                n += addrlen;
+                iguana_rwnum(0, &request[n], sizeof(amount), &amount);
+                n += sizeof(amount);
+                iguana_rwnum(0, &request[n], sizeof(evalcode), &evalcode);
+                n += sizeof(evalcode);
+
+                int32_t funcidslen = request[n++];
+                if (funcidslen < sizeof(funcids))
+                {
+                    memcpy(funcids, &request[n], funcidslen);
+                    funcids[funcidslen] = 0;
+                    n += funcidslen;
+                    iguana_rwbignum(0, &request[n], sizeof(filtertxid), (uint8_t *)&filtertxid);
+                    std::cerr << __func__ << " " << "request addr=" << coinaddr << " amount=" << amount << " evalcode=" << (int)evalcode << " funcids=" << funcids << " filtertxid=" << filtertxid.GetHex() << std::endl;
+
+                    memset(&U, 0, sizeof(U));
+                    if ((slen = NSPV_getccmoduleutxos(&U, coinaddr, amount, evalcode, funcids, filtertxid)) > 0)
                     {
-                        isCC = (request[len-5] != 0);
-                        iguana_rwnum(0,&request[len-4],sizeof(skipcount),&skipcount);
-                    }
-                    else
-                    {
-                        isCC = (request[len-9] != 0);
-                        iguana_rwnum(0,&request[len-8],sizeof(skipcount),&skipcount);
-                        iguana_rwnum(0,&request[len-4],sizeof(filter),&filter);
-                    }
-                    if ( 0 && isCC != 0 )
-                        fprintf(stderr,"utxos %s isCC.%d skipcount.%d filter.%x\n",coinaddr,isCC,skipcount,filter);
-                    memset(&U,0,sizeof(U));
-                    if ( (slen= NSPV_getaddressutxos(&U,coinaddr,isCC,skipcount,filter)) > 0 )
-                    {
+                        std::cerr << __func__ << " " << "created utxos, slen=" << slen << std::endl;
                         response.resize(1 + slen);
-                        response[0] = NSPV_UTXOSRESP;
-                        if ( NSPV_rwutxosresp(1,&response[1],&U) == slen )
+                        response[0] = NSPV_CCMODULEUTXOSRESP;
+                        if (NSPV_rwutxosresp(1, &response[1], &U) == slen)
                         {
-                            pfrom->PushMessage("nSPV",response);
+                            pfrom->PushMessage("nSPV", response);
                             pfrom->prevtimes[ind] = timestamp;
+                            std::cerr << __func__ << " " << "returned nSPV response" << std::endl;
                         }
                         NSPV_utxosresp_purge(&U);
                     }
-                }
-            }
-        }
-        else if ( request[0] == NSPV_TXIDS )
-        {
-            if ( timestamp > pfrom->prevtimes[ind] )
-            {
-                struct NSPV_txidsresp T;
-                if ( len < 64+5 && (request[1] == len-3 || request[1] == len-7 || request[1] == len-11) )
-                {
-                    int32_t skipcount = 0; char coinaddr[64]; uint32_t filter; uint8_t isCC = 0;
-                    memcpy(coinaddr,&request[2],request[1]);
-                    coinaddr[request[1]] = 0;
-                    if ( request[1] == len-3 )
-                        isCC = (request[len-1] != 0);
-                    else if ( request[1] == len-7 )
-                    {
-                        isCC = (request[len-5] != 0);
-                        iguana_rwnum(0,&request[len-4],sizeof(skipcount),&skipcount);
-                    }
                     else
-                    {
-                        isCC = (request[len-9] != 0);
-                        iguana_rwnum(0,&request[len-8],sizeof(skipcount),&skipcount);
-                        iguana_rwnum(0,&request[len-4],sizeof(filter),&filter);
-                    }
-                    if ( 0 && isCC != 0 )
-                        fprintf(stderr,"txids %s isCC.%d skipcount.%d filter.%d\n",coinaddr,isCC,skipcount,filter);
-                    memset(&T,0,sizeof(T));
-                    if ( (slen= NSPV_getaddresstxids(&T,coinaddr,isCC,skipcount,filter)) > 0 )
-                    {
-//fprintf(stderr,"slen.%d\n",slen);
-                        response.resize(1 + slen);
-                        response[0] = NSPV_TXIDSRESP;
-                        if ( NSPV_rwtxidsresp(1,&response[1],&T) == slen )
-                        {
-                            pfrom->PushMessage("nSPV",response);
-                            pfrom->prevtimes[ind] = timestamp;
-                        }
-                        NSPV_txidsresp_purge(&T);
-                    }
-                } else fprintf(stderr,"len.%d req1.%d\n",len,request[1]);
-            }
-        }
-        else if ( request[0] == NSPV_MEMPOOL )
-        {
-            if ( timestamp > pfrom->prevtimes[ind] )
-            {
-                struct NSPV_mempoolresp M; char coinaddr[64];
-                if ( len < sizeof(M)+64 )
-                {
-                    int32_t vout; uint256 txid; uint8_t funcid,isCC = 0;
-                    n = 1;
-                    n += iguana_rwnum(0,&request[n],sizeof(isCC),&isCC);
-                    n += iguana_rwnum(0,&request[n],sizeof(funcid),&funcid);
-                    n += iguana_rwnum(0,&request[n],sizeof(vout),&vout);
-                    n += iguana_rwbignum(0,&request[n],sizeof(txid),(uint8_t *)&txid);
-                    slen = request[n++];
-                    if ( slen < 63 )
-                    {
-                        memcpy(coinaddr,&request[n],slen), n += slen;
-                        coinaddr[slen] = 0;
-                        if ( isCC != 0 )
-                            fprintf(stderr,"(%s) isCC.%d funcid.%d %s/v%d len.%d slen.%d\n",coinaddr,isCC,funcid,txid.GetHex().c_str(),vout,len,slen);
-                        memset(&M,0,sizeof(M));
-                        if ( (slen= NSPV_mempooltxids(&M,coinaddr,isCC,funcid,txid,vout)) > 0 )
-                        {
-                            //fprintf(stderr,"NSPV_mempooltxids slen.%d\n",slen);
-                            response.resize(1 + slen);
-                            response[0] = NSPV_MEMPOOLRESP;
-                            if ( NSPV_rwmempoolresp(1,&response[1],&M) == slen )
-                            {
-                                pfrom->PushMessage("nSPV",response);
-                                pfrom->prevtimes[ind] = timestamp;
-                            }
-                            NSPV_mempoolresp_purge(&M);
-                        }
-                    }
-                } else fprintf(stderr,"len.%d req1.%d\n",len,request[1]);
-            }
-        }
-        else if ( request[0] == NSPV_NTZS )
-        {
-            if ( timestamp > pfrom->prevtimes[ind] )
-            {
-                struct NSPV_ntzsresp N; int32_t height;
-                if ( len == 1+sizeof(height) )
-                {
-                    iguana_rwnum(0,&request[1],sizeof(height),&height);
-                    memset(&N,0,sizeof(N));
-                    if ( (slen= NSPV_getntzsresp(&N,height)) > 0 )
-                    {
-                        response.resize(1 + slen);
-                        response[0] = NSPV_NTZSRESP;
-                        if ( NSPV_rwntzsresp(1,&response[1],&N) == slen )
-                        {
-                            pfrom->PushMessage("nSPV",response);
-                            pfrom->prevtimes[ind] = timestamp;
-                        }
-                        NSPV_ntzsresp_purge(&N);
-                    }
+                        LogPrint("nspv", "could not get data for request type %d from peer %d (slen == 0)\n", request[0], pfrom->id);
                 }
+                else
+                    LogPrint("nspv", "could not parse request type %d from peer %d (invalid funcids)\n", request[0], pfrom->id);
             }
-        }
-        else if ( request[0] == NSPV_NTZSPROOF )
-        {
-            if ( timestamp > pfrom->prevtimes[ind] )
-            {
-                struct NSPV_ntzsproofresp P; uint256 prevntz,nextntz;
-                if ( len == 1+sizeof(prevntz)+sizeof(nextntz) )
-                {
-                    iguana_rwbignum(0,&request[1],sizeof(prevntz),(uint8_t *)&prevntz);
-                    iguana_rwbignum(0,&request[1+sizeof(prevntz)],sizeof(nextntz),(uint8_t *)&nextntz);
-                    memset(&P,0,sizeof(P));
-                    if ( (slen= NSPV_getntzsproofresp(&P,prevntz,nextntz)) > 0 )
-                    {
-                        // fprintf(stderr,"slen.%d msg prev.%s next.%s\n",slen,prevntz.GetHex().c_str(),nextntz.GetHex().c_str());
-                        response.resize(1 + slen);
-                        response[0] = NSPV_NTZSPROOFRESP;
-                        if ( NSPV_rwntzsproofresp(1,&response[1],&P) == slen )
-                        {
-                            pfrom->PushMessage("nSPV",response);
-                            pfrom->prevtimes[ind] = timestamp;
-                        }
-                        NSPV_ntzsproofresp_purge(&P);
-                    } else fprintf(stderr,"err.%d\n",slen);
-                }
-            }
-        }
-        else if ( request[0] == NSPV_TXPROOF )
-        {
-            if ( timestamp > pfrom->prevtimes[ind] )
-            {
-                struct NSPV_txproof P; uint256 txid; int32_t height,vout;
-                if ( len == 1+sizeof(txid)+sizeof(height)+sizeof(vout) )
-                {
-                    iguana_rwnum(0,&request[1],sizeof(height),&height);
-                    iguana_rwnum(0,&request[1+sizeof(height)],sizeof(vout),&vout);
-                    iguana_rwbignum(0,&request[1+sizeof(height)+sizeof(vout)],sizeof(txid),(uint8_t *)&txid);
-                    //fprintf(stderr,"got txid %s/v%d ht.%d\n",txid.GetHex().c_str(),vout,height);
-                    memset(&P,0,sizeof(P));
-                    if ( (slen= NSPV_gettxproof(&P,vout,txid,height)) > 0 )
-                    {
-                        //fprintf(stderr,"slen.%d\n",slen);
-                        response.resize(1 + slen);
-                        response[0] = NSPV_TXPROOFRESP;
-                        if ( NSPV_rwtxproof(1,&response[1],&P) == slen )
-                        {
-                            //fprintf(stderr,"send response\n");
-                            pfrom->PushMessage("nSPV",response);
-                            pfrom->prevtimes[ind] = timestamp;
-                        }
-                        NSPV_txproof_purge(&P);
-                    } else fprintf(stderr,"gettxproof error.%d\n",slen);
-                } else fprintf(stderr,"txproof reqlen.%d\n",len);
-            }
-        }
-        else if ( request[0] == NSPV_SPENTINFO )
-        {
-            if ( timestamp > pfrom->prevtimes[ind] )
-            {
-                struct NSPV_spentinfo S; int32_t vout; uint256 txid;
-                if ( len == 1+sizeof(txid)+sizeof(vout) )
-                {
-                    iguana_rwnum(0,&request[1],sizeof(vout),&vout);
-                    iguana_rwbignum(0,&request[1+sizeof(vout)],sizeof(txid),(uint8_t *)&txid);
-                    memset(&S,0,sizeof(S));
-                    if ( (slen= NSPV_getspentinfo(&S,txid,vout)) > 0 )
-                    {
-                        response.resize(1 + slen);
-                        response[0] = NSPV_SPENTINFORESP;
-                        if ( NSPV_rwspentinfo(1,&response[1],&S) == slen )
-                        {
-                            pfrom->PushMessage("nSPV",response);
-                            pfrom->prevtimes[ind] = timestamp;
-                        }
-                        NSPV_spentinfo_purge(&S);
-                    }
-                }
-            }
-        }
-        else if ( request[0] == NSPV_BROADCAST )
-        {
-            if ( timestamp > pfrom->prevtimes[ind] )
-            {
-                struct NSPV_broadcastresp B; uint32_t n,offset; uint256 txid;
-                if ( len > 1+sizeof(txid)+sizeof(n) )
-                {
-                    iguana_rwbignum(0,&request[1],sizeof(txid),(uint8_t *)&txid);
-                    iguana_rwnum(0,&request[1+sizeof(txid)],sizeof(n),&n);
-                    memset(&B,0,sizeof(B));
-                    offset = 1 + sizeof(txid) + sizeof(n);
-                    if ( n < MAX_TX_SIZE_AFTER_SAPLING && request.size() == offset+n && (slen= NSPV_sendrawtransaction(&B,&request[offset],n)) > 0 )
-                    {
-                        response.resize(1 + slen);
-                        response[0] = NSPV_BROADCASTRESP;
-                        if ( NSPV_rwbroadcastresp(1,&response[1],&B) == slen )
-                        {
-                            pfrom->PushMessage("nSPV",response);
-                            pfrom->prevtimes[ind] = timestamp;
-                        }
-                        NSPV_broadcast_purge(&B);
-                    }
-                }
-            }
-        }
-        else if ( request[0] == NSPV_REMOTERPC )
-        {
-            if ( timestamp > pfrom->prevtimes[ind] )
-            {
-                struct NSPV_remoterpcresp R; int32_t p;
-                p = 1;
-                p+=iguana_rwnum(0,&request[p],sizeof(slen),&slen);
-                memset(&R,0,sizeof(R));
-                if (request.size() == p+slen && (slen=NSPV_remoterpc(&R,(char *)&request[p],slen))>0 )
-                {
-                    response.resize(1 + slen);
-                    response[0] = NSPV_REMOTERPCRESP;
-                    NSPV_rwremoterpcresp(1,&response[1],&R,slen);
-                    pfrom->PushMessage("nSPV",response);
-                    pfrom->prevtimes[ind] = timestamp;
-                    LogPrint("nspv", "pushed NSPV_REMOTERPCRESP response method %s to peer %d\n", R.method, pfrom->id);
-                    LogPrint("nspv-details", "NSPV_REMOTERPCRESP response details: json %s to peer %d\n", R.json, pfrom->id);
-
-                    NSPV_remoterpc_purge(&R);
-                }                
-            }
-        }
-        else if (request[0] == NSPV_CCMODULEUTXOS)  // get cc module utxos from coinaddr for the requested amount, evalcode, funcid list and txid
-        {
-            //fprintf(stderr,"utxos: %u > %u, ind.%d, len.%d\n",timestamp,pfrom->prevtimes[ind],ind,len);
-            if (timestamp > pfrom->prevtimes[ind])
-            {
-                struct NSPV_utxosresp U;
-                char coinaddr[64];
-                int64_t amount;
-                uint8_t evalcode;
-                char funcids[27];
-                uint256 filtertxid;
-                bool errorFormat = false;
-                const int32_t BITCOINADDRESSMINLEN = 20;
-
-                int32_t minreqlen = sizeof(uint8_t) + sizeof(uint8_t) + BITCOINADDRESSMINLEN + sizeof(amount) + sizeof(evalcode) + sizeof(uint8_t) + sizeof(filtertxid);
-                int32_t maxreqlen = sizeof(uint8_t) + sizeof(uint8_t) + sizeof(coinaddr)-1 + sizeof(amount) + sizeof(evalcode) + sizeof(uint8_t) + sizeof(funcids)-1 + sizeof(filtertxid);
-
-                if (len >= minreqlen && len <= maxreqlen)
-                {
-                    n = 1;
-                    int32_t addrlen = request[n++];
-                    if (addrlen < sizeof(coinaddr))
-                    {
-                        memcpy(coinaddr, &request[n], addrlen);
-                        coinaddr[addrlen] = 0;
-                        n += addrlen;
-                        iguana_rwnum(0, &request[n], sizeof(amount), &amount);
-                        n += sizeof(amount);
-                        iguana_rwnum(0, &request[n], sizeof(evalcode), &evalcode);
-                        n += sizeof(evalcode);
-
-                        int32_t funcidslen = request[n++];
-                        if (funcidslen < sizeof(funcids))
-                        {
-                            memcpy(funcids, &request[n], funcidslen);
-                            funcids[funcidslen] = 0;
-                            n += funcidslen;
-                            iguana_rwbignum(0, &request[n], sizeof(filtertxid), (uint8_t *)&filtertxid);
-                            std::cerr << __func__ << " " << "request addr=" << coinaddr << " amount=" << amount << " evalcode=" << (int)evalcode << " funcids=" << funcids << " filtertxid=" << filtertxid.GetHex() << std::endl;
-
-                            memset(&U, 0, sizeof(U));
-                            if ((slen = NSPV_getccmoduleutxos(&U, coinaddr, amount, evalcode, funcids, filtertxid)) > 0)
-                            {
-                                std::cerr << __func__ << " " << "created utxos, slen=" << slen << std::endl;
-                                response.resize(1 + slen);
-                                response[0] = NSPV_CCMODULEUTXOSRESP;
-                                if (NSPV_rwutxosresp(1, &response[1], &U) == slen)
-                                {
-                                    pfrom->PushMessage("nSPV", response);
-                                    pfrom->prevtimes[ind] = timestamp;
-                                    std::cerr << __func__ << " " << "returned nSPV response" << std::endl;
-                                }
-                                NSPV_utxosresp_purge(&U);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+            else 
+                LogPrint("nspv", "could not parse request type %d from peer %d (invalid addr length)\n", request[0], pfrom->id);
+        } 
+        else 
+            LogPrint("nspv", "could not parse request type %d from peer %d (invalid length)\n", request[0], pfrom->id);
+        
+    } else {
+        LogPrint("nspv", "unknown request type %d from peer %d\n", request[0], pfrom->id);
     }
 }
 
