@@ -1629,9 +1629,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         pcoinsTip = new CCoinsViewCache(pcoinscatcher);
         InitBlockIndex();
         SetRPCWarmupFinished();
-#ifdef ENABLE_WEBSOCKETS
-        SetWebSocketsWarmupFinished();
-#endif
         uiInterface.InitMessage(_("Done loading"));
         if ( KOMODO_DEX_P2P != 0 )
         {
@@ -2136,6 +2133,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // ********************************************************* Step 11: finished
 
     SetRPCWarmupFinished();
+#ifdef ENABLE_WEBSOCKETS
+    SetWebSocketsWarmupFinished();
+#endif
     uiInterface.InitMessage(_("Done loading"));
 
 #ifdef ENABLE_WALLET
