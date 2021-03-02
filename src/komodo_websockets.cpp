@@ -921,14 +921,17 @@ public:
     }
 
     void on_fail(websocketpp::connection_hdl hdl) {
-        wsclient::connection_ptr con = m_endpoint.get_con_from_hdl(hdl);
+        //wsclient::connection_ptr conn_ptr = m_endpoint.get_con_from_hdl(hdl);
         m_bFailed = true;
         if (m_pNode) { 
             LOCK(cs_vWsNodes);
-            LogPrint("websockets", "error on outbound connection to ws peer %d\n", m_pNode->GetId());
+            LogPrint("websockets", "error on outbound connection to websocket peer %d\n", m_pNode->GetId());
 
             m_pNode->fDisconnect = true; // mark for disconnection
             RemoveWsNode(m_pNode);  
+        }
+        else {
+            LogPrint("websockets", "could not connect to remote websocket peer %s\n", m_uri.c_str());
         }
     }
 
