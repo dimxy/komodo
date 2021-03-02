@@ -34,6 +34,8 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     // tokens:
     { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokencancelask", true }, { "tokencancelbid", true }, 
     { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false },
+    // nspv helpers
+    { "createtxwithnormalinputs", true },
     // faucet
     { "addfaucetinputs", true }, { "faucetfund", true }, { "faucetget", true },
 };
@@ -1180,7 +1182,7 @@ void komodo_nSPVreq(CNode *pfrom,std::vector<uint8_t> request) // received a req
             pfrom->PushMessage("nSPV", response);
             pfrom->prevtimes[ind] = timestamp;
             LogPrint("nspv", "pushed NSPV_REMOTERPCRESP response method %s to peer %d\n", R.method, pfrom->id);
-            std::cerr << __func__ << " NSPV_REMOTERPCRESP response details: json=" << R.json << " peer=" << pfrom->id << std::endl;
+            //std::cerr << __func__ << " NSPV_REMOTERPCRESP response details: json="; std::cerr.write(R.json, slen-sizeof(R.method)); std::cerr << R.json << " peer=" << pfrom->id << std::endl;
 
             NSPV_remoterpc_purge(&R);
         }                
