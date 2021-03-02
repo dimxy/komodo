@@ -5,7 +5,7 @@ See the original komodo readme [here](https://github.com/komodoplatform/komodo)
 
 ## Build with websockets support
 
-This is an experimental komodod build with websockets support, allowing to connect nSPV clients over websockets protocol to nSPV komodod daemon.<br>
+This is an experimental komodod build with websockets support which allows to connect nSPV clients over websockets protocol to nSPV komodod daemon.<br>
 To build use the orginal build command files (./zcutil/build.sh, build-mac.sh, build-win.sh) with a parameter `--enable-websockets`.
 ```
 ./zcutil/build.sh --enable-websockets
