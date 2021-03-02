@@ -10,10 +10,10 @@ To build use the orginal build command files (./zcutil/build.sh, build-mac.sh, b
 ```
 ./zcutil/build.sh --enable-websockets
 ```
-It is recommended to start with a fresh clone repo or perform 'make clean' before building.
-After the komodod is built it might be started with a couple of new parameters:
-`-wsport=<port>` - websockets listening port
-`addwsnode=<ip>:<port>` - other websocket node address 
+It is recommended to start with a fresh clone repo or perform 'make clean' before building.<br>
+After the komodod is built it might be started with a couple of new parameters:<br>
+`-wsport=<port>` - websockets listening port (default is 8192)<br>
+`addwsnode=<ip>:<port>` - other websocket node address<br> 
 
 The experimental nSPV javascript client with a cc faucet sample is here: https://github.com/dimxy/bitgo-komodo-cc-lib
 
