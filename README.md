@@ -13,7 +13,9 @@ To build use the orginal build command files (./zcutil/build.sh, build-mac.sh, b
 It is recommended to start with a fresh clone repo or perform 'make clean' before building.<br>
 After the komodod is built it might be started with a couple of new parameters:<br>
 `-wsport=<port>` - websockets listening port (default is 8192)<br>
-`addwsnode=<ip>:<port>` - other websocket node address<br> 
+`-addwsnode=<ip>:<port>` - other websocket node address<br> 
+
+with addwsnode param the node starts discovery like in the ordinary p2p network to build a ws address table that nspv clients might request with 'getwsaddr' command, to get more ws listener addresses and maintain up to 8 connections to nSPV servers.
 
 The experimental nSPV javascript client with a cc faucet sample is here: https://github.com/dimxy/bitgo-komodo-cc-lib
 
