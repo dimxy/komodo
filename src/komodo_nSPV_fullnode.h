@@ -33,7 +33,11 @@ static std::map<std::string,bool> nspv_remote_commands =  {
 {"pegsinfo", true},
     // tokens:
     { "tokenask", true }, { "tokenbid", true }, { "tokenfillask", true }, { "tokenfillbid", true }, { "tokencancelask", true }, { "tokencancelbid", true }, 
-    { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false }
+    { "tokenorders", true }, { "mytokenorders", true }, { "tokentransfer", true },{ "tokencreate", false },
+    // tokensv2:
+    { "assetsv2address", true }, { "mytokenv2orders", true }, { "tokenv2address", true }, { "tokenv2ask", true }, { "tokenv2balance", true }, { "tokenv2bid", true }, 
+    { "tokenv2cancelask", true }, { "tokenv2cancelbid", true }, { "tokenv2create", true }, { "tokenv2fillask", true }, { "tokenv2fillbid", true }, { "tokenv2info", true }, 
+    { "tokenv2list", true }, { "tokenv2orders", true }, { "tokenv2transfer", true }, { "tokenv2transfermany", true }
 };
 
 struct NSPV_ntzargs
