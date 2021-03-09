@@ -1165,7 +1165,6 @@ static void ThreadWebSocketWaitForDisconnectedThreads()
             LOCK(cs_vWsNodes);
             vWsNodesCopy = vWsNodes;
         }
-//#define TIMEOUT_INTERVAL0 100
         for(auto const & pnode : vWsNodesCopy)
         {
             //
@@ -1179,17 +1178,17 @@ static void ThreadWebSocketWaitForDisconnectedThreads()
                     LogPrint("websockets", "socket no message in first 60 seconds, %d %d from %d\n", pnode->nLastRecv != 0, pnode->nLastSend != 0, pnode->id);
                     pnode->fDisconnect = true;
                 }
-                else if (nTime - pnode->nLastSend > TIMEOUT_INTERVAL)
+                else if (nTime - pnode->nLastSend > WEBSOCKETS_TIMEOUT_INTERVAL)
                 {
                     LogPrintf("websocket sending timeout: %is\n", nTime - pnode->nLastSend);
                     pnode->fDisconnect = true;
                 }
-                else if (nTime - pnode->nLastRecv > (pnode->nVersion > BIP0031_VERSION ? TIMEOUT_INTERVAL : 90*60))
+                else if (nTime - pnode->nLastRecv > (pnode->nVersion > BIP0031_VERSION ? WEBSOCKETS_TIMEOUT_INTERVAL : 90*60))
                 {
                     LogPrintf("websocket receive timeout: %is\n", nTime - pnode->nLastRecv);
                     pnode->fDisconnect = true;
                 }
-                else if (pnode->nPingNonceSent && pnode->nPingUsecStart + TIMEOUT_INTERVAL * 1000000 < GetTimeMicros())
+                else if (pnode->nPingNonceSent && pnode->nPingUsecStart + WEBSOCKETS_TIMEOUT_INTERVAL * 1000000 < GetTimeMicros())
                 {
                     LogPrintf("websocket ping timeout: %fs\n", 0.000001 * (GetTimeMicros() - pnode->nPingUsecStart));
                     pnode->fDisconnect = true;

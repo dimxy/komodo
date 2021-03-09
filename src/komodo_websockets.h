@@ -20,6 +20,8 @@
 //#include <websocketpp/extensions/permessage_deflate/enabled.hpp>
 
 static const int WSADDR_VERSION = 170008;
+#define WEBSOCKETS_TIMEOUT_INTERVAL 120
+
 
 struct wsserver_mt_config : public websocketpp::config::asio {
     // pull default settings from our core config
