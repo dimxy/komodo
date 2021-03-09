@@ -314,7 +314,7 @@ bool ProcessWsMessage(CNode* pfrom, std::string strCommand, CDataStream& vRecv, 
         // Disconnect if we connected to ourself
         if (nNonce == nLocalHostNonce && nNonce > 1)
         {
-            LogPrintf("connected to self at %s, disconnecting\n", pfrom->addr.ToString());
+            LogPrintf("websockets connected to self at %s, disconnecting\n", pfrom->addr.ToString());
             pfrom->fDisconnect = true;
             return true;
         }
