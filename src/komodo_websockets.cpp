@@ -583,7 +583,6 @@ void WebSocketSendData(CWsEndpointWrapper *pEndPoint, websocketpp::connection_hd
         assert(data.size() > pnode->nSendOffset);
         websocketpp::lib::error_code ec;
         int nBytes = data.size() - pnode->nSendOffset;
-        //pnode->pWsEndPoint->send(*pnode->pWsConnHdl, &data[pnode->nSendOffset], nBytes, websocketpp::frame::opcode::binary, ec);
         pEndPoint->send(hdl, &data[pnode->nSendOffset], nBytes, websocketpp::frame::opcode::binary, ec);
 
         if (!ec) {
@@ -626,7 +625,7 @@ void HandleWebSocketMessage(CWsEndpointWrapper *pEndPoint, CWsNode *pNode, webso
     LOCK(pNode->cs_vRecvMsg);
     if (pNode->ReceiveMsgBytes(msg->get_payload().c_str(), msg->get_payload().size())) {
         if (ProcessMessages(pNode)) {
-            //LOCK(pNode->cs_vSend); // TODO: do we need lock if no call to SendWsMessages?
+            LOCK(pNode->cs_vSend); 
             WebSocketSendData(pEndPoint, hdl, pNode);
         }
         pNode->nLastRecv = GetTime(); // needed to prevent inactivity disconnect
@@ -837,6 +836,7 @@ private:
 
     virtual void sendWsData(CWsNode *pNode)
     {
+        LOCK(pNode->cs_vSend); 
         WebSocketSendData(this, pNode->m_hdl, pNode);
     }
 
@@ -955,8 +955,10 @@ public:
         }
 
         m_pNode->PushWsVersion();
-        WebSocketSendData(this, hdl, m_pNode.get());
-
+        {
+            LOCK(m_pNode->cs_vSend); 
+            WebSocketSendData(this, hdl, m_pNode.get());
+        }
     }
     void on_message(websocketpp::connection_hdl hdl, wsclient::message_ptr msg) {
         HandleWebSocketMessage(this, m_pNode.get(), hdl, msg);
@@ -984,8 +986,10 @@ public:
 
     virtual void sendWsData(CWsNode*)
     {
-        if (m_pNode)
+        if (m_pNode)    {
+            LOCK(m_pNode->cs_vSend); 
             WebSocketSendData(this, m_pNode->m_hdl, m_pNode.get());
+        }
     }
 
 private:
