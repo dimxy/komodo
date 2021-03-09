@@ -39,6 +39,10 @@ void RegisterTokensRPCCommands(CRPCTable &tableRPC);
 // cc utils rpcs:
 void RegisterCCUtilsRPCCommands(CRPCTable &tableRPC);
 
+#ifdef ENABLE_WEBSOCKETS
+// websockets helper rpcs
+void RegisterWebSocketsRPCCommands(CRPCTable &tableRPC);
+#endif
 
 static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
 {
@@ -49,6 +53,9 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
     RegisterRawTransactionRPCCommands(tableRPC);
     RegisterTokensRPCCommands(tableRPC);
     RegisterCCUtilsRPCCommands(tableRPC);
+#ifdef ENABLE_WEBSOCKETS
+    RegisterWebSocketsRPCCommands(tableRPC);
+#endif
 }
 
 #endif
