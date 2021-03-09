@@ -1574,7 +1574,7 @@ UniValue printaddrman(const UniValue& params, bool fHelp, const CPubKey& remotep
         std::ostringstream strhex;
         strhex << std::hex << a.nServices;
         e.pushKV("services", strhex.str());
-        e.pushKV("source", wsaddrman.GetSource(a).ToString());
+        e.pushKV("source", addrman.GetSource(a).ToString());
         e.pushKV("IsTerrible", a.IsTerrible());
         e.pushKV("SinceLastTry", nNow - a.nLastTry);
         e.pushKV("SinceLastSeen", nNow - a.nTime);
