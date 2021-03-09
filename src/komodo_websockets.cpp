@@ -381,6 +381,7 @@ bool ProcessWsMessage(CNode* pfrom, std::string strCommand, CDataStream& vRecv, 
         } 
         else 
         {
+            std::cerr << __func__ << " version from inbound pfrom->addr=" << pfrom->addr.ToStringIPPort() << " (CNetAddr)pfrom->addr=" << ((CNetAddr)pfrom->addr).ToString() << " (CNetAddr)addrFrom=" << ((CNetAddr)addrFrom).ToString() << std::endl;
             if (((CNetAddr)pfrom->addr) == (CNetAddr)addrFrom)
             {
                 LogPrint("websockets", " storing in wsaddrman inbound pfrom->addr=%s\n", pfrom->addr.ToStringIPPort());
@@ -390,7 +391,7 @@ bool ProcessWsMessage(CNode* pfrom, std::string strCommand, CDataStream& vRecv, 
             // can't add here remote wsaddr for the node as we dont know the websocket port (as it is not contained in the version message and we have not extended it)
         }
 
-        LogPrint("websockets", "version received, addr=%s from peer=%d\n", pfrom->addr.ToStringIPPort(), pfrom->id);
+        LogPrint("websockets", "websockets version received, addr=%s from peer=%d\n", pfrom->addr.ToStringIPPort(), pfrom->id);
         pfrom->fSuccessfullyConnected = true;
         return true;
     }
@@ -1372,6 +1373,7 @@ static void ThreadOpenAddedWebSocketConnections()
     /*if (HaveNameProxy()) {
     // don't use proxy for websocket listeners
     }*/
+    std::cerr << __func__ << " enterred" << std::endl;
 
     for (unsigned int i = 0; true; i++)
     {
@@ -1387,7 +1389,7 @@ static void ThreadOpenAddedWebSocketConnections()
         std::list<std::vector<CService> > lservAddressesToAdd(0);
         for(const std::string& strAddNode : lAddresses) {
             std::vector<CService> vservNode(0);
-            if(Lookup(strAddNode.c_str(), vservNode, Params().GetDefaultPort(), fNameLookup, 0))
+            if(Lookup(strAddNode.c_str(), vservNode, GetWebSocketListenPort(), fNameLookup, 0))
             {
                 lservAddressesToAdd.push_back(vservNode);
                 {
@@ -1425,6 +1427,7 @@ static void ThreadOpenAddedWebSocketConnections()
                 if (GetOutboundNodes() >= 8)
                     break;
                 CSemaphoreGrant grant;
+                std::cerr << __func__ << " will try " << CAddress(vserv[i % vserv.size()]).ToString() << std::endl;
                 OpenWebSocketNetworkConnection(CAddress(vserv[i % vserv.size()]), &grant);
                 MilliSleep(500);
             }
