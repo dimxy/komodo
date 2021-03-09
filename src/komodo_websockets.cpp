@@ -385,8 +385,8 @@ bool ProcessWsMessage(CNode* pfrom, std::string strCommand, CDataStream& vRecv, 
             if (((CNetAddr)pfrom->addr) == (CNetAddr)addrFrom)
             {
                 LogPrint("websockets", " storing in wsaddrman inbound pfrom->addr=%s\n", pfrom->addr.ToStringIPPort());
-                wsaddrman.Add(pfrom->addr, pfrom->addr);
-                wsaddrman.Good(pfrom->addr);
+                wsaddrman.Add(addrFrom, addrFrom);
+                wsaddrman.Good(addrFrom);
             }
             // can't add here remote wsaddr for the node as we dont know the websocket port (as it is not contained in the version message and we have not extended it)
         }
