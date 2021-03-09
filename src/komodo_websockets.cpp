@@ -391,7 +391,7 @@ bool ProcessWsMessage(CNode* pfrom, std::string strCommand, CDataStream& vRecv, 
             // can't add here remote wsaddr for the node as we dont know the websocket port (as it is not contained in the version message and we have not extended it)
         }
 
-        LogPrint("websockets", "websockets version received, addr=%s from peer=%d\n", pfrom->addr.ToStringIPPort(), pfrom->id);
+        LogPrint("websockets", "websockets version received: from addr=%s peer=%d\n", pfrom->addr.ToStringIPPort(), pfrom->id);
         pfrom->fSuccessfullyConnected = true;
         return true;
     }
@@ -1372,7 +1372,6 @@ static void ThreadOpenAddedWebSocketConnections()
     /*if (HaveNameProxy()) {
     // don't use proxy for websocket listeners
     }*/
-    std::cerr << __func__ << " enterred" << std::endl;
 
     for (unsigned int i = 0; true; i++)
     {
@@ -1426,7 +1425,6 @@ static void ThreadOpenAddedWebSocketConnections()
                 if (GetOutboundNodes() >= 8)
                     break;
                 CSemaphoreGrant grant;
-                std::cerr << __func__ << " will try " << CAddress(vserv[i % vserv.size()]).ToString() << std::endl;
                 OpenWebSocketNetworkConnection(CAddress(vserv[i % vserv.size()]), &grant);
                 MilliSleep(500);
             }
