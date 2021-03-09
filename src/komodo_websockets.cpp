@@ -368,7 +368,7 @@ bool ProcessWsMessage(CNode* pfrom, std::string strCommand, CDataStream& vRecv, 
             }
             else
             {
-                LogPrint("websockets", " note: websockets local address advertising skipped: IsInitialBlockDownload()=%d", IsInitialBlockDownload());
+                LogPrint("websockets", "note: websockets local address advertising skipped: IsInitialBlockDownload()=%d\n", IsInitialBlockDownload());
             }
 
             // Get recent websocket addresses
