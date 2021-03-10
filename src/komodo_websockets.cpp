@@ -27,37 +27,13 @@
 #include "timedata.h"
 #include "main.h"
 #include "consensus/validation.h"
-//#include "chainparams.h"
-//#include "chainparamsbase.h"
-
-//#include "compat.h"
 #include "util.h"
 #include "net.h"
 #include "addrman.h"
-//#include "netbase.h"
-//#include "rpc/protocol.h" // For HTTP status codes
 #include "sync.h"
-//#include "ui_interface.h"
 #include "utilstrencodings.h"
 #include "univalue.h"
 #include "rpc/server.h"
-
-
-/*#include <boost/thread.hpp>
-#include <boost/scoped_ptr.hpp>
-#include <boost/function.hpp>*/
-
-
-/*#ifdef EVENT__HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#ifdef _XOPEN_SOURCE_EXTENDED
-#include <arpa/inet.h>
-#endif
-#endif*/
-
-/*#include <boost/algorithm/string/case_conv.hpp> // for to_lower()
-#include <boost/foreach.hpp>
-#include <boost/scoped_ptr.hpp>*/
 
 #include <functional>
 
@@ -92,7 +68,6 @@ static boost::thread_group wsThreadGroup;
 
 unsigned short GetWebSocketListenPort()
 {
-    //printf("Listenport.%u\n",Params().GetDefaultPort());
     return (unsigned short)(GetArg("-wsport", 8192));
 }
 
@@ -191,15 +166,10 @@ static CCriticalSection cs_vWsNodes;
 
 static std::set<CWsNodePtr> vWsNodesDisconnected; // websocket disconnected nodes
 static CCriticalSection cs_vWsNodesDisconnected;
-//CCriticalSection cs_vWsServers;
 
 class CWebSocketOutbound;
 static std::vector<ws_endpoint_ptr> vOutboundEndpoints; // wait until enpoint opens
 static CCriticalSection cs_vOutboundEndpoints;
-
-//static CWsNodePtr FindWsNode(const CAddress& addr)
-
-
 
 static CWsNodePtr FindWsNode(const CNetAddr& ip)
 {
@@ -410,7 +380,6 @@ bool ProcessWsMessage(CNode* pfrom, std::string strCommand, CDataStream& vRecv, 
             return true;
         }
 
-        
         if (wsaddrman.size() > 1000)    {
             LogPrintf("websockets addrman full, don't accept wsaddr from peer %d", pfrom->GetId());
             return true;
@@ -506,12 +475,6 @@ bool ProcessWsMessage(CNode* pfrom, std::string strCommand, CDataStream& vRecv, 
     }
 
     return false;
-}
-
-// post process verson message
-bool PostProcessWsMessage(CNode* pfrom, std::string strCommand, CDataStream& vRecv, int64_t nTimeReceived)
-{
-    return true;
 }
 
 // create periodical messages
@@ -844,11 +807,6 @@ private:
     {
         wsserver::connection_ptr conn_ptr = m_endpoint.get_con_from_hdl(hdl);
         std::string sAddr = conn_ptr->get_remote_endpoint();
-        //std::string host = conn_ptr->get_host();
-        //uint16_t port = conn_ptr->get_port();
-        //std::cerr << __func__ << " host=" << host << " port=" << port << std::endl;
-        //CService svc(host, port);
-        //std::cerr << __func__ << " sAddr=" << sAddr << std::endl;
         CService svc(sAddr);
         return CAddress(svc);
     }
@@ -859,11 +817,9 @@ private:
 // object to try peer websocket nodes
 class CWebSocketOutbound : public CWsEndpointWrapper {
 public:
-    //typedef perftest type;
-    //typedef std::chrono::duration<int,std::micro> dur_type;
 
     CWebSocketOutbound () {
-        m_endpoint.set_error_channels(websocketpp::log::elevel::rerror); //& ~websocketpp::log::elevel::devel);
+        m_endpoint.set_error_channels(websocketpp::log::elevel::rerror); 
         m_endpoint.set_access_channels(websocketpp::log::alevel::none);
 
         // Initialize ASIO
@@ -871,7 +827,6 @@ public:
 
         // Register our handlers
         m_endpoint.set_socket_init_handler(bind(&CWebSocketOutbound::on_socket_init,this,::_1));
-        //m_endpoint.set_tls_init_handler(bind(&CWebSocketOutbound::on_tls_init,this,::_1));
         m_endpoint.set_message_handler(bind(&CWebSocketOutbound::on_message,this,::_1,::_2));
         m_endpoint.set_open_handler(bind(&CWebSocketOutbound::on_open,this,::_1));
         m_endpoint.set_close_handler(bind(&CWebSocketOutbound::on_close,this,::_1));
@@ -905,10 +860,7 @@ public:
         }
        
 
-        m_endpoint.connect(con);
-
-        // Start the ASIO io_service run loop
-       
+        m_endpoint.connect(con);       
         return true;
     }
 
@@ -1027,7 +979,16 @@ CWebSocketOutbound* ConnectWsNode(CAddress addrConnect, const char *pszDest)
     bool proxyConnectionFailed = false;
 
     CWebSocketOutbound *pwsOutbound = new CWebSocketOutbound();
-    if (pwsOutbound->start(addrConnect, pszDest ? pszDest : ""))   {
+    bool bStarted;
+    try {
+        bStarted = pwsOutbound->start(addrConnect, pszDest ? pszDest : "");
+    } 
+    catch (websocketpp::exception const & e) {
+        LogPrint("websockets", "could not start connection to %s %s\n", addrConnect.ToStringIPPort().c_str(), pszDest ? pszDest : "");
+        delete pwsOutbound;
+        return NULL;
+    }
+    if (bStarted)   {
         wsaddrman.Attempt(addrConnect);
     } else if (!proxyConnectionFailed) {
         // If connecting to the node failed, and failure is not caused by a problem connecting to
@@ -1046,10 +1007,10 @@ bool OpenWebSocketNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant
     //
     boost::this_thread::interruption_point();
     //if (!pszDest) {
-        if (IsLocal(addrConnect) ||
-            FindWsNode((CNetAddr)addrConnect) || CWsNode::IsBanned(addrConnect) ||
-            FindWsNode(addrConnect.ToStringIPPort()))
-            return false;
+    if (IsLocal(addrConnect) ||
+        FindWsNode((CNetAddr)addrConnect) || CWsNode::IsBanned(addrConnect) ||
+        FindWsNode(addrConnect.ToStringIPPort()))
+        return false;
     //} else if (FindWsNode(std::string(pszDest)))
     //    return false;
 
@@ -1058,6 +1019,8 @@ bool OpenWebSocketNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant
 
     if (!pOutbound)
         return false;
+
+    // Start the ASIO io_service run loop
     pOutbound->run();
 
     {
@@ -1065,7 +1028,7 @@ bool OpenWebSocketNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant
         vOutboundEndpoints.push_back(ws_endpoint_ptr(pOutbound));
     }
     //if (fOneShot)
-    //    pnode->fOneShot = true;
+    //    pnode->fOneShot = true;  // one shot not implemented
 
     return true;
 }
@@ -1106,8 +1069,13 @@ void ThreadWebSocketMessageHandler()
                     SendWsMessages(pnode.get(), fTrickle);
                     if (fTrickle) {
                         WebSocketSendData(pnode->m_spWsEndpoint.get(), pnode->m_hdl, pnode.get());  
-                        if (pnode->closeErrorOnSend || pnode->closeErrorOnReceive) 
-                            pnode->m_spWsEndpoint->close(pnode->m_hdl, (pnode->closeErrorOnSend ? pnode->closeErrorOnSend : pnode->closeErrorOnReceive));              
+                        if (pnode->closeErrorOnSend || pnode->closeErrorOnReceive) {
+                            try {
+                               pnode->m_spWsEndpoint->close(pnode->m_hdl, (pnode->closeErrorOnSend ? pnode->closeErrorOnSend : pnode->closeErrorOnReceive));              
+                            } catch (websocketpp::exception const & e) { // might be already closed from remote site or on a error
+                                std::cout << __func__ << " close websocketpp::exception: " << e.what() << " (could be okay)" << std::endl;
+                            }
+                        }
                     }
                 }
             }
