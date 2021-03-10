@@ -1401,7 +1401,7 @@ static void ThreadOpenAddedWebSocketConnections()
                 MilliSleep(500);
             }
         }
-        MilliSleep(120000); // Retry every 2 minutes
+        MilliSleep(120000/1000); // Retry every 2 minutes
     }
 }
 
