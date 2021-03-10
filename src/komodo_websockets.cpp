@@ -1242,7 +1242,7 @@ void ThreadOpenWebSocketConnections()
     {
         //ProcessOneShot();
 
-        MilliSleep(2000);
+        MilliSleep(2000/10);
 
         CSemaphoreGrant grant;
         boost::this_thread::interruption_point();
