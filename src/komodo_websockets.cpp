@@ -587,13 +587,13 @@ void HandleWebSocketMessage(CWsEndpointWrapper *pEndPoint, CWsNode *pNode, webso
 
     LOCK(pNode->cs_vRecvMsg);
     if (pNode->ReceiveMsgBytes(msg->get_payload().c_str(), msg->get_payload().size())) {
+        pNode->nLastRecv = GetTime(); // needed to prevent inactivity disconnect
+        pNode->nRecvBytes += msg->get_payload().size();
+        pNode->RecordBytesRecv(msg->get_payload().size());
         if (ProcessMessages(pNode)) {
             LOCK(pNode->cs_vSend); 
             WebSocketSendData(pEndPoint, hdl, pNode);
         }
-        pNode->nLastRecv = GetTime(); // needed to prevent inactivity disconnect
-        pNode->nRecvBytes += msg->get_payload().size();
-        pNode->RecordBytesRecv(msg->get_payload().size());
     }
     else {
         LogPrint("websockets", "error websocket message processing, disconnecting peer %d\n", pNode->id);
@@ -971,7 +971,7 @@ CWebSocketOutbound* ConnectWsNode(CAddress addrConnect, const char *pszDest)
     }
 
     /// debug print
-    LogPrint("websockets", "trying websocket connection %s lastseen=%.1fhrs\n",
+    LogPrint("websockets", "trying websockets connection %s lastseen=%.1fhrs\n",
         pszDest ? pszDest : addrConnect.ToString(),
         pszDest ? 0.0 : (double)(GetTime() - addrConnect.nTime)/3600.0);
 
@@ -984,7 +984,7 @@ CWebSocketOutbound* ConnectWsNode(CAddress addrConnect, const char *pszDest)
         bStarted = pwsOutbound->start(addrConnect, pszDest ? pszDest : "");
     } 
     catch (websocketpp::exception const & e) {
-        LogPrint("websockets", "could not start connection to %s %s\n", addrConnect.ToStringIPPort().c_str(), pszDest ? pszDest : "");
+        LogPrint("websockets", "could not start connection to websockets peer %s %s\n", addrConnect.ToStringIPPort().c_str(), pszDest ? pszDest : "");
         delete pwsOutbound;
         return NULL;
     }
