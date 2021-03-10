@@ -488,13 +488,13 @@ bool SendWsMessages(CWsNode *pto, bool fTrickle)
     static int64_t nLastRebroadcast;
     //MilliSleep(1000);
     int64_t nCurrentTime = GetTime();
-    if (nCurrentTime - nLastRebroadcast > 60) // check every 60 sec
+    if (nCurrentTime - nLastRebroadcast > 60/60) // check every 60 sec
     {
         // for the node clear known addresses each 24h and advertize local ws listener address
         LOCK(cs_vWsNodes);
         for(auto const pnode : vWsNodes)
         {
-            if (nCurrentTime - pnode->nLastRebroadcast > 24 * 60 * 60)   {  // rebroadcast to each node each 24h
+            if (nCurrentTime - pnode->nLastRebroadcast > 2/*24 * 60 * 60*/)   {  // rebroadcast to each node each 24h
                 pnode->addrKnown.reset();
                 AdvertizeLocalWebSockets(pnode.get());
                 pnode->nLastRebroadcast = nCurrentTime;
@@ -546,7 +546,7 @@ void WebSocketSendData(CWsEndpointWrapper *pEndPoint, websocketpp::connection_hd
         assert(data.size() > pnode->nSendOffset);
         websocketpp::lib::error_code ec;
         int nBytes = data.size() - pnode->nSendOffset;
-        pEndPoint->send(hdl, &data[pnode->nSendOffset], nBytes, websocketpp::frame::opcode::binary, ec);
+        pEndPoint->send(hdl, &data[pnode->nSendOffset], nBytes, websocketpp::frame::opcode::binary, ec);  // should not throw ws exception as ec is passed
 
         if (!ec) {
             pnode->nLastSend = GetTime();  // needed to prevent inactivity disconnect
