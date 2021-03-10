@@ -488,13 +488,13 @@ bool SendWsMessages(CWsNode *pto, bool fTrickle)
     static int64_t nLastRebroadcast;
     //MilliSleep(1000);
     int64_t nCurrentTime = GetTime();
-    if (nCurrentTime - nLastRebroadcast > 60/60) // check every 60 sec
+    if (nCurrentTime - nLastRebroadcast > 60) // check every 60 sec
     {
         // for the node clear known addresses each 24h and advertize local ws listener address
         LOCK(cs_vWsNodes);
         for(auto const pnode : vWsNodes)
         {
-            if (nCurrentTime - pnode->nLastRebroadcast > 2/*24 * 60 * 60*/)   {  // rebroadcast to each node each 24h
+            if (nCurrentTime - pnode->nLastRebroadcast > 24 * 60 * 60)   {  // rebroadcast to each node each 24h
                 pnode->addrKnown.reset();
                 AdvertizeLocalWebSockets(pnode.get());
                 pnode->nLastRebroadcast = nCurrentTime;
@@ -1242,7 +1242,7 @@ void ThreadOpenWebSocketConnections()
     {
         //ProcessOneShot();
 
-        MilliSleep(2000/10);
+        MilliSleep(2000);
 
         CSemaphoreGrant grant;
         boost::this_thread::interruption_point();
@@ -1401,7 +1401,7 @@ static void ThreadOpenAddedWebSocketConnections()
                 MilliSleep(500);
             }
         }
-        MilliSleep(120000/1000); // Retry every 2 minutes
+        MilliSleep(120000); // Retry every 2 minutes
     }
 }
 
