@@ -877,6 +877,49 @@ UniValue tokenfillswap(const UniValue& params, bool fHelp, const CPubKey& remote
     return result;
 }
 
+UniValue tokenaddccinputs(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() != 3)
+    {
+        string msg = "tokenaddccinputs tokenid pubkey amount\n"
+            "\nReturns a new tx with added token inputs and the matching previous txns. Note that the caller must add the change output\n"
+            "\nArguments:\n"
+            //"address which utxos are added from\n"
+            "amount (in satoshi) which will be added as normal inputs (equal or more)\n"
+            "Result: json object with created tx and added vin txns\n\n";
+        throw runtime_error(msg);
+    }
+
+    uint256 tokenid = Parseuint256(params[0].get_str().c_str());
+    CPubKey pk = pubkey2pk( ParseHex(params[1].get_str().c_str()) );
+    CAmount amount = atoll(params[2].get_str().c_str());
+    if (amount <= 0)
+        throw runtime_error("amount invalid");
+
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_TOKENS);
+
+    CAmount added = AddTokenCCInputs<TokensV1>(cp, mtx, pk, tokenid, amount, CC_MAXVINS, false);
+    if (added < amount)
+        throw runtime_error("could not find token cc inputs");
+
+    UniValue result (UniValue::VOBJ);
+    UniValue array (UniValue::VARR);
+
+    result.pushKV("txhex", HexStr(E_MARSHAL(ss << mtx)));
+    for (auto const &vin : mtx.vin)     {
+        CTransaction vintx;
+        uint256 hashBlock;
+        if (myGetTransaction(vin.prevout.hash, vintx, hashBlock))
+            array.push_back(HexStr(E_MARSHAL(ss << vintx)));
+    }
+    result.pushKV("previousTxns", array);
+    if (cp->evalcodeNFT)
+        result.pushKV("evalcodeNFT", cp->evalcodeNFT);
+    return result;
+}
+
 
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
@@ -919,6 +962,8 @@ static const CRPCCommand commands[] =
     { "tokens",       "tokenv2fillask",     &tokenv2fillask,      true },
     //{ "tokens",       "tokenfillswap",    &tokenfillswap,     true },
     { "tokens",       "tokenconvert", &tokenconvert, true },
+    { "tokens",       "tokenaddccinputs", &tokenaddccinputs, true },
+
 };
 
 void RegisterTokensRPCCommands(CRPCTable &tableRPC)
