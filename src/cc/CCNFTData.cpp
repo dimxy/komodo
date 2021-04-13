@@ -192,6 +192,9 @@ bool ValidateNFTOpretV2(struct CCcontract_info *cp, Eval* eval, const CTransacti
 
 bool NFTDataValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn)
 {
+    if (strcmp(ASSETCHAINS_SYMBOL, "TKLTEST") == 0 && chainActive.Height() <= 15199)
+        return true;
+
     if (tx.vout.size() < 1)
         return eval->Error("no vouts");
 
