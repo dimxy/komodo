@@ -609,6 +609,8 @@ uint256 DiceHashEntropy(uint256 &entropy,uint256 _txidpriv,int32_t entropyvout,i
 /// @param vData pointer to vector of vectors of unsigned char data to be added to the created vout for application needs
 /// @returns vout object
 CTxOut MakeCC1vout(uint8_t evalcode,CAmount nValue,CPubKey pk, std::vector<std::vector<unsigned char>>* vData = NULL);
+CTxOut MakeCC1vout(uint8_t evalcode, std::vector<unsigned char> param, CAmount nValue,CPubKey pk, std::vector<std::vector<unsigned char>>* vData = NULL);
+
 
 /// MakeCC1of2vout creates creates a transaction output with a 1of2 cryptocondition that allows to spend it by either of two keys. The returned output should be added to a transaction vout array.
 /// @param evalcode cryptocondition eval code (transactions with this eval code in cc inputs will be forwarded to the contract associated with this eval code)
@@ -618,6 +620,7 @@ CTxOut MakeCC1vout(uint8_t evalcode,CAmount nValue,CPubKey pk, std::vector<std::
 /// @param vData pointer to vector of vectors of unsigned char data to be added to the created vout for application needs
 /// @returns vout object
 CTxOut MakeCC1of2vout(uint8_t evalcode,CAmount nValue,CPubKey pk,CPubKey pk2, std::vector<std::vector<unsigned char>>* vData = NULL);
+CTxOut MakeCC1of2vout(uint8_t evalcode, std::vector<unsigned char> param, CAmount nValue,CPubKey pk,CPubKey pk2, std::vector<std::vector<unsigned char>>* vData = NULL);
 
 bool CCtoAnon(const CC *cond);
 
@@ -636,7 +639,8 @@ bool makeCCopret(CScript &opret, std::vector<std::vector<unsigned char>> &vData)
 /// @param evalcode cryptocondition eval code (transactions with this eval code in cc inputs will be forwarded to the contract associated with this eval code)
 /// @param pk pubkey to spend the cc
 /// @returns cryptocondition object. Must be disposed with cc_free function when not used any more
-CC *MakeCCcond1(uint8_t evalcode,CPubKey pk);
+CC *MakeCCcond1(uint8_t evalcode, CPubKey pk);
+CC *MakeCCcond1(uint8_t evalcode, std::vector<unsigned char> param, CPubKey pk);
 
 /// MakeCCcond1of2 creates new 1of2 cryptocondition that allows to spend it by either of two keys
 /// @param evalcode cryptocondition eval code (transactions with this eval code in cc inputs will be forwarded to the contract associated with this eval code)
@@ -644,6 +648,7 @@ CC *MakeCCcond1(uint8_t evalcode,CPubKey pk);
 /// @param pk2 second of two pubkeys to spend the cc
 /// @returns cryptocondition object. Must be disposed with cc_free function when not used any more
 CC *MakeCCcond1of2(uint8_t evalcode,CPubKey pk1,CPubKey pk2);
+CC *MakeCCcond1of2(uint8_t evalcode, std::vector<unsigned char> param, CPubKey pk1,CPubKey pk2);
 
 /// GetCryptoCondition retrieves the cryptocondition from a scriptSig object 
 /// @param scriptSig scriptSig object with a cryptocondition

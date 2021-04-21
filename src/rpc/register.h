@@ -41,6 +41,8 @@ void RegisterCCUtilsRPCCommands(CRPCTable &tableRPC);
 // ccvm rpc
 void RegisterCCVMRPCCommands(CRPCTable &tableRPC);
 
+void RegisterCCBasicRPCCommands(CRPCTable &tableRPC);
+
 static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
 {
     RegisterBlockchainRPCCommands(tableRPC);
@@ -51,6 +53,7 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
     RegisterTokensRPCCommands(tableRPC);
     RegisterCCUtilsRPCCommands(tableRPC);
     RegisterCCVMRPCCommands(tableRPC);
+    RegisterCCBasicRPCCommands(tableRPC);
 }
 
 #endif

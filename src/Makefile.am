@@ -327,6 +327,7 @@ libbitcoin_server_a_SOURCES = \
   cc/priceslibs/cjsonpointer.cpp \
   cc/kogs.cpp \
   cc/CCvm.cpp \
+  cc/basic1.cpp \
   chain.cpp \
   checkpoints.cpp \
   fs.cpp \

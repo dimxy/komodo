@@ -83,6 +83,19 @@ CC* CCNewEval(std::vector<unsigned char> code)
     return cond;
 }
 
+CC* CCNewEval(std::vector<unsigned char> code, std::vector<unsigned char> param)
+{
+    CC *cond = cc_new(CC_Eval);
+    cond->code = (unsigned char*) malloc(code.size());
+    memcpy(cond->code, code.data(), code.size());
+    cond->codeLength = code.size();
+
+    cond->param = (unsigned char*) malloc(param.size());
+    memcpy(cond->param, param.data(), param.size());
+    cond->paramLength = param.size();
+
+    return cond;
+}
 
 CScript CCPubKey(const CC *cond, bool mixed)
 {
