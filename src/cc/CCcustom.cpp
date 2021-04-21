@@ -33,6 +33,7 @@
 #include "CCtokens.h"
 #include "CCImportGateway.h"
 #include "CCKogs.h"
+#include "CCvm.h"
 
 /*
  CCcustom has most of the functions that need to be extended to create a new CC contract.
@@ -298,7 +299,12 @@ uint8_t Assetsv2CCpriv[32] = { 0x46, 0x58, 0x3b, 0x18, 0xee, 0x16, 0x63, 0x51, 0
 #undef FUNCNAME
 #undef EVALCODE
 
-
+// VM
+#define FUNCNAME IsCCVMInput
+#define EVALCODE EVAL_CCVM
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
 
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
@@ -522,6 +528,11 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
             memcpy(cp->CCpriv,Assetsv2CCpriv,32);
             cp->validate = Assetsv2Validate;
             cp->ismyvin = IsAssetsv2Input;
+            break;
+
+        case EVAL_CCVM:
+            cp->validate = CCVMValidate;
+            cp->ismyvin = IsCCVMInput;
             break;
 
         default:

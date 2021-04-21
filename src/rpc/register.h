@@ -38,7 +38,8 @@ void RegisterRawTransactionRPCCommands(CRPCTable &tableRPC);
 void RegisterTokensRPCCommands(CRPCTable &tableRPC);
 // cc utils rpcs:
 void RegisterCCUtilsRPCCommands(CRPCTable &tableRPC);
-
+// ccvm rpc
+void RegisterCCVMRPCCommands(CRPCTable &tableRPC);
 
 static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
 {
@@ -49,6 +50,7 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
     RegisterRawTransactionRPCCommands(tableRPC);
     RegisterTokensRPCCommands(tableRPC);
     RegisterCCUtilsRPCCommands(tableRPC);
+    RegisterCCVMRPCCommands(tableRPC);
 }
 
 #endif

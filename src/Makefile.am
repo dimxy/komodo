@@ -53,6 +53,8 @@ LIBCRYPTOCONDITIONS=cryptoconditions/libcryptoconditions_core.la
 LIBSNARK=snark/libsnark.a
 LIBUNIVALUE=univalue/libunivalue.la
 LIBZCASH=libzcash.a
+LIBCPARSE = cc/cparse/builtin-features.o \
+            cc/cparse/core-shunting-yard.o
 
 if ENABLE_ZMQ
 LIBBITCOIN_ZMQ=libbitcoin_zmq.a
@@ -90,6 +92,9 @@ $(LIBUNIVALUE): $(wildcard univalue/lib/*)
 
 $(LIBCRYPTOCONDITIONS): $(wildcard cryptoconditions/src/*) $(wildcard cryptoconditions/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) OPTFLAGS="-O2 -march=x86-64 -g "
+
+$(LIBCPARSE): $(wildcard cc/cparse/*.cpp) $(wildcard cc/cparse/*.h) $(wildcard cc/cparse/*.hpp) $(wildcard cc/cparse/*.inc) $(wildcard cc/cparse/builtin-features/*.inc)
+	$(AM_V_at) CC="$(CC)" CXX="$(CXX)" $(MAKE) -C $(@D) 
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
 # But to build the less dependent modules first, we manually select their order here:
@@ -321,6 +326,7 @@ libbitcoin_server_a_SOURCES = \
   cc/pricesfeed.cpp \
   cc/priceslibs/cjsonpointer.cpp \
   cc/kogs.cpp \
+  cc/CCvm.cpp \
   chain.cpp \
   checkpoints.cpp \
   fs.cpp \
@@ -598,7 +604,8 @@ komodod_LDADD += \
   $(LIBBITCOIN_CRYPTO) \
   $(LIBVERUS_CRYPTO) \
   $(LIBVERUS_PORTABLE_CRYPTO) \
-  $(LIBZCASH_LIBS)
+  $(LIBZCASH_LIBS) \
+  $(LIBCPARSE)
 
 if TARGET_DARWIN
 komodod_LDADD += libcc.dylib $(LIBSECP256K1)
@@ -773,6 +780,7 @@ clean-local:
 	-$(MAKE) -C cryptoconditions clean
 	rm -f leveldb/*/*.gcno leveldb/helpers/memenv/*.gcno
 	-rm -f config.h
+	-$(MAKE) -C cc/cparse clean
 
 .rc.o:
 	@test -f $(WINDRES)
