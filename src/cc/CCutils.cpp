@@ -18,6 +18,7 @@
  */
 
 #include <sstream>
+#include <iomanip>
 
 #include "CCinclude.h"
 #include "CCtokens.h"
@@ -78,7 +79,7 @@ CC *MakeCCcond1(uint8_t evalcode, std::vector<unsigned char> param, CPubKey pk)
     std::vector<CC*> pks;
     pks.push_back(CCNewSecp256k1(pk));
     CC *condCC = CCNewEval(E_MARSHAL(ss << evalcode), param);
-    std::cerr << __func__ << " param=" << (char*)param.data() << std::endl;
+    std::cerr << __func__ << " param="; std::cerr.write((char*)param.data(), param.size()); std::cerr << std::endl;
     CC *Sig = CCNewThreshold(1, pks);
     return CCNewThreshold(2, {condCC, Sig});
 }

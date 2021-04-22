@@ -1,4 +1,6 @@
 
+#ifndef CC_VMPARSER_H
+#define CC_VMPARSER_H
 
 #include <iostream>
 #include <string.h>
@@ -8,7 +10,6 @@
 #include "./cparse/shunting-yard-exceptions.h"
 
 typedef packToken returnState;
-
 
 class Statement
 {
@@ -589,3 +590,5 @@ int main()
 
 }
 */
+
+#endif // #ifndef CC_VMPARSER_H

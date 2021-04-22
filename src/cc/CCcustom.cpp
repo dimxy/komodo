@@ -33,8 +33,8 @@
 #include "CCtokens.h"
 #include "CCImportGateway.h"
 #include "CCKogs.h"
-#include "CCvm.h"
-#include "CCBasic1.h"
+#include "CCvmsample.h"
+#include "CCvmsample2.h"
 
 
 /*
@@ -297,16 +297,20 @@ const char *Assetsv2CCaddr = "RX99NCswvrLiM6vNE4zmpKKBWMZU9zqwAk";
 const char *Assetsv2Normaladdr = "RSB4NhRbvEShUFDkZz2KACj5EEBGDtDsV9";
 char Assetsv2CChexstr[67] = { "0345d2e7ab018619da6ed58ccc0138c5f58a7b754bd8e9a1a9d2b811c5fe72d467" };
 uint8_t Assetsv2CCpriv[32] = { 0x46, 0x58, 0x3b, 0x18, 0xee, 0x16, 0x63, 0x51, 0x6f, 0x60, 0x6e, 0x09, 0xdf, 0x9d, 0x27, 0xc8, 0xa7, 0xa2, 0x72, 0xa5, 0xd4, 0x6a, 0x9b, 0xcb, 0xd5, 0x4f, 0x7d, 0x1c, 0xb1, 0x2e, 0x63, 0x21 };
-// Basic1
-#define FUNCNAME IsBasic1Input
-#define EVALCODE EVAL_BASIC1
 #include "CCcustom.inc"
 #undef FUNCNAME
 #undef EVALCODE
 
-// VM
-#define FUNCNAME IsCCVMInput
-#define EVALCODE EVAL_CCVM
+// Basic1
+#define FUNCNAME IsCCVMSample2Input
+#define EVALCODE EVAL_CCVMSAMPLE2
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
+// CC VM Sample
+#define FUNCNAME IsCCVMSampleInput
+#define EVALCODE EVAL_CCVMSAMPLE1
 #include "CCcustom.inc"
 #undef FUNCNAME
 #undef EVALCODE
@@ -535,14 +539,14 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
             cp->ismyvin = IsAssetsv2Input;
             break;
 
-        case EVAL_CCVM:
-            cp->validate = CCVMValidate;
-            cp->ismyvin = IsCCVMInput;
+        case EVAL_CCVMSAMPLE1:
+            cp->validate = CCVMSampleValidate;
+            cp->ismyvin = IsCCVMSampleInput;
             break;
 
-		case EVAL_BASIC1:
-			cp->validate = Basic1Validate;
-			cp->ismyvin = IsBasic1Input;
+		case EVAL_CCVMSAMPLE2:
+			cp->validate = CCVMSample2Validate;
+			cp->ismyvin = IsCCVMSample2Input;
 			break;
 
         default:

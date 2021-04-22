@@ -62,8 +62,9 @@
         EVAL(EVAL_KOGS, 0xf4)  \
         EVAL(EVAL_TOKENSV2, 0xf5) \
         EVAL(EVAL_ASSETSV2, 0xf6) \
-        EVAL(EVAL_BASIC1, 0xf7) \        
-        EVAL(EVAL_CCVM, 0xf8) \
+        EVAL(EVAL_CCVMSAMPLE1, 0xf8) \
+        EVAL(EVAL_CCVMSAMPLE2, 0xf7) \
+
 
 // evalcodes 0x10 to 0x7f are reserved for cclib dynamic CC
 #define EVAL_FIRSTUSER 0x10
