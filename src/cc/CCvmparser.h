@@ -159,7 +159,18 @@ private:
             *rest = code;
     }
 protected:
-    packToken _exec(TokenMap scope) const { assert(false); }  // should not be here
+    //packToken _exec(TokenMap scope) const { assert(false); }  // should not be here
+    packToken _exec(TokenMap scope) const {
+        // Returned value:
+        packToken rv;
+        for(const auto stmt : list) {
+            // In a more complete implementation, `rv` should
+            // be checked for "return" or "throw" behaviors.
+            rv = stmt->exec(scope);  // remember the last result
+        }
+
+        return rv;
+    }
 
     // Decide what type of statement to build:
     Statement *buildStatement(const char **source, TokenMap scope)
@@ -167,13 +178,14 @@ protected:
         const char *code = *source;
 
         // could not be a simple block statement {...}, it is always AND {...}, OR {...} or FOR(x : y) {...} 
+        // no, let's still enable it:
         // If it is a block statement:
-        /* if (*code == '{')
+        if (*code == '{')
         {
             Statement *stmt = new BlockStatement();
             stmt->compile(code, source, scope);
             return stmt;
-        } */
+        } 
 
         // Parse the first word of the text:
         std::string name = rpnBuilder::parseVar(code);

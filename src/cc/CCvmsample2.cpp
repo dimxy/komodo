@@ -31,15 +31,14 @@ UniValue ccvmsample2fund(const UniValue& params, bool fHelp, const CPubKey& remo
 
     CCerror.clear();
 
-    if (fHelp || params.size() != 3)
-        throw std::runtime_error("ccvmsample2fund destpk amount spk-expr\n"
-            " sends amount to the destpk and sets spk-expr in cc spk \n");
+    if (fHelp || params.size() != 2)
+        throw std::runtime_error("ccvmsample2fund amount spend-expr\n"
+            " sends amount to the cc output for mypk and sets spend-expr in cc spk \n");
     if (ensure_CCrequirements(EVAL_CCVMSAMPLE2) < 0)
         throw std::runtime_error(CC_REQUIREMENTS_MSG);
 
-    vuint8_t vdestpk(ParseHex(params[0].get_str().c_str()));
-    CAmount funds = AmountFromValue(params[1].get_str().c_str());
-    std::string expr = params[2].get_str();
+    CAmount funds = AmountFromValue(params[0].get_str().c_str());
+    std::string expr = params[1].get_str();
 
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     CScript opret; 
@@ -53,7 +52,7 @@ UniValue ccvmsample2fund(const UniValue& params, bool fHelp, const CPubKey& remo
     CPubKey mypk = pubkey2pk(Mypubkey());
     if (AddNormalinputs(mtx, mypk, funds+txfee, 64, false) > 0)
     {
-        mtx.vout.push_back(MakeCC1vout(EVAL_CCVMSAMPLE2, vuint8_t((uint8_t*)expr.c_str(), (uint8_t*)expr.c_str() + expr.length()), funds, pubkey2pk(vdestpk)));
+        mtx.vout.push_back(MakeCC1vout(EVAL_CCVMSAMPLE2, vuint8_t((uint8_t*)expr.c_str(), (uint8_t*)expr.c_str() + expr.length()), funds, mypk));
         result = FinalizeCCTxExt(false, 0, cp, mtx, mypk, txfee, opret);
     }
 
@@ -67,8 +66,8 @@ UniValue ccvmsample2spend(const UniValue& params, bool fHelp, const CPubKey& rem
     CCerror.clear();
 
     if (fHelp || params.size() != 3)
-        throw std::runtime_error("ccvmsample2spend prevtxid vin prev-expr\n"
-                    " spends prevtxid/vin utxo with prev-expr to mypk\n");
+        throw std::runtime_error("ccvmsample2spend prevtxid vin spend-expr\n"
+                    " spends prevtxid/vin cc utxo using spend-expr to mypk\n");
     if (ensure_CCrequirements(EVAL_CCVMSAMPLE2) < 0)
         throw std::runtime_error(CC_REQUIREMENTS_MSG);
 
