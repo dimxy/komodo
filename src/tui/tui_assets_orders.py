@@ -27,18 +27,53 @@ def check_result(r):
     # print("r has unknown, true")
     return True
     
-
-def run_assets_orders(rpc):
+def run_tokens_create(rpc):
 
     # DIMXY20 
     rpc1 = rpclib.rpc_connect("user1875608407", "passb64b66f9e1debbd3257e39976ba5a43e1c6515a8ced77f426b41ba954f0a562f66", 14723)
     rpc2 = rpclib.rpc_connect("user306071284", "pass965dde8333f6c574c138d787a6ecdc22fad32b236e3580b62b2b0a2241d1489a04", 15723)
 
-    retries = 24
-    delay = 10
     #tokenid = "b08775cf3b3b371f97256b427af005d5573a2868106a8c4dd4e8c76e87d476d7" # fungible
     #tokenid = "3b0003561fb98b332452e71208f13e4379fa6987577c3dcd2aef6199b54111ae" # NFT 0 royalty
-    tokenid = "03b0018da699af63a40595cc93b5e3b097a88225e51e767efbe1425aa4698a65" # NFT 1/1000 royalty
+    #tokenid = "03b0018da699af63a40595cc93b5e3b097a88225e51e767efbe1425aa4698a65" # NFT 1/1000 royalty - spent
+    #tokenid = "9f051912b13b707b64b65bb179649901449f7ae78d74e78a813dffb2cf7705f8" # NFT eval=00
+
+    print("creating fungible token...")
+    result = rpc1.tokenv2create("T1", str(0.1))
+    assert(check_result(result))
+    tokenid = rpc1.sendrawtransaction(result['hex'])
+    print("created token:", tokenid)
+    run_assets_orders(rpc1, rpc2, tokenid)
+
+    print("creating NFT with 00...")
+    result = rpc1.tokenv2create("NFT1", str(0.00000001), "nft eval 00", "00010203")
+    assert(check_result(result))
+    tokenid = rpc1.sendrawtransaction(result['hex'])
+    print("created token:", tokenid)
+    run_assets_orders(rpc1, rpc2, tokenid)
+
+    print("creating NFT with F7, no royaly, with arbitary data...")
+    result = rpc1.tokenv2create("NFT1", str(0.00000001), "nft eval=f7 arbitrary=hello", "F70101ee020d687474703a2f2f6d792e6f7267040568656c6c6f")
+    assert(check_result(result))
+    tokenid = rpc1.sendrawtransaction(result['hex'])
+    print("created token:", tokenid)
+    run_assets_orders(rpc1, rpc2, tokenid)
+
+    print("creating NFT with F7 and royaly 0xAA...")
+    result = rpc1.tokenv2create("NFT1", str(0.00000001), "nft eval=f7 roaylty=AA", "F70101ee020d687474703a2f2f6d792e6f726703AA")
+    assert(check_result(result))
+    tokenid = rpc1.sendrawtransaction(result['hex'])
+    print("created token:", tokenid)
+    run_assets_orders(rpc1, rpc2, tokenid)
+    print("tests finished okay")
+    time.sleep(3)
+    exit
+
+def run_assets_orders(rpc1, rpc2, tokenid):
+
+    retries = 24
+    delay = 10
+   
     total = 1 
     askunits = 1
     bidunits = 1
@@ -161,12 +196,9 @@ def run_assets_orders(rpc):
                 assert(check_result(cancelid))
                 print("cancel bid tx sent", cancelid)
 
-    print("tests finished okay")
-    time.sleep(3)
-    exit
 
 menuItems = [
-    {"run assets orders": run_assets_orders},
+    {"run assets orders": run_tokens_create},
     {"Exit": exit}
 ]
 
