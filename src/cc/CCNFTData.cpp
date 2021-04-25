@@ -16,10 +16,13 @@
 #include "CCtokens.h"
 #include "CCNFTData.h"
 
-static const std::map<nftPropId, nftPropType> nftPropDesc = {
-    { NFTPROP_ID, NFTTYP_UINT64 },
-    { NFTPROP_URL, NFTTYP_VUINT8 },
-    { NFTPROP_ROYALTY, NFTTYP_UINT64 },
+typedef std::pair<nftPropType, bool> nftPropDesc_t;
+typedef std::map<nftPropId, nftPropDesc_t> nftPropDesc_map;
+static const nftPropDesc_map nftPropDesc = {
+    { NFTPROP_ID, { NFTTYP_UINT64, true }},
+    { NFTPROP_URL, { NFTTYP_VUINT8, true }},
+    { NFTPROP_ROYALTY, { NFTTYP_UINT64, false }},
+    { NFTPROP_ARBITRARY, { NFTTYP_VUINT8, false }}
 };
 
 typedef struct {
@@ -33,11 +36,13 @@ typedef struct {
 
 static bool ParseNftData(const vuint8_t &vdata, std::map<nftPropId, nftPropValue> &propMap, std::string &sError)
 {
-    if (vdata.size() > 2 && vdata[0] == EVAL_NFTDATA) {
+    if (vdata.size() > 2 && vdata[0] == EVAL_NFTDATA) 
+    {
         uint8_t evalCode, version;
         bool invalidPropType = false;
         bool hasDuplicates = false;
         const char *funcname = __func__;
+        int mandatoryCount = 0;
     
         if (vdata[1] != NFTDATA_VERSION)
         {
@@ -47,13 +52,14 @@ static bool ParseNftData(const vuint8_t &vdata, std::map<nftPropId, nftPropValue
         }
         propMap.clear();
 
-        if(E_UNMARSHAL(vdata, ss >> evalCode; ss >> version; // evalcode in the first byte
-            while(!ss.eof()) {
+        if (E_UNMARSHAL(vdata, ss >> evalCode; ss >> version; // evalcode in the first byte
+            while(!ss.eof()) 
+            {
                 uint8_t propId;
                 ss >> propId; 
                 auto itDesc = nftPropDesc.find((nftPropId)propId);
                 nftPropValue value;
-                nftPropType type = itDesc != nftPropDesc.end() ? itDesc->second : NFTTYP_INVALID;
+                nftPropType type = itDesc != nftPropDesc.end() ? itDesc->second.first : NFTTYP_INVALID;
                 switch(type) {
                     case NFTTYP_UINT64:
                         value.type = type;
@@ -74,8 +80,11 @@ static bool ParseNftData(const vuint8_t &vdata, std::map<nftPropId, nftPropValue
                     break;
                 if (propMap.count((nftPropId)propId) != 0)
                     hasDuplicates = true;
-                else
+                else {
                     propMap.insert(std::make_pair((nftPropId)propId, value));
+                    if (itDesc->second.second)  // if mandatory
+                        mandatoryCount ++;
+                }
             }
         )) 
         {
@@ -83,16 +92,17 @@ static bool ParseNftData(const vuint8_t &vdata, std::map<nftPropId, nftPropValue
                 sError = "invalid property type";
                 return false;
             }
-            if (!hasDuplicates)  {
-                if (propMap.size() == nftPropDesc.size())  // exact prop number
-                    return true;
-                else 
-                    LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << __func__ << " invalid property number" << std::endl);
-            }
-            else  {
+            if (hasDuplicates)  {
                 LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << __func__ << " duplicates in nft data " << std::endl);            
                 sError = "duplicate property type";
+                return false;
             }
+            if (mandatoryCount != std::count_if(nftPropDesc.begin(), nftPropDesc.end(), [](std::pair<nftPropId, nftPropDesc_t> e){ return e.second.second; }))  {
+                LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << __func__ << " invalid mandatory property count=" << mandatoryCount << std::endl);
+                sError = "not all mandatory properties";
+                return false;
+            }
+            return true;                
         }
         else 
            LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << __func__ << " could not unmarshal nft data" << std::endl);
@@ -192,8 +202,10 @@ bool ValidateNFTOpretV2(struct CCcontract_info *cp, Eval* eval, const CTransacti
 
 bool NFTDataValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn)
 {
-    if (strcmp(ASSETCHAINS_SYMBOL, "TKLTEST") == 0 && chainActive.Height() <= 15199)
+    if (strcmp(ASSETCHAINS_SYMBOL, "TKLTEST") == 0 && chainActive.Height() <= 33711)
         return true;
+    //if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY20") == 0 && chainActive.Height() <= 1704)
+    //    return true;
 
     if (tx.vout.size() < 1)
         return eval->Error("no vouts");

@@ -12,7 +12,8 @@ enum nftPropId : uint8_t {
     NFTPROP_NONE = 0x0, 
     NFTPROP_ID = 0x1, 
     NFTPROP_URL = 0x2,
-    NFTPROP_ROYALTY = 0x3  
+    NFTPROP_ROYALTY = 0x3,  
+    NFTPROP_ARBITRARY = 0x4  
 };
 
 // nft property type
