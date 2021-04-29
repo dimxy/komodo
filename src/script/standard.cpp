@@ -244,17 +244,18 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                 for (i=0; i<20; i++)
                     ptr[i] = hash20[i];
                 vSolutionsRet.push_back(hashBytes);
-                if (vParams.size())
-                {
-                    COptCCParams cp = COptCCParams(vParams[0]);
-                    if (cp.IsValid())
-                    {
-                        for (auto k : cp.vKeys)
-                        {
-                            vSolutionsRet.push_back(std::vector<unsigned char>(k.begin(), k.end()));
-                        }
-                    }
-                }
+                // Removing adding additional solutions after the CC condition such as pubkeys to avoid indexing those addresses for a vout
+                // if (vParams.size())
+                // {
+                //     COptCCParams cp = COptCCParams(vParams[0]);
+                //     if (cp.IsValid())
+                //     {
+                //         for (auto k : cp.vKeys)
+                //         {
+                //             vSolutionsRet.push_back(std::vector<unsigned char>(k.begin(), k.end()));
+                //         }
+                //     }
+                // }
                 return true;
             }
             return false;
@@ -385,16 +386,7 @@ bool ExtractDestination(const CScript& _scriptPubKey, CTxDestination& addressRet
 
     else if (IsCryptoConditionsEnabled() != 0 && whichType == TX_CRYPTOCONDITION)
     {
-        if (vSolutions.size() > 1)
-        {
-            CPubKey pk = CPubKey((vSolutions[1]));
-            addressRet = pk;
-            return pk.IsValid();
-        }
-        else
-        {
-            addressRet = CKeyID(uint160(vSolutions[0]));
-        }
+        addressRet = CKeyID(uint160(vSolutions[0]));
         return true;
     }
     // Multisig txns have more than one address...
