@@ -428,7 +428,8 @@ CC *MakeTokensCCcond1of2(uint8_t evalcode, uint8_t evalcode2, CPubKey pk1, CPubK
     pks.push_back(CCNewSecp256k1(pk2));
 
     std::vector<CC*> thresholds;
-    thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
+    if (evalcode != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
     if (evalcode != EVAL_TOKENS)	                                                // if evalCode == EVAL_TOKENS, it is actually MakeCCcond1of2()!
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENS)));	    // this is eval token cc
     if (evalcode2 != 0)
@@ -449,7 +450,8 @@ CC *MakeTokensCCcond1(uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
     pks.push_back(CCNewSecp256k1(pk));
 
     std::vector<CC*> thresholds;
-    thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
+    if (evalcode != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
     if (evalcode != EVAL_TOKENS)                                                    // if evalCode == EVAL_TOKENS, it is actually MakeCCcond1()!
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENS)));	    // this is eval token cc
     if (evalcode2 != 0)
@@ -518,7 +520,8 @@ CC *MakeTokensv2CCcond1of2(uint8_t evalcode1, uint8_t evalcode2, CPubKey pk1, CP
     pks.push_back(CCNewSecp256k1(pk2));
 
     std::vector<CC*> thresholds;
-    thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode1)));
+    if (evalcode1 != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode1)));
     if (evalcode1 != EVAL_TOKENSV2)	                                                // if evalCode == EVAL_TOKENSV2, it is actually MakeCCcond1of2()!
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENSV2)));	// this is eval token cc
     if (evalcode2 != 0)
@@ -539,7 +542,8 @@ CC *MakeTokensv2CCcond1(uint8_t evalcode, uint8_t evalcode2, CPubKey pk)
     pks.push_back(CCNewSecp256k1(pk));
 
     std::vector<CC*> thresholds;
-    thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
+    if (evalcode != 0)
+        thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode)));
     if (evalcode != EVAL_TOKENSV2)                                                    // if evalCode == EVAL_TOKENSV2, it is actually MakeCCcond1()!
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENSV2)));	    // this is eval token cc
     if (evalcode2 != 0)
