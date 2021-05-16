@@ -423,7 +423,6 @@ template <class V> bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::v
 /// @private 
 template <class V> bool IsTokenMarkerVout(CTxOut vout);
 /// @private 
-bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret);  // tmp
 uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey);
 
 #endif

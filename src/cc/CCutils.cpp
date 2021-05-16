@@ -1555,10 +1555,15 @@ bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
             CScript::const_iterator pc = inScript.begin();
             inScript.GetPushedData(pc, vData);
 
-            if (vData.size() > 1 && vData[0].size() == 4) // first vector is 4-byte header
+            if (vData.size() > 1 && vData[0].size() == 4) // try if first vector is 4-byte verus header
             {
-                //vscript_t vopret(vParams[0].begin() + 6, vParams[0].end());
                 opret << OP_RETURN << vData[1];  // return vData[1] as cc opret
+                return true;
+            }
+            else if (vParams.size() == 1)
+            {
+                // support token-v2-style vData:
+                opret << OP_RETURN << vParams[0];  // no verus header, treat vParams[0] as cc data and return as opret
                 return true;
             }
         }
@@ -1566,25 +1571,6 @@ bool GetCCDropAsOpret(const CScript &scriptPubKey, CScript &opret)
     return false;
 }
 
-// get OP_DROP data for mixed cc vouts
-// the function returns OP_DROP data as OP_RETURN script. This looks strange but all cc modules have DecodeOpReturn-like functions 
-// that accept OP_RETURN scripts 
-bool GetCCVDataAsOpret(const CScript &scriptPubKey, CScript &opret)
-{
-    std::vector<vscript_t> vParams;
-    CScript dummy; 
-
-    if (scriptPubKey.IsPayToCryptoCondition(&dummy, vParams) != 0)
-    {
-        if (vParams.size() >= 1)  // allow more data after cc opret
-        {
-            //vscript_t vopret(vParams[0].begin() + 6, vParams[0].end());
-            opret << OP_RETURN << vParams[0];  // return vData[1] as cc opret
-            return true;
-        }
-    }
-    return false;
-}
 
 // get cc address for pubkey or mypk
 UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vector<unsigned char> &pubkey, bool mixed)
@@ -1673,7 +1659,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
 
         // first try if OP_DROP data exists
         bool usedOpreturn;
-        if (GetCCVDataAsOpret(tx.vout[n].scriptPubKey, opdrop))
+        if (GetCCDropAsOpret(tx.vout[n].scriptPubKey, opdrop))
             GetOpReturnData(opdrop, ccdata), usedOpreturn = false;
         else
             GetOpReturnData(tx.vout.back().scriptPubKey, ccdata), usedOpreturn = true;  // use OP_RETURN in the last vout if no OP_DROP data
@@ -1695,6 +1681,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                 evalcode = ccdata[0];
                 funcid = ccdata[1];
                 version = ccdata[2];
+                LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "decoded creation opreturn evalcode=" << (int)evalcode << " funcid=" << (char)funcid << " version=" << (int)version << std::endl);
             }
             else
             {
@@ -1707,7 +1694,7 @@ bool CCDecodeTxVout(const CTransaction &tx, int32_t n, uint8_t &evalcode, uint8_
                     }
                 }
                 creationId = revuint256(encodedCrid);
-                //std::cerr << __func__ << " in opret found creationid=" << creationId.GetHex() << std::endl;
+                LOGSTREAMFN("ccutils", CCLOG_DEBUG1, stream << "decoded opreturn evalcode=" << (int)evalcode << " funcid=" << (char)funcid << " version=" << (int)version << " creationtxid=" << creationId.GetHex() << std::endl);
             }
         }
         return true;
