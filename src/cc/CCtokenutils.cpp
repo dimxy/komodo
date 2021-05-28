@@ -38,6 +38,7 @@ bool TokensIsVer1Active(const Eval *eval)
     //    "RFOXLIKE",
     //    "DIMXY11",
     //    "DIMXY14", "DIMXY14_2"
+        "TOKENSV2",
     };
 
     bool isTimev1 = true;

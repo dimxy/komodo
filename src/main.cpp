@@ -6922,7 +6922,7 @@ bool InitBlockIndex() {
         pblocktree->WriteFlag("spentindex", fSpentIndex);
         fprintf(stderr,"fAddressIndex.%d/%d fSpentIndex.%d/%d\n",fAddressIndex,DEFAULT_ADDRESSINDEX,fSpentIndex,DEFAULT_SPENTINDEX);
 
-        fUnspentCCIndex = GetBoolArg("-unspentccindex", DEFAULT_SPENTINDEX);
+        fUnspentCCIndex = GetBoolArg("-unspentccindex", false);
         pblocktree->WriteFlag("unspentccindex", true);
         fprintf(stderr,"fUnspentCCIndex.%d\n", true);
 
