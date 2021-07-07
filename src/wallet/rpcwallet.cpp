@@ -7162,13 +7162,14 @@ UniValue faucetaddccinputs(const UniValue& params, bool fHelp, const CPubKey& re
 
 UniValue createtxwithnormalinputs(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    if (fHelp || params.size() != 1)
+    if (fHelp || (params.size() < 1 || params.size() > 2))
     {
-        string msg = "createtxwithnormalinputs amount\n"
+        string msg = "createtxwithnormalinputs amount [pubkey]\n"
             "\nReturns a new tx with added normal inputs and previous txns. Note that the caller must add the change output\n"
             "\nArguments:\n"
             //"address which utxos are added from\n"
             "amount (in satoshi) which will be added as normal inputs (equal or more)\n"
+            "pubkey optional, if not set -pubkey used\n"
             "Result: json object with created tx and added vin txns\n\n";
         throw runtime_error(msg);
     }
@@ -7179,9 +7180,18 @@ UniValue createtxwithnormalinputs(const UniValue& params, bool fHelp, const CPub
     if (amount <= 0)
         throw runtime_error("amount invalid");
 
+    CPubKey usedpk = remotepk;
+    if (params.size() >= 2) {
+        CPubKey pk = pubkey2pk(ParseHex(params[1].get_str()));
+        if (!pk.IsValid())
+            throw runtime_error("pubkey invalid");
+        usedpk = pk;
+    }
+
+
     CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     std::vector<CTransaction> vintxns;
-    CAmount added = AddNormalinputsRemote(mtx, remotepk, amount, CC_MAXVINS, &vintxns);
+    CAmount added = AddNormalinputsRemote(mtx, usedpk, amount, CC_MAXVINS, &vintxns);
     if (added < amount)
         throw runtime_error("could not find normal inputs");
 
