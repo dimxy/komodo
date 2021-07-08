@@ -35,7 +35,7 @@
 #include "univalue.h"
 #include "rpc/server.h"
 
-#include <functional>
+//#include <functional>
 
 #ifndef ENABLE_WEBSOCKETS
 #error "ENABLE_WEBSOCKETS not defined"
@@ -621,13 +621,13 @@ public:
                                               // bcz the ws socket might be in CLOSE_WAIT state for a long time komodod has finished (especially if local app has not close the socket), 
                                               // however this is not recommended as allows for other apps to  use this socket as shared (security issue)
                                               // looks like still a websocketpp issue with socket shutdown 
-
             // Set the default message handler to the echo handler
             m_endpoint.set_message_handler(std::bind(
                 &CWebSocketServer::on_message, this,
                 std::placeholders::_1, std::placeholders::_2
             ));
 
+            m_endpoint.set_tls_init_handler(bind(&CWebSocketServer::on_tls_init, this, MOZILLA_MODERN, _1));
             m_endpoint.set_open_handler(bind(&CWebSocketServer::on_open, this, _1));
             m_endpoint.set_close_handler(bind(&CWebSocketServer::on_close, this, _1));
             m_endpoint.set_validate_handler(bind(&CWebSocketServer::on_validate, this, _1));
@@ -635,7 +635,7 @@ public:
 
         } 
         catch (websocketpp::exception const & e) {
-            LogPrintf("websockets init failed: %s \n", e.what());
+            LogPrintf("websockets init failed: %s (for possible a reason check openssl lib 1.1.1 is installed)\n", e.what());
             return false;
         }
         return true;
@@ -740,6 +740,63 @@ private:
         return !fWebSocketsInWarmup;
     }
 
+    std::string get_password() {
+        return "test";
+    }
+
+    context_ptr on_tls_init(tls_mode mode, websocketpp::connection_hdl hdl) {
+        namespace asio = websocketpp::lib::asio;
+
+        std::cout << "on_tls_init called with hdl: " << hdl.lock().get() << std::endl;
+        std::cout << "using TLS mode: " << (mode == MOZILLA_MODERN ? "Mozilla Modern" : "Mozilla Intermediate") << std::endl;
+
+        context_ptr ctx = websocketpp::lib::make_shared<asio::ssl::context>(asio::ssl::context::sslv23);
+
+        try {
+            if (mode == MOZILLA_MODERN) {
+                // Modern disables TLSv1
+                ctx->set_options(asio::ssl::context::default_workarounds |
+                                asio::ssl::context::no_sslv2 |
+                                asio::ssl::context::no_sslv3 |
+                                asio::ssl::context::no_tlsv1 |
+                                asio::ssl::context::single_dh_use);
+            } else {
+                ctx->set_options(asio::ssl::context::default_workarounds |
+                                asio::ssl::context::no_sslv2 |
+                                asio::ssl::context::no_sslv3 |
+                                asio::ssl::context::single_dh_use);
+            }
+            ctx->set_password_callback(bind(&CWebSocketServer::get_password, this));
+
+            // self signed test certificate generated with:
+            // openssl req -newkey rsa:2048 -nodes -subj '/CN=komodo.test'  -keyout key.pem -x509 -days 365 -out certificate.crt
+            // cat certificate.crt key.pem > server.pem
+            ctx->use_certificate_chain_file("server.pem");
+            ctx->use_private_key_file("server.pem", asio::ssl::context::pem);  
+            
+            // Example method of generating this file:
+            // `openssl dhparam -out dh.pem 2048`
+            // Mozilla Intermediate suggests 1024 as the minimum size to use
+            // Mozilla Modern suggests 2048 as the minimum size to use.
+            ctx->use_tmp_dh_file("dh.pem");
+            
+            std::string ciphers;
+            
+            if (mode == MOZILLA_MODERN) {
+                ciphers = "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!3DES:!MD5:!PSK";
+            } else {
+                ciphers = "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA";
+            }
+            
+            if (SSL_CTX_set_cipher_list(ctx->native_handle() , ciphers.c_str()) != 1) {
+                std::cout << "Error setting cipher list" << std::endl;
+            }
+        } catch (std::exception& e) {
+            std::cout << "Exception: " << e.what() << std::endl;
+        }
+        return ctx;
+    }
+
     void on_fail(websocketpp::connection_hdl hdl) {
         wsserver::connection_ptr con = m_endpoint.get_con_from_hdl(hdl);
         
@@ -827,6 +884,9 @@ public:
 
         // Register our handlers
         m_endpoint.set_socket_init_handler(bind(&CWebSocketOutbound::on_socket_init,this,::_1));
+        //m_endpoint.set_http_init_handler(bind(&CWebSocketOutbound::on_socket_init,this,::_1));
+        //m_endpoint.set_tls_init_handler(bind(&CWebSocketOutbound::on_socket_init,this,::_1));
+
         m_endpoint.set_message_handler(bind(&CWebSocketOutbound::on_message,this,::_1,::_2));
         m_endpoint.set_open_handler(bind(&CWebSocketOutbound::on_open,this,::_1));
         m_endpoint.set_close_handler(bind(&CWebSocketOutbound::on_close,this,::_1));
@@ -1447,6 +1507,9 @@ void SetWebSocketsWarmupFinished()
 void StopWebSockets() 
 {
     if (!bWebSocketsStarted) 
+        return;
+
+    if (!spWebSocketServer)
         return;
 
     fWebSocketsStopping = true;
