@@ -362,6 +362,18 @@ dnl           PKG_CONFIG_PATH="$qt5_prefix/lib/pkgconfig:$PKG_CONFIG_PATH"
 dnl           export PKG_CONFIG_PATH
 dnl         fi
 dnl       fi
+
+      dnl for macos openssl needs finding the lib dir
+      dnl AC_CHECK_PROG does not work
+      AC_PATH_PROG([BREW],brew, brew)
+      if test x$BREW != xno; then
+          openssl_prefix=`$BREW --prefix openssl 2>/dev/null`
+          if test x$openssl_prefix != x; then
+              CPPFLAGS="$CPPFLAGS -I $openssl_prefix/include"
+              dnl -L openssl dir must go before depends dir:
+              LDFLAGS="-L$openssl_prefix/lib $LDFLAGS"
+          fi
+      fi
      else
        case $build_os in
          *darwin*)
