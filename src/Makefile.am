@@ -115,6 +115,10 @@ endif
 
 lib_LTLIBRARIES = $(LIBZCASH_CONSENSUS)
 
+LIBSSLSTATIC = $(abs_builddir)/../depends/$(host)/lib/libssl.a
+LIBCRYPTOSTATIC = $(abs_builddir)/../depends/$(host)/lib/libcrypto.a
+
+
 bin_PROGRAMS =
 noinst_PROGRAMS =
 TESTS =
@@ -588,6 +592,15 @@ komodod_LDADD = \
   $(LIBMEMENV) \
   $(LIBSECP256K1) \
   $(LIBCRYPTOCONDITIONS)
+
+if ENABLE_WEBSOCKETS
+# link statically opendssl
+SSL_LIBS=
+CRYPTO_LIBS=
+komodod_LDADD += \
+  $(LIBSSLSTATIC) \
+  $(LIBCRYPTOSTATIC)
+endif
 
 if ENABLE_WALLET
 komodod_LDADD += $(LIBBITCOIN_WALLET)
