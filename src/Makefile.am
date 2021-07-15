@@ -118,7 +118,6 @@ lib_LTLIBRARIES = $(LIBZCASH_CONSENSUS)
 LIBSSLSTATIC = $(abs_builddir)/../depends/$(host)/lib/libssl.a
 LIBCRYPTOSTATIC = $(abs_builddir)/../depends/$(host)/lib/libcrypto.a
 
-
 bin_PROGRAMS =
 noinst_PROGRAMS =
 TESTS =
@@ -593,15 +592,6 @@ komodod_LDADD = \
   $(LIBSECP256K1) \
   $(LIBCRYPTOCONDITIONS)
 
-if ENABLE_WEBSOCKETS
-# link statically opendssl
-SSL_LIBS=
-CRYPTO_LIBS=
-komodod_LDADD += \
-  $(LIBSSLSTATIC) \
-  $(LIBCRYPTOSTATIC)
-endif
-
 if ENABLE_WALLET
 komodod_LDADD += $(LIBBITCOIN_WALLET)
 endif
@@ -609,8 +599,6 @@ endif
 komodod_LDADD += \
   $(BOOST_LIBS) \
   $(BDB_LIBS) \
-  $(SSL_LIBS) \
-  $(CRYPTO_LIBS) \
   $(EVENT_PTHREADS_LIBS) \
   $(EVENT_LIBS) \
   $(ZMQ_LIBS) \
@@ -619,6 +607,17 @@ komodod_LDADD += \
   $(LIBVERUS_CRYPTO) \
   $(LIBVERUS_PORTABLE_CRYPTO) \
   $(LIBZCASH_LIBS)
+
+if ENABLE_WEBSOCKETS
+# link statically openssl
+komodod_LDADD += \
+  $(LIBSSLSTATIC) \
+  $(LIBCRYPTOSTATIC)
+else
+komodod_LDADD += \
+  $(SSL_LIBS) \
+  $(CRYPTO_LIBS)
+endif
 
 if TARGET_DARWIN
 komodod_LDADD += libcc.dylib $(LIBSECP256K1)
