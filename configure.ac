@@ -371,7 +371,7 @@ dnl       fi
           if test x$openssl_prefix != x; then
               CPPFLAGS="$CPPFLAGS -I $openssl_prefix/include"
               dnl -L openssl dir must go before depends dir:
-              LDFLAGS="-L$openssl_prefix/lib $LDFLAGS"
+##              LDFLAGS="-L$openssl_prefix/lib $LDFLAGS"
           fi
       fi
      else
@@ -836,7 +836,7 @@ AX_CHECK_COMPILE_FLAG([-fwrapv],[CXXFLAGS="$CXXFLAGS -fwrapv"])
 AX_CHECK_COMPILE_FLAG([-fno-strict-aliasing],[CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"])
 AX_CHECK_COMPILE_FLAG([-Wno-builtin-declaration-mismatch],[CXXFLAGS="$CXXFLAGS -Wno-builtin-declaration-mismatch"],,[[$CXXFLAG_WERROR]])
 
-LIBZCASH_LIBS="-lgmp -lgmpxx $BOOST_SYSTEM_LIB -lcrypto -lsodium $RUST_LIBS"
+LIBZCASH_LIBS="-lgmp -lgmpxx $BOOST_SYSTEM_LIB -lsodium $RUST_LIBS"
 
 AC_MSG_CHECKING([whether to build bitcoind])
 AM_CONDITIONAL([BUILD_BITCOIND], [test x$build_bitcoind = xyes])
