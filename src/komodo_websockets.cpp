@@ -1232,6 +1232,8 @@ static void ThreadWebSocketWaitForDisconnectedThreads()
                         pnode->m_spWsEndpoint->close(pnode->m_hdl, websocketpp::close::status::no_status);
                     } catch (websocketpp::exception const & e) { // might be already close from remote site or on a error
                         std::cout << __func__ << " close websocketpp::exception: " << e.what() << " (could be okay)" << std::endl;
+                        LOCK(cs_vWsNodes);
+                        RemoveWsNode(pnode); 
                     }
                 }
             }
