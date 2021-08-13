@@ -39,6 +39,9 @@ void RegisterTokensRPCCommands(CRPCTable &tableRPC);
 // cc utils rpcs:
 void RegisterCCUtilsRPCCommands(CRPCTable &tableRPC);
 
+void RegisterEvalThresholdRPCCommands(CRPCTable &tableRPC);
+
+
 
 static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
 {
@@ -49,6 +52,7 @@ static inline void RegisterAllCoreRPCCommands(CRPCTable &tableRPC)
     RegisterRawTransactionRPCCommands(tableRPC);
     RegisterTokensRPCCommands(tableRPC);
     RegisterCCUtilsRPCCommands(tableRPC);
+    RegisterEvalThresholdRPCCommands(tableRPC);
 }
 
 #endif

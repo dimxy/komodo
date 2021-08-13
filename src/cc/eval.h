@@ -62,6 +62,8 @@
         EVAL(EVAL_TOKENSV2, 0xf5) \
         EVAL(EVAL_ASSETSV2, 0xf6) \
         EVAL(EVAL_NFTDATA, 0xf7) \
+        EVAL(EVAL_A, 0xf8) \
+        EVAL(EVAL_B, 0xf9) \
 
 
 // evalcodes 0x10 to 0x7f are reserved for cclib dynamic CC

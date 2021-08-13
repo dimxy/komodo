@@ -32,6 +32,7 @@
 #include "CCtokens.h"
 #include "CCImportGateway.h"
 #include "CCNFTData.h"
+#include "CCEvalThreshold.h"
 
 
 /*
@@ -283,6 +284,20 @@ uint8_t Assetsv2CCpriv[32] = { 0x46, 0x58, 0x3b, 0x18, 0xee, 0x16, 0x63, 0x51, 0
 #undef FUNCNAME
 #undef EVALCODE
 
+// eval_A 
+#define FUNCNAME IsEvalAInput
+#define EVALCODE EVAL_A
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
+// eval_B
+#define FUNCNAME IsEvalBInput
+#define EVALCODE EVAL_B
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
     CPubKey pk; int32_t i; uint8_t pub33[33],check33[33],hash[32]; char CCaddr[64],checkaddr[64],str[67];
@@ -487,6 +502,15 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
         case EVAL_NFTDATA:
             cp->validate = NFTDataValidate;
             cp->ismyvin = IsNFTDataInput;
+            break;
+
+        case EVAL_A:
+            cp->validate = EvalAValidate;
+            cp->ismyvin = IsEvalAInput;
+            break;
+        case EVAL_B:
+            cp->validate = EvalBValidate;
+            cp->ismyvin = IsEvalBInput;
             break;
 
         default:

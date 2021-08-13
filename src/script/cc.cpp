@@ -30,7 +30,7 @@ bool IsSupportedCryptoCondition(const CC *cond)
     if (mask & ~CCEnabledTypes) return false;
 
     // Also require that the condition have at least one signable node
-    if (!(mask & CCSigningNodes)) return false;
+    //if (!(mask & CCSigningNodes)) return false;
 
     return true;
 }

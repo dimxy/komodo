@@ -259,9 +259,11 @@ int cc_readFulfillmentBinaryExt(const unsigned char *ffill_bin, size_t ffill_bin
 
 int cc_visit(CC *cond, CCVisitor visitor) {
     int out = visitor.visit(cond, visitor);
+    printf("%s out=%d cond->type->visitChildren=%d\n", __func__, out, cond->type->visitChildren!=NULL);
     if (out && cond->type->visitChildren) {
         out = cond->type->visitChildren(cond, visitor);
     }
+    printf("%s returning out=%d\n", __func__, out);
     return out;
 }
 

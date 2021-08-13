@@ -118,6 +118,7 @@ typedef struct CCEvalVerifyData {
 int evalVisit(CC *cond, CCVisitor visitor) {
     if (cond->type->typeId != CC_Eval) return 1;
     CCEvalVerifyData *evalData = visitor.context;
+    printf("%s calling evalData->verify for eval=%d\n", __func__, cond->code[0]);
     return evalData->verify(cond, evalData->context);
 }
 
