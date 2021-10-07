@@ -1044,8 +1044,11 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs,
         const CScript& prevScript = prev.scriptPubKey;
         //printf("Previous script: %s\n", prevScript.ToString().c_str());
 
-        if (!Solver(prevScript, whichType, vSolutions))
+        bool iscltv;
+        // allow CLTV inputs:
+        if (!SolverCLTV(prevScript, whichType, vSolutions, iscltv)) 
             return false;
+            
         int nArgsExpected = ScriptSigArgsExpected(whichType, vSolutions);
         if (nArgsExpected < 0)
             return false;

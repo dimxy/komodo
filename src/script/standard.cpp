@@ -158,6 +158,7 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_MULTISIG: return "multisig";
     case TX_NULL_DATA: return "nulldata";
     case TX_CRYPTOCONDITION: return "cryptocondition";
+    case TX_CLTV: return "timelocked";
     default: return "invalid";
     }
     return NULL;
@@ -213,7 +214,7 @@ static bool MatchMultisig(const CScript& script, unsigned int& required, std::ve
     return (it + 1 == script.end());
 }
 
-
+// decodes scriptPubKey and returns the addressable part from it
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet)
 {
     vSolutionsRet.clear();
@@ -289,6 +290,25 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
     return false;
 }
 
+// Extended Solver version that allows non-standard CLTV scriptPubKeys (initially borrowed from Verus and used in the Tokel chain) 
+// Note that it returns basic TX_PUBKEY, TX_PUBKEYHASH etc types for CLTV scriptpubkeys but it also sets the isCltv flag
+// Use it wherever you expect CLTV scriptPubKeys
+bool SolverCLTV(const CScript& _scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet, bool &isCltv)
+{
+    CScript scriptPubKey = _scriptPubKey;
+    isCltv = false;
+    if (scriptPubKey.IsCheckLockTimeVerify())
+    {
+        uint8_t pushOp = scriptPubKey[0];
+        uint32_t scriptStart = pushOp + 3;
+
+        // continue with post CLTV script
+        scriptPubKey = CScript(scriptPubKey.size() > scriptStart ? scriptPubKey.begin() + scriptStart : scriptPubKey.end(), scriptPubKey.end());
+        isCltv = true;
+    }
+    return Solver(scriptPubKey, typeRet, vSolutionsRet);
+}
+
 int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned char> >& vSolutions)
 {
     switch (t)
@@ -312,10 +332,13 @@ int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned c
     return -1;
 }
 
-bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
+bool IsStandard(const CScript& _scriptPubKey, txnouttype& whichType)
 {
     vector<valtype> vSolutions;
-    if (!Solver(scriptPubKey, whichType, vSolutions))
+    CScript scriptPubKey = _scriptPubKey;
+
+    bool iscltv = false;
+    if (!SolverCLTV(scriptPubKey, whichType, vSolutions, iscltv))
     {
         //int32_t i; uint8_t *ptr = (uint8_t *)scriptPubKey.data();
         //for (i=0; i<scriptPubKey.size(); i++)
@@ -344,17 +367,13 @@ bool ExtractDestination(const CScript& _scriptPubKey, CTxDestination& addressRet
     CScript scriptPubKey = _scriptPubKey;
 
     // if this is a CLTV script, get the destination after CLTV
-    if (scriptPubKey.IsCheckLockTimeVerify())
-    {
-        uint8_t pushOp = scriptPubKey[0];
-        uint32_t scriptStart = pushOp + 3;
-
-        // check post CLTV script
-        scriptPubKey = CScript(scriptPubKey.size() > scriptStart ? scriptPubKey.begin() + scriptStart : scriptPubKey.end(), scriptPubKey.end());
-    }
-
-    if (!Solver(scriptPubKey, whichType, vSolutions))
+    bool iscltv = false;
+    if (!SolverCLTV(scriptPubKey, whichType, vSolutions, iscltv))
         return false;
+
+    int64_t unlockTime = 0LL;
+    if (iscltv) 
+        scriptPubKey.IsCheckLockTimeVerify(&unlockTime);
 
     if (whichType == TX_PUBKEY)
     {
@@ -365,27 +384,41 @@ bool ExtractDestination(const CScript& _scriptPubKey, CTxDestination& addressRet
             return false;
         }
 
+        CTxDestination dest;
         if (returnPubKey)
-            addressRet = pubKey;
+            dest = pubKey;
         else
-            addressRet = pubKey.GetID();
+            dest = pubKey.GetID();
+
+        if (iscltv) 
+            addressRet = CCLTVID(pubKey, unlockTime);
+        else
+            addressRet = dest;
         return true;
     }
 
     else if (whichType == TX_PUBKEYHASH)
     {
-        addressRet = CKeyID(uint160(vSolutions[0]));
+        CTxDestination dest = CKeyID(uint160(vSolutions[0]));
+        if (iscltv)
+            addressRet = CCLTVID(boost::get<CKeyID>(dest), unlockTime);
+        else
+            addressRet = dest;
         return true;
     }
     else if (whichType == TX_SCRIPTHASH)
     {
         addressRet = CScriptID(uint160(vSolutions[0]));
+        // we do not create CCLTVID for P2SH spks as it does not make sense
+        // however we do not fail it either to provide compatibility with the pre-CCLTVID code (if someone created such spks by chance)
         return true;
     }
 
     else if (IsCryptoConditionsEnabled() != 0 && whichType == TX_CRYPTOCONDITION)
     {
         addressRet = CCryptoConditionID(uint160(vSolutions[0]));
+        // we do not create CCLTVID for CC spks as it does not make sense (any timelocks should be inside the cc code)
+        // however we do not fail it either to provide compatibility with the pre-CCLTVID code
         return true;
     }
     // Multisig txns have more than one address...
@@ -399,7 +432,8 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
     vector<valtype> vSolutions;
 
     // if this is a CLTV script, get the destinations after CLTV
-    if (scriptPubKey.IsCheckLockTimeVerify())
+    int64_t unlockTime;
+    if (scriptPubKey.IsCheckLockTimeVerify(&unlockTime))
     {
         uint8_t pushOp = scriptPubKey[0];
         uint32_t scriptStart = pushOp + 3;
@@ -408,7 +442,18 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, vecto
         CScript postfix = CScript(scriptPubKey.size() > scriptStart ? scriptPubKey.begin() + scriptStart : scriptPubKey.end(), scriptPubKey.end());
 
         // check again with only postfix subscript
-        return(ExtractDestinations(postfix, typeRet, addressRet, nRequiredRet));
+        vector<CTxDestination> dests;
+        if (ExtractDestinations(postfix, typeRet, dests, nRequiredRet)) {
+            for (auto const &dest : dests)   {
+                if (dest.which() == TX_PUBKEY)  {
+                    CPubKey pubKey(boost::get<CPubKey>(dest));
+                    addressRet.push_back(CCLTVID(pubKey, unlockTime));  // add destinations as CLTV wrappers with unlock time
+                }
+            }
+            if (addressRet.empty())
+                return false;
+            return true;
+        }
     }
 
     if (!Solver(scriptPubKey, typeRet, vSolutions))
@@ -503,6 +548,15 @@ public:
     bool operator()(const CCryptoConditionID &dest) const {
         script->clear();
         return false;  // can't create a cc that simple
+    }
+    // create a CLTV script:
+    bool operator()(const CCLTVID &dest) const {
+        script->clear();
+        if (dest.which() == TX_PUBKEY)
+            *script << dest.GetUnlockTime() << OP_CHECKLOCKTIMEVERIFY << OP_DROP << ToByteVector(dest.GetPubKey()) << OP_CHECKSIG;
+        else        
+            *script << dest.GetUnlockTime() << OP_CHECKLOCKTIMEVERIFY << OP_DROP << OP_DUP << OP_HASH160 << ToByteVector(dest.GetKeyID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+        return true;  
     }
 };
 }
