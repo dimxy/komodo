@@ -748,7 +748,7 @@ private:
 class CWallet : public CCryptoKeyStore, public CValidationInterface
 {
 private:
-    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
+    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL, int64_t txLockTime = 0LL) const;
 
     CWalletDB *pwalletdbEncryption;
 
@@ -1171,8 +1171,8 @@ public:
     int64_t GetOldestKeyPoolTime();
     void GetAllReserveKeys(std::set<CKeyID>& setAddress) const;
 
-    std::set< std::set<CTxDestination> > GetAddressGroupings();
-    std::map<CTxDestination, CAmount> GetAddressBalances();
+    std::set< std::set<CTxDestination> > GetAddressGroupings(int64_t txUnlockTime);
+    std::map<CTxDestination, CAmount> GetAddressBalances(int64_t txUnlockTime);
 
     std::set<CTxDestination> GetAccountAddresses(const std::string& strAccount) const;
 
@@ -1517,5 +1517,29 @@ public:
     SpendingKeyAddResult operator()(const libzcash::SaplingExtendedSpendingKey &sk) const;
     SpendingKeyAddResult operator()(const libzcash::InvalidEncoding& no) const;    
 };
+
+// helper to check if locktime from OP_CLTV opcode not more than tx lock time
+inline bool CheckLockTime(int64_t nLockTime, int64_t txLockTime)
+{
+    if (!(
+        (txLockTime <  LOCKTIME_THRESHOLD && nLockTime <  LOCKTIME_THRESHOLD) ||
+        (txLockTime >= LOCKTIME_THRESHOLD && nLockTime >= LOCKTIME_THRESHOLD)
+    ))
+        return false;
+    if (nLockTime > txLockTime)
+    {
+        return false;
+    }
+    return true;
+}
+
+// sets unlocked state in the dest
+inline void SetTimeUnlocked(CTxDestination &dest, int64_t txLockTime)
+{
+    CCLTVID& cltv = boost::get<CCLTVID>(dest);
+    if (CheckLockTime(cltv.GetUnlockTime(), txLockTime))
+        cltv.SetUnlocked();
+}
+
 
 #endif // BITCOIN_WALLET_WALLET_H

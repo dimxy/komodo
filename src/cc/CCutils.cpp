@@ -877,8 +877,9 @@ CAmount TotalPubkeyNormalInputs(Eval *eval, const CTransaction &tx, const CPubKe
             typedef std::vector<unsigned char> valtype;
             std::vector<valtype> vSolutions;
             txnouttype whichType;
+            bool iscltv;
 
-            if (Solver(vintx.vout[vin.prevout.n].scriptPubKey, whichType, vSolutions)) {
+            if (SolverCLTV(vintx.vout[vin.prevout.n].scriptPubKey, whichType, vSolutions, iscltv)) {
                 switch (whichType) {
                 case TX_PUBKEY:
                     if (pubkey == CPubKey(vSolutions[0]))   // is my input?

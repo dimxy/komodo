@@ -390,6 +390,13 @@ public:
         return obj;
     }
 
+    UniValue operator()(const CCLTVID &cltvID) const {
+        if (cltvID.which() == TX_PUBKEY)
+            return this->operator()(cltvID.GetPubKey());
+        else 
+            return this->operator()(cltvID.GetKeyID());
+    }    
+
     UniValue operator()(const CCryptoConditionID &ccID) const { return UniValue(UniValue::VOBJ); }  // cryptoconditions are not recognised in the wallet yet
 };
 #endif
@@ -858,7 +865,7 @@ bool getAddressFromIndex(const int &type, const uint160 &hash, std::string &addr
     } else if (type == 1) {
         address = CBitcoinAddress(CKeyID(hash)).ToString();
     } else if (type == 3) {
-        address = CBitcoinAddress(CKeyID(hash)).ToString();
+        address = CBitcoinAddress(CCryptoConditionID(hash)).ToString();
     } else {
         return false;
     }

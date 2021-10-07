@@ -26,6 +26,9 @@
 #include "script/standard.h"
 #include "cc/eval.h"
 
+#include "chain.h"
+extern CChain chainActive;
+
 #include <boost/foreach.hpp>
 
 using namespace std;
@@ -68,17 +71,9 @@ isminetype IsMineInner(const CKeyStore& keystore, const CScript& _scriptPubKey, 
     vector<valtype> vSolutions;
     txnouttype whichType;
     CScript scriptPubKey = _scriptPubKey;
-    
-    if (scriptPubKey.IsCheckLockTimeVerify())
-    {
-        uint8_t pushOp = scriptPubKey[0];
-        uint32_t scriptStart = pushOp + 3;
+    bool iscltv;
 
-        // continue with post CLTV script
-        scriptPubKey = CScript(scriptPubKey.size() > scriptStart ? scriptPubKey.begin() + scriptStart : scriptPubKey.end(), scriptPubKey.end());
-    }
-
-    if (!Solver(scriptPubKey, whichType, vSolutions)) {
+    if (!SolverCLTV(scriptPubKey, whichType, vSolutions, iscltv)) {
         if (keystore.HaveWatchOnly(scriptPubKey))
             return ISMINE_WATCH_ONLY;
         return ISMINE_NO;
