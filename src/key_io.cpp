@@ -56,6 +56,14 @@ public:
         return EncodeBase58Check(data);
     }
 
+    std::string operator()(const CCLTVID& id) const
+    {
+        if (id.which() == TX_PUBKEY)
+            return operator()(id.GetPubKey());
+        else 
+            return operator()(id.GetKeyID());
+    }
+
     std::string operator()(const CNoDestination& no) const { return {}; }
 };
 

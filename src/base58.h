@@ -134,6 +134,7 @@ public:
     virtual bool Set(const CPubKey &key);
     virtual bool Set(const CScriptID &id);
     virtual bool Set(const CCryptoConditionID &id);
+    virtual bool Set(const CCLTVID& id);
     bool Set(const CTxDestination &dest);
     bool IsValid() const;
     bool IsValid(const CChainParams &params) const;
@@ -160,6 +161,7 @@ public:
     bool Set(const CScriptID &id);
     bool Set(const CTxDestination &dest);
     bool Set(const CCryptoConditionID &id);
+    bool Set(const CCLTVID& id);
     bool IsValid() const;
 
     CCustomBitcoinAddress() {}
