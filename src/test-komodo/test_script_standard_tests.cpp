@@ -38,6 +38,9 @@ namespace TestScriptStandartTests {
             case TX_CRYPTOCONDITION:
                 res = "TX_CRYPTOCONDITION";
                 break;
+            case TX_CLTV:
+                res = "TX_CLTV";
+                break;
             default:
                 res = "UNKNOWN";
             }
