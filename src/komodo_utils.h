@@ -2644,3 +2644,12 @@ bool komodo_txnotarizedconfirmed(uint256 txid, int32_t minconfirms)
         return (true);
     return (false);
 }
+
+uint32_t komodo_next_tx_locktime()
+{
+    AssertLockHeld(cs_main);
+    if (!komodo_hardfork_active((uint32_t)chainActive.LastTip()->nTime))
+        return (uint32_t)chainActive.LastTip()->nTime + 1; // set to a time close to now
+    else
+        return (uint32_t)chainActive.Tip()->GetMedianTimePast();
+}
