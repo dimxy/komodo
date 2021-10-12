@@ -470,7 +470,7 @@ bool CWallet::LoadCScript(const CScript& redeemScript)
     {
         std::string strAddr = EncodeDestination(CScriptID(redeemScript));
         LogPrintf("%s: Warning: This wallet contains a redeemScript of size %i which exceeds maximum size %i thus can never be redeemed. Do not use address %s.\n",
-            __func__, redeemScript.size(), MAX_SCRIPT_ELEMENT_SIZE, strAddr.c_str());
+            __func__, redeemScript.size(), MAX_SCRIPT_ELEMENT_SIZE, strAddr);
         return true;
     }
 
@@ -1795,7 +1795,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
                                 {
                                     fIsFromWhiteList = true;
                                     // std::cerr << __FUNCTION__ << " tx." << tx.GetHash().ToString() << " passed wallet filter! whitelistaddress." << EncodeDestination(dest) << std::endl;
-                                    LogPrintf("tx.%s passed wallet filter! whitelistaddress.%s\n", tx.GetHash().ToString().c_str(),EncodeDestination(dest).c_str());
+                                    LogPrintf("tx.%s passed wallet filter! whitelistaddress.%s\n", tx.GetHash().ToString(),EncodeDestination(dest));
                                     break;
                                 }
                             }
@@ -1804,7 +1804,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
                     if (!fIsFromWhiteList)
                     {
                         // std::cerr << __FUNCTION__ << " tx." << tx.GetHash().ToString() << " is NOT passed wallet filter!" << std::endl;
-                        LogPrintf("tx.%s is NOT passed wallet filter!\n", tx.GetHash().ToString().c_str());
+                        LogPrintf("tx.%s is NOT passed wallet filter!\n", tx.GetHash().ToString());
                         return false;
                     }
                 }
@@ -2211,7 +2211,7 @@ isminetype CWallet::IsMine(const CTransaction& tx, uint32_t voutNum)
 {
     vector<valtype> vSolutions;
     txnouttype whichType;
-    CScriptExt scriptPubKey = CScriptExt(tx.vout[voutNum].scriptPubKey);
+    const CScriptExt scriptPubKey = CScriptExt(tx.vout[voutNum].scriptPubKey);
     bool iscltv;
 
     if (!SolverCLTV(scriptPubKey, whichType, vSolutions, iscltv)) {
