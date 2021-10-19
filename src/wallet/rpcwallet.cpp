@@ -522,7 +522,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() < 2 || params.size() > 7)
+    if (fHelp || params.size() < 2 || params.size() > 6)
         throw runtime_error(
             "sendtoaddress \"" + strprintf("%s",komodo_chainname()) + "_address\" amount ( \"comment\" \"comment-to\" subtractfeefromamount unlocktime )\n"
             "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
@@ -545,7 +545,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
             + HelpExampleCli("sendtoaddress", "\"RD6GgnrMpPaTSMn8vai6yiGA7mN4QGPV\" 0.1")
             + HelpExampleCli("sendtoaddress", "\"RD6GgnrMpPaTSMn8vai6yiGA7mN4QGPV\" 0.1 \"donation\" \"seans outpost\"")
             + HelpExampleCli("sendtoaddress", "\"RD6GgnrMpPaTSMn8vai6yiGA7mN4QGPV\" 0.1 \"\" \"\" true")
-            + HelpExampleCli("sendtoaddress", "\"RD6GgnrMpPaTSMn8vai6yiGA7mN4QGPV\" 0.1 \"donation\" \"seans outpost\" false \"\" 2595973")
+// test cltv: + HelpExampleCli("sendtoaddress", "\"RD6GgnrMpPaTSMn8vai6yiGA7mN4QGPV\" 0.1 \"donation\" \"seans outpost\" false \"\" 1634663625")
             + HelpExampleRpc("sendtoaddress", "\"RD6GgnrMpPaTSMn8vai6yiGA7mN4QGPV\", 0.1, \"donation\", \"seans outpost\"")
         );
 
@@ -588,17 +588,18 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
         } else
             opretlen = 0;
     }
+
+    /* test cltv coins:
     int64_t unlockTime = 0LL;
     if (params.size() > 6)  {
         unlockTime = atoll(params[6].get_str().c_str());
         if (unlockTime < 0LL)
             throw JSONRPCError(RPC_TYPE_ERROR, "invalid unlock time");
-    }
-
+    } */
 
     EnsureWalletIsUnlocked();
 
-    SendMoney(dest, nAmount, fSubtractFeeFromAmount, wtx, opret, opretlen, 0, unlockTime);
+    SendMoney(dest, nAmount, fSubtractFeeFromAmount, wtx, opret, opretlen, 0, 0LL);
 
     return wtx.GetHash().GetHex();
 }
