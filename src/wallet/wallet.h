@@ -993,7 +993,7 @@ public:
     //! check whether we are allowed to upgrade (or already support) to the named feature
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 
-    void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = NULL, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true) const;
+    void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = NULL, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, int64_t txLockTime = 0L) const;
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
 
     bool IsSpent(const uint256& hash, unsigned int n) const;
@@ -1518,28 +1518,17 @@ public:
     SpendingKeyAddResult operator()(const libzcash::InvalidEncoding& no) const;    
 };
 
-// helper to check if locktime from OP_CLTV opcode not more than tx lock time
-inline bool CheckLockTime(int64_t nLockTime, int64_t txLockTime)
+/*inline void TokelRemoveTimeLockedCoins(std::vector<COutput> &vCoins, int64_t txLockTime)
 {
-    if (!(
-        (txLockTime <  LOCKTIME_THRESHOLD && nLockTime <  LOCKTIME_THRESHOLD) ||
-        (txLockTime >= LOCKTIME_THRESHOLD && nLockTime >= LOCKTIME_THRESHOLD)
-    ))
-        return false;
-    if (nLockTime > txLockTime)
+    // remove still timelocked coins
+    for (std::vector<COutput>::iterator it = vCoins.begin(); it != vCoins.end();)
     {
-        return false;
+        int64_t nLockTime;
+        if (it->tx->vout[it->i].scriptPubKey.IsCheckLockTimeVerify(&nLockTime) && !TokelCheckLockTimeHelper(nLockTime, txLockTime))
+            it = vCoins.erase(it);
+        else
+            ++it;
     }
-    return true;
-}
-
-// sets unlocked state in the dest
-inline void SetTimeUnlocked(CTxDestination &dest, int64_t txLockTime)
-{
-    CCLTVID& cltv = boost::get<CCLTVID>(dest);
-    if (CheckLockTime(cltv.GetUnlockTime(), txLockTime))
-        cltv.SetUnlocked();
-}
-
+}*/
 
 #endif // BITCOIN_WALLET_WALLET_H

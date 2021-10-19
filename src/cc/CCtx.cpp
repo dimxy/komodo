@@ -708,7 +708,7 @@ UniValue AddSignatureCCTxV2(vuint8_t & vtx, const UniValue &jsonParams)
 static void AddCCunspentsInMempool(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &unspentOutputs, char *destaddr, bool isCC)
 {
     if (!destaddr) return;
-    
+
     uint160 hashBytes;
     std::string addrstr(destaddr);
     CBitcoinAddress address(addrstr);
@@ -1124,7 +1124,8 @@ CAmount AddNormalinputsLocal(CMutableTransaction& mtx, CPubKey mypk, CAmount tot
     assert(pwalletMain != NULL);
     const CKeyStore& keystore = *pwalletMain;
     LOCK2(cs_main, pwalletMain->cs_wallet);
-    pwalletMain->AvailableCoins(vecOutputs, false, NULL, true);
+    int64_t txLockTime = (int64_t)komodo_next_tx_locktime();
+    pwalletMain->AvailableCoins(vecOutputs, false, NULL, true, txLockTime);
     utxos = (struct CC_utxo*)calloc(CC_MAXVINS, sizeof(*utxos));
     if (maxinputs > CC_MAXVINS)
         maxinputs = CC_MAXVINS;
@@ -1132,12 +1133,17 @@ CAmount AddNormalinputsLocal(CMutableTransaction& mtx, CPubKey mypk, CAmount tot
         threshold = total / maxinputs;
     else
         threshold = total;*/
+
+
+    //TokelRemoveTimeLockedCoins(vecOutputs, txLockTime);
+
     sum = 0LL;
     BOOST_FOREACH (const COutput& out, vecOutputs) {
         if (out.fSpendable != 0 && (vecOutputs.size() < maxinputs || out.tx->vout[out.i].nValue > 0LL)) {  // threshold not used as may lead to insufficient inputs messages
             txid = out.tx->GetHash();
             vout = out.i;
-            if (myGetTransaction(txid, tx, hashBlock) != false && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0) {
+            if (myGetTransaction(txid, tx, hashBlock) != false && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0) 
+            {
                 {
                     LOCK(cs_main);
                     if (CoinbaseGetBlocksToMaturity(tx, hashBlock) > 0) {
@@ -1239,6 +1245,8 @@ CAmount AddNormalinputsRemote(CMutableTransaction& mtx, CPubKey mypk, CAmount to
     else
         SetCCunspentsWithMempool(unspentOutputs, coinaddr, false);
 
+    int64_t txLockTime = (int64_t)komodo_next_tx_locktime();
+
     for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue>>::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++) {
         txid = it->first.txhash;
         vout = (int32_t)it->first.index;
@@ -1247,7 +1255,13 @@ CAmount AddNormalinputsRemote(CMutableTransaction& mtx, CPubKey mypk, CAmount to
         if (it->second.satoshis == 0)
             continue; //skip null outputs
 
-        if (myGetTransaction(txid, tx, hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0) {
+        // if CLTV tx check it is spendable already
+        int64_t nLockTime;
+        if (it->second.script.IsCheckLockTimeVerify(&nLockTime) && !TokelCheckLockTimeHelper(nLockTime, txLockTime))
+            continue;
+
+        if (myGetTransaction(txid, tx, hashBlock) != 0 && tx.vout.size() > 0 && vout < tx.vout.size() && tx.vout[vout].scriptPubKey.IsPayToCryptoCondition() == 0) 
+        {
             {
                 LOCK(cs_main);
                 if (CoinbaseGetBlocksToMaturity(tx, hashBlock) > 0) {

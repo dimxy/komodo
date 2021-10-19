@@ -866,10 +866,16 @@ UniValue listaddressgroupings(const UniValue& params, bool fHelp, const CPubKey&
             UniValue addressInfo(UniValue::VARR);
             addressInfo.push_back(EncodeDestination(address));
             if (address.which() == TX_CLTV)   {
-                if (boost::get<CCLTVID>(address).IsUnlocked())
+                const CCLTVID &cltv = boost::get<CCLTVID>(address);
+                if (cltv.IsUnlocked())
                     addressInfo.push_back("CLTV-spendable");
-                else
+                else {
                     addressInfo.push_back("CLTV-locked");
+                    if (cltv.GetUnlockTime() > LOCKTIME_THRESHOLD)
+                        addressInfo.push_back( strprintf("%lld (%s)", cltv.GetUnlockTime(), DateTimeStrFormat("%Y-%m-%d %H:%M:%S UTC", cltv.GetUnlockTime())) );
+                    else 
+                        addressInfo.push_back( strprintf("%lld", cltv.GetUnlockTime()) );
+                }
             }
             addressInfo.push_back(ValueFromAmount(balances[address]));
             {
@@ -5507,9 +5513,9 @@ UniValue z_listoperationids(const UniValue& params, bool fHelp, const CPubKey& m
 }
 
 
-#include "script/sign.h"
-int32_t decode_hex(uint8_t *bytes,int32_t n,char *hex);
-extern std::string NOTARY_PUBKEY;
+//#include "script/sign.h"
+//int32_t decode_hex(uint8_t *bytes,int32_t n,char *hex);
+//extern std::string NOTARY_PUBKEY;
 
 int32_t komodo_notaryvin(CMutableTransaction &txNew,uint8_t *notarypub33, void *pTr)
 {

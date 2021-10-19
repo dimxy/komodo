@@ -2645,6 +2645,7 @@ bool komodo_txnotarizedconfirmed(uint256 txid, int32_t minconfirms)
     return (false);
 }
 
+// creates a nLockTime value for a new tx, with Dec 2019 hardfork check
 uint32_t komodo_next_tx_locktime()
 {
     AssertLockHeld(cs_main);

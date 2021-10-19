@@ -3386,7 +3386,7 @@ CAmount CWallet::GetImmatureWatchOnlyBalance() const
 /**
  * populate vCoins with vector of available COutputs.
  */
-void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl, bool fIncludeZeroValue, bool fIncludeCoinBase) const
+void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl, bool fIncludeZeroValue, bool fIncludeCoinBase, int64_t txLockTime) const
 {
     uint64_t interest,*ptr;
     vCoins.clear();
@@ -3462,7 +3462,15 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                             (*ptr) = 0;
                         }
                     }
-                    vCoins.push_back(COutput(pcoin, i, nDepth, (mine & ISMINE_SPENDABLE) != ISMINE_NO));
+
+                    bool bStillTimeLocked = false;
+                    {
+                        int64_t nLockTime;
+                        if(pcoin->vout[i].scriptPubKey.IsCheckLockTimeVerify(&nLockTime))
+                            bStillTimeLocked = !TokelCheckLockTimeHelper(nLockTime, txLockTime);
+                    }
+
+                    vCoins.push_back(COutput(pcoin, i, nDepth, (mine & ISMINE_SPENDABLE) != ISMINE_NO && !bStillTimeLocked));
                 }
             }
         }
@@ -3647,8 +3655,8 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*
     //    *interestp = 0;
     //}
     vector<COutput> vCoinsNoCoinbase, vCoinsWithCoinbase;
-    AvailableCoins(vCoinsNoCoinbase, true, coinControl, false, false);
-    AvailableCoins(vCoinsWithCoinbase, true, coinControl, false, true);
+    AvailableCoins(vCoinsNoCoinbase, true, coinControl, false, false, txLockTime);
+    AvailableCoins(vCoinsWithCoinbase, true, coinControl, false, true, txLockTime);
     fOnlyCoinbaseCoinsRet = vCoinsNoCoinbase.size() == 0 && vCoinsWithCoinbase.size() > 0;
 
     // If coinbase utxos can only be sent to zaddrs, exclude any coinbase utxos from coin selection.
@@ -3725,17 +3733,6 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*
         else
             ++it;
     }
-
-    // remove still timelocked coins
-    for (vector<COutput>::iterator it = vCoins.begin(); it != vCoins.end();)
-    {
-        int64_t nLockTime;
-        if (it->tx->vout[it->i].scriptPubKey.IsCheckLockTimeVerify(&nLockTime) && !CheckLockTime(nLockTime, txLockTime))
-            it = vCoins.erase(it);
-        else
-            ++it;
-    }
-
 
     retval = false;
     if ( nTargetValue <= nValueFromPresetInputs )
@@ -4520,8 +4517,8 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances(int64_t txLockTime
                 if(!ExtractDestination(pcoin->vout[i].scriptPubKey, addr))
                     continue;
                 // if this is CLTV then set if it is already unlocked for spending for the next txLockTime:
-                if (addr.which() == TX_CLTV) 
-                    SetTimeUnlocked(addr, txLockTime);
+                if (addr.which() == TX_CLTV)
+                    TokelSetIfTimeUnlocked(addr, txLockTime);
 
                 CAmount n = IsSpent(walletEntry.first, i) ? 0 : pcoin->vout[i].nValue;
 
@@ -4557,7 +4554,7 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings(int64_t txLockTime)
                 if(!ExtractDestination(mapWallet[txin.prevout.hash].vout[txin.prevout.n].scriptPubKey, address))
                     continue;
                 if (address.which() == TX_CLTV)
-                    SetTimeUnlocked(address, txLockTime);
+                    TokelSetIfTimeUnlocked(address, txLockTime);
                 grouping.insert(address);
                 any_mine = true;
             }
@@ -4571,8 +4568,8 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings(int64_t txLockTime)
                         if (!ExtractDestination(txout.scriptPubKey, txoutAddr))
                             continue;
                         // if this is CLTV then set if it is already unlocked for spending for the next txLockTime:
-                        if (txoutAddr.which() == TX_CLTV)
-                            SetTimeUnlocked(txoutAddr, txLockTime);
+                        if (txoutAddr.which() == TX_CLTV)  
+                            TokelSetIfTimeUnlocked(txoutAddr, txLockTime);
                         grouping.insert(txoutAddr);
                     }
             }
@@ -4592,8 +4589,8 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings(int64_t txLockTime)
                     continue;
 
                 // if this is CLTV then set if it is already unlocked for spending for the next txLockTime:
-                if (address.which() == TX_CLTV)
-                    SetTimeUnlocked(address, txLockTime);
+                if (address.which() == TX_CLTV)  
+                    TokelSetIfTimeUnlocked(address, txLockTime);
 
                 grouping.insert(address);
                 groupings.insert(grouping);

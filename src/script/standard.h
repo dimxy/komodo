@@ -120,24 +120,34 @@ public:
     bool IsUnlocked() const { return unlocked; }
     friend bool operator==(const CCLTVID &a, const CCLTVID &b) { 
         if (a.whichType == TX_PUBKEY && b.whichType == TX_PUBKEY)  
-            return a.pubkey == b.pubkey && a.unlocked == b.unlocked; 
+            return a.pubkey == b.pubkey && (a.unlocked == b.unlocked && !a.unlocked ? b.unlockTime == a.unlockTime : a.unlocked == b.unlocked); 
         else 
-            return a.GetID() == b.GetID() && a.unlocked == b.unlocked; 
+            return a.GetID() == b.GetID() && (a.unlocked == b.unlocked && !a.unlocked ? b.unlockTime == a.unlockTime : a.unlocked == b.unlocked); 
     }
     friend bool operator<(const CCLTVID &a, const CCLTVID &b) { 
         if (a.whichType == TX_PUBKEY && b.whichType == TX_PUBKEY)  {
             if (a.pubkey < b.pubkey) 
                 return true;
-            else if (a.pubkey == b.pubkey) 
-                return a.unlocked < b.unlocked;
-            return false;
+            else if (a.pubkey == b.pubkey)   {
+                if (a.unlocked == b.unlocked && !a.unlocked)
+                    return a.unlockTime < b.unlockTime;
+                else
+                    return a.unlocked < b.unlocked;
+            }            
+            else
+                return false;
         }
         else {
             if (a.GetID() < b.GetID())
                 return true;
-            else if (a.GetID() == b.GetID())
-                return a.unlocked < b.unlocked;
-            return false;
+            else if (a.GetID() == b.GetID()) {
+                if (a.unlocked == b.unlocked && !a.unlocked)
+                    return a.unlockTime < b.unlockTime;
+                else
+                    return a.unlocked < b.unlocked;
+            }
+            else
+                return false;
         }
     }
 };
@@ -241,5 +251,28 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
 
 CScript GetScriptForDestination(const CTxDestination& dest);
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
+
+// helper to check if locktime from OP_CLTV opcode not more than tx lock time. Return true if nScriptLockTime <= txLockTime so the utxo spendable
+inline bool TokelCheckLockTimeHelper(int64_t nScriptLockTime, int64_t txLockTime)
+{
+    if (!(
+        (txLockTime <  LOCKTIME_THRESHOLD && nScriptLockTime <  LOCKTIME_THRESHOLD) ||
+        (txLockTime >= LOCKTIME_THRESHOLD && nScriptLockTime >= LOCKTIME_THRESHOLD)
+    ))
+        return false;
+    if (nScriptLockTime > txLockTime)
+    {
+        return false;
+    }
+    return true;
+}
+
+// sets unlocked state in the CLTV dest
+inline void TokelSetIfTimeUnlocked(CTxDestination &dest, int64_t txLockTime)
+{
+    CCLTVID& cltv = boost::get<CCLTVID>(dest);
+    if (TokelCheckLockTimeHelper(cltv.GetUnlockTime(), txLockTime))
+        cltv.SetUnlocked();
+}
 
 #endif // BITCOIN_SCRIPT_STANDARD_H
