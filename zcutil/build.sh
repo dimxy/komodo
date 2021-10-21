@@ -96,13 +96,6 @@ eval "$MAKE" --version
 as --version
 ld -v
 
-# build cryptoconditions
-cd ./src/cryptoconditions
-./autogen.sh
-./configure
-make
-cd ../..
-
 HOST="$HOST" BUILD="$BUILD" NO_PROTON="$PROTON_ARG" "$MAKE" "$@" -C ./depends/ V=1
 ./autogen.sh
 

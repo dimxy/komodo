@@ -56,13 +56,6 @@ make "$@" -C ./depends/ V=1 NO_QT=1 NO_PROTON=1
 # ./makecustom
 # cd $WD
 
-# build cryptoconditions
-cd ./src/cryptoconditions
-./autogen.sh
-./configure
-make
-cd ../..
-
 ./autogen.sh
 CPPFLAGS="-I$PREFIX/include -arch x86_64" LDFLAGS="-L$PREFIX/lib -arch x86_64 -Wl,-no_pie" \
 CXXFLAGS="-arch x86_64 -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/ -fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -Wno-error=attributes -g -Wl,-undefined -Wl,dynamic_lookup" \
