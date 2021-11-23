@@ -355,6 +355,16 @@ bool CScript::GetOpretData(std::vector<std::vector<unsigned char>>& vData) const
     else return false;
 }
 
+static bool MatchPayToPubkeyHash2(const CScript& script, std::vector<uint8_t> & pubkeyhash)
+{
+    std::cerr << __func__ << " script.size()=" << script.size() << " script[0]=" << (int)script[0] << std::endl;
+    if (script.size() == 25 && script[0] == OP_DUP && script[1] == OP_HASH160 && script[2] == 20 && script[23] == OP_EQUALVERIFY && script[24] == OP_CHECKSIG) {
+        pubkeyhash = std::vector<uint8_t>(script.begin () + 3, script.begin() + 23);
+        return true;
+    }
+    return false;
+}
+
 bool CScript::IsPayToCryptoCondition(CScript *pCCSubScript, std::vector<std::vector<unsigned char>>& vParams) const
 {
     const_iterator pc = begin();
@@ -371,8 +381,51 @@ bool CScript::IsPayToCryptoCondition(CScript *pCCSubScript, std::vector<std::vec
                     if (GetBalancedData(pc, vParams))
                     {
                         if (pCCSubScript)
-                            *pCCSubScript = CScript(begin(),pcCCEnd);
+                            *pCCSubScript = CScript(begin(), pcCCEnd);
                         return true;
+                    }
+                    
+                }
+                else if (opcode1 == OP_CHECKCRYPTOCONDITIONVERIFY)
+                {
+                    const_iterator pcCCEnd = pc;
+                    if (GetBalancedData(pc, vParams))
+                    {
+                        if (pCCSubScript)
+                            *pCCSubScript = CScript(begin(), pcCCEnd);
+                        return true;
+                    }
+                    else {
+                        opcodetype nextOpcode = OP_0;
+                        vector<unsigned char> nextData;
+                        const_iterator pcNext1 = pcCCEnd;
+                        const_iterator pcNext2 = pcCCEnd;
+                        if (this->GetOp(pcNext1, nextOpcode, nextData))  {
+                            if (nextOpcode > OP_0 && nextOpcode < OP_PUSHDATA1)  {
+                                std::cerr << __func__ << " 1 nextOpcode=" << nextOpcode << std::endl;
+                                if (this->GetOp(pcNext1, nextOpcode, nextData))  {
+                                    std::cerr << __func__ << " 2 nextOpcode=" << nextOpcode << std::endl;
+                                    if (nextOpcode == OP_DROP)  {
+                                        if (MatchPayToPubkeyHash2(CScript(pcNext1, end()), nextData)) {
+                                            if (pCCSubScript)
+                                                *pCCSubScript = CScript(begin(), pcCCEnd);
+                                            return true;
+                                        }
+                                        std::cerr << __func__ << " no match=" << std::endl;
+
+                                    }
+                                }
+                            }                            
+                            else if (MatchPayToPubkeyHash2(CScript(pcNext2, end()), nextData)) {
+                                if (pCCSubScript)
+                                    *pCCSubScript = CScript(begin(), pcCCEnd);
+                                return true;
+                            }
+                            else 
+                                std::cerr << __func__ << " no match 2=" << std::endl;
+
+                        }
+                        std::cerr << __func__ << " f nextOpcode=" << nextOpcode << std::endl;
                     }
                 }
     return false;

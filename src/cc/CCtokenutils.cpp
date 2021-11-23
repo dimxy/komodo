@@ -409,6 +409,18 @@ CC *MakeTokensv2CCcond1(uint8_t evalcode, CPubKey pk) {
     return MakeTokensv2CCcondMofN(evalcode, 0, 1, { pk });
 }
 
+CScript CCPubKey2(const CC *cond, bool mixed)
+{
+    unsigned char buf[1000]; size_t len;
+    if (mixed)
+    {
+        buf[0]='M';
+        len = cc_fulfillmentBinaryMixedMode(cond, buf+1,999)+1;
+    }
+    else len = cc_conditionBinary(cond, buf);
+    return CScript() << std::vector<unsigned char>(buf, buf+len) << OP_CHECKCRYPTOCONDITIONVERIFY;
+}
+
 // make three-eval (token+evalcode+evalcode2) MofN cc vout:
 CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> &pks, vscript_t* pvData)
 {
@@ -417,7 +429,7 @@ CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount n
     if (!CCtoAnon(payoutCond.get())) 
         return vout;
 
-    vout = CTxOut(nValue, CCPubKey(payoutCond.get(),true));
+    vout = CTxOut(nValue, CCPubKey2(payoutCond.get(), true));
 
     {
         std::vector<vscript_t> vvData;
@@ -425,10 +437,11 @@ CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount n
             vvData.push_back(*pvData);
 
         COptCCParams ccp = COptCCParams(COptCCParams::VERSION_2, evalcode1, M, pks.size(), pks, vvData);  // ver2 -> add pks
-        vout.scriptPubKey << ccp.AsVector() << OP_DROP;
+        uint160 h = Hash160(pks[0].begin(), pks[0].end());
+        vout.scriptPubKey << ccp.AsVector() << OP_DROP << OP_DUP << OP_HASH160 << vuint8_t(h.begin(), h.end()) << OP_EQUALVERIFY << OP_CHECKSIG;
     }
     //if (pvData)
-    //    vout.scriptPubKey << *pvData << OP_DROP;
+    //    vout.scriptPubKey << *pvData << OP_DROP;s
     return vout;
 }
 

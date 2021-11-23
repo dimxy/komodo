@@ -1046,12 +1046,16 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs,
 
         bool iscltv;
         // allow CLTV inputs:
-        if (!SolverCLTV(prevScript, whichType, vSolutions, iscltv)) 
+        if (!SolverCLTV(prevScript, whichType, vSolutions, iscltv)) {
+            std::cerr << __func__ << " SolverCLTV false" << std::endl;
             return false;
+        }
             
         int nArgsExpected = ScriptSigArgsExpected(whichType, vSolutions);
-        if (nArgsExpected < 0)
+        if (nArgsExpected < 0) {
+            std::cerr << __func__ << " ScriptSigArgsExpected " << nArgsExpected << std::endl;
             return false;
+        }
 
         // Transactions with extra stuff in their scriptSigs are
         // non-standard. Note that this EvalScript() call will
@@ -1061,8 +1065,10 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs,
         // and this method isn't called.
         vector<vector<unsigned char> > stack;
         //printf("Checking script: %s\n", tx.vin[i].scriptSig.ToString().c_str());
-        if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), consensusBranchId))
+        if (!EvalScript(stack, tx.vin[i].scriptSig, SCRIPT_VERIFY_NONE, BaseSignatureChecker(), consensusBranchId)) {
+            std::cerr << __func__ << " EvalScript failed " << std::endl;
             return false;
+        }
 
         if (whichType == TX_SCRIPTHASH)
         {
@@ -1087,8 +1093,10 @@ bool AreInputsStandard(const CTransaction& tx, const CCoinsViewCache& mapInputs,
             }
         }
 
-        if (stack.size() != (unsigned int)nArgsExpected)
-            return false;
+        if (stack.size() != (unsigned int)nArgsExpected)  {
+            std::cerr << __func__ << " stack.size() != (unsigned int)nArgsExpected, stack.size()=" <<stack.size() << " nArgsExpected=" << nArgsExpected << std::endl;
+            //return false;
+        }
     }
 
     return true;

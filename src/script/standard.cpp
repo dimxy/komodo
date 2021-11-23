@@ -258,8 +258,11 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                 vSolutionsRet.push_back(hashBytes);
                 return true;
             }
+            std::cerr << __func__ << " MayAcceptCryptoCondition failed" << std::endl;
             return false;
         }
+        else
+            std::cerr << __func__ << " IsPayToCryptoCondition failed" << std::endl;
     }
 
     std::vector<unsigned char> data;

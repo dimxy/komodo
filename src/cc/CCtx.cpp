@@ -574,6 +574,35 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                         UniValue unicond(UniValue::VOBJ);
                         unicond.read(strcond);
                         mtx.vin[i].scriptSig = CCSig(cond.get());
+                        //vuint8_t ffil;
+
+                        unsigned char buf[10000];
+                        size_t len = cc_fulfillmentBinary(cond.get(), buf, 10000);
+                        auto ffil = std::vector<unsigned char>(buf, buf+len);
+                        ffil.push_back(1);  // SIGHASH_ALL
+
+                        //E_UNMARSHAL(vuint8_t(mtx.vin[i].scriptSig.begin(), mtx.vin[i].scriptSig.end()), ss >> ffil);
+                        std::cerr << __func__ << " ffil.size()=" << ffil.size() << std::endl;
+                        mtx.vin[i].scriptSig.clear();
+                        //if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0)  {
+                        //if (!Sign1(keyID, creator, vintx.vout[utxovout].scriptPubKey, ret, consensusBranchId))
+                        std::vector<unsigned char> vchSig;
+                        //CTransaction txNewConst(mtx); 
+                        //const CKeyStore& keystore = *pwalletMain;
+                        //TransactionSignatureCreator creator(&keystore, &txNewConst,i,vintx.vout[utxovout].nValue,SIGHASH_ALL);
+
+                        //if (!creator.CreateSig(vchSig, keyID, vintx.vout[utxovout].scriptPubKey, consensusBranchId))  {
+                        if (!vchSecret.Sign(sighash, vchSig)) {
+                            std::cerr << __func__ << " cant Sign Tx i=" << i << std::endl;
+                            return sigDataNull;
+                        }
+                        //vuint8_t sig, pk;
+                        //E_UNMARSHAL(vuint8_t(mtx.vin[i].scriptSig.begin(), mtx.vin[i].scriptSig.end()), ss >> sig; ss >> pk);
+                        //std::cerr << __func__ << " sig.size()=" << sig.size() << " pk.size()=" << pk.size() << std::endl;
+
+                        mtx.vin[i].scriptSig.clear();
+                        mtx.vin[i].scriptSig << ffil << vchSig;
+
                         if (!IsCCInput(mtx.vin[i].scriptSig)) {
                             // if fulfillment could not be serialised treat as signature threshold not reached
                             // return partially signed condition:

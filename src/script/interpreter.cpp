@@ -1365,6 +1365,7 @@ int TransactionSignatureChecker::CheckCryptoCondition(
         const CScript& scriptCode,
         uint32_t consensusBranchId) const
 {
+    std::cerr << __func__ << " condBin.size=" << condBin.size() << " ffillBin.size=" << ffillBin.size() << std::endl;
     // Hash type is one byte tacked on to the end of the fulfillment
     if (ffillBin.empty())
         return false;
@@ -1466,8 +1467,8 @@ bool EvalCryptoConditionSig(
     if (opcode == 0 || opcode > OP_PUSHDATA4)
         return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
 
-    if (pc != scriptSig.end())
-        return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
+    //if (pc != scriptSig.end())
+    //    return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
 
     if (vchPushValue.size() > MAX_SCRIPT_CRYPTOCONDITION_FULFILLMENT_SIZE)
         return set_error(serror, SCRIPT_ERR_PUSH_SIZE);
