@@ -34,7 +34,7 @@ def test_token(test_params):
         assert_success(result)
         for x in result.keys():
             if x.find('ddress') > 0:
-                assert result[x][0] == 'R'
+                assert result[x][0] == 'C'
 
         result = call_token_rpc(rpc, "token"+v+"address", pubkey)
         assert_success(result)
