@@ -9,7 +9,7 @@ import re
 from slickrpc import exc
 import warnings
 sys.path.append('../')
-from basic.pytest_util import validate_template, mine_and_waitconfirms
+from basic.pytest_util import validate_template, mine_and_waitconfirms, validate_caddr_pattern
 
 
 @pytest.mark.usefixtures("proxy_connection")
@@ -100,17 +100,16 @@ class TestFaucetCCe2e:
     def test_faucet_addresses(self, test_params):
         rpc1 = test_params.get('node1').get('rpc')
         pubkey = test_params.get('node1').get('pubkey')
-        address_pattern = re.compile(r"R[a-zA-Z0-9]{33}\Z")  # normal R-addr
 
         res = rpc1.faucetaddress()
         for key in res.keys():
-            if key.find('ddress') > 0:
-                assert address_pattern.match(str(res.get(key)))
+            if key.find('CCaddress') > 0:
+                assert validate_caddr_pattern(res.get(key))
 
         res = rpc1.faucetaddress(pubkey)
         for key in res.keys():
-            if key.find('ddress') > 0:
-                assert address_pattern.match(str(res.get(key)))
+            if key.find('CCaddress') > 0:
+                assert validate_caddr_pattern(res.get(key))
 
     def test_faucet_badvalues(self, test_params):
         rpc1 = test_params.get('node1').get('rpc')

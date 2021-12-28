@@ -26,14 +26,14 @@ def test_oracles(test_params):
     assert_success(result)
 
     for x in result.keys():
-        if x.find('ddress') > 0:    # TODO change to indexkey when oracle cc is updated for oraclesaddress to oraclesindexkey
+        if x.find('CCaddress') > 0:    # TODO change to indexkey when oracle cc is updated for oraclesaddress to oraclesindexkey
             assert result[x][0] == 'C'
 
     result = rpc.oraclesaddress(pubkey)
     assert_success(result)
 
     for x in result.keys():
-        if x.find('ddress') > 0:
+        if x.find('CCaddress') > 0:
             assert result[x][0] == 'C'  
 
     # there are no oracles created yet

@@ -7,7 +7,7 @@ import pytest
 import time
 import sys
 sys.path.append('../')
-from basic.pytest_util import validate_template, mine_and_waitconfirms, validate_raddr_pattern, validate_tx_pattern
+from basic.pytest_util import validate_template, mine_and_waitconfirms, validate_caddr_pattern, validate_tx_pattern
 
 
 @pytest.mark.usefixtures("proxy_connection")
@@ -40,8 +40,8 @@ class TestChannelsCCBase:
         res = rpc1.channelsaddress(pubkey2)
         validate_template(res, channelsaddress_schema)
         for key in res.keys():
-            if key.find('ddress') > 0:
-                assert validate_raddr_pattern(res.get(key))
+            if key.find('CCaddress') > 0:
+                assert validate_caddr_pattern(res.get(key))
 
     @staticmethod
     def new_channel(proxy: object, destpubkey: str, numpayments: str, paysize: str, schema=None, tokenid=None) -> dict:

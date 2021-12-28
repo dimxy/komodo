@@ -7,7 +7,7 @@ import pytest
 import sys
 sys.path.append('../')
 from basic.pytest_util import validate_template, mine_and_waitconfirms, randomstring,\
-     randomhex, wait_blocks, validate_raddr_pattern, check_synced
+     randomhex, wait_blocks, validate_caddr_pattern, check_synced
 from decimal import *
 
 
@@ -231,13 +231,13 @@ class TestDiceCC:
 
         res = rpc1.diceaddress()
         for key in res.keys():
-            if key.find('ddress') > 0:
-                assert validate_raddr_pattern(res.get(key))
+            if key.find('CCaddress') > 0:
+                assert validate_caddr_pattern(res.get(key))
 
         res = rpc1.diceaddress(pubkey)
         for key in res.keys():
-            if key.find('ddress') > 0:
-                assert validate_raddr_pattern(res.get(key))
+            if key.find('CCaddress') > 0:
+                assert validate_caddr_pattern(res.get(key))
 
     def test_dice_errors(self, test_params):
         rpc1 = test_params.get('node1').get('rpc')
