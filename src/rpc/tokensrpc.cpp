@@ -35,32 +35,43 @@
 
 using namespace std;
 
-bool EnsureWalletIsAvailable(bool avoidException);
+const bool NO_CCMIXEDMODE = false;
+//bool EnsureWalletIsAvailable(bool avoidException);
 
 UniValue assetsindexkey(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
 	struct CCcontract_info *cp, C; std::vector<unsigned char> pubkey;
 	cp = CCinit(&C, EVAL_ASSETS);
-	if (fHelp || params.size() > 1)
-		throw runtime_error("assetsaddress [pubkey]\n");
+	if (fHelp || params.size() != 1)
+		throw runtime_error("assetsaddress pubkey\n");
 	if (ensure_CCrequirements(cp->evalcode) < 0)
 		throw runtime_error(CC_REQUIREMENTS_MSG);
-	if (params.size() == 1)
-		pubkey = ParseHex(params[0].get_str().c_str());
-	return CCaddress(cp, (char *)"Assets", pubkey);
+    vuint8_t vpubkey = ParseHex(params[0].get_str().c_str());
+    CPubKey pk = pubkey2pk(vpubkey);
+    if (!pk.IsValid())
+        throw runtime_error("invalid pubkey\n");
+
+    char address[KOMODO_ADDRESS_BUFSIZE];
+    GetCCaddress(cp, address, pk, NO_CCMIXEDMODE);
+    return address; 
 }
 
 UniValue tokenindexkey(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     struct CCcontract_info *cp,C; std::vector<unsigned char> pubkey;
     cp = CCinit(&C, EVAL_TOKENS);
-    if ( fHelp || params.size() > 1 )
-        throw runtime_error("tokenaddress [pubkey]\n");
+    if ( fHelp || params.size() != 1 )
+        throw runtime_error("tokenindexkey pubkey\n");
     if ( ensure_CCrequirements(cp->evalcode) < 0 )
         throw runtime_error(CC_REQUIREMENTS_MSG);
-    if ( params.size() == 1 )
-        pubkey = ParseHex(params[0].get_str().c_str());
-    return CCaddress(cp, "Tokens", pubkey, false);
+    vuint8_t vpubkey = ParseHex(params[0].get_str().c_str());
+    CPubKey pk = pubkey2pk(vpubkey);
+    if (!pk.IsValid())
+        throw runtime_error("invalid pubkey\n");
+
+    char address[KOMODO_ADDRESS_BUFSIZE];
+    GetCCaddress(cp, address, pk, NO_CCMIXEDMODE);
+    return address;  
 }
 
 UniValue tokenv2indexkey(const UniValue& params, bool fHelp, const CPubKey& mypk)
