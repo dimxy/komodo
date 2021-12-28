@@ -57,7 +57,7 @@ def validate_proxy(env_params_dictionary, proxy, node=0):
 def enable_mining(proxy):
     cores = os.cpu_count()
     if cores > 2:
-        threads_count = cores - 2
+        threads_count = 1
     else:
         threads_count = 1
     tries = 0
@@ -80,7 +80,7 @@ def mine_and_waitconfirms(txid, proxy, confs_req=2):  # should be used after tx 
         try:
             confirmations_amount = proxy.getrawtransaction(txid, 1)['confirmations']
             if confirmations_amount < confs_req:
-                print("\ntx is not confirmed yet! Let's wait a little more")
+                print("\ntx is not confirmed yet! Let's wait a little more, confs=", confirmations_amount)
                 time.sleep(5)
             else:
                 print("\ntx confirmed")
@@ -107,6 +107,7 @@ def validate_transaction(proxy, txid, conf_req):
         resp = proxy.gettransaction(txid)
         conf = resp.get('confirmations')
         time.sleep(2)
+
 
 
 def validate_template(blocktemplate, schema=''):  # BIP 0022
@@ -250,6 +251,15 @@ def validate_raddr_pattern(addr):
     if not isinstance(addr, str):
         return False
     address_pattern = re.compile(r"R[a-zA-Z0-9]{33}\Z")
+    if address_pattern.match(addr):
+        return True
+    else:
+        return False
+
+def validate_caddr_pattern(addr):
+    if not isinstance(addr, str):
+        return False
+    address_pattern = re.compile(r"C[a-zA-Z0-9]{33}\Z")
     if address_pattern.match(addr):
         return True
     else:
