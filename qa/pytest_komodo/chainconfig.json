@@ -9,7 +9,9 @@
     "ac_name": "TONYCI",
     "ac_reward": "100000000000",
     "ac_supply": "10000000000",
-    "ac_cc": "2"
+    "ac_cc": "2",
+    "unspentccindex": "1",
+    "reindex": "1"
   },
   "HUSH3": {
     "rpc_user": "test",
