@@ -626,14 +626,16 @@ template <typename Helper> UniValue _HeirFund(int64_t txfee, int64_t amount, std
 
 		// CheckVinPubkey(mtx.vin, myPubkey, hasMypubkey, hasNotMypubkey);
 
+        /* why not?
 		// for initial funding do not allow to sign by non-owner key:
 		// if (hasNotMypubkey) {
-        if (TotalPubkeyNormalInputs(nullptr, mtx, myPubkey) < amount && TotalPubkeyCCInputs(NULL, mtx, myPubkey) < amount)
+        if (TotalPubkeyNormalInputs(nullptr, mtx, myPubkey) < amount && TotalPubkeyCCInputs(nullptr, mtx, myPubkey) < amount)
         {
 			result.push_back(Pair("result", "error"));
 			result.push_back(Pair("error", "using non-owner inputs not allowed"));
-			return result;
+			return result;   
 		}
+        */
 
         // add 1of2 vout token validation pubkeys - used only for tokens
         std::vector<CPubKey> voutTokenPubkeys;
@@ -641,7 +643,7 @@ template <typename Helper> UniValue _HeirFund(int64_t txfee, int64_t amount, std
         voutTokenPubkeys.push_back(heirPubkey);
             
         // add change for txfee and opreturn vouts and sign tx:
-        std::string rawhextx = FinalizeCCTx(0, cp, mtx, myPubkey, txfee,
+        std::string rawhextx = FinalizeCCTx(FINALIZECCTX_NO_CHANGE_WHEN_DUST, cp, mtx, myPubkey, txfee,
                                             Helper::makeCreateOpRet(tokenid, voutTokenPubkeys, myPubkey, heirPubkey, inactivityTimeSec, heirName, memo));
         if (!rawhextx.empty()) {
             result.push_back(Pair("result", "success"));
@@ -769,7 +771,7 @@ template <class Helper> UniValue _HeirAdd(uint256 fundingtxid, int64_t txfee, in
         voutTokenPubkeys.push_back(heirPubkey);
             
         // add opreturn 'A'  and sign tx:						
-        std::string rawhextx = (FinalizeCCTx(0, cp, mtx, myPubkey, txfee,
+        std::string rawhextx = (FinalizeCCTx(FINALIZECCTX_NO_CHANGE_WHEN_DUST, cp, mtx, myPubkey, txfee,
                                                 Helper::makeAddOpRet(tokenid, voutTokenPubkeys, fundingtxid, hasHeirSpendingBegun)));
             
         if (!rawhextx.empty()) {
@@ -939,7 +941,7 @@ template <typename Helper>UniValue _HeirClaim(uint256 fundingtxid, int64_t txfee
             voutTokenPubkeys.push_back(heirPubkey);
             
             // add opreturn 'C' and sign tx:				  // this txfee will be ignored
-            std::string rawhextx = FinalizeCCTx(0, cp, mtx, myPubkey, txfee,
+            std::string rawhextx = FinalizeCCTx(FINALIZECCTX_NO_CHANGE_WHEN_DUST, cp, mtx, myPubkey, txfee,
                                                 Helper::makeClaimOpRet(tokenid, voutTokenPubkeys, fundingtxid, (myPubkey == heirPubkey) ? 1 : hasHeirSpendingBegun)); // forward isHeirSpending to the next latest tx
             
             memset(myprivkey,0,sizeof(myprivkey));
