@@ -8,7 +8,7 @@ import time
 import sys
 import re
 sys.path.append('../')
-from basic.pytest_util import validate_template, mine_and_waitconfirms, randomstring, check_synced, wait_blocks
+from basic.pytest_util import validate_template, mine_and_waitconfirms, randomstring, validate_caddr_pattern, check_synced, wait_blocks
 
 
 @pytest.mark.usefixtures("proxy_connection")
@@ -76,7 +76,7 @@ class TestHeirCCcalls:
         validate_template(res, heirlist_schema)
 
     def test_heiradd(self, test_params):
-        hieradd_schema = {
+        heiradd_schema = {
             'type': 'object',
             'properties': {
                 'result': {'type': 'string'},
@@ -91,7 +91,7 @@ class TestHeirCCcalls:
         try:
             fundid = rpc1.heirlist()[0]
             res = rpc1.heiradd(amount, fundid)
-            validate_template(res, hieradd_schema)
+            validate_template(res, heiradd_schema)
             assert res.get('result') == 'success'
             txid = rpc1.sendrawtransaction(res.get('hex'))
             mine_and_waitconfirms(txid, rpc1)
@@ -106,7 +106,7 @@ class TestHeirCCcalls:
             mine_and_waitconfirms(txid, rpc1)
             fundid = rpc1.heirlist()[0]
             res = rpc1.heiradd(amount, fundid)
-            validate_template(res, hieradd_schema)
+            validate_template(res, heiradd_schema)
             assert res.get('result') == 'success'
             txid = rpc1.sendrawtransaction(res.get('hex'))
             mine_and_waitconfirms(txid, rpc1)
@@ -189,19 +189,12 @@ class TestHeirFunc:
     def test_heir_addresses(self, test_params):
         rpc1 = test_params.get('node1').get('rpc')
         pubkey = test_params.get('node2').get('pubkey')
-        address_pattern = re.compile(r"C[a-zA-Z0-9]{33}\Z")  # normal R-addr
 
         # verify all keys look like valid AC addrs
-        res = rpc1.faucetaddress('')
+        res = rpc1.heiraddress('')
         for key in res.keys():
-            if key.find('ddress') > 0:
-                assert address_pattern.match(str(res.get(key)))
-
-        # test that additional CCaddress key is returned
-        res = rpc1.faucetaddress(pubkey)
-        for key in res.keys():
-            if key.find('ddress') > 0:
-                assert address_pattern.match(str(res.get(key)))
+            if key.find('CCAddress') > 0:
+                assert validate_caddr_pattern(res.get(key))
 
     def test_heir_flow(self, test_params):
         # Check basic heirCC flow from fund to claim

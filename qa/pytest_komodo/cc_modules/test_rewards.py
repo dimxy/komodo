@@ -5,7 +5,7 @@
 
 import pytest
 import time
-from basic.pytest_util import validate_template, mine_and_waitconfirms, validate_raddr_pattern, \
+from basic.pytest_util import validate_template, mine_and_waitconfirms, validate_caddr_pattern, \
                               randomstring, randomhex
 
 
@@ -189,13 +189,13 @@ class TestRewardsCCExtras:
 
         res = rpc1.rewardsaddress()
         for key in res.keys():
-            if key.find('ddress') > 0:
-                assert validate_raddr_pattern(res.get(key))
+            if key.find('CCaddress') > 0:
+                assert validate_caddr_pattern(res.get(key))
 
         res = rpc1.rewardsaddress(pubkey)
         for key in res.keys():
-            if key.find('ddress') > 0:
-                assert validate_raddr_pattern(res.get(key))
+            if key.find('CCddress') > 0:
+                assert validate_caddr_pattern(res.get(key))
 
     @staticmethod
     def bad_calls(proxy, fundtxid):

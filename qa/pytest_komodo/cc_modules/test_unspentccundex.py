@@ -10,7 +10,7 @@ import time
 from slickrpc.exc import RpcException as RPCError
 from util import assert_success, assert_error, mine_and_waitconfirms,\
     send_and_mine, rpc_connect, wait_some_blocks, komodo_teardown
-
+from basic.pytest_util import validate_caddr_pattern
 
 @pytest.mark.usefixtures("proxy_connection")
 def test_ccindex(test_params):
@@ -24,31 +24,16 @@ def test_ccindex(test_params):
 
     is_fresh_chain = test_params.get("is_fresh_chain")
 
-    result = rpc.tokenaddress()
-    assert_success(result)
-    for x in result.keys():
-        if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
-
     # get token cc address for pubkey:
-    result = rpc.tokenaddress(pubkey)
-    assert_success(result)
-    pubkeyTokenCCAddress = ""
-    for x in result.keys():
-        if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
-            if x == 'pubkey Tokens CC Address':
-                pubkeyTokenCCAddress = result[x]
+    result = rpc.tokenindexkey(pubkey)
+    pubkeyTokenCCAddress = result
+    assert validate_caddr_pattern(pubkeyTokenCCAddress)
+
 
     # get token cc address for pubkey1:
-    result = rpc.tokenaddress(pubkey1)
-    assert_success(result)
-    pubkey1TokenCCAddress = ""
-    for x in result.keys():
-        if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
-            if x == 'pubkey Tokens CC Address':
-                pubkey1TokenCCAddress = result[x]
+    result = rpc.tokenindexkey(pubkey1)
+    pubkey1TokenCCAddress = result
+    assert validate_caddr_pattern(pubkey1TokenCCAddress)
 
     # there are no tokens created yet
     # TODO: this test conflicts with heir test because token creating for heir
@@ -71,7 +56,6 @@ def test_ccindex(test_params):
 
     # check one utxo in the index
     result = rpc.listccunspents(pubkeyTokenCCAddress, tokenid)
-    # print('type(result)=' + str(type(result)))
     assert(str(type(result)) == "<class 'list'>")
     assert(len(result) == 1)
     assert(result[0]['creationId'] == tokenid)
