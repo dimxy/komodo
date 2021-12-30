@@ -11,7 +11,8 @@
     "ac_supply": "10000000000",
     "ac_cc": "2",
     "unspentccindex": "1",
-    "reindex": "1"
+    "reindex": "1",
+    "debug": "mempool-tx"
   },
   "HUSH3": {
     "rpc_user": "test",
