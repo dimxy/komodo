@@ -199,7 +199,7 @@ UniValue FaucetGet(const CPubKey& pk, uint64_t txfee)
         for (i=0; i<1000000; i++,j++)
         {
             tmpmtx = mtx;
-            UniValue result = FinalizeCCTxExt(pk.IsValid (),-1LL,cp,tmpmtx,mypk,txfee,CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_FAUCET << (uint8_t)'G' << j));
+            UniValue result = FinalizeCCTxExt(pk.IsValid (), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cp,tmpmtx,mypk,txfee,CScript() << OP_RETURN << E_MARSHAL(ss << (uint8_t)EVAL_FAUCET << (uint8_t)'G' << j));
             if ( (len= (int32_t)result[JSON_HEXTX].getValStr().size()) > 0 && len < 65536 )
             {
                 len >>= 1;
@@ -230,7 +230,7 @@ UniValue FaucetFund(const CPubKey& pk, uint64_t txfee,int64_t funds)
     if ( AddNormalinputs(mtx,mypk,funds+txfee,64,pk.IsValid()) > 0 )
     {
         mtx.vout.push_back(MakeCC1vout(EVAL_FAUCET,funds,faucetpk));
-        return(FinalizeCCTxExt(pk.IsValid(),0,cp,mtx,mypk,txfee,opret));
+        return(FinalizeCCTxExt(pk.IsValid(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cp,mtx,mypk,txfee,opret));
     }
     CCERR_RESULT("faucet",CCLOG_ERROR, stream << "can't find normal inputs");
 }
