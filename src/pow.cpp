@@ -310,7 +310,9 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     // Genesis block
     if (pindexLast == NULL )
         return nProofOfWorkLimit;
-
+#ifdef TESTMODE
+return nProofOfWorkLimit;
+#endif
     //{
         // Comparing to pindexLast->nHeight with >= because this function
         // returns the work required for the block after pindexLast.
@@ -755,6 +757,7 @@ uint32_t lwmaGetNextPOSRequired(const CBlockIndex* pindexLast, const Consensus::
     return nextTarget.GetCompact();
 }
 
+#ifndef TESTMODE
 bool CheckEquihashSolution(const CBlockHeader *pblock, const CChainParams& params)
 {
     if (ASSETCHAINS_ALGO != ASSETCHAINS_EQUIHASH)
@@ -790,6 +793,9 @@ bool CheckEquihashSolution(const CBlockHeader *pblock, const CChainParams& param
 
     return true;
 }
+#else
+bool CheckEquihashSolution(const CBlockHeader *pblock, const CChainParams& params) { return true; }
+#endif
 
 int32_t komodo_is_special(uint8_t pubkeys[66][33],int32_t mids[66],uint32_t blocktimes[66],int32_t height,uint8_t pubkey33[33],uint32_t blocktime);
 int32_t komodo_currentheight();
@@ -805,6 +811,7 @@ int32_t KOMODO_LOADINGBLOCKS = 1;
 
 extern std::string NOTARY_PUBKEY;
 
+#ifndef TESTMODE
 bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t height, const Consensus::Params& params)
 {
     extern int32_t KOMODO_REWIND;
@@ -914,6 +921,9 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
      fprintf(stderr," height.%d notaryid.%d PoW valid\n",height,notaryid);*/
     return true;
 }
+#else
+bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t height, const Consensus::Params& params) { return true; }
+#endif
 
 CChainPower GetBlockProof(const CBlockIndex& block)
 {

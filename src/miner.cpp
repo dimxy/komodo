@@ -1958,12 +1958,14 @@ void static BitcoinMiner()
                     for (z=31; z>=16; z--)
                         fprintf(stderr,"%02x",((uint8_t *)&HASHTarget_POW)[z]);
                     fprintf(stderr," POW\n");*/
+#ifndef TESTMODE
                     if ( h > hashTarget )
                     {
                         //if ( ASSETCHAINS_STAKED != 0 && KOMODO_MININGTHREADS == 0 )
                           //  MilliSleep(30);
                         return false;
                     }
+#endif
                     if ( IS_KOMODO_NOTARY && B.nTime > GetTime() )
                     {
                         //fprintf(stderr,"need to wait %d seconds to submit block\n",(int32_t)(B.nTime - GetAdjustedTime()));
