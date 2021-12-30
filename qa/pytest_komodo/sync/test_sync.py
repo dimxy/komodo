@@ -5,7 +5,7 @@
 
 import pytest
 import time
-from pytest_util import env_get, get_chainstate, check_notarized, get_notary_stats
+from pytest_util_env import env_get, get_chainstate, check_notarized, get_notary_stats
 
 
 @pytest.mark.usefixtures("proxy_connection")
