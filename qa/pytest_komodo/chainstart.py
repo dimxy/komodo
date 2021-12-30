@@ -153,7 +153,8 @@ def main():
         }
         rpc_p = create_proxy(node_params)
         validate_proxy(env_params, rpc_p, i)
-        enable_mining(rpc_p)
+        if i == 0 :  # mine only on one node to prevent reorgs
+            enable_mining(rpc_p)
 
 
 if __name__ == '__main__':
