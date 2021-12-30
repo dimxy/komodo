@@ -57,7 +57,7 @@ def validate_proxy(env_params_dictionary, proxy, node=0):
 def enable_mining(proxy):
     cores = os.cpu_count()
     if cores > 2:
-        threads_count = 1
+        threads_count = cores - 2
     else:
         threads_count = 1
     tries = 0
