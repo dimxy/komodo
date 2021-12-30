@@ -2005,8 +2005,11 @@ void static BitcoinMiner()
                             fprintf(stderr,"%02x",((uint8_t *)&tmp)[z]);
                         fprintf(stderr, "\n");
                     }
+                    ENTER_CRITICAL_SECTION(cs_main);   // need cs_main here bcz chainActive.LastTip() might change and TestBlockValidity will assert
                     CValidationState state;
-                    if ( !TestBlockValidity(state,B, chainActive.LastTip(), true, false))
+                    bool bTestBlockResult = TestBlockValidity(state,B, chainActive.LastTip(), true, false);
+                    LEAVE_CRITICAL_SECTION(cs_main);
+                    if (!bTestBlockResult)
                     {
                         h = UintToArith256(B.GetHash());
                         //for (z=31; z>=0; z--)
