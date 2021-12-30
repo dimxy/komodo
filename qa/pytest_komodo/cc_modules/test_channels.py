@@ -353,3 +353,4 @@ class TestChannelsCC:
         assert isinstance(res, str)
         rpc1.clearbanned()
         rpc2.clearbanned()
+        rpc1.addnode("127.0.0.1:6001", "add")
