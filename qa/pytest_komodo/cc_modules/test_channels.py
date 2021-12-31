@@ -326,7 +326,7 @@ class TestChannelsCC:
         # disconnecting first node from network
         rpc1.setban("127.0.0.0/24", 'add')
         rpc2.setban("127.0.0.0/24", 'add')
-        time.sleep(60)  # timewait for bans to take place
+        time.sleep(120)  # timewait for bans to take place
         assert rpc1.getinfo()['connections'] == 0
         assert rpc2.getinfo()['connections'] == 0
 
