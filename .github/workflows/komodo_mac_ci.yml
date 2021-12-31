@@ -69,6 +69,8 @@ jobs:
           tar xzvf komodo-macos.tar.gz
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
+          ls -l ../../komodo*
+          objdump -t ../../komodod|grep UND
           ./ci_setup.sh "cc_modules/test_dice.py cc_modules/test_faucet.py cc_modules/test_token.py cc_modules/test_rewards.py"
 
   macos-test-oracles:
