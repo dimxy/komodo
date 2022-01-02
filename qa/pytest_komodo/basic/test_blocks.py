@@ -352,6 +352,7 @@ class TestBlockchainMethods:
         rpc = test_params.get('node1').get('rpc')
         res = rpc.kvupdate(test_values['key'], test_values['value'], test_values['days'], test_values['pass'])
         txid = res.get('txid')
+        assert txid
         keylen = res.get('keylen')
         validate_transaction(rpc, txid, 1)  # wait for block
         res = rpc.kvsearch(test_values['key'])
