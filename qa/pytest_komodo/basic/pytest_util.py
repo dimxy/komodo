@@ -102,11 +102,13 @@ def validate_transaction(proxy, txid, conf_req):
     except Exception as e:
         raise TypeError("Not a Proxy object, error: " + str(e))
     conf = 0
-    while conf < conf_req:
+    retries = 100
+    while conf < conf_req and retries > 0 :
         print("\nWaiting confirmations...")
         resp = proxy.gettransaction(txid)
         conf = resp.get('confirmations')
         time.sleep(2)
+        retries -= 1
 
 
 
