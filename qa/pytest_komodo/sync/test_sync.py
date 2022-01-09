@@ -20,6 +20,7 @@ class TestChainSync:
         check_notarizations = env_get('NOTARIZATIONS', False)
 
         # Main loop
+        return  # no need to wait for sync
         start_time = time.time()
         current_time = start_time
         timeout = start_time + sync_timeout
