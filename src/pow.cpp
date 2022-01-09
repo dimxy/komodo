@@ -296,6 +296,7 @@ arith_uint256 zawy_TSA_EMA(int32_t height,int32_t tipdiff,arith_uint256 prevTarg
     return(bnTarget);
 }
 
+#ifndef TESTMODE
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
     if (ASSETCHAINS_ALGO != ASSETCHAINS_EQUIHASH && ASSETCHAINS_STAKED == 0)
@@ -310,9 +311,7 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     // Genesis block
     if (pindexLast == NULL )
         return nProofOfWorkLimit;
-#ifdef TESTMODE
-return nProofOfWorkLimit;
-#endif
+
     //{
         // Comparing to pindexLast->nHeight with >= because this function
         // returns the work required for the block after pindexLast.
@@ -504,6 +503,22 @@ return nProofOfWorkLimit;
     }
     return(nbits);
 }
+#else
+// for tests provide that difficulty is minimum
+unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
+{
+    if (ASSETCHAINS_ALGO != ASSETCHAINS_EQUIHASH && ASSETCHAINS_STAKED == 0)
+        return lwmaGetNextWorkRequired(pindexLast, pblock, params);
+
+    arith_uint256 bnLimit;
+    if (ASSETCHAINS_ALGO == ASSETCHAINS_EQUIHASH)
+        bnLimit = UintToArith256(params.powLimit);
+    else
+        bnLimit = UintToArith256(params.powAlternate);
+    unsigned int nProofOfWorkLimit = bnLimit.GetCompact();
+    return nProofOfWorkLimit;
+}
+#endif
 
 unsigned int CalculateNextWorkRequired(arith_uint256 bnAvg,
                                        int64_t nLastBlockTime, int64_t nFirstBlockTime,
