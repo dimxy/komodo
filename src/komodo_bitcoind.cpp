@@ -2140,7 +2140,6 @@ int64_t komodo_checkcommission(CBlock *pblock,int32_t height)
 
 bool KOMODO_TEST_ASSETCHAIN_SKIP_POW = 0;
 
-#ifndef TESTMODE
 int32_t komodo_checkPOW(int64_t stakeTxValue, int32_t slowflag,CBlock *pblock,int32_t height)
 {
     uint256 hash,merkleroot; arith_uint256 bnTarget,bhash; bool fNegative,fOverflow; uint8_t *script,pubkey33[33],pubkeys[64][33]; int32_t i,scriptlen,possible,PoSperc,is_PoSblock=0,n,failed = 0,notaryid = -1; int64_t checktoshis,value; CBlockIndex *pprev;
@@ -2347,9 +2346,6 @@ int32_t komodo_checkPOW(int64_t stakeTxValue, int32_t slowflag,CBlock *pblock,in
         return(-1);
     else return(0);
 }
-#else
-int32_t komodo_checkPOW(int64_t stakeTxValue, int32_t slowflag,CBlock *pblock,int32_t height) { return 0; }
-#endif
 
 int32_t komodo_acpublic(uint32_t tiptime)
 {

@@ -296,7 +296,6 @@ arith_uint256 zawy_TSA_EMA(int32_t height,int32_t tipdiff,arith_uint256 prevTarg
     return(bnTarget);
 }
 
-#ifndef TESTMODE
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
     if (ASSETCHAINS_ALGO != ASSETCHAINS_EQUIHASH && ASSETCHAINS_STAKED == 0)
@@ -503,22 +502,6 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHead
     }
     return(nbits);
 }
-#else
-// for tests provide that difficulty is minimum
-unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
-{
-    if (ASSETCHAINS_ALGO != ASSETCHAINS_EQUIHASH && ASSETCHAINS_STAKED == 0)
-        return lwmaGetNextWorkRequired(pindexLast, pblock, params);
-
-    arith_uint256 bnLimit;
-    if (ASSETCHAINS_ALGO == ASSETCHAINS_EQUIHASH)
-        bnLimit = UintToArith256(params.powLimit);
-    else
-        bnLimit = UintToArith256(params.powAlternate);
-    unsigned int nProofOfWorkLimit = bnLimit.GetCompact();
-    return nProofOfWorkLimit;
-}
-#endif
 
 unsigned int CalculateNextWorkRequired(arith_uint256 bnAvg,
                                        int64_t nLastBlockTime, int64_t nFirstBlockTime,
@@ -772,7 +755,6 @@ uint32_t lwmaGetNextPOSRequired(const CBlockIndex* pindexLast, const Consensus::
     return nextTarget.GetCompact();
 }
 
-#ifndef TESTMODE
 bool CheckEquihashSolution(const CBlockHeader *pblock, const CChainParams& params)
 {
     if (ASSETCHAINS_ALGO != ASSETCHAINS_EQUIHASH)
@@ -808,9 +790,6 @@ bool CheckEquihashSolution(const CBlockHeader *pblock, const CChainParams& param
 
     return true;
 }
-#else
-bool CheckEquihashSolution(const CBlockHeader *pblock, const CChainParams& params) { return true; }
-#endif
 
 int32_t komodo_is_special(uint8_t pubkeys[66][33],int32_t mids[66],uint32_t blocktimes[66],int32_t height,uint8_t pubkey33[33],uint32_t blocktime);
 int32_t komodo_currentheight();
@@ -826,7 +805,6 @@ int32_t KOMODO_LOADINGBLOCKS = 1;
 
 extern std::string NOTARY_PUBKEY;
 
-#ifndef TESTMODE
 bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t height, const Consensus::Params& params)
 {
     extern int32_t KOMODO_REWIND;
@@ -936,9 +914,6 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
      fprintf(stderr," height.%d notaryid.%d PoW valid\n",height,notaryid);*/
     return true;
 }
-#else
-bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t height, const Consensus::Params& params) { return true; }
-#endif
 
 CChainPower GetBlockProof(const CBlockIndex& block)
 {
