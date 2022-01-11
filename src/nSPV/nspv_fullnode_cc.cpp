@@ -497,7 +497,7 @@ int32_t NSPV_remoterpc(struct NSPV_remoterpcresp& rpcresp, const char *json, int
 
 
 // process nspv protocol cc requests
-NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32_t requestId, CDataStream &request, CDataStream &response)
+NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32_t requestId, int32_t requestSize, CDataStream &request, CDataStream &response)
 {
     switch (requestType) {
         case NSPV_REMOTERPC: {
@@ -515,7 +515,10 @@ NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32
             request >> REF(CFlatData(vjsonreq));
 
             if ((ret = NSPV_remoterpc(R, std::string(vjsonreq.begin(), vjsonreq.end()).c_str(), reqJsonLen)) > 0) {
-                response << NSPV_REMOTERPCRESP << requestId << R;
+                if (pfrom->nspvVersion >= 5)
+                    response << NSPV_REMOTERPCRESP << requestId << R;
+                else
+                    response << NSPV_REMOTERPCRESP << R;
                 LogPrint("nspv-details", "NSPV_REMOTERPCRESP response: method=%s json=%s to node=%d\n", R.method, R.json, pfrom->id);
             } else {
                 LogPrint("nspv", "NSPV_REMOTERPC could not execute request err %d, node %d\n", ret, pfrom->id);
@@ -539,7 +542,10 @@ NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32
             LogPrint("nspv-details", "address (%s) isCC.%d funcid.%d %s/v%d\n", coinaddr, isCC, funcid, txid.GetHex().c_str(), vout);
 
             if ((ret = NSPV_mempool_cctxids(M, coinaddr.c_str(), isCC, funcid, txid, vout)) > 0) {
-                response << NSPV_CCMEMPOOLRESP << requestId << M;
+                if (pfrom->nspvVersion >= 5)
+                    response << NSPV_CCMEMPOOLRESP << requestId << M;
+                else
+                    response << NSPV_CCMEMPOOLRESP << M;
                 LogPrint("nspv-details", "NSPV_CCMEMPOOLRESP response: numtxids=%d to node=%d\n", M.txids.size(), pfrom->id);
 
             } else {
@@ -569,7 +575,10 @@ NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode* pfrom, int32_t requestType, uint32
             }
 
             if ((ret = NSPV_getccmoduleutxos(U, coinaddr.c_str(), amount, evalcode, funcids, filtertxid)) > 0) {
-                response << NSPV_CCMODULEUTXOSRESP << requestId << U;
+                if (pfrom->nspvVersion >= 5)
+                    response << NSPV_CCMODULEUTXOSRESP << requestId << U;
+                else
+                    response << NSPV_CCMODULEUTXOSRESP << U;
                 LogPrint("nspv-details", "NSPV_CCMODULEUTXOS returned %d utxos to node=%d\n", (int)U.utxos.size(), pfrom->id);
             } else {
                 LogPrint("nspv", "NSPV_CCMODULEUTXOSRESP NSPV_getccmoduleutxos error.%d, node %d\n", ret, pfrom->id);

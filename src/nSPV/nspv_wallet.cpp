@@ -37,7 +37,7 @@ int32_t NSPV_validatehdrs(struct NSPV_ntzsproofresp& ntzproof)
         fprintf(stderr,"next.%d prev.%d -> %d vs %d\n",ptr->common.nextht,ptr->common.prevht,ptr->common.nextht-ptr->common.prevht+1,ptr->common.numhdrs);
         return(-2);
     } else */
-    if ( NSPV_txextract(tx,ntzproof.nextntz) < 0 )
+    if ( NSPV_txextract(tx,ntzproof.nextntztx) < 0 )
         return(-3);
     else if ( tx.GetHash() != ntzproof.nexttxid )
         return(-4);

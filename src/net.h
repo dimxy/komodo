@@ -319,6 +319,7 @@ public:
     CBloomFilter* pfilter;
     int nRefCount;
     NodeId id;
+    uint32_t nspvVersion;
 protected:
 
     // Denial-of-service detection/prevention

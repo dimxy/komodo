@@ -31,14 +31,13 @@
 #include "addressindex.h"
 #include "main.h"
 
-#define NSPV_PROTOCOL_VERSION 0x00000007
+const uint32_t NSPV_PROTOCOL_VERSION = 7;
 #define NSPV_POLLITERS 200
 #define NSPV_POLLMICROS 50000
 #define NSPV_MAXVINS 64
 #define NSPV_AUTOLOGOUT 777
 #define NSPV_BRANCHID 0x76b809bb
 #define NSPV_MAXJSONREQUESTSIZE 65536
-#define NSPV_REQUESTIDSIZE 4
 
 const int NSPV_MAX_MESSAGE_LENGTH = MAX_PROTOCOL_MESSAGE_LENGTH;
 const int NSPV_HEADER_SIZE = sizeof(uint8_t) + sizeof(uint32_t);
@@ -288,9 +287,10 @@ struct NSPV_mempoolresp
 
 struct NSPV_ntz
 {
-    NSPV_ntz() {}
+    NSPV_ntz(uint32_t ver) : version(ver) {}
     ~NSPV_ntz() {}
 
+    uint32_t version;
     int32_t ntzheight;  // notarized height by this notarization tx
     uint256 txid;       // notarization txid
     uint256 desttxid;   // for back notarizations this is notarization txid from KMD/BTC chain 
@@ -311,15 +311,20 @@ struct NSPV_ntz
         READWRITE(ntzheight);
         READWRITE(txidheight);
         READWRITE(timestamp);
-        READWRITE(depth);
+        if (version >= 6)
+            READWRITE(depth);
     }
 };
 
 struct NSPV_ntzsresp
 {
-    NSPV_ntzsresp() {}
+    NSPV_ntzsresp(uint32_t ver) : version(ver), ntz(ver), prev_ntz(ver)  {}
+    NSPV_ntzsresp() : version(NSPV_PROTOCOL_VERSION), ntz(NSPV_PROTOCOL_VERSION), prev_ntz(NSPV_PROTOCOL_VERSION)  {}
+
     ~NSPV_ntzsresp() {}
 
+    uint32_t version;
+    struct NSPV_ntz prev_ntz;
     struct NSPV_ntz ntz;
     int32_t reqheight;
 
@@ -327,6 +332,8 @@ struct NSPV_ntzsresp
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
+        if (version <= 5)
+            READWRITE(prev_ntz);
         READWRITE(ntz);
         READWRITE(reqheight);
     }
@@ -334,7 +341,7 @@ struct NSPV_ntzsresp
 
 struct NSPV_inforesp
 {
-    NSPV_inforesp() {}
+    NSPV_inforesp(uint32_t ver) : version(ver), ntz(ver) {}
     ~NSPV_inforesp() {}
 
     struct NSPV_ntz ntz; // last notarisation
@@ -404,12 +411,15 @@ struct NSPV_txproof
 
 struct NSPV_ntzproofshared
 {
-    NSPV_ntzproofshared() {}
+    NSPV_ntzproofshared(uint32_t ver) : version(ver) { pad32 = 0; pad16 = 0; }
     ~NSPV_ntzproofshared() {}
 
+    uint32_t version;
     std::vector<NSPV_equihdr> hdrs;
-    int32_t nextht /*, pad32*/;
-    /* uint16_t pad16*/;
+    int32_t prevht;
+    int32_t nextht;
+    uint32_t pad32;
+    uint16_t pad16;
 
     ADD_SERIALIZE_METHODS;
 
@@ -423,39 +433,69 @@ struct NSPV_ntzproofshared
             hdrs.resize(numhdrs);
         for(uint16_t i = 0; i < numhdrs; i ++)
             READWRITE(hdrs[i]);
+        if (version <= 5)
+            READWRITE(prevht);
         READWRITE(nextht);
+        if (version == 4)  {
+            // spaces for compatibility 
+            READWRITE(pad32);
+            READWRITE(pad16);
+        }
     }
 };
 
 struct NSPV_ntzsproofresp
 {
-    NSPV_ntzsproofresp() {}
+    NSPV_ntzsproofresp(uint32_t ver) : version(ver), common(ver) { prevtxidht = 0; nexttxidht = 0; }
+    NSPV_ntzsproofresp() : version(NSPV_PROTOCOL_VERSION), common(NSPV_PROTOCOL_VERSION) { prevtxidht = 0; nexttxidht = 0; }
     ~NSPV_ntzsproofresp() {}
 
+    uint32_t version;
     struct NSPV_ntzproofshared common;
     uint256 nexttxid;
     int32_t nexttxidht;
-    std::vector<uint8_t> nextntz;
+    std::vector<uint8_t> nextntztx;
+
+    uint256 prevtxid;
+    int32_t prevtxidht;
+    std::vector<uint8_t> prevntztx;
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(common);
+        
+        if (version <= 5)  
+            READWRITE(prevtxid); // store prev ntz
         READWRITE(nexttxid);
+        if (version <= 5)  
+            READWRITE(prevtxidht);
         READWRITE(nexttxidht);
+
+        if (version <= 5)   {
+            int32_t prevtxlen;
+            if (!ser_action.ForRead())
+                prevtxlen = prevntztx.size();
+            READWRITE(prevtxlen);
+            if (ser_action.ForRead())
+                prevntztx.resize(prevtxlen);
+            READWRITE(REF(CFlatData(prevntztx)));
+        }
+
         int32_t nexttxlen;
         if (!ser_action.ForRead())
-            nexttxlen = nextntz.size();
+            nexttxlen = nextntztx.size();
         READWRITE(nexttxlen);
         if (ser_action.ForRead())
-            nextntz.resize(nexttxlen);
-        READWRITE(REF(CFlatData(nextntz)));
+            nextntztx.resize(nexttxlen);
+        READWRITE(REF(CFlatData(nextntztx)));
     }
 };
 
 struct NSPV_MMRproof
 {
+    NSPV_MMRproof() : common(NSPV_PROTOCOL_VERSION) {}
     struct NSPV_ntzproofshared common;
     // tbd
 };
@@ -554,9 +594,9 @@ void NSPV_resp2IndexTxids(struct NSPV_txidsresp& txidsresp, std::vector<std::pai
 void NSPV_utxos2CCunspents(struct NSPV_utxosresp& utxosresp,std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &outputs);
 struct NSPV_txproof *NSPV_txproof_find(uint256 txid);
 
-typedef NSPV_ERROR_CODE (*NSPVRequestProcType)(CNode *pfrom, int32_t requestType, uint32_t requestId, CDataStream &request, CDataStream &response);
-NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode *pfrom, int32_t requestType, uint32_t requestId, CDataStream &request, CDataStream &response);
-NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode *pfrom, int32_t requestType, uint32_t requestId, CDataStream &requestData, CDataStream &response);
+typedef NSPV_ERROR_CODE (*NSPVRequestProcType)(CNode *pfrom, int32_t requestType, uint32_t requestId, int32_t requestSize, CDataStream &request, CDataStream &response);
+NSPV_ERROR_CODE NSPV_ProcessCCRequests(CNode *pfrom, int32_t requestType, uint32_t requestId, int32_t requestSize, CDataStream &request, CDataStream &response);
+NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode *pfrom, int32_t requestType, uint32_t requestId, int32_t requestSize, CDataStream &requestData, CDataStream &response);
 
 UniValue NSPV_getinfo_req(int32_t reqht, bool bWait = true, uint32_t reqVersion = NSPV_PROTOCOL_VERSION, CNode *pNode = nullptr);
 UniValue NSPV_login(char *wifstr);
