@@ -401,7 +401,7 @@ UniValue NSPV_getinfo_json(struct NSPV_inforesp& inforesp)
     result.push_back(Pair("chaintip", inforesp.blockhash.GetHex()));
     result.push_back(Pair("notarization", NSPV_ntz_json(inforesp.ntz)));
     result.push_back(Pair("header", NSPV_header_json(inforesp.H, inforesp.hdrheight)));
-    result.push_back(Pair("protocolversion", (int64_t)inforesp.version));
+    result.push_back(Pair("protocolversion", (int64_t)inforesp.nspv_version));
     result.push_back(Pair("lastpeer", NSPV_lastpeer));
     return (result);
 }

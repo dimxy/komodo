@@ -110,7 +110,7 @@ int32_t NSPV_getntzsproofresp(struct NSPV_ntzsproofresp& ntzproof, uint256 prevn
 
     LOCK(cs_main);
 
-    if (ntzproof.version <= 5)  {
+    if (ntzproof.nspv_version <= 5)  {
         // for older versions return prev ntz tx
         uint256 prevHashBlock, bhash0, desttxid0;
 
@@ -136,10 +136,10 @@ int32_t NSPV_getntzsproofresp(struct NSPV_ntzsproofresp& ntzproof, uint256 prevn
         LogPrintf("%s nspv error: bhash1 ht.%d not equal to nextht.%d\n", __func__, komodo_blockheight(bhash1), ntzproof.common.nextht);
         return (-6);
     }
-    /*else if (ntzproof.common.prevht > ntzproof.common.nextht || (ntzproof.common.nextht - ntzproof.common.prevht) > 1440) {
+    else if (ntzproof.nspv_version <= 5 && (ntzproof.common.prevht > ntzproof.common.nextht || (ntzproof.common.nextht - ntzproof.common.prevht) > 1440)) {
         LogPrintf("%s nspv error illegal prevht.%d nextht.%d\n", __func__, ntzproof.common.prevht, ntzproof.common.nextht);
         return (-7);
-    }*/
+    }
     //fprintf(stderr, "%s -> prevht.%d, %s -> nexht.%d\n", ntzproof.prevtxid.GetHex().c_str(), ntzproof.common.prevht, ntzproof.nexttxid.GetHex().c_str(), ntzproof.common.nextht);
     ntzproof.common.hdrs.resize(momdepth);
     //fprintf(stderr, "prev.%d next.%d allocate numhdrs.%d\n", ntzproof.common.prevht, ntzproof.common.nextht, ntzproof.common.numhdrs);
@@ -271,7 +271,7 @@ int32_t NSPV_getntzsresp(struct NSPV_ntzsresp& ntzresp, int32_t reqheight)
         return -1;
 
     // return prev ntz for old version
-    if (ntzresp.version <= 5)  {
+    if (ntzresp.nspv_version <= 5)  {
         if (NSPV_notarized_prev(ntzresp.prev_ntz, reqheight) >= 0) { // find notarization txid for which reqheight is in its scope (or it is zeroed if not found or the chain is not notarised)
             LOCK(cs_main);
             CBlockIndex *pindexNtz = komodo_chainactive(ntzresp.ntz.txidheight);
@@ -303,7 +303,6 @@ int32_t NSPV_getinfo(struct NSPV_inforesp &inforesp,int32_t reqheight)
         if (reqheight == 0)
             reqheight = inforesp.height;
         inforesp.hdrheight = reqheight;
-        inforesp.version = inforesp.version;
         if (NSPV_setequihdr(inforesp.H, reqheight) < 0)
             return -1;
         return 1; 
@@ -459,7 +458,7 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
 
                 //fprintf(stderr,"send info resp to id %d\n",(int32_t)pfrom->id);
 
-                LogPrint("nspv-details", "NSPV_INFO sent response: version %d to node=%d\n", I.version, pfrom->id);
+                LogPrint("nspv-details", "NSPV_INFO sent response: version %d to node=%d\n", I.nspv_version, pfrom->id);
                 pfrom->fNspvConnected = true; // allow to do nspv requests
                 pfrom->nspvVersion = version;
 

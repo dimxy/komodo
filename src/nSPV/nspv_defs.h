@@ -115,8 +115,11 @@ uint32_t NSPV_blocktime(int32_t hdrheight);
 
 struct NSPV_equihdr
 {
-    NSPV_equihdr() {}
+    NSPV_equihdr(uint32_t ver) : nspv_version(ver) {}
+    NSPV_equihdr() : nspv_version(NSPV_PROTOCOL_VERSION) {}
     ~NSPV_equihdr() {}
+
+    uint32_t nspv_version;
 
     int32_t nVersion;
     uint256 hashPrevBlock;
@@ -138,7 +141,17 @@ struct NSPV_equihdr
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
-        READWRITE(nSolution);
+        if (nspv_version >= 5)
+            READWRITE(nSolution);
+        else {
+            // nspv v 0.0.4:
+            uint8_t aSolution[1344];
+            if (!ser_action.ForRead())  
+                memcpy(aSolution, nSolution.data(), std::min(sizeof(aSolution), nSolution.size())); // solution always 1344 but using min if anything wrong  
+            READWRITE(FLATDATA(aSolution));
+            if (ser_action.ForRead())  
+                nSolution = std::vector<uint8_t>(aSolution, aSolution+sizeof(aSolution));
+        }
     }
 };
 
@@ -287,10 +300,10 @@ struct NSPV_mempoolresp
 
 struct NSPV_ntz
 {
-    NSPV_ntz(uint32_t ver) : version(ver) {}
+    NSPV_ntz(uint32_t ver) : nspv_version(ver) {}
     ~NSPV_ntz() {}
 
-    uint32_t version;
+    uint32_t nspv_version;
     int32_t ntzheight;  // notarized height by this notarization tx
     uint256 txid;       // notarization txid
     uint256 desttxid;   // for back notarizations this is notarization txid from KMD/BTC chain 
@@ -311,19 +324,19 @@ struct NSPV_ntz
         READWRITE(ntzheight);
         READWRITE(txidheight);
         READWRITE(timestamp);
-        if (version >= 6)
+        if (nspv_version >= 6)
             READWRITE(depth);
     }
 };
 
 struct NSPV_ntzsresp
 {
-    NSPV_ntzsresp(uint32_t ver) : version(ver), ntz(ver), prev_ntz(ver)  {}
-    NSPV_ntzsresp() : version(NSPV_PROTOCOL_VERSION), ntz(NSPV_PROTOCOL_VERSION), prev_ntz(NSPV_PROTOCOL_VERSION)  {}
+    NSPV_ntzsresp(uint32_t ver) : nspv_version(ver), ntz(ver), prev_ntz(ver)  {}
+    NSPV_ntzsresp() : nspv_version(NSPV_PROTOCOL_VERSION), ntz(NSPV_PROTOCOL_VERSION), prev_ntz(NSPV_PROTOCOL_VERSION)  {}
 
     ~NSPV_ntzsresp() {}
 
-    uint32_t version;
+    uint32_t nspv_version;
     struct NSPV_ntz prev_ntz;
     struct NSPV_ntz ntz;
     int32_t reqheight;
@@ -332,7 +345,7 @@ struct NSPV_ntzsresp
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        if (version <= 5)
+        if (nspv_version <= 5)
             READWRITE(prev_ntz);
         READWRITE(ntz);
         READWRITE(reqheight);
@@ -341,7 +354,7 @@ struct NSPV_ntzsresp
 
 struct NSPV_inforesp
 {
-    NSPV_inforesp(uint32_t ver) : version(ver), ntz(ver) {}
+    NSPV_inforesp(uint32_t ver) : nspv_version(ver), ntz(ver), H(ver) {}
     ~NSPV_inforesp() {}
 
     struct NSPV_ntz ntz; // last notarisation
@@ -349,7 +362,7 @@ struct NSPV_inforesp
     int32_t height;     // chain tip height
     int32_t hdrheight;  // requested block height (it will be the tip height if requested height is 0)
     struct NSPV_equihdr H;  // requested block header (it will be the tip if requested height is 0)
-    uint32_t version;       // NSPV protocol version
+    uint32_t nspv_version;       // NSPV protocol version
 
     ADD_SERIALIZE_METHODS;
 
@@ -360,7 +373,7 @@ struct NSPV_inforesp
         READWRITE(height);
         READWRITE(hdrheight);
         READWRITE(H);
-        READWRITE(version);
+        READWRITE(nspv_version);
     }
 };
 
@@ -409,12 +422,26 @@ struct NSPV_txproof
     }
 };
 
+/*template <uint32_t nspv_version>
+struct NSPV_equihdr_allocator
+{
+  typedef NSPV_equihdr value_type;
+ 
+  NSPV_equihdr_allocator () = default;
+  //template <class U> constexpr Mallocator (const Mallocator <U>&) noexcept {}
+ 
+  NSPV_equihdr* allocate(std::size_t n) {
+    return new NSPV_equihdr[n](nspv_version);
+  }
+
+};*/
+
 struct NSPV_ntzproofshared
 {
-    NSPV_ntzproofshared(uint32_t ver) : version(ver) { pad32 = 0; pad16 = 0; }
+    NSPV_ntzproofshared(uint32_t ver) : nspv_version(ver) { pad32 = 0; pad16 = 0; }
     ~NSPV_ntzproofshared() {}
 
-    uint32_t version;
+    uint32_t nspv_version;
     std::vector<NSPV_equihdr> hdrs;
     int32_t prevht;
     int32_t nextht;
@@ -431,12 +458,14 @@ struct NSPV_ntzproofshared
         READWRITE(numhdrs);
         if (ser_action.ForRead())
             hdrs.resize(numhdrs);
-        for(uint16_t i = 0; i < numhdrs; i ++)
+        for(uint16_t i = 0; i < numhdrs; i ++)  {
+            hdrs[i].nspv_version = nspv_version;  // set hdr version for correct writing nSolution
             READWRITE(hdrs[i]);
-        if (version <= 5)
+        }
+        if (nspv_version <= 5)
             READWRITE(prevht);
         READWRITE(nextht);
-        if (version == 4)  {
+        if (nspv_version == 4)  {
             // spaces for compatibility 
             READWRITE(pad32);
             READWRITE(pad16);
@@ -446,11 +475,11 @@ struct NSPV_ntzproofshared
 
 struct NSPV_ntzsproofresp
 {
-    NSPV_ntzsproofresp(uint32_t ver) : version(ver), common(ver) { prevtxidht = 0; nexttxidht = 0; }
-    NSPV_ntzsproofresp() : version(NSPV_PROTOCOL_VERSION), common(NSPV_PROTOCOL_VERSION) { prevtxidht = 0; nexttxidht = 0; }
+    NSPV_ntzsproofresp(uint32_t ver) : nspv_version(ver), common(ver) { prevtxidht = 0; nexttxidht = 0; }
+    NSPV_ntzsproofresp() : nspv_version(NSPV_PROTOCOL_VERSION), common(NSPV_PROTOCOL_VERSION) { prevtxidht = 0; nexttxidht = 0; }
     ~NSPV_ntzsproofresp() {}
 
-    uint32_t version;
+    uint32_t nspv_version;
     struct NSPV_ntzproofshared common;
     uint256 nexttxid;
     int32_t nexttxidht;
@@ -466,14 +495,14 @@ struct NSPV_ntzsproofresp
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(common);
         
-        if (version <= 5)  
+        if (nspv_version <= 5)  
             READWRITE(prevtxid); // store prev ntz
         READWRITE(nexttxid);
-        if (version <= 5)  
+        if (nspv_version <= 5)  
             READWRITE(prevtxidht);
         READWRITE(nexttxidht);
 
-        if (version <= 5)   {
+        if (nspv_version <= 5)   {
             int32_t prevtxlen;
             if (!ser_action.ForRead())
                 prevtxlen = prevntztx.size();
