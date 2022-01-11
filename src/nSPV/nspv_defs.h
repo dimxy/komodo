@@ -300,7 +300,7 @@ struct NSPV_mempoolresp
 
 struct NSPV_ntz
 {
-    NSPV_ntz(uint32_t ver) : nspv_version(ver) {}
+    NSPV_ntz(uint32_t ver) : nspv_version(ver) {}   
     ~NSPV_ntz() {}
 
     uint32_t nspv_version;
@@ -325,7 +325,8 @@ struct NSPV_ntz
         READWRITE(txidheight);
         READWRITE(timestamp);
         if (nspv_version >= 6)
-            READWRITE(depth);
+            READWRITE(depth);   // basically this is not needed as when notarised headers are returned in the ntz proof their quantity is just this depth 
+                                // but this is useful to check the ntz txid on the client before the whole ntz proof is requested
     }
 };
 
@@ -346,7 +347,7 @@ struct NSPV_ntzsresp
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         if (nspv_version <= 5)
-            READWRITE(prev_ntz);
+            READWRITE(prev_ntz);  // not returned since nspv v006
         READWRITE(ntz);
         READWRITE(reqheight);
     }
@@ -445,7 +446,7 @@ struct NSPV_ntzproofshared
     std::vector<NSPV_equihdr> hdrs;
     int32_t prevht;
     int32_t nextht;
-    uint32_t pad32;
+    uint32_t pad32; // not sure why these pads are needed but they will stay here for nspv v004s
     uint16_t pad16;
 
     ADD_SERIALIZE_METHODS;

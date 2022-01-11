@@ -23,6 +23,10 @@
 #include "cc/CCinclude.h"
 #include "nspv_defs.h"
 
+const int NTZ_BACKWARD = -1;
+const int NTZ_FORWARD = 1;
+
+
 int32_t NSPV_setequihdr(struct NSPV_equihdr &hdr, int32_t height)
 {
     CBlockIndex *pindex;
@@ -111,14 +115,14 @@ int32_t NSPV_getntzsproofresp(struct NSPV_ntzsproofresp& ntzproof, uint256 prevn
     LOCK(cs_main);
 
     if (ntzproof.nspv_version <= 5)  {
-        // for older versions return prev ntz tx
+        // for older versions return also prev ntz tx
         uint256 prevHashBlock, bhash0, desttxid0;
 
         ntzproof.prevtxid = prevntztxid;
         ntzproof.prevntztx = NSPV_getrawtx(tx, prevHashBlock, ntzproof.prevtxid);
         ntzproof.prevtxidht = komodo_blockheight(prevHashBlock);
         if (NSPV_notarizationextract(DONTVALIDATESIG, &ntzproof.common.prevht, &bhash0, &desttxid0, &dummy, tx) < 0) {
-            LogPrintf("%s nspv error: cant decode notarization opreturn ntzproof.common.prevht.%d bhash0 %s\n", __func__, ntzproof.common.prevht, bhash0.ToString());
+            LogPrint("%s nspv error: cant decode notarization opreturn ntzproof.common.prevht.%d bhash0 %s\n", __func__, ntzproof.common.prevht, bhash0.ToString());
             return (-2);
         } else if (komodo_blockheight(bhash0) != ntzproof.common.prevht) {
             LogPrintf("%s nspv error: bhash0 ht.%d not equal to prevht.%d\n", __func__, komodo_blockheight(bhash0), ntzproof.common.prevht);
@@ -141,12 +145,17 @@ int32_t NSPV_getntzsproofresp(struct NSPV_ntzsproofresp& ntzproof, uint256 prevn
         return (-7);
     }
     //fprintf(stderr, "%s -> prevht.%d, %s -> nexht.%d\n", ntzproof.prevtxid.GetHex().c_str(), ntzproof.common.prevht, ntzproof.nexttxid.GetHex().c_str(), ntzproof.common.nextht);
-    ntzproof.common.hdrs.resize(momdepth);
+
+    // since nspv v0.0.6 no bracket is returned 
+    // but only the next ntz and its notarised headers (momdepth):
+    int32_t hdrdepth = ntzproof.nspv_version >= 6 ? momdepth : ntzproof.common.nextht - ntzproof.common.prevht;
+    ntzproof.common.hdrs.resize(hdrdepth);
+
     //fprintf(stderr, "prev.%d next.%d allocate numhdrs.%d\n", ntzproof.common.prevht, ntzproof.common.nextht, ntzproof.common.numhdrs);
     for (int32_t i = 0; i < ntzproof.common.hdrs.size(); i++) {
         //hashBlock = NSPV_hdrhash(&ntzproof.common.hdrs[i]);
         //fprintf(stderr,"hdr[%d] %s\n",prevht+i,hashBlock.GetHex().c_str());
-        int32_t ht = ntzproof.common.nextht - momdepth + 1 + i;
+        int32_t ht = ntzproof.common.nextht - hdrdepth + 1 + i;
         if (NSPV_setequihdr(ntzproof.common.hdrs[i], ht) < 0) {
             LogPrintf("%s nspv error setting hdr for ht.%d\n", __func__, ht);
             return -1;
@@ -182,13 +191,24 @@ int32_t NSPV_notarization_find(struct NSPV_ntz& ntz, int32_t height, int32_t dir
 
     symbol = (ASSETCHAINS_SYMBOL[0] == 0) ? (char*)"KMD" : ASSETCHAINS_SYMBOL;
 
-    // std::cerr << __func__ << " calling ScanNotarisationsDB for height=" << height << " dir=" << dir << std::endl;
-    if (dir < 0) {
-        if ((ntz.txidheight = ScanNotarisationsDB(height, symbol, 1440, nota)) == 0)
-            return -1;
-    } else {
-        if ((ntz.txidheight = ScanNotarisationsDB2(height, symbol, 1440, nota)) == 0)
-            return -1;
+    if (dir == NTZ_BACKWARD) { // search backward
+        // first try to search forward to find the closest ntz tx that notarises heights before the requested 'height'
+        ntz.txidheight = ScanNotarisationsDB2(height, symbol, 1440, nota);
+        if (ntz.txidheight == 0 || nota.second.height >= height)  {
+            // if forward search was unlucky the needed is the first backward 
+            if ((ntz.txidheight = ScanNotarisationsDB(height, symbol, 1440, nota)) == 0)
+                return -1;
+        }
+    } else {  // search forward to find the closest ntx tz that notarised this height
+        int32_t forwardht = height;
+        while(true)  {  // search until notarized height >= height  
+            //int32_t ntzforwardht = NSPV_notarization_find(next, forwardht, NTZ_FORWARD);
+            ntz.txidheight = ScanNotarisationsDB2(forwardht, symbol, 1440, nota);
+            if (ntz.txidheight == 0 || nota.second.height >= height)
+                break;
+
+            forwardht = ntz.txidheight+1; // search next next
+        }
     }
     // std::cerr << __func__ << " found nota height=" << nota.second.height << " MoMdepth=" << nota.second.MoMDepth << std::endl;
     ntz.txid = nota.first;
@@ -213,11 +233,9 @@ int32_t NSPV_notarization_find(struct NSPV_ntz& ntz, int32_t height, int32_t dir
 // if not found or chain not notarised returns zeroed 'prev'
 int32_t NSPV_notarized_prev(struct NSPV_ntz& prev, int32_t height)
 {
-    const int BACKWARD = -1;
-
     // search back
-    int32_t ntzbackwardht = NSPV_notarization_find(prev, height, BACKWARD);
-    LogPrint("nspv-details", "%s search backward ntz result ntzht.%d vs height.%d, txidht.%d\n", __func__, prev.ntzheight, height, prev.txidheight);
+    int32_t ntzbackwardht = NSPV_notarization_find(prev, height, NTZ_BACKWARD);
+    LogPrint("nspv-details", "%s search backward ntz result.%d ntzht.%d vs height.%d, txidht.%d\n", __func__, ntzbackwardht, prev.ntzheight, height, prev.txidheight);
     return 1; // always okay even if chain non-notarised
 }
 
@@ -226,18 +244,8 @@ int32_t NSPV_notarized_prev(struct NSPV_ntz& prev, int32_t height)
 // if not found or chain not notarised returns zeroed 'next'
 int32_t NSPV_notarized_next(struct NSPV_ntz& next, int32_t height)
 {
-    const int FORWARD = 1;
-    int32_t forwardht = height;
-
-    while(true)  {  // search until notarized height >= height  
-        int32_t ntzforwardht = NSPV_notarization_find(next, forwardht, FORWARD);
-        LogPrint("nspv-details", "%s search forward ntz result ntzht.%d height.%d, txidht.%d\n",  __func__, next.ntzheight, height, next.txidheight);
-        if (ntzforwardht > 0 && ntzforwardht < height) {
-            forwardht = next.txidheight+1; // search next next
-        }
-        else
-            break;
-    }
+    int32_t ntzforwardht = NSPV_notarization_find(next, height, NTZ_FORWARD);
+    LogPrint("nspv-details", "%s search forward ntz result.%d ntzht.%d height.%d, txidht.%d\n",  __func__, ntzforwardht, next.ntzheight, height, next.txidheight);
     return 1;  // always okay even if chain non-notarised
 }
 
@@ -535,7 +543,10 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
                     response << NSPV_NTZSRESP << requestId << N;
                 else
                     response << NSPV_NTZSRESP << N;
-                LogPrint("nspv-details", "NSPV_NTZS response: ntz.txid=%s node=%d\n", N.ntz.txid.GetHex(), pfrom->id);
+                if (pfrom->nspvVersion <= 5)
+                    LogPrint("nspv-details", "NSPV_NTZS response: prev ntz.txid=%s ntz.ntzheight=%d, next ntz.txid=%s ntz.ntzheight=%d, node=%d\n", N.prev_ntz.txid.GetHex(), N.prev_ntz.ntzheight, N.ntz.txid.GetHex(), N.ntz.ntzheight, pfrom->id);
+                else
+                    LogPrint("nspv-details", "NSPV_NTZS response: next ntz.txid=%s ntz.ntzheight=%d, node=%d\n", N.ntz.txid.GetHex(), N.ntz.ntzheight, pfrom->id);
             } else {
                 LogPrint("nspv", "NSPV_NTZSRESP NSPV_getntzsresp err.%d\n", ret);
                 return NSPV_ERROR_READ_DATA;
@@ -549,6 +560,9 @@ NSPV_ERROR_CODE NSPV_ProcessBasicRequests(CNode* pfrom, int32_t requestType, uin
             int32_t ret;
 
             if (pfrom->nspvVersion <= 5)
+                // no much sense in getting prev and next ntz txns and headers between them
+                // as they may be not adjacent so the returned headers between such ntz txns are not in the MoM covered headers set (this is true only for adjacent ntz txns) 
+                // so since v6 only the next closest ntz txn is returned and MoM covered headers along with it
                 requestData >> prev_ntztxid >> ntztxid;
             else
                 requestData >> ntztxid;
