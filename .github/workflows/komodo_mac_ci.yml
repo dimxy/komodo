@@ -53,7 +53,7 @@ jobs:
 
       - name: Install deps (Dice, Token, Faucet, Rewards CC)
         run: |
-          brew install python3 curl
+          brew install python3.9 curl
           python3 -m pip install setuptools wheel
           python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
 
