@@ -32,6 +32,8 @@
 #include "scheduler.h"
 #include "ui_interface.h"
 #include "crypto/common.h"
+#include "komodo_defs.h"
+#include "nSPV/nspv_defs.h"
 
 #ifdef _WIN32
 #include <string.h>
@@ -77,9 +79,9 @@ namespace {
 //
 // Global state variables
 //
-extern uint16_t ASSETCHAINS_P2PPORT;
-extern int8_t is_STAKED(const char *chain_name);
-extern char ASSETCHAINS_SYMBOL[65];
+//extern uint16_t ASSETCHAINS_P2PPORT;
+//extern int8_t is_STAKED(const char *chain_name);
+//extern char ASSETCHAINS_SYMBOL[65];
 
 bool fDiscover = true;
 bool fListen = true;
@@ -443,15 +445,6 @@ void CNode::CloseSocketDisconnect()
     if (lockRecv)
         vRecvMsg.clear();
 }
-
-extern int32_t KOMODO_NSPV;
-#ifndef KOMODO_NSPV_FULLNODE
-#define KOMODO_NSPV_FULLNODE (KOMODO_NSPV <= 0)
-#endif // !KOMODO_NSPV_FULLNODE
-
-#ifndef KOMODO_NSPV_SUPERLITE
-#define KOMODO_NSPV_SUPERLITE (KOMODO_NSPV > 0)
-#endif // !KOMODO_NSPV_SUPERLITE
 
 void CNode::PushVersion()
 {
@@ -1213,7 +1206,7 @@ void ThreadSocketHandler()
                         {
                             // socket closed gracefully
                             if (!pnode->fDisconnect)
-                                LogPrint("net", "socket closed\n");
+                                LogPrint("net", "socket closed\n"); 
                             pnode->CloseSocketDisconnect();
                         }
                         else if (nBytes < 0)
@@ -1393,8 +1386,8 @@ void ThreadOpenConnections()
         if (GetTime() - nStart > 60) {
             static bool done = false;
             if (!done) {
-                // skip DNS seeds for staked chains.
-                if ( is_STAKED(ASSETCHAINS_SYMBOL) == 0 ) {
+                // skip DNS seeds for staked chains and assets chains.
+                if ( is_STAKED(ASSETCHAINS_SYMBOL) == 0 && IS_KMD_CHAIN(ASSETCHAINS_SYMBOL)) { // just allow fixed seeds for KMD only (is_STAKED is extra now)
                     //LogPrintf("Adding fixed seed nodes as DNS doesn't seem to be available.\n");
                     LogPrintf("Adding fixed seed nodes.\n");
                     addrman.Add(convertSeed6(Params().FixedSeeds()), CNetAddr("127.0.0.1"));
@@ -1451,7 +1444,6 @@ void ThreadOpenConnections()
             // do not allow non-default ports, unless after 50 invalid addresses selected already
             if (addr.GetPort() != Params().GetDefaultPort() && nTries < 50)
                 continue;
-
             addrConnect = addr;
             break;
         }
@@ -1817,11 +1809,12 @@ void StartNode(boost::thread_group& threadGroup, CScheduler& scheduler)
     Discover(threadGroup);
 
     // skip DNS seeds for staked chains.
-    extern int8_t is_STAKED(const char *chain_name);
-    extern char ASSETCHAINS_SYMBOL[65];
+    //extern int8_t is_STAKED(const char *chain_name);
+    //extern char ASSETCHAINS_SYMBOL[65];
     if ( is_STAKED(ASSETCHAINS_SYMBOL) != 0 )
         SoftSetBoolArg("-dnsseed", false);
-
+    if (!IS_KMD_CHAIN(ASSETCHAINS_SYMBOL))
+        SoftSetBoolArg("-dnsseed", false);
     //
     // Start threads
     //
