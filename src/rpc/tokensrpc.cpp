@@ -439,8 +439,10 @@ UniValue tokencreatetokel(const UniValue& params, bool fHelp, const CPubKey& rem
 
         if (params[3].getType() == UniValue::VOBJ)
             jsonParams = params[3].get_array();
-        else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '{...}'
-            jsonParams.read(params[3].get_str().c_str());
+        else if (params[3].getType() == UniValue::VSTR)  { // json in quoted string '{...}'
+            if (!jsonParams.read(params[3].get_str().c_str()))
+                return MakeResultError("parameter 4 must be a valid json object\n");
+        }
         if (jsonParams.getType() != UniValue::VOBJ)
             throw runtime_error("parameter 4 must be a json object\n");   
 
@@ -472,8 +474,10 @@ UniValue tokenv2createtokel(const UniValue& params, bool fHelp, const CPubKey& r
 
         if (params[3].getType() == UniValue::VOBJ)
             jsonParams = params[3].get_array();
-        else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '{...}'
-            jsonParams.read(params[3].get_str().c_str());
+        else if (params[3].getType() == UniValue::VSTR) { // json in quoted string '{...}'
+            if (!jsonParams.read(params[3].get_str().c_str()))
+                return MakeResultError("parameter 4 must be a valid json object\n");
+        }
         if (jsonParams.getType() != UniValue::VOBJ)
             return MakeResultError("parameter 4 must be a json object\n");   
 
