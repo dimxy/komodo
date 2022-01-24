@@ -522,7 +522,7 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (!EnsureWalletIsAvailable(fHelp))
         return NullUniValue;
 
-    if (fHelp || params.size() < 2 || params.size() > 6)
+    if (fHelp || params.size() < 2 || params.size() > 7)
         throw runtime_error(
             "sendtoaddress \"" + strprintf("%s",komodo_chainname()) + "_address\" amount ( \"comment\" \"comment-to\" subtractfeefromamount unlocktime )\n"
             "\nSend an amount to a given address. The amount is a real and is rounded to the nearest 0.00000001\n"
@@ -588,17 +588,17 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp, const CPubKey& mypk)
             opretlen = 0;
     }
 
-    /* test cltv coins:
+    /* test cltv coins: */
     int64_t unlockTime = 0LL;
     if (params.size() > 6)  {
         unlockTime = atoll(params[6].get_str().c_str());
         if (unlockTime < 0LL)
             throw JSONRPCError(RPC_TYPE_ERROR, "invalid unlock time");
-    } */
+    } 
 
     EnsureWalletIsUnlocked();
 
-    SendMoney(dest, nAmount, fSubtractFeeFromAmount, wtx, opret, opretlen, 0, 0LL);
+    SendMoney(dest, nAmount, fSubtractFeeFromAmount, wtx, opret, opretlen, 0, unlockTime);
 
     return wtx.GetHash().GetHex();
 }
