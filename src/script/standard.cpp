@@ -553,9 +553,9 @@ public:
     bool operator()(const CCLTVID &dest) const {
         script->clear();
         if (dest.which() == TX_PUBKEY)
-            *script << dest.GetUnlockTime() << OP_CHECKLOCKTIMEVERIFY << OP_DROP << ToByteVector(dest.GetPubKey()) << OP_CHECKSIG;
+            *script << CScriptNum::serialize(dest.GetUnlockTime()) << OP_CHECKLOCKTIMEVERIFY << OP_DROP << ToByteVector(dest.GetPubKey()) << OP_CHECKSIG;
         else        
-            *script << dest.GetUnlockTime() << OP_CHECKLOCKTIMEVERIFY << OP_DROP << OP_DUP << OP_HASH160 << ToByteVector(dest.GetKeyID()) << OP_EQUALVERIFY << OP_CHECKSIG;
+            *script << CScriptNum::serialize(dest.GetUnlockTime()) << OP_CHECKLOCKTIMEVERIFY << OP_DROP << OP_DUP << OP_HASH160 << ToByteVector(dest.GetKeyID()) << OP_EQUALVERIFY << OP_CHECKSIG;
         return true;  
     }
 };
