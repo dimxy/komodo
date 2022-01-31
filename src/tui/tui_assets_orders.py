@@ -55,10 +55,13 @@ def run_tokens_create():
     # rpc3 = rpclib.rpc_connect("user972794450", "passe7eb16f5c015a53463cc5f27a004854cb76f4ec5c9aece177f01d8b3d13119e445", 16723)
 
     # DIMXY29
-    rpc1 = rpclib.rpc_connect("user977812407", "pass45a4a6ce9ffafbebd2a478d3858d55c8a4bded74632bb488c8c93164d048237516", 14723)
-    rpc2 = rpclib.rpc_connect("user4228621419", "pass4e51de899bd15c12569d762ded036e5aecd5aeb7be40788a339e72e1fea7359d7e", 15723)
-    rpc3 = rpclib.rpc_connect("user3877003389", "passea3e5a6c7a8a88f5447cc39bc8720cf783bbcef43345b16be9aadc0a1b381006eb", 16723)
+    #rpc1 = rpclib.rpc_connect("user977812407", "pass45a4a6ce9ffafbebd2a478d3858d55c8a4bded74632bb488c8c93164d048237516", 14723)
+    #rpc2 = rpclib.rpc_connect("user4228621419", "pass4e51de899bd15c12569d762ded036e5aecd5aeb7be40788a339e72e1fea7359d7e", 15723)
+    #rpc3 = rpclib.rpc_connect("user3877003389", "passea3e5a6c7a8a88f5447cc39bc8720cf783bbcef43345b16be9aadc0a1b381006eb", 16723)
 
+  # TKLTEST
+    rpc1 = rpclib.rpc_connect("user2138972757", "pass53ed1e197fc904dd6ceddc44bbae9b5aa95ecffa08040c392ddbeeea3a8da4d544", 22025)
+    rpc2 = rpclib.rpc_connect("user275969788", "passbd3a374afe0a59febe9f873cee5a9d14435717301df3eeca0ac17a4d67eb7a7f2a", 14723)
 
     ## for v in ["", "v2"] :
     ## for v in [""] :
