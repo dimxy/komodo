@@ -91,6 +91,10 @@
 
 #include "librustzcash.h"
 
+#ifdef ENABLE_WEBSOCKETS
+#include "komodo_websockets.h"
+#endif
+
 using namespace std;
 
 #include "komodo_defs.h"
@@ -223,6 +227,9 @@ void Shutdown()
     mempool.AddTransactionsUpdated(1);
 
     StopHTTPRPC();
+#ifdef ENABLE_WEBSOCKETS
+    StopWebSockets();
+#endif
     StopREST();
     StopRPC();
     StopHTTPServer();
@@ -902,6 +909,10 @@ bool AppInitServers(boost::thread_group& threadGroup)
         return false;
     if (!StartHTTPRPC())
         return false;
+#ifdef ENABLE_WEBSOCKETS
+    if (!StartWebSockets(threadGroup))
+        return false;
+#endif
     if (GetBoolArg("-rest", false) && !StartREST())
         return false;
     if (!StartHTTPServer())
@@ -2084,6 +2095,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // ********************************************************* Step 11: finished
 
     SetRPCWarmupFinished();
+#ifdef ENABLE_WEBSOCKETS
+    SetWebSocketsWarmupFinished();
+#endif
     uiInterface.InitMessage(_("Done loading"));
 
 #ifdef ENABLE_WALLET

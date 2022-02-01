@@ -66,6 +66,10 @@
 #include <boost/thread.hpp>
 #include <boost/static_assert.hpp>
 
+#ifdef ENABLE_WEBSOCKETS
+#include "komodo_websockets.h"
+#endif
+
 using namespace std;
 
 #if defined(NDEBUG)
@@ -8585,7 +8589,14 @@ bool ProcessMessages(CNode* pfrom)
         bool fRet = false;
         try
         {
-            fRet = ProcessMessage(pfrom, strCommand, vRecv, msg.nTime);
+
+#ifdef ENABLE_WEBSOCKETS
+            if (pfrom->hSocket != INVALID_SOCKET || !(fRet = ProcessWsMessage(pfrom, strCommand, vRecv, msg.nTime))) {
+#endif
+                fRet = ProcessMessage(pfrom, strCommand, vRecv, msg.nTime);
+#ifdef ENABLE_WEBSOCKETS
+            }
+#endif
             boost::this_thread::interruption_point();
         }
         catch (const std::ios_base::failure& e)

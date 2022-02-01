@@ -119,6 +119,9 @@ endif
 
 lib_LTLIBRARIES = $(LIBZCASH_CONSENSUS)
 
+LIBSSLSTATIC = $(abs_builddir)/../depends/$(host)/lib/libssl.a
+LIBCRYPTOSTATIC = $(abs_builddir)/../depends/$(host)/lib/libcrypto.a
+
 bin_PROGRAMS =
 noinst_PROGRAMS =
 TESTS =
@@ -274,6 +277,9 @@ BITCOIN_CORE_H = \
   zmq/zmqnotificationinterface.h \
   zmq/zmqpublishnotifier.h
 
+if ENABLE_WEBSOCKETS
+  BITCOIN_CORE_H += komodo_websockets.h
+endif
 
 obj/build.h: FORCE
 	@$(MKDIR_P) $(builddir)/obj
@@ -366,6 +372,10 @@ libbitcoin_server_a_SOURCES = \
   cc/CCupgrades.cpp \
   $(BITCOIN_CORE_H) \
   $(LIBZCASH_H)
+
+if ENABLE_WEBSOCKETS
+  libbitcoin_server_a_SOURCES += komodo_websockets.cpp
+endif
 
 if ENABLE_ZMQ
 libbitcoin_zmq_a_CPPFLAGS = $(BITCOIN_INCLUDES) $(ZMQ_CFLAGS)
@@ -587,8 +597,6 @@ endif
 komodod_LDADD += \
   $(BOOST_LIBS) \
   $(BDB_LIBS) \
-  $(SSL_LIBS) \
-  $(CRYPTO_LIBS) \
   $(EVENT_PTHREADS_LIBS) \
   $(EVENT_LIBS) \
   $(ZMQ_LIBS) \
@@ -599,6 +607,17 @@ komodod_LDADD += \
   $(LIBZCASH_LIBS)
 
 komodod_LDADD += $(LIBDYNCUSTOMCONSENSUS) $(LIBSECP256K1)
+
+if ENABLE_WEBSOCKETS
+# link statically openssl
+komodod_LDADD += \
+  $(LIBSSLSTATIC) \
+  $(LIBCRYPTOSTATIC)
+else
+komodod_LDADD += \
+  $(SSL_LIBS) \
+  $(CRYPTO_LIBS)
+endif
 
 if ENABLE_PROTON
 komodod_LDADD += $(LIBBITCOIN_PROTON) $(PROTON_LIBS)

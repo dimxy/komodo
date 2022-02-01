@@ -102,6 +102,8 @@ enum {
     // collisions and other cases where nodes may be advertising a service they
     // do not actually support. Other service bits should be allocated via the
     // BIP process.
+
+    NODE_WEBSOCKETS = (1 << 31)  // nspv listening on websockets
 };
 
 /** A CService with information about it as peer */

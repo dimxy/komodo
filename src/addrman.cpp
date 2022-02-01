@@ -513,6 +513,38 @@ void CAddrMan::GetAddr_(std::vector<CAddress>& vAddr)
     }
 }
 
+#ifdef ENABLE_WEBSOCKETS
+// get no more than N addresses for clients (do not use 23% limit assuming there are no many websockets listeners in the net)
+void CAddrMan::GetAddrAtMost_(std::vector<CAddress>& vAddr)
+{
+    unsigned int nNodes = vRandom.size();
+    if (nNodes > 1000)  // actually MAX_ADDR_TO_SEND
+        nNodes = 1000;
+
+    // gather a list of random nodes, skipping those of low quality
+    for (unsigned int n = 0; n < vRandom.size(); n++) {
+        if (vAddr.size() >= nNodes)
+            break;
+
+        int nRndPos = RandomInt(vRandom.size() - n) + n;
+        SwapRandom(n, nRndPos);
+        assert(mapInfo.count(vRandom[n]) == 1);
+
+        const CAddrInfo& ai = mapInfo[vRandom[n]];
+        if (!ai.IsTerrible())
+            vAddr.push_back(ai);
+    }
+}
+
+// get all addrinfo for printing
+void CAddrMan::GetAddrInfoAll_(std::vector<CAddrInfo>& vAddrInfo)
+{
+    for (auto const i : mapInfo) {
+       vAddrInfo.push_back(i.second);
+    }
+}
+#endif
+
 void CAddrMan::Connected_(const CService& addr, int64_t nTime)
 {
     CAddrInfo* pinfo = Find(addr);

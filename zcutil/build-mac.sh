@@ -23,10 +23,10 @@ Usage:
 $0 --help
   Show this help message and exit.
 
-$0 [ --enable-lcov ] [ MAKEARGS... ]
-  Build Zcash and most of its transitive dependencies from
+$0 [ --enable-lcov ] [ --enable-websockets ] [ MAKEARGS... ]
+  Build Komodo and most of its transitive dependencies from
   source. MAKEARGS are applied to both dependencies and Zcash itself. If
-  --enable-lcov is passed, Zcash is configured to add coverage
+  --enable-lcov is passed, Komodo is configured to add coverage
   instrumentation, thus enabling "make cov" to work.
 EOF
     exit 0
@@ -40,6 +40,14 @@ then
     LCOV_ARG='--enable-lcov'
     HARDENING_ARG='--disable-hardening'
     shift
+fi
+
+# If --enable-websockets is the next argument, enable websockets support for nspv clients:
+WEBSOCKETS_ARG=''
+if [ "x${1:-}" = 'x--enable-websockets' ]
+then
+WEBSOCKETS_ARG='--enable-websockets=yes'
+shift
 fi
 
 TRIPLET=`./depends/config.guess`
@@ -59,7 +67,7 @@ make "$@" -C ./depends/ V=1 NO_QT=1 NO_PROTON=1
 ./autogen.sh
 CPPFLAGS="-I$PREFIX/include -arch x86_64" LDFLAGS="-L$PREFIX/lib -arch x86_64 -Wl,-no_pie" \
 CXXFLAGS="-arch x86_64 -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/ -fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -Wno-error=attributes -g -Wl,-undefined -Wl,dynamic_lookup" \
-./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" "$CONFIGURE_FLAGS" \
+./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" "$WEBSOCKETS_ARG" "$CONFIGURE_FLAGS" \
   --with-custom-bin=yes CUSTOM_BIN_NAME=tokel CUSTOM_BRAND_NAME=Tokel \
   CUSTOM_SERVER_ARGS="'-ac_name=TOKEL -ac_supply=100000000 -ac_eras=2 -ac_cbmaturity=1 -ac_reward=100000000,4250000000 -ac_end=80640,0 -ac_decay=0,77700000 -ac_halving=0,525600 -ac_cc=555 -ac_ccenable=236,245,246,247 -ac_adaptivepow=6 -addnode=135.125.204.169 -addnode=192.99.71.125 -nspv_msg=1'" \
   CUSTOM_CLIENT_ARGS='-ac_name=TOKEL'
