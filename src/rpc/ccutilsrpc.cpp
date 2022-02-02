@@ -28,6 +28,8 @@
 #include "sync_ext.h"
 #include "../main.h"
 #include "../cc/CCinclude.h"
+#include "../cc/CCfaucet.h"
+
 
 using namespace std;
 
@@ -265,6 +267,53 @@ UniValue searchforpubkey(const UniValue& params, bool fHelp, const CPubKey& remo
         throw std::runtime_error("pubkey not found");
 }
 
+UniValue faucetaddccinputs(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() != 1)
+    {
+        string msg = "faucetaddccinputs amount\n"
+            "\nReturns a new tx with added normal inputs and previous txns. Note that the caller must add the change output\n"
+            "\nArguments:\n"
+            //"address which utxos are added from\n"
+            "amount (in satoshi) which will be added as normal inputs (equal or more)\n"
+            "Result: json object with created tx and added vin txns\n\n";
+        throw runtime_error(msg);
+    }
+    /*std::string address = params[0].get_str();
+    if (!CBitcoinAddress(address.c_str()).IsValid())
+        throw runtime_error("address invalid");*/
+    CAmount amount = atoll(params[0].get_str().c_str());
+    if (amount <= 0)
+        throw runtime_error("amount invalid");
+
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    std::vector<CTransaction> vintxns;
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_FAUCET);
+    CPubKey faucetpk = GetUnspendable(cp,0);
+
+    CAmount added = AddFaucetInputs(cp, mtx, faucetpk, amount, CC_MAXVINS);
+    if (added < amount)
+        throw runtime_error("could not find normal inputs");
+
+    for (auto const & vin : mtx.vin)    {
+        CTransaction tx;
+        uint256 hashBlock;
+        if (myGetTransaction(vin.prevout.hash, tx, hashBlock))
+            vintxns.push_back(tx);
+    }
+
+
+    UniValue result (UniValue::VOBJ);
+    UniValue array (UniValue::VARR);
+
+    result.pushKV("txhex", HexStr(E_MARSHAL(ss << mtx)));
+    for (auto const &vtx : vintxns) 
+        array.push_back(HexStr(E_MARSHAL(ss << vtx)));
+    result.pushKV("previousTxns", array);
+    return result;
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
@@ -274,6 +323,8 @@ static const CRPCCommand commands[] =
 	{ "ccutils",      "searchforpubkey",    &searchforpubkey,      true },
     { "nspv",       "createtxwithnormalinputs",      &createtxwithnormalinputs,         true },
     { "nspv",       "gettransactionsmany",      &gettransactionsmany,         true },
+    { "nspv",             "faucetaddccinputs",        &faucetaddccinputs,        true  },
+
 };
 
 void RegisterCCUtilsRPCCommands(CRPCTable &tableRPC)

@@ -56,6 +56,7 @@ static std::map<std::string,bool> nspv_remote_commands =  {
     { "tokenv2orders", true }, { "mytokenv2orders", true }, { "tokenv2transfer", false }, { "tokenv2create", false }, { "tokenv2address", true },
     // nspv helpers
     { "createtxwithnormalinputs", true }, { "tokenv2addccinputs", true }, { "tokenv2infotokel", true }, { "gettransactionsmany", true },
+    { "faucetaddccinputs", true },
 };
 
 
