@@ -105,7 +105,7 @@ enum {
     // do not actually support. Other service bits should be allocated via the
     // BIP process.
     
-    NODE_WEBSOCKETS = (1 << 27)  // nspv listening on websockets
+    NODE_WEBSOCKETS = (1 << 27)  // nspv listening on websockets  // TODO: looks like 1 << 27 overlaps
 };
 
 /** A CService with information about it as peer */
