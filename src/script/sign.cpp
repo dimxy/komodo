@@ -327,7 +327,7 @@ static bool SignStepCC(const BaseSignatureCreator& creator, const CScript& scrip
     }
     return false;
 }
-extern CPubKey g_mypk;
+//extern CPubKey g_mypk;
 /**
  * Sign scriptPubKey using signature made with creator.
  * Signatures are returned in scriptSigRet (or returns false if scriptPubKey can't be signed),
@@ -381,7 +381,7 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
             return false;
             
         case TX_CRYPTOCONDITION:
-if (g_mypk.IsValid()) {
+/*if (g_mypk.IsValid()) {
             keyID = g_mypk.GetID();
             if (!Sign1(keyID, creator, scriptPubKey, ret, consensusBranchId)) {
                 fprintf(stderr,"got Sign1 cc normal error\n");
@@ -392,9 +392,9 @@ if (g_mypk.IsValid()) {
             ret.push_back(ToByteVector(vch));
             return true;
 }
-else {
+else {*/
             return SignStepCC(creator, scriptPubKey, vSolutions, ret, consensusBranchId);
-}
+//}
             
         case TX_MULTISIG:
             ret.push_back(valtype()); // workaround CHECKMULTISIG bug

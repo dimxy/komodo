@@ -427,7 +427,7 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
 
 std::vector<unsigned char> ParseSigDer(std::vector<unsigned char> vsigder);
 extern "C" int cc_updateSecp256k1Signature(CC *cond, const unsigned char *publicKey, const unsigned char *signature);
-CPubKey g_mypk;
+//CPubKey g_mypk;
 
 // extended version that supports signInfo object with conds to vins map for remote cc calls - for V2 mixed mode cc vins
 UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info* cp, CMutableTransaction& mtx, CPubKey mypk, CAmount txfee, CScript opret)
