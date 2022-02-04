@@ -506,8 +506,10 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
             if (vintx.vout[utxovout].scriptPubKey.IsPayToCryptoCondition() == 0) {
                 if (KOMODO_NSPV_FULLNODE) {
                     if (!remote) {
+                      if (!GetBoolArg("-nosig", false))  {
                         if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0)
                             fprintf(stderr, "%s signing error for normal vini.%d\n", __func__, i);
+                      }
                     } else {
                         // if no myprivkey for mypk it means remote call from nspv superlite client
                         // add sigData for superlite client
@@ -565,6 +567,8 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                     //CCwrapper anonCond = cond;
                     //CCtoAnon(anonCond.get());
                     uint256 sighash = SignatureHash(vintx.vout[utxovout].scriptPubKey, mtx, i, SIGHASH_ALL, utxovalues[i], consensusBranchId, &txdata);
+                    std::cerr << __func__ << " cc sighash=" << sighash.GetHex() << " nHashType=" << SIGHASH_ALL << " spk=" <<  vintx.vout[utxovout].scriptPubKey.ToString() << " i=" << i << " utxovalues[i]=" << utxovalues[i] << " consensusBranchId=" <<  consensusBranchId << std::endl;
+
                     /*
                     uint256 sighash = SignatureHash(vintx.vout[utxovout].scriptPubKey, mtx, i, SIGHASH_ALL, utxovalues[i], consensusBranchId, &txdata);
                     std::cerr << __func__ << " cc sighash=" << sighash.GetHex() << " nHashType=" << SIGHASH_ALL << " spk=" <<  CCPubKey(anonCond.get(), true).ToString() << " i=" << i << " utxovalues[i]=" << utxovalues[i] << " consensusBranchId=" <<  consensusBranchId << std::endl;
@@ -607,7 +611,8 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                         fprintf(stderr, "%s signing error for normal/cc vini.%d\n", __func__, i);
                     }
                     */
-                    
+
+                if (!GetBoolArg("-nosig", false))  {
                     if (cc_signTreeSecp256k1Msg32(cond.get(), privkey, sighash.begin()) != 0) {
                         std::string strcond;
                         cJSON *params = cc_conditionToJSON(cond.get());
@@ -637,6 +642,8 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                         memset(myprivkey, 0, sizeof(myprivkey));
                         return sigDataNull;
                     } 
+                }
+
                 } else {   // no privkey locally - remote call
                     // serialize cc:
                     UniValue ccjson;

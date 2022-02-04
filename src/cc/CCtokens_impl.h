@@ -319,6 +319,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
 	{        
 		if ((inputs = AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, CC_MAXVINS, useMempool)) >= total)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
     	{  
+            std::cerr << __func__ << " total=" << total << " inputs=" << inputs << std::endl;
 			if (inputs > total)
 				CCchange = (inputs - total);
 

@@ -1381,6 +1381,8 @@ int TransactionSignatureChecker::CheckCryptoCondition(
     try {
         //sighash = SignatureHash(CCPubKey(cond), *txTo, nIn, nHashType, amount, consensusBranchId, this->txdata);
         sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, consensusBranchId, this->txdata);
+        std::cerr << __func__ << " cc sighash=" << sighash.GetHex() << " nHashType=" << nHashType << " spk=" <<  scriptCode.ToString() << " nIn=" << nIn << " amount=" << amount << " consensusBranchId=" <<  consensusBranchId << std::endl;
+
     } catch (logic_error ex) {
         return 0;
     }

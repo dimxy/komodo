@@ -329,7 +329,7 @@ UniValue convertvintokenv2(const UniValue& params, bool fHelp, const CPubKey& re
         throw runtime_error(msg);
     }
     vuint8_t txbin = ParseHex(params[0].get_str());
-    int32_t n = atoi(params[0].get_str().c_str());
+    int32_t n = atoi(params[1].get_str().c_str());
     CMutableTransaction mtx;
     if (!E_UNMARSHAL(txbin, ss >> mtx))
         throw runtime_error("can't parse tx");
