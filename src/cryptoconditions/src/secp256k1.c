@@ -324,5 +324,31 @@ static uint32_t secp256k1Subtypes(const CC *cond) {
     return 0;
 }
 
+typedef struct SD {
+    const unsigned char *pk;
+    const unsigned char *sig;
+    int updated;
+} CCSecp256k1SigData;
+
+static int secp256k1UpdateSig(CC *cond, CCVisitor visitor) {
+    if (cond->type->typeId != CC_Secp256k1) return 1;
+    CCSecp256k1SigData *sigData = (CCSecp256k1SigningData*) visitor.context;
+    if (0 != memcmp(cond->publicKey, sigData->pk, SECP256K1_PK_SIZE)) return 1;
+
+    if (!cond->signature) cond->signature = calloc(1, SECP256K1_SIG_SIZE);
+    memcpy(cond->signature, sigData->sig, SECP256K1_SIG_SIZE);
+    sigData->updated++;
+    return 1;
+}
+
+int cc_updateSecp256k1Signature(CC *cond, const unsigned char *publicKey, const unsigned char *signature) {
+    // sign
+    CCSecp256k1SigData sigData = {publicKey, signature, 0};
+    CCVisitor visitor = {&secp256k1UpdateSig, NULL, 32, &sigData};
+    cc_visit(cond, visitor);
+
+    //free(publicKey);
+    return sigData.updated;
+}
 
 struct CCType CC_Secp256k1Type = { 5, "secp256k1-sha-256", Condition_PR_secp256k1Sha256, 0, &secp256k1Fingerprint, &secp256k1Cost, &secp256k1Subtypes, &secp256k1FromJSON, &secp256k1ToJSON, &secp256k1FromFulfillment, &secp256k1ToFulfillment, &secp256k1IsFulfilled, &secp256k1Free, &secp256k1Copy };

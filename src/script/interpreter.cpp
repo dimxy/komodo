@@ -1379,7 +1379,8 @@ int TransactionSignatureChecker::CheckCryptoCondition(
     uint256 sighash;
     int nHashType = ffillBin.back();
     try {
-        sighash = SignatureHash(CCPubKey(cond), *txTo, nIn, nHashType, amount, consensusBranchId, this->txdata);
+        //sighash = SignatureHash(CCPubKey(cond), *txTo, nIn, nHashType, amount, consensusBranchId, this->txdata);
+        sighash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, consensusBranchId, this->txdata);
     } catch (logic_error ex) {
         return 0;
     }

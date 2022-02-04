@@ -170,3 +170,15 @@ ECCVerifyHandle::~ECCVerifyHandle()
         secp256k1_context_verify = NULL;
     }
 }
+
+std::vector<unsigned char> ParseSigDer(std::vector<unsigned char> vsigder)
+{
+    std::vector<unsigned char> vsig;
+    secp256k1_ecdsa_signature sig;
+
+    if (!secp256k1_ecdsa_signature_parse_der(secp256k1_context_verify, &sig, vsigder.data(), vsigder.size())) {
+        return std::vector<unsigned char>();
+    } 
+    vsig = std::vector<unsigned char>(sig.data, sig.data + sizeof(sig.data));
+    return vsig;
+}

@@ -294,7 +294,7 @@ UniValue faucetaddccinputs(const UniValue& params, bool fHelp, const CPubKey& re
 
     CAmount added = AddFaucetInputs(cp, mtx, faucetpk, amount, CC_MAXVINS);
     if (added < amount)
-        throw runtime_error("could not find normal inputs");
+        throw runtime_error("could not find faucet inputs");
 
     for (auto const & vin : mtx.vin)    {
         CTransaction tx;
@@ -314,6 +314,57 @@ UniValue faucetaddccinputs(const UniValue& params, bool fHelp, const CPubKey& re
     return result;
 }
 
+std::vector<unsigned char> ParseSigDer(std::vector<unsigned char> vsigder);
+extern "C" int cc_updateSecp256k1Signature(CC *cond, const unsigned char *publicKey, const unsigned char *signature);
+
+UniValue convertvintokenv2(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() != 2)
+    {
+        string msg = "convertvintokenv2 txhex n\n"
+            "convert vin[n] normal vin into token v2 one eval cc input\n"
+            "\nArguments:\n"
+            "txhex - tx in hex with cc inpout signed as normal\n"
+            "n - vin index to convert\n\n";
+        throw runtime_error(msg);
+    }
+    vuint8_t txbin = ParseHex(params[0].get_str());
+    int32_t n = atoi(params[0].get_str().c_str());
+    CMutableTransaction mtx;
+    if (!E_UNMARSHAL(txbin, ss >> mtx))
+        throw runtime_error("can't parse tx");
+    if (mtx.vin.size() == 0)
+        throw runtime_error("no inputs");
+    if (n < 0 || n >= mtx.vin.size())
+        throw runtime_error("n out of bounds");
+       
+    auto pc = mtx.vin[n].scriptSig.begin();
+    opcodetype opcode;
+    std::vector<unsigned char> vsigder, vsig64, vpk;
+
+    mtx.vin[n].scriptSig.GetOp(pc, opcode, vsigder);
+    if (vsigder.empty())  
+        throw runtime_error("could not get sig from cc/normal scriptsig");
+    mtx.vin[n].scriptSig.GetOp(pc, opcode, vpk);
+    if (vpk.empty())  {
+        throw runtime_error("could not get pk from cc/normal");
+    }
+    if (vpk.size() != 33) {
+        throw runtime_error("pk bad size from cc/normal");
+    }
+    vsigder.pop_back();
+    vsig64 = ParseSigDer(vsigder);
+    if (vsig64.empty()) {
+        throw runtime_error("can't parse sig from cc/normal");
+    }
+    CCwrapper cond(MakeCCcond1(EVAL_TOKENSV2, CPubKey(vpk)));
+    if (cc_updateSecp256k1Signature(cond.get(), vpk.data(), vsig64.data()) == 0) {
+        throw runtime_error("can't update sig in cc/normal cond");
+    }      
+    mtx.vin[n].scriptSig = CCSig(cond.get());    
+    return HexStr(E_MARSHAL(ss << mtx));
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
@@ -324,6 +375,8 @@ static const CRPCCommand commands[] =
     { "nspv",       "createtxwithnormalinputs",      &createtxwithnormalinputs,         true },
     { "nspv",       "gettransactionsmany",      &gettransactionsmany,         true },
     { "nspv",             "faucetaddccinputs",        &faucetaddccinputs,        true  },
+    { "ccutils",             "convertvintokenv2",        &convertvintokenv2,        true  },
+
 
 };
 

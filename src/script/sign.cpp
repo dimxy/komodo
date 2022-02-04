@@ -47,6 +47,7 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, 
     CKey key; uint256 hash;
     try {
         hash = SignatureHash(scriptCode, *txTo, nIn, nHashType, amount, consensusBranchId);
+        std::cerr << "CreateSig hash=" << hash.GetHex() << " nHashType=" << nHashType << " spk=" << scriptCode.ToString() << " nIn=" << nIn << " amount=" << amount << " consensusBranchId=" <<  consensusBranchId <<  std::endl;
     } catch (logic_error ex) {
         {
             fprintf(stderr,"logic error\n");
@@ -62,7 +63,7 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, 
         return false;
 
     //fprintf(stderr,"privkey (%s) for %s\n",NSPV_wifstr,EncodeDestination(key.GetPubKey().GetID()).c_str());
-
+    /*
     if (scriptCode.IsPayToCryptoCondition())
     {
         CC *cc = (CC *)extraData;
@@ -78,7 +79,7 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, 
         return true;
     }
     else
-    {
+    { */
         if ( ASSETCHAINS_TXPOW == 0 )
         {
             if (!key.Sign(hash, vchSig))
@@ -96,7 +97,7 @@ bool TransactionSignatureCreator::CreateSig(std::vector<unsigned char>& vchSig, 
             if (!key.Sign(hash, vchSig, rand()))
                 return false;
         }
-    }
+    //}
     
     vchSig.push_back((unsigned char)nHashType);
     if ( KOMODO_NSPV_SUPERLITE )
@@ -326,7 +327,7 @@ static bool SignStepCC(const BaseSignatureCreator& creator, const CScript& scrip
     }
     return false;
 }
-
+extern CPubKey g_mypk;
 /**
  * Sign scriptPubKey using signature made with creator.
  * Signatures are returned in scriptSigRet (or returns false if scriptPubKey can't be signed),
@@ -380,7 +381,20 @@ static bool SignStep(const BaseSignatureCreator& creator, const CScript& scriptP
             return false;
             
         case TX_CRYPTOCONDITION:
+if (g_mypk.IsValid()) {
+            keyID = g_mypk.GetID();
+            if (!Sign1(keyID, creator, scriptPubKey, ret, consensusBranchId)) {
+                fprintf(stderr,"got Sign1 cc normal error\n");
+                return false;
+            }
+            CPubKey vch;
+            creator.KeyStore().GetPubKey(keyID, vch);
+            ret.push_back(ToByteVector(vch));
+            return true;
+}
+else {
             return SignStepCC(creator, scriptPubKey, vSolutions, ret, consensusBranchId);
+}
             
         case TX_MULTISIG:
             ret.push_back(valtype()); // workaround CHECKMULTISIG bug
@@ -427,7 +441,7 @@ bool ProduceSignature(const BaseSignatureCreator& creator, const CScript& fromPu
     
     sigdata.scriptSig = PushAll(result);
     // Test solution
-    return solved && VerifyScript(sigdata.scriptSig, fromPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, creator.Checker(), consensusBranchId);
+    return solved /*&& VerifyScript(sigdata.scriptSig, fromPubKey, STANDARD_SCRIPT_VERIFY_FLAGS, creator.Checker(), consensusBranchId)*/;
 }
 
 SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nIn)

@@ -425,6 +425,10 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
     return result;
 }
 
+std::vector<unsigned char> ParseSigDer(std::vector<unsigned char> vsigder);
+extern "C" int cc_updateSecp256k1Signature(CC *cond, const unsigned char *publicKey, const unsigned char *signature);
+CPubKey g_mypk;
+
 // extended version that supports signInfo object with conds to vins map for remote cc calls - for V2 mixed mode cc vins
 UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info* cp, CMutableTransaction& mtx, CPubKey mypk, CAmount txfee, CScript opret)
 {
@@ -558,7 +562,52 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                 }
                 if (!remote) // we have privkey in the wallet
                 {
-                    uint256 sighash = SignatureHash(CCPubKey(cond.get()), mtx, i, SIGHASH_ALL, utxovalues[i], consensusBranchId, &txdata);
+                    //CCwrapper anonCond = cond;
+                    //CCtoAnon(anonCond.get());
+                    uint256 sighash = SignatureHash(vintx.vout[utxovout].scriptPubKey, mtx, i, SIGHASH_ALL, utxovalues[i], consensusBranchId, &txdata);
+                    /*
+                    uint256 sighash = SignatureHash(vintx.vout[utxovout].scriptPubKey, mtx, i, SIGHASH_ALL, utxovalues[i], consensusBranchId, &txdata);
+                    std::cerr << __func__ << " cc sighash=" << sighash.GetHex() << " nHashType=" << SIGHASH_ALL << " spk=" <<  CCPubKey(anonCond.get(), true).ToString() << " i=" << i << " utxovalues[i]=" << utxovalues[i] << " consensusBranchId=" <<  consensusBranchId << std::endl;
+
+                    g_mypk = mypk;
+                    if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) != 0)  {
+                        auto pc = mtx.vin[i].scriptSig.begin();
+                        opcodetype opcode;
+                        std::vector<unsigned char> vsigder, vsig64, vpk;
+
+                        g_mypk = CPubKey();
+                        mtx.vin[i].scriptSig.GetOp(pc, opcode, vsigder);
+                        if (vsigder.empty())  {
+                            std::cerr << __func__ << " could not get sig from cc/normal scriptsig" << std::endl;
+                            continue;
+                        }
+                        mtx.vin[i].scriptSig.GetOp(pc, opcode, vpk);
+                        if (vpk.empty())  {
+                            std::cerr << __func__ << " could not get pk from cc/normal" << std::endl;
+                            continue;
+                        }
+                        if (vpk.size() != 33) {
+                            std::cerr << __func__ << " pk bad size from cc/normal" << std::endl;
+                            continue;
+                        }
+                        vsigder.pop_back();
+                        vsig64 = ParseSigDer(vsigder);
+                        if (vsig64.empty()) {
+                            std::cerr << __func__ << " can't parse sig from cc/normal" << std::endl;
+                            continue;    
+                        } 
+                        if (cc_updateSecp256k1Signature(cond.get(), vpk.data(), vsig64.data()) == 0) {
+                            std::cerr << __func__ << " can't update sig in cc/normal cond" << std::endl;
+                            continue;    
+                        }      
+                        mtx.vin[i].scriptSig = CCSig(cond.get());       
+                    }
+                    else {
+                        g_mypk = CPubKey();
+                        fprintf(stderr, "%s signing error for normal/cc vini.%d\n", __func__, i);
+                    }
+                    */
+                    
                     if (cc_signTreeSecp256k1Msg32(cond.get(), privkey, sighash.begin()) != 0) {
                         std::string strcond;
                         cJSON *params = cc_conditionToJSON(cond.get());
@@ -587,7 +636,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                         fprintf(stderr, "%s vini.%d has CC signing error: cc_signTreeSecp256k1Msg32 returned error, address.(%s) %s\n", __func__, i, destaddr, EncodeHexTx(mtx).c_str());
                         memset(myprivkey, 0, sizeof(myprivkey));
                         return sigDataNull;
-                    }
+                    } 
                 } else {   // no privkey locally - remote call
                     // serialize cc:
                     UniValue ccjson;
