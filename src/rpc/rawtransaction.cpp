@@ -845,7 +845,20 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp, const CPubKey&
             std::vector<unsigned char> data = ParseHexV(sendTo[name_].getValStr(),"Data");
             CTxOut out(0, CScript() << OP_RETURN << data);
             rawTx.vout.push_back(out);
-        } else if ( name_.rfind("condition", 0) == 0) { // allow duplicate "condition" fields for multiple CC vouts
+        } else if (name_ == "cc")  {
+            UniValue jcc = sendTo[name_]["condition"];
+            CAmount amount = sendTo[name_]["amount"].get_int64();
+            std::string scc = jcc.write();
+            std::cerr << __func__ << " scc=" << scc << std::endl;
+            char errcc[128] = "";
+            CC *cc = cc_conditionFromJSONString(scc.c_str(), errcc);
+            if (cc == nullptr)
+                throw std::runtime_error(std::string("could not parse cryptocondition: ") + errcc);
+            std::cerr << __func__ << " cc parsed okay" << std::endl;
+            CTxOut out = CTxOut(amount, CCPubKey(cc));
+            rawTx.vout.push_back(out);
+            cc_free(cc);
+        /*} else if ( name_.rfind("condition", 0) == 0) { // allow duplicate "condition" fields for multiple CC vouts
             UniValue condJSON = sendTo[name_].get_obj();
 
             CAmount nAmount = AmountFromValue(find_value(condJSON, "amount"));
@@ -875,7 +888,7 @@ UniValue createrawtransaction(const UniValue& params, bool fHelp, const CPubKey&
             CC *mycond = cc_conditionFromJSONString(valChr, ccjsonerr);
             if ( mycond == NULL )
                 throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Unable to parse condition: ") + ccjsonerr);
-            rawTx.vout.push_back(CTxOut(nAmount, normal_dest + CCPubKey(mycond) + data));
+            rawTx.vout.push_back(CTxOut(nAmount, normal_dest + CCPubKey(mycond) + data));*/
         } else {
             destination = DecodeDestination(name_);
             if (IsValidDestination(destination)) {

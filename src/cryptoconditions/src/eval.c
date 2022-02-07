@@ -47,8 +47,9 @@ static unsigned long evalCost(const CC *cond) {
 static CC *evalFromJSON(const cJSON *params, char *err) {
     size_t codeLength;
     unsigned char *code = 0;
-    size_t eval_params_len;
+    //size_t eval_params_len;
 
+    /*
     cJSON *eval_params_json = cJSON_GetObjectItem(params, "params");
     if (!eval_params_json || !cJSON_IsString(eval_params_json)) {
         strcpy(err, "\"params\" must be a string");
@@ -66,10 +67,17 @@ static CC *evalFromJSON(const cJSON *params, char *err) {
             strcpy(err, "\"params\" must be valid hex string");
             return NULL;
         }
-    }
+    } */
 
 
     if (!jsonGetBase64(params, "code", err, &code, &codeLength)) {
+        return NULL;
+    }
+    unsigned char *param_string = NULL;
+    size_t param_len;
+
+    if (!jsonGetHex(params, "params", err, &param_string, &param_len)) {
+        free(code);
         return NULL;
     }
 
