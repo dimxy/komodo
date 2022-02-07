@@ -104,15 +104,18 @@ int secp256k1Verify(CC *cond, CCVisitor visitor) {
     // parse pubkey
     secp256k1_pubkey pk;
     rc = secp256k1_ec_pubkey_parse(ec_ctx_verify, &pk, cond->publicKey, SECP256K1_PK_SIZE);
+    printf("cond->publicKey parse %d\n", rc);
     if (rc != 1) return 0;
 
     // parse siganature
     secp256k1_ecdsa_signature sig;
     rc = secp256k1_ecdsa_signature_parse_compact(ec_ctx_verify, &sig, cond->signature);
+    printf("signature_parse_compact %d\n", rc);
     if (rc != 1) return 0;
 
     // Only accepts lower S signatures
     rc = secp256k1_ecdsa_verify(ec_ctx_verify, &sig, visitor.msg, &pk);
+    printf("ecdsa_verify %d\n", rc);
     if (rc != 1) return 0;
 
     return 1;

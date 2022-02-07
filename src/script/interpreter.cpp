@@ -1373,6 +1373,7 @@ bool TransactionSignatureChecker::CheckSig(
     return true;
 }
 
+#include "utilstrencodings.h"
 
 int TransactionSignatureChecker::CheckCryptoCondition(
         const std::vector<unsigned char>& condBin,
@@ -1399,6 +1400,8 @@ int TransactionSignatureChecker::CheckCryptoCondition(
     } catch (logic_error ex) {
         return 0;
     }
+    std::cerr << __func__ << " CCPubKey(cond)=" << CCPubKey(cond).ToString() << " condbin=" << HexStr(condBin) << " sighash=" << sighash.GetHex() << std::endl;
+
     /*int32_t z; uint8_t *ptr;
     ptr = (uint8_t *)scriptCode.data();
     for (z=0; z<scriptCode.size(); z++)
