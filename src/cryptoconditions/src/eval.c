@@ -90,16 +90,22 @@ static CC *evalFromJSON(const cJSON *params, char *err) {
     unsigned char *param = NULL;
     size_t param_len = 0;
 
-    if (!jsonGetHexOptional(params, "params", err, &param, &param_len)) {
+    if (!jsonGetHexOptional(params, "param", err, &param, &param_len)) {
         free(code);
         return NULL;
     }
+
 
     CC *cond = cc_new(CC_Eval);
     cond->code = code;
     cond->codeLength = codeLength;
     cond->param = param;
     cond->paramLength = param_len;
+    if (cond->param)  {
+        unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
+        printf("%s cond->param=%s\n", __func__, hex);
+        free(hex);
+    }
     return cond;
 }
 
@@ -129,15 +135,18 @@ static CC *evalFromFulfillment(const Fulfillment_t *ffill) {
     cond->code = calloc(1,octets.size);
     memcpy(cond->code, octets.buf, octets.size);
 
-    OCTET_STRING_t paramOctets = eval->param;
-    cond->paramLength = paramOctets.size;
     cond->param = NULL;
-    if (paramOctets.size) {
+    cond->paramLength = 0;
+
+    if (eval->param)  {
+        OCTET_STRING_t paramOctets = *eval->param;
+        cond->paramLength = paramOctets.size;
+    //if (paramOctets.size) {
+        unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
+        printf("%s size %ld cond->param=%s\n", __func__, paramOctets.size, hex);
+        free(hex);
         cond->param = calloc(1, paramOctets.size);
         memcpy(cond->param, paramOctets.buf, paramOctets.size);
-        unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
-        printf("%s cond->param=%s\n", __func__, hex);
-        free(hex);
     }
 
     return cond;
@@ -150,7 +159,8 @@ static Fulfillment_t *evalToFulfillment(const CC *cond) {
     EvalFulfillment_t *eval = &ffill->choice.evalSha256;
     OCTET_STRING_fromBuf(&eval->code, cond->code, cond->codeLength);
     if (cond->param) {
-        OCTET_STRING_fromBuf(&eval->param, cond->param, cond->paramLength);
+        eval->param = (OCTET_STRING_t*)malloc(sizeof(OCTET_STRING_t));
+        OCTET_STRING_fromBuf(eval->param, cond->param, cond->paramLength);
         unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
         printf("%s cond->param=%s\n", __func__, hex);
         free(hex);
