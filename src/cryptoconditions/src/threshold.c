@@ -176,7 +176,7 @@ static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
             return NULL;
         }
     }
-
+    fprintf(stderr, "%s cond okay\n", __func__);
     return cond;
 }
 
@@ -198,6 +198,7 @@ static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags
         if (!subconditions[i]) {
             for (int j=0; j<i; j++) free(subconditions[j]);
             free(subconditions);
+            fprintf(stderr, "%s !subconditions[i]\n", __func__);
             return 0;
         }
     }

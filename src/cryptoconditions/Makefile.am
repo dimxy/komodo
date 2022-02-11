@@ -1,6 +1,9 @@
 noinst_LIBRARIES=libcryptoconditions_core.a
 SUBDIRS = src/include/secp256k1
 
+CFLAGS = -g -O0
+CPPFLAGS = -DEMIT_ASN_DEBUG=1
+
 include_HEADERS = include/cryptoconditions.h
 
 # Have a separate build target for cryptoconditions that does not contain secp256k1
@@ -8,7 +11,7 @@ include_HEADERS = include/cryptoconditions.h
 LIBSECP256K1=src/include/secp256k1/libsecp256k1.la
 
 $(LIBSECP256K1): $(wildcard src/secp256k1/*)
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) -march:x86-64 -g
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) -march:x86-64 -g -O0
 
 libcryptoconditions_core_a_SOURCES = \
 	src/cryptoconditions.c \
