@@ -78,7 +78,8 @@ Crypto-Conditions DEFINITIONS AUTOMATIC TAGS ::= BEGIN
     }
 
     EvalFulfillment ::= SEQUENCE {
-      code                 OCTET STRING
+      code                 OCTET STRING,
+      param                OCTET STRING
     }
 
     -- Fingerprint Content
