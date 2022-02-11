@@ -80,9 +80,26 @@ CC* CCNewEval(std::vector<unsigned char> code)
     cond->code = (unsigned char*) malloc(code.size());
     memcpy(cond->code, code.data(), code.size());
     cond->codeLength = code.size();
+    cond->param = nullptr;
+    cond->paramLength = 0;
     return cond;
 }
 
+CC* CCNewEval(std::vector<unsigned char> code, std::vector<unsigned char> param)
+{
+    CC *cond = cc_new(CC_Eval);
+    cond->code = (unsigned char*) malloc(code.size());
+    memcpy(cond->code, code.data(), code.size());
+    cond->codeLength = code.size();
+    cond->param = nullptr;
+    cond->paramLength = param.size();
+    if (param.size()) {
+        cond->param = (uint8_t*)malloc(param.size());
+        memcpy(cond->param, param.data(), param.size());
+        cond->paramLength = param.size();
+    }
+    return cond;
+}
 
 CScript CCPubKey(const CC *cond, bool mixed)
 {

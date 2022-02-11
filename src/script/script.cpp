@@ -505,7 +505,12 @@ const std::vector<unsigned char> CScript::GetCCV2SPK() const
     return (std::vector<unsigned char>());
 }
 
-bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode) const
+struct HasEvalCodeContext {
+    uint8_t evalCode;
+    std::vector<unsigned char> *pvParam;
+};
+
+bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode, std::vector<unsigned char> *pvParam) const
 {
     std::vector<unsigned char> ccdata = this->GetCCV2SPK();
 
@@ -516,11 +521,23 @@ bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode) const
     if (cond == nullptr)
         return false;
     
-    VerifyEval eval = [](CC* cond, void* evalcode) {
-        return (*(uint8_t*)evalcode == cond->code[0]) ? 0 : 1;
+    VerifyEval eval = [](CC* cond, void* context) {
+        struct HasEvalCodeContext *pctx = (struct HasEvalCodeContext*) context;
+        if (pctx->evalCode == cond->code[0]) {
+            if (pctx->pvParam) {
+                if (cond->paramLength)
+                    *pctx->pvParam = std::vector<unsigned char>(cond->param, cond->param + cond->paramLength);
+                else
+                    pctx->pvParam->clear();
+            }
+            return 0;
+        }
+        else
+            return 1;
     };
+    struct HasEvalCodeContext hasEvalCtx = { evalCode, pvParam };
 
-    bool rc = !cc_verifyEval(cond, eval, &evalCode);
+    bool rc = !cc_verifyEval(cond, eval, &hasEvalCtx);
     cc_free(cond);
     return rc;
 }

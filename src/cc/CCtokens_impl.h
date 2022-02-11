@@ -24,6 +24,9 @@
 #include "importcoin.h"
 #include "base58.h"
 
+bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char> &vParam);
+
+
 // get non-fungible data from 'tokenbase' tx (the data might be empty)
 template <class V>
 bool GetTokenData(Eval *eval, uint256 tokenid, TokenDataTuple &tokenData, vscript_t &vextraData)
@@ -223,13 +226,12 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
         }
 
         CScript opret = V::EncodeTokenOpRet(tokenid, destpubkeys, {});
-        vscript_t vopret;
-        GetOpReturnData(opret, vopret);
-        std::vector<vscript_t> vData { vopret };
+        vscript_t vdata;
+        GetOpReturnData(opret, vdata);
         if (destpubkeys.size() == 1)
-            mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), amount, destpubkeys[0], &vData));  
+            mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), amount, destpubkeys[0], &vdata));  
         else if (destpubkeys.size() == 2)
-            mtx.vout.push_back(V::MakeTokensCC1of2vout(V::EvalCode(), amount, destpubkeys[0], destpubkeys[1], &vData)); 
+            mtx.vout.push_back(V::MakeTokensCC1of2vout(V::EvalCode(), amount, destpubkeys[0], destpubkeys[1], &vdata)); 
         else
         {
             CCerror = "zero or unsupported destination pk count";
@@ -241,10 +243,9 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
 			CCchange = (inputs - amount);
         if (CCchange != 0) {
             CScript opret = V::EncodeTokenOpRet(tokenid, {mypk}, {});
-            vscript_t vopret;
-            GetOpReturnData(opret, vopret);
-            std::vector<vscript_t> vData { vopret };
-            mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk, &vData));
+            vscript_t vdata;
+            GetOpReturnData(opret, vdata);
+            mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk, &vdata));
         }
 
         return MakeResultSuccess("");
@@ -340,7 +341,16 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                 }
             }
 
-            mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, total, M, destpubkeys)); 
+            vscript_t vdata;
+            CScript opret;
+            CScript oprettmp = V::EncodeTokenOpRet(tokenid, destpubkeys, {} );
+            bool ccParamsActive = CCUpgrades::IsUpgradeActive(komodo_nextheight()+1, CCUpgrades::GetUpgrades(), CCUpgrades::CCTOKENS_CCPARAMS);
+            if (!ccParamsActive)
+                opret = oprettmp;
+            else
+                GetOpReturnData(oprettmp, vdata);
+
+            mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, total, M, destpubkeys, &vdata, ccParamsActive)); 
 
             // add optional custom probe conds to non-usual sign vins
             for (const auto &p : probeconds)
@@ -352,20 +362,26 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                 for(int ccvin = 0; ccvin < mtx.vin.size(); ccvin ++) { 
                     CTransaction vintx;
                     uint256 hashBlock;
-                    std::vector<vscript_t> vParams;
-                    CScript dummy;	
+                    //std::vector<vscript_t> vParams;
+                    vscript_t vParams;
+                    //CScript dummy;	
                     if (myGetTransaction(mtx.vin[ccvin].prevout.hash, vintx, hashBlock) &&
-                        vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.IsPayToCryptoCondition(&dummy, vParams) &&  // get opdrop
-                        vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.SpkHasEvalcodeCCV2(V::EvalCode()) &&
+                        //vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.IsPayToCryptoCondition(&dummy, vParams) &&  // get opdrop
+                        vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.IsPayToCryptoCondition() && 
+                        vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.SpkHasEvalcodeCCV2(V::EvalCode(), &vParams) &&
                         vParams.size() > 0)  
                     {
-                        COptCCParams ccparams(vParams[0]);
+                        //COptCCParams ccparams(vParams[0]);
+                        COptCCParams ccparams(vParams);
                         if (ccparams.version != 0 && ccparams.vKeys.size() > 1)    {
+                            vscript_t vdataChange;
+                            CScript oprettmp = V::EncodeTokenOpRet(tokenid, destpubkeys, {} );
+                            GetOpReturnData(oprettmp, vdataChange);
                             if (CCchange != 0) {
-                                mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, CCchange, ccparams.m, ccparams.vKeys));
-                                CCchange = 0;
+                                mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, CCchange, ccparams.m, ccparams.vKeys, &vdataChange, ccParamsActive));
+                                CCchange = 0; // change just added 
                             }
-                            CCwrapper ccprobeMofN( MakeTokensv2CCcondMofN(V::EvalCode(), 0, ccparams.m, ccparams.vKeys) );
+                            CCwrapper ccprobeMofN( MakeTokensv2CCcondMofN(V::EvalCode(), 0, ccparams.m, ccparams.vKeys, &vdataChange) );
                             CCAddVintxCond(cp, ccprobeMofN, nullptr); //add MofN probe to find vins and sign
                             break;
                         }
@@ -373,12 +389,16 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                 }
             }
 
-			if (CCchange != 0)
-				mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk));
+			if (CCchange != 0)  {
+                vscript_t vdataChange;
+                CScript oprettmp = V::EncodeTokenOpRet(tokenid, destpubkeys, {} );
+                GetOpReturnData(oprettmp, vdataChange);
+				mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk, &vdataChange, ccParamsActive));
+            }
 
             // TODO maybe add also opret blobs form vintx
             // as now this TokenTransfer() allows to transfer only tokens (including NFTs) that are unbound to other cc
-			UniValue sigData = V::FinalizeCCTx(isRemote, FINALIZECCTX_NO_CHANGE_WHEN_DUST, cp, mtx, mypk, txfee, V::EncodeTokenOpRet(tokenid, destpubkeys, {} )); 
+			UniValue sigData = V::FinalizeCCTx(isRemote, FINALIZECCTX_NO_CHANGE_WHEN_DUST, cp, mtx, mypk, txfee, opret); 
             if (!ResultHasTx(sigData))
                 CCerror = "could not finalize tx";
             return sigData;
@@ -471,9 +491,21 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
             return NullUniValue;
         }
 
+        vscript_t vdata;
+        std::vector<vscript_t> vvextra;
+        if (!nonfungibleData.empty())
+            vvextra.push_back(nonfungibleData);
+        CScript opret;
+        CScript oprettmp = V::EncodeTokenCreateOpRet(vscript_t(mypk.begin(), mypk.end()), name, description, vvextra);
+        bool isCCParamActive = CCUpgrades::IsUpgradeActive(komodo_nextheight()+1, CCUpgrades::GetUpgrades(), CCUpgrades::CCTOKENS_CCPARAMS);
+        if (!isCCParamActive)
+            opret = oprettmp;
+        else
+            GetOpReturnData(oprettmp, vdata);
+
         // NOTE: we should prevent spending fake-tokens from this marker in IsTokenvout():
         mtx.vout.push_back(V::MakeCC1vout(V::EvalCode(), TOKENS_MARKER_VALUE, GetUnspendable(cp, NULL)));            // new marker to token cc addr, burnable and validated, vout pos now changed to 0 (from 1)
-		mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), tokensupply, mypk));
+		mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), tokensupply, mypk, &vdata, isCCParamActive));
 
         if (additionalMarkerEvalCode > 0) 
         {
@@ -483,11 +515,8 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
             mtx.vout.push_back(V::MakeCC1vout(additionalMarkerEvalCode, TOKENS_MARKER_VALUE, GetUnspendable(cpNFT, NULL)));
         }
 
-        std::vector<vscript_t> vdatas;
-        if (!nonfungibleData.empty())
-            vdatas.push_back(nonfungibleData);
                                          // prevent adding dust change in tokens
-		sigData = V::FinalizeCCTx(isRemote, FINALIZECCTX_NO_CHANGE_WHEN_DUST, cp, mtx, mypk, txfee, V::EncodeTokenCreateOpRet(vscript_t(mypk.begin(), mypk.end()), name, description, vdatas));
+		sigData = V::FinalizeCCTx(isRemote, FINALIZECCTX_NO_CHANGE_WHEN_DUST, cp, mtx, mypk, txfee, opret);
         if (!ResultHasTx(sigData)) {
             CCerror = "couldnt finalize token tx";
             return NullUniValue;

@@ -751,7 +751,7 @@ UniValue PaymentsRelease(struct CCcontract_info *cp,char *jsonstr)
                 ccopret = EncodePaymentsReleaseOpRet(createtxid, amount);
                 std::vector<std::vector<unsigned char>> vData = std::vector<std::vector<unsigned char>>();
                 if ( makeCCopret(ccopret, vData) )
-                    mtx.vout.push_back(MakeCC1of2vout(EVAL_PAYMENTS,0,Paymentspk,txidpk,&vData));
+                    mtx.vout.push_back(MakeCC1of2vout(EVAL_PAYMENTS,0,Paymentspk,txidpk,&vData[0]));
                 //fprintf(stderr, "funcid.%i\n", funcid);
                 if ( funcid == 'C' )
                 {
@@ -1006,7 +1006,7 @@ UniValue PaymentsFund(struct CCcontract_info *cp,char *jsonstr)
                 opret = EncodePaymentsFundOpRet(txid);
                 std::vector<std::vector<unsigned char>> vData = std::vector<std::vector<unsigned char>>();
                 if ( makeCCopret(opret, vData) )
-                    mtx.vout.push_back(MakeCC1vout(EVAL_PAYMENTS,amount,Paymentspk,&vData));
+                    mtx.vout.push_back(MakeCC1vout(EVAL_PAYMENTS,amount,Paymentspk,&vData[0]));
             }
             rawtx = FinalizeCCTx(0,cp,mtx,mypk,PAYMENTS_TXFEE,CScript()); 
             if ( params != 0 )
@@ -1062,7 +1062,7 @@ UniValue PaymentsMerge(struct CCcontract_info *cp,char *jsonstr)
                 opret = EncodePaymentsMergeOpRet(createtxid);
                 std::vector<std::vector<unsigned char>> vData = std::vector<std::vector<unsigned char>>();
                 if ( makeCCopret(opret, vData) )
-                    mtx.vout.push_back(MakeCC1of2vout(EVAL_PAYMENTS,inputsum-PAYMENTS_TXFEE,Paymentspk,txidpk,&vData));
+                    mtx.vout.push_back(MakeCC1of2vout(EVAL_PAYMENTS,inputsum-PAYMENTS_TXFEE,Paymentspk,txidpk,&vData[0]));
                 GetCCaddress1of2(cp,destaddr,Paymentspk,txidpk);
                 CCaddr1of2set(cp,Paymentspk,txidpk,cp->CCpriv,destaddr);
                 rawtx = FinalizeCCTx(0,cp,mtx,mypk,PAYMENTS_TXFEE,CScript());

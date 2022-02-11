@@ -70,7 +70,7 @@ UniValue custom_func1(uint64_t txfee,struct CCcontract_info *cp,cJSON *params)
         if ( makeCCopret(opret, vData) )
         {
             // make vout0 with op_return included as payload.
-            mtx.vout.push_back(MakeCC1vout(cp->evalcode,amount,mypk,&vData));
+            mtx.vout.push_back(MakeCC1vout(cp->evalcode,amount,mypk,&vData[0]));
             fprintf(stderr, "vout size2.%li\n", mtx.vout.size());
             rawtx = FinalizeCCTx(0,cp,mtx,mypk,txfee,CScript());
             return(custom_rawtxresult(result,rawtx,broadcastflag));

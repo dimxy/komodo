@@ -97,36 +97,36 @@ bool makeCCopret(CScript &opret, std::vector<std::vector<unsigned char>> &vData)
     return true;
 }
 
-CTxOut MakeCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vector<std::vector<unsigned char>>* vData)
+CTxOut MakeCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, const vscript_t* pvData)
 {
     CTxOut vout;
     CCwrapper payoutCond(MakeCCcond1(evalcode, pk));
     vout = CTxOut(nValue, CCPubKey(payoutCond.get()));
-    if (vData)
+    if (pvData)
     {
-        //std::vector<std::vector<unsigned char>> vtmpData = std::vector<std::vector<unsigned char>>(vData->begin(), vData->end());
+        std::vector<vscript_t> vvData { *pvData };
         std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
         //vPubKeys.push_back(pk);   // Warning: if add a pubkey here, the Solver function will add it to vSolutions and ExtractDestination might use it to get the spk address (such result might not be expected)
-        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_1, evalcode, 1, 1, vPubKeys, (*vData));
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_1, evalcode, 1, 1, vPubKeys, vvData);
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
     return(vout);
 }
 
-CTxOut MakeCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, std::vector<std::vector<unsigned char>>* vData)
+CTxOut MakeCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData)
 {
     CTxOut vout;
     CCwrapper payoutCond(MakeCCcond1of2(evalcode, pk1, pk2));
     vout = CTxOut(nValue, CCPubKey(payoutCond.get()));
-    if (vData)
+    if (pvData)
     {
-        //std::vector<std::vector<unsigned char>> vtmpData = std::vector<std::vector<unsigned char>>(vData->begin(), vData->end());
+        std::vector<vscript_t> vvData { *pvData };
         std::vector<CPubKey> vPubKeys = std::vector<CPubKey>();
         // skip pubkeys. These need to maybe be optional and we need some way to get them out that is easy!
         // this is for multisig
         //vPubKeys.push_back(pk1);  // Warning: if add a pubkey here, the Solver function will add it to vSolutions and ExtractDestination might use it to get the spk address (such result might not be expected)
         //vPubKeys.push_back(pk2);
-        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_1, evalcode, 1, 2, vPubKeys, (*vData));
+        COptCCParams ccp = COptCCParams(COptCCParams::VERSION_1, evalcode, 1, 2, vPubKeys, vvData);
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
     return(vout);
@@ -143,28 +143,30 @@ bool CCtoAnon(const CC *cond)
     return (false);
 }
 */
-CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, std::vector<unsigned char> *vData)
+
+// 
+CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, const vscript_t* pvData)
 {
     CTxOut vout;
     CCwrapper payoutCond(MakeCCcond1(evalcode,pk));
     if (!CCtoAnon(payoutCond.get())) return (vout);
     vout = CTxOut(nValue,CCPubKey(payoutCond.get(),true));
-    if ( vData )
+    if ( pvData )
     {
-        vout.scriptPubKey << *vData << OP_DROP;
+        vout.scriptPubKey << *pvData << OP_DROP;
     }
     return(vout);
 }
 
-CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey pk2, std::vector<unsigned char> *vData)
+CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey pk2, const vscript_t* pvData)
 {
     CTxOut vout;
     CCwrapper payoutCond(MakeCCcond1of2(evalcode,pk1,pk2));
     if (!CCtoAnon(payoutCond.get())) return (vout);
     vout = CTxOut(nValue,CCPubKey(payoutCond.get(),true));
-    if ( vData )
+    if ( pvData )
     {
-        vout.scriptPubKey << *vData << OP_DROP;
+        vout.scriptPubKey << *pvData << OP_DROP;
     }
     return(vout);
 }
@@ -1585,4 +1587,39 @@ bool IsTxidInActiveChain(uint256 txid)
 std::string ccRequirementsMessage()
 {
     return (KOMODO_NSPV_SUPERLITE ? "to use CC contracts you need to nspv_login first\n" : "to use CC contracts, you need to launch daemon with valid -pubkey= for an address in your wallet\n" );
+}
+
+struct UpdateEvalCodeContext {
+    uint8_t evalCode;
+    const std::vector<unsigned char> *pvParam;
+};
+
+// updates param in eval condition
+// if vParam empty clears the param in cond
+bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char> &vParam) 
+{
+    if (cond == nullptr)
+        return false;
+    
+    VerifyEval eval = [](CC* cond, void* context) {
+        struct UpdateEvalCodeContext *pctx = (struct UpdateEvalCodeContext*) context;
+        if (pctx->evalCode == cond->code[0]) {
+            if (cond->param)
+                free(cond->param);
+            cond->param = nullptr;
+            cond->paramLength = pctx->pvParam->size();
+            if (cond->paramLength) {
+                cond->param = (uint8_t*)malloc(cond->paramLength);
+                memcpy(cond->param, pctx->pvParam->data(), cond->paramLength);
+            }
+            return 0;
+        }
+        else
+            return 1;
+    };
+    struct UpdateEvalCodeContext hasEvalCtx = { evalCode, &vParam };
+
+    bool rc = !cc_verifyEval(cond, eval, &hasEvalCtx);
+    cc_free(cond);
+    return rc;
 }

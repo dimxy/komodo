@@ -517,20 +517,28 @@ CAmount TokensV2::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
         return -1;
     }
 
-    std::vector<vscript_t> vParams;
+    std::vector<vscript_t> vvOpropParams;
+    vscript_t vCCParams;
     CScript dummy;	
-    if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition(&dummy, vParams) && 
-        tx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_TOKENSV2))  // it's token output, check it
+    if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition(&dummy, vvOpropParams) && 
+        tx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_TOKENSV2, &vCCParams))  // it's token output, check it
     {        
         bool isLastVoutOpret;
-        if (!(opret = GetCCDropAsOpret(tx.vout[v].scriptPubKey)).empty())
+        if (!CCUpgrades::IsUpgradeActive(eval->GetCurrentHeight(), CCUpgrades::GetUpgrades(), CCUpgrades::CCTOKENS_CCPARAMS))
         {
-            isLastVoutOpret = false;    
+            if (!(opret = GetCCDropAsOpret(tx.vout[v].scriptPubKey)).empty())
+            {
+                isLastVoutOpret = false;    
+            }
+            else
+            {
+                isLastVoutOpret = true;
+            }
         }
         else
         {
-            isLastVoutOpret = true;
-            opret = tx.vout.back().scriptPubKey;
+            isLastVoutOpret = false;   
+            opret << OP_RETURN << vCCParams;  // make opret to parse with decode opret func 
         }
 
         uint256 tokenIdOpret;
@@ -586,11 +594,11 @@ CAmount TokensV2::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
             it is a just hint to users and does not really affect vaidation:
         // get output pubkeys and verify vout
         {
-            if (vParams.size() == 0) {
+            if (vvOpropParams.size() == 0) {
                 errorStr = "no opdrop data";
                 return -1;
             }
-            COptCCParams opdrop(vParams[0]);
+            COptCCParams opdrop(vvOpropParams[0]);
             if (opdrop.version == 0)  {
                 LOGSTREAMFN(cctokens_log, CCLOG_ERROR, stream << "could not parse opdrop for tx=" << tx.GetHash().GetHex() << " vout=" << v << std::endl);
                 errorStr = "could not parse opdrop";

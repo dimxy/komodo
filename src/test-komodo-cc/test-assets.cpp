@@ -525,9 +525,8 @@ static bool AddTokenV2TransferOutputs(struct CCcontract_info *cp, CMutableTransa
         
         {
             CScript opret = TokensV2::EncodeTokenOpRet(tokenid, destpubkeys, {});
-            vscript_t vopret;
-            GetOpReturnData(opret, vopret);
-            std::vector<vscript_t> vData { vopret };
+            vscript_t vData;
+            GetOpReturnData(opret, vData);
             CAmount partAmount = total;
             if (splitOutputs > 0) {
                 partAmount = total / splitOutputs;
@@ -575,9 +574,8 @@ static bool AddTokenV2TransferOutputs(struct CCcontract_info *cp, CMutableTransa
         if (!ccChangeAdded && (CCchange != 0 || corruptChange != 0))  
         {
             CScript opret = TokensV2::EncodeTokenOpRet(tokenid, {mypk}, {});
-            vscript_t vopret;
-            GetOpReturnData(opret, vopret);
-            std::vector<vscript_t> vData { vopret };
+            vscript_t vData;
+            GetOpReturnData(opret, vData);
             mtx.vout.push_back(TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), CCchange + corruptChange, mypk, useOpReturn ? nullptr : &vData));  // add opdrop if opreturn not used
         }
         if (useOpReturn)
@@ -1285,14 +1283,12 @@ TEST_F(TestAssetsCC, tokenv2ask_basic)
         ASSERT_FALSE(CTransaction(mtx).IsNull());
 
         CScript opret = TokensV2::EncodeTokenOpRet(tokenid1, { unspendableAssetsPubkey }, {});
-        vscript_t vopret;
-        GetOpReturnData(opret, vopret);
-        std::vector<vscript_t> vData { vopret };
+        vscript_t vData;
+        GetOpReturnData(opret, vData);
 
         CScript opretCh = TokensV2::EncodeTokenOpRet(tokenid1, { mypk }, {});
-        vscript_t vopretCh;
-        GetOpReturnData(opretCh, vopretCh);
-        std::vector<vscript_t> vDataCh { vopretCh };
+        vscript_t vDataCh;
+        GetOpReturnData(opretCh, vDataCh);
 
         mtx.vout[0] = TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), mtx.vout[0].nValue, unspendableAssetsPubkey, &vData);
         mtx.vout[2] = TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), mtx.vout[2].nValue, mypk, &vDataCh);  // cc change
@@ -1505,17 +1501,15 @@ TEST_F(TestAssetsCC, tokenv2fillask_basic)
             mtx2.vout.insert(mtx2.vout.begin() + mtx2.vout.size() - 1,  mtx2.vout[0]);  // copy vout with tokens with assetidOpret back 
             {
                 CScript opret = TokensV2::EncodeTokenOpRet(tokenid3, { unspendableAssetsPubkey }, {}); // put tokenid3 in opdrop while assetid = tokenid2
-                vscript_t vopret;
-                GetOpReturnData(opret, vopret);
-                std::vector<vscript_t> vData { vopret };
+                vscript_t vData;
+                GetOpReturnData(opret, vData);
                 mtx2.vout[0] = TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), mtx2.vout[0].nValue, unspendableAssetsPubkey, &vData);  // replace remainder with tokenid3
             }
 
             if (otherAmount > mtx2.vout[0].nValue)  {  // if tokenid3 change exists
                 CScript opret = TokensV2::EncodeTokenOpRet(tokenid3, { pk2 }, {}); 
-                vscript_t vopret;
-                GetOpReturnData(opret, vopret);
-                std::vector<vscript_t> vData { vopret };
+                vscript_t vData;
+                GetOpReturnData(opret, vData);
                 mtx2.vout.insert(mtx2.vout.begin() + mtx2.vout.size() - 1,  
                     TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), otherAmount - mtx2.vout[0].nValue, pk2, &vData)); // add tokenid3 change
             }
@@ -1554,16 +1548,14 @@ TEST_F(TestAssetsCC, tokenv2fillask_basic)
 
         {
             CScript opret = TokensV2::EncodeTokenOpRet(tokenid1, { unspendableAssetsPubkey }, {});
-            vscript_t vopret;
-            GetOpReturnData(opret, vopret);
-            std::vector<vscript_t> vData { vopret };
+            vscript_t vData;
+            GetOpReturnData(opret, vData);
             mtx.vout[0] = TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), mtx.vout[0].nValue, unspendableAssetsPubkey, &vData);
         }
         {
             CScript opretCh = TokensV2::EncodeTokenOpRet(tokenid1, { mypk }, {});
-            vscript_t vopretCh;
-            GetOpReturnData(opretCh, vopretCh);
-            std::vector<vscript_t> vDataCh { vopretCh };
+            vscript_t vDataCh;
+            GetOpReturnData(opretCh, vDataCh);
             mtx.vout[2] = TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), mtx.vout[2].nValue, mypk, &vDataCh);  // cc change
         }
         
@@ -1583,16 +1575,14 @@ TEST_F(TestAssetsCC, tokenv2fillask_basic)
         CMutableTransaction mtx2 = MakeTokenV2FillAskTx(cpAssets, pk2, tokenid2, askid, fillUnits, unit_price, data); 
         {
             CScript opret = TokensV2::EncodeTokenOpRet(tokenid1, { unspendableAssetsPubkey }, {}); // put tokenid1 in opdrop while assetid = tokenid2
-            vscript_t vopret;
-            GetOpReturnData(opret, vopret);
-            std::vector<vscript_t> vData { vopret };
+            vscript_t vData;
+            GetOpReturnData(opret, vData);
             mtx2.vout[0] = TokensV2::MakeTokensCC1vout(AssetsV2::EvalCode(), mtx2.vout[0].nValue, unspendableAssetsPubkey, &vData);  // replace remainder with tokenid3
         }
         {  
             CScript opret = TokensV2::EncodeTokenOpRet(tokenid1, { pk2 }, {}); 
-            vscript_t vopret;
-            GetOpReturnData(opret, vopret);
-            std::vector<vscript_t> vData { vopret };
+            vscript_t vData;
+            GetOpReturnData(opret, vData);
             mtx2.vout[1] = TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), mtx2.vout[1].nValue, pk2, &vData);  // purchased tokens
         }
 
@@ -1735,16 +1725,14 @@ TEST_F(TestAssetsCC, tokenv2fillbid_basic)
         mtx2.vin[1] = CTxIn(tokenid3, 1, CScript());  // spend other tokenid3
         {
             CScript opret = TokensV2::EncodeTokenOpRet(tokenid3, { origpubkey }, {}); //send to tokenid3 when assetidOpret = tokenid2
-            vscript_t vopret;
-            GetOpReturnData(opret, vopret);
-            std::vector<vscript_t> vData { vopret };
+            vscript_t vData;
+            GetOpReturnData(opret, vData);
             mtx2.vout[2] = TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), mtx2.vout[2].nValue, origpubkey, &vData);  
         }
         {
             CScript opretCh = TokensV2::EncodeTokenOpRet(tokenid3, { pk2 }, {}); //send to tokenid3 when assetidOpret = tokenid2
-            vscript_t vopretCh;
-            GetOpReturnData(opretCh, vopretCh);
-            std::vector<vscript_t> vDataCh { vopretCh };
+            vscript_t vDataCh;
+            GetOpReturnData(opretCh, vDataCh);
             mtx2.vout[3] = TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), mtx2.vout[3].nValue, pk2, &vDataCh);  // change
         }
 
@@ -1846,17 +1834,15 @@ TEST_F(TestAssetsCC, tokenv2cancelask)
             mtx7.vout.insert(mtx7.vout.begin() + mtx7.vout.size() - 1,  mtx7.vout[0]);  // copy vout with tokens with assetidOpret back 
             
             CScript opret = TokensV2::EncodeTokenOpRet(tokenid4, { origpubkey }, {}); // put tokenid4 in opdrop while assetid differs
-            vscript_t vopret;
-            GetOpReturnData(opret, vopret);
-            std::vector<vscript_t> vData { vopret };
+            vscript_t vData;
+            GetOpReturnData(opret, vData);
             mtx7.vout[0] = TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), mtx7.vout[0].nValue, origpubkey, &vData);  // replace remainder with tokenid4
 
             LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " tokenid4=" << tokenid4.GetHex() << " assetidOpret=" << assetidOpret.GetHex() << " otherAmount=" << otherAmount << " mtx7.vin.size()=" << mtx7.vin.size() << std::endl);
             if (otherAmount > mtx7.vout[0].nValue)  {  // if tokenid4 change exists
                 CScript opret = TokensV2::EncodeTokenOpRet(tokenid4, { origpubkey }, {}); 
-                vscript_t vopret;
-                GetOpReturnData(opret, vopret);
-                std::vector<vscript_t> vData { vopret };
+                vscript_t vData;
+                GetOpReturnData(opret, vData);
                 mtx7.vout.insert(mtx7.vout.begin() + mtx7.vout.size() - 1,  
                     TokensV2::MakeTokensCC1vout(TokensV2::EvalCode(), otherAmount - mtx7.vout[0].nValue, origpubkey, &vData)); // add tokenid4 change
             }

@@ -32,6 +32,7 @@ namespace CCUpgrades  {
 
     enum UPGRADE_ID  {
         CCASSETS_OPDROP_VALIDATE_FIX = 0x01,
+        CCTOKENS_CCPARAMS            = 0x02,
     };
 
     struct UpgradeInfo {
