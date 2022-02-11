@@ -16,6 +16,7 @@
 #include "asn/Condition.h"
 #include "asn/Fulfillment.h"
 #include "asn/EvalFulfillment.h"
+//#include "asn/EvalFingerprintContents.h"
 #include "asn/OCTET_STRING.h"
 //#include "../include/cryptoconditions.h"
 #include "internal.h"
@@ -26,7 +27,29 @@ struct CCType CC_EvalType;
 
 
 static void evalFingerprint(const CC *cond, uint8_t *out) {
-    sha256(cond->code, cond->codeLength, out);
+
+    /*
+    this code crashes,
+    not a good idea to use strcat with bin arrays:
+    unsigned char codeHash[32], paramHash[32];
+    unsigned char preimage[64];
+    sha256(cond->code, cond->codeLength, codeHash);
+    sha256(cond->param, cond->paramLength, paramHash);
+
+    strcat(preimage, codeHash);
+    strcat(preimage, paramHash);
+
+    sha256(preimage, 64, out);*/
+
+    /*
+    this is how fingerprinting is done in other conditions
+    i turned it off temporarily to check how to spend old-style tokens
+    EvalFingerprintContents_t *fp = calloc(1, sizeof(EvalFingerprintContents_t));
+    OCTET_STRING_fromBuf(&fp->code, cond->code, cond->codeLength);
+    OCTET_STRING_fromBuf(&fp->param, cond->param, cond->paramLength);
+    hashFingerprintContents(&asn_DEF_EvalFingerprintContents, fp, out);
+    */
+   sha256(cond->code, cond->codeLength, out);
 }
 
 
@@ -38,14 +61,45 @@ static unsigned long evalCost(const CC *cond) {
 static CC *evalFromJSON(const cJSON *params, char *err) {
     size_t codeLength;
     unsigned char *code = 0;
+    //size_t eval_params_len;
+
+    /*
+    cJSON *eval_params_json = cJSON_GetObjectItem(params, "params");
+    if (!eval_params_json || !cJSON_IsString(eval_params_json)) {
+        strcpy(err, "\"params\" must be a string");
+        return NULL;
+    }
+
+    // FIXME - Alright 
+    // we should check that this is valid hex and use it literally as "cond->param"
+    // we are wasting space by converting values to ascii and back
+    char* param_string = cJSON_PrintUnformatted( eval_params_json );
+    // this adds " to beginning and end?!
+    for (int i = 1; i < strlen(param_string)-1; i++) {
+        if (!isxdigit(param_string[i]))
+        {
+            strcpy(err, "\"params\" must be valid hex string");
+            return NULL;
+        }
+    } */
+
 
     if (!jsonGetBase64(params, "code", err, &code, &codeLength)) {
+        return NULL;
+    }
+    unsigned char *param = NULL;
+    size_t param_len = 0;
+
+    if (!jsonGetHexOptional(params, "params", err, &param, &param_len)) {
+        free(code);
         return NULL;
     }
 
     CC *cond = cc_new(CC_Eval);
     cond->code = code;
     cond->codeLength = codeLength;
+    cond->param = param;
+    cond->paramLength = param_len;
     return cond;
 }
 
@@ -56,6 +110,12 @@ static void evalToJSON(const CC *cond, cJSON *code) {
     unsigned char *b64 = base64_encode(cond->code, cond->codeLength);
     cJSON_AddItemToObject(code, "code", cJSON_CreateString(b64));
     free(b64);
+
+    if (cond->param) {
+        unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
+        cJSON_AddItemToObject(code, "param", cJSON_CreateString(hex));
+        free(hex);
+    }
 }
 
 
@@ -69,6 +129,17 @@ static CC *evalFromFulfillment(const Fulfillment_t *ffill) {
     cond->code = calloc(1,octets.size);
     memcpy(cond->code, octets.buf, octets.size);
 
+    OCTET_STRING_t paramOctets = eval->param;
+    cond->paramLength = paramOctets.size;
+    cond->param = NULL;
+    if (paramOctets.size) {
+        cond->param = calloc(1, paramOctets.size);
+        memcpy(cond->param, paramOctets.buf, paramOctets.size);
+        unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
+        printf("%s cond->param=%s\n", __func__, hex);
+        free(hex);
+    }
+
     return cond;
 }
 
@@ -78,6 +149,12 @@ static Fulfillment_t *evalToFulfillment(const CC *cond) {
     ffill->present = Fulfillment_PR_evalSha256;
     EvalFulfillment_t *eval = &ffill->choice.evalSha256;
     OCTET_STRING_fromBuf(&eval->code, cond->code, cond->codeLength);
+    if (cond->param) {
+        OCTET_STRING_fromBuf(&eval->param, cond->param, cond->paramLength);
+        unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
+        printf("%s cond->param=%s\n", __func__, hex);
+        free(hex);
+    }
     return ffill;
 }
 
@@ -89,6 +166,8 @@ int evalIsFulfilled(const CC *cond) {
 
 static void evalFree(CC *cond) {
     free(cond->code);
+    if (cond->param)
+        free(cond->param);
 }
 
 
@@ -134,8 +213,16 @@ static CC* evalCopy(const CC* cond)
     condCopy->code = calloc(1, cond->codeLength);
     memcpy(condCopy->code, cond->code, cond->codeLength);
     condCopy->codeLength=cond->codeLength;
+
+    condCopy->param = NULL;
+    condCopy->paramLength=cond->paramLength;
+    if (cond->paramLength)  {
+        condCopy->param = calloc(1, cond->paramLength);
+        memcpy(condCopy->param, cond->param, cond->paramLength);
+        condCopy->paramLength=cond->paramLength;
+    }
+
     return (condCopy);
 }
 
-
-struct CCType CC_EvalType = { 15, "eval-sha-256", Condition_PR_evalSha256, 0, &evalFingerprint, &evalCost, &evalSubtypes, &evalFromJSON, &evalToJSON, &evalFromFulfillment, &evalToFulfillment, &evalIsFulfilled, &evalFree, &evalCopy };
+struct CCType CC_EvalType = { 15, "eval-sha-256", Condition_PR_evalSha256, 0, &evalFingerprint, &evalCost, &evalSubtypes, &evalFromJSON, &evalToJSON, &evalFromFulfillment, &evalToFulfillment, &evalIsFulfilled, &evalFree };

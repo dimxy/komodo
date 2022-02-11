@@ -134,6 +134,7 @@ static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
 
     if (nffills == 0) {
         free(cond);
+        fprintf(stderr, "%s nffills == 0\n", __func__);
         return NULL;
     }
 
@@ -142,6 +143,7 @@ static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
         if (tc->type->typeId != CC_Preimage || tc->preimageLength != 1) {
             cc_free(tc);
             free(cond);
+            fprintf(stderr, "%s tc->type->typeId != CC_Preimage\n", __func__);
             return NULL;
         }
         cond->threshold = tc->preimage[0];
@@ -152,6 +154,7 @@ static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
 
     if (cond->threshold > nffills + nconds) {
         free(cond);
+        fprintf(stderr, "%s cond->threshold > nffills + nconds\n", __func__);
         return NULL;
     }
 
@@ -169,6 +172,7 @@ static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
 
         if (!cond->subconditions[i]) {
             free(cond);
+            fprintf(stderr, "%s !cond->subconditions[i]\n", __func__);
             return NULL;
         }
     }
