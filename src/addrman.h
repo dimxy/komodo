@@ -269,6 +269,29 @@ protected:
     //! Mark an entry as currently-connected-to.
     void Connected_(const CService &addr, int64_t nTime);
 
+    // non-locking internal function 
+    void _Clear()
+    {
+        std::vector<int>().swap(vRandom);
+        nKey = GetRandHash();
+        for (size_t bucket = 0; bucket < ADDRMAN_NEW_BUCKET_COUNT; bucket++) {
+            for (size_t entry = 0; entry < ADDRMAN_BUCKET_SIZE; entry++) {
+                vvNew[bucket][entry] = -1;
+            }
+        }
+        for (size_t bucket = 0; bucket < ADDRMAN_TRIED_BUCKET_COUNT; bucket++) {
+            for (size_t entry = 0; entry < ADDRMAN_BUCKET_SIZE; entry++) {
+                vvTried[bucket][entry] = -1;
+            }
+        }
+
+        nIdCount = 0;
+        nTried = 0;
+        nNew = 0;
+        mapInfo.clear();
+        mapAddr.clear();
+    }
+
 public:
     // Compressed IP->ASN mapping, loaded from a file when a node starts.
     // Should be always empty if no file was provided.
@@ -502,29 +525,13 @@ public:
     void Clear()
     {
         LOCK(cs);
-        std::vector<int>().swap(vRandom);
-        nKey = GetRandHash();
-        for (size_t bucket = 0; bucket < ADDRMAN_NEW_BUCKET_COUNT; bucket++) {
-            for (size_t entry = 0; entry < ADDRMAN_BUCKET_SIZE; entry++) {
-                vvNew[bucket][entry] = -1;
-            }
-        }
-        for (size_t bucket = 0; bucket < ADDRMAN_TRIED_BUCKET_COUNT; bucket++) {
-            for (size_t entry = 0; entry < ADDRMAN_BUCKET_SIZE; entry++) {
-                vvTried[bucket][entry] = -1;
-            }
-        }
-
-        nIdCount = 0;
-        nTried = 0;
-        nNew = 0;
-        mapInfo.clear();
-        mapAddr.clear();
+        _Clear();
     }
 
     CAddrMan()
     {
-        Clear();
+        // do not lock in constructor
+        _Clear();
     }
 
     ~CAddrMan()
