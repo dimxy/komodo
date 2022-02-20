@@ -17,7 +17,7 @@ NotarisationDB::NotarisationDB(size_t nCacheSize, bool fMemory, bool fWipe) : CD
 
 NotarisationsInBlock ScanBlockNotarisations(const CBlock &block, int nHeight)
 {
-    EvalRef eval;
+    EvalRef eval(chainActive.Height());
     NotarisationsInBlock vNotarisations;
     CrosschainAuthority auth_STAKED;
     int timestamp = block.nTime;

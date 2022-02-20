@@ -443,16 +443,22 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
     char destaddr[KOMODO_ADDRESS_BUFSIZE], 
          myccaddr[KOMODO_ADDRESS_BUFSIZE], 
          globaladdr[KOMODO_ADDRESS_BUFSIZE],
-         mynftaddr[KOMODO_ADDRESS_BUFSIZE] = { '\0' };
+         mynftaddr[KOMODO_ADDRESS_BUFSIZE] = { '\0' },
+         myccaddrv1[KOMODO_ADDRESS_BUFSIZE], 
+         globaladdrv1[KOMODO_ADDRESS_BUFSIZE],
+         mynftaddrv1[KOMODO_ADDRESS_BUFSIZE] = { '\0' };
     uint8_t myprivkey[32] = {'\0'};
     //CC *cond = NULL, *probecond = NULL;
     UniValue sigData(UniValue::VARR), result(UniValue::VOBJ), partialConds(UniValue::VARR);
     const UniValue sigDataNull = NullUniValue;
 
     globalpk = GetUnspendable(cp, 0);
-    _GetCCaddress(myccaddr, cp->evalcode, mypk, true);
-    _GetCCaddress(globaladdr, cp->evalcode, globalpk, true);
-    GetTokensCCaddress(cp, mynftaddr, mypk, true); // get token or nft probe
+    _GetCCaddress(myccaddr, cp->evalcode, mypk, 0);
+    _GetCCaddress(globaladdr, cp->evalcode, globalpk, 0);
+    GetTokensCCaddress(cp, mynftaddr, mypk, 0); // get token or nft probe, may be empty
+    _GetCCaddress(myccaddrv1, cp->evalcode, mypk, 1);
+    _GetCCaddress(globaladdrv1, cp->evalcode, globalpk, 1);
+    GetTokensCCaddress(cp, mynftaddrv1, mypk, 1); // get token or nft probe mixed mode subver 1
 
     n = mtx.vout.size();
     for (int i = 0; i < n; i++) {
@@ -536,22 +542,34 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                 } else if (strcmp(destaddr, mynftaddr) == 0) {
                     privkey = myprivkey;
                     cond.reset(MakeTokensv2CCcond1(cp->evalcode, mypk));
+                } else if (strcmp(destaddr, globaladdrv1) == 0) {
+                    privkey = cp->CCpriv;
+                    cond.reset(MakeCCcond1(cp->evalcode, globalpk));
+                } else if (strcmp(destaddr, myccaddrv1) == 0) {
+                    privkey = myprivkey;
+                    cond.reset(MakeCCcond1(cp->evalcode, mypk));
+                } else if (strcmp(destaddr, mynftaddrv1) == 0) {
+                    privkey = myprivkey;
+                    cond.reset(MakeTokensv2CCcond1(cp->evalcode, mypk));
                 } else {
                     const uint8_t nullpriv[32] = {'\0'};
-                    // use vector of dest addresses and conds to probe vintxconds
-                    for (auto& t : cp->CCvintxprobes) {
-                        char coinaddr[KOMODO_ADDRESS_BUFSIZE];
-                        if (t.CCwrapped.get() != NULL) {
-                            CCwrapper anonCond = t.CCwrapped;
-                            CCtoAnon(anonCond.get());
-                            Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), true));
-                            if (strcmp(destaddr, coinaddr) == 0) {
-                                if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
-                                    privkey = t.CCpriv;
-                                else
-                                    privkey = myprivkey;
-                                cond = t.CCwrapped;
-                                break;
+                    for (int mixedVer = 0; mixedVer <= 1 && cond.get() == nullptr; mixedVer ++)  {
+                        // use vector of dest addresses and conds to probe vintxconds
+                        for (auto& t : cp->CCvintxprobes) {
+                            char coinaddr[KOMODO_ADDRESS_BUFSIZE];
+                            if (t.CCwrapped.get() != NULL) {
+                                CCwrapper anonCond = t.CCwrapped;
+                                CCtoAnon(anonCond.get());
+                                Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), mixedVer));
+                                std::cerr << __func__ << " vin=" << i << " CCPubKey(anonCond.get(), mixedVer)=" << CCPubKey(anonCond.get(), mixedVer).ToString() << " mixedVer=" << mixedVer << std::endl;
+                                if (strcmp(destaddr, coinaddr) == 0) {
+                                    if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
+                                        privkey = t.CCpriv;
+                                    else
+                                        privkey = myprivkey;
+                                    cond = t.CCwrapped;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -773,6 +791,7 @@ void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValu
     CBitcoinAddress address(coinaddr);
     if ( address.GetIndexKey(hashBytes, type, ccflag) == 0 )
         return;
+    std::cerr << __func__ << " hashBytes=" << hashBytes.ToString() << std::endl;
     addresses.push_back(std::make_pair(hashBytes,type));
     for (std::vector<std::pair<uint160, int> >::iterator it = addresses.begin(); it != addresses.end(); it++)
     {
@@ -973,7 +992,7 @@ int64_t CCfullsupplyV2(uint256 tokenid)
     return(0);
 }
 
-// TODO: remove this func or add IsTokenVout check (in other places just AddTokenCCInputs is used instead, maybe make it to do the job here)
+// TODO: remove this func or add IsTokensvout check (in other places just AddTokenCCInputs is used instead, maybe make it to do the job here)
 int64_t CCtoken_balance(char *coinaddr,uint256 reftokenid)
 {
     int64_t price,sum = 0; int32_t numvouts; CTransaction tx; uint256 tokenid,txid,hashBlock; 

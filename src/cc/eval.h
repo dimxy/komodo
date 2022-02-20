@@ -76,6 +76,7 @@ class CCheckCCEvalCodes;
 class Eval
 {
 public:
+    Eval(int32_t nHeightIn) : nCurrentHeight(nHeightIn) {}
     CValidationState state;
 
     bool Invalid(std::string s) { return state.Invalid(false, 0, s); }
@@ -115,6 +116,8 @@ public:
     virtual bool CheckNotaryInputs(const CTransaction &tx, uint32_t height, uint32_t timestamp) const;
     virtual uint32_t GetAssetchainsCC() const;
     virtual std::string GetAssetchainsSymbol() const;
+private:
+    int32_t nCurrentHeight;
 };
 
 
@@ -128,14 +131,14 @@ typedef std::unique_ptr<Eval,void(*)(Eval*)> EvalRef_;
 class EvalRef : public EvalRef_
 {
 public:
-    EvalRef() : EvalRef_(
-            EVAL_TEST ? EVAL_TEST : new Eval(),
+    EvalRef(int32_t nHeight) : EvalRef_(
+            EVAL_TEST ? EVAL_TEST : new Eval(nHeight),
             [](Eval* e){if (e!=EVAL_TEST) delete e;}) { }
 };
 
 
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, int32_t nHeight, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
 
 
 /*

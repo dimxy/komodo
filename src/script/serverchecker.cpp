@@ -119,14 +119,14 @@ bool ServerTransactionSignatureChecker::VerifySignature(const std::vector<unsign
 int ServerTransactionSignatureChecker::CheckEvalCondition(const CC *cond) const
 {
     //fprintf(stderr,"call RunCCeval from ServerTransactionSignatureChecker::CheckEvalCondition\n");
-    return RunCCEval(cond, *txTo, nIn, evalcodeChecker);
+    return RunCCEval(cond, *txTo, nIn, nHeight, evalcodeChecker);
 }
 
 // run cryptocondition validation code for cc scriptPubKey if its condition is in mixed mode (encoded as fulfillment with exposed evals)
 int ServerTransactionSignatureChecker::CheckCryptoConditionSpk(const std::vector<unsigned char> &condBin, ScriptError *serror) const
 {
     CC* condMixed;
-    if (condBin[0] == CC_MIXED_MODE_PREFIX)
+    if (cc_IsMixedModePrefix(condBin[0]) >= 0)
     {
         condMixed = cc_readFulfillmentBinaryMixedMode((unsigned char*)condBin.data()+1, condBin.size()-1);
         if (serror) *serror = SCRIPT_ERR_PUBKEYTYPE;

@@ -30,7 +30,7 @@ const int TOKENS_MAX_DESC_LENGTH = 4096;
 
 // implementation of basic token functions
 
-typedef std::tuple<vuint8_t, std::string, std::string> TokenDataTuple;  // pubkey, name, desc
+typedef std::tuple<vuint8_t, std::string, std::string, CAmount, vuint8_t> TokenDataTuple;  // pubkey, name, desc
 
 // CCcustom
 bool TokensValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &tx, uint32_t nIn);
@@ -214,11 +214,11 @@ CC *MakeTokensv2CCcondMofN(uint8_t evalcode1, uint8_t evalcode2, uint8_t M, std:
 /// @param nValue value of the output in satoshi
 /// @param pk pubkey to spend the cc
 /// @param pvData pointer to optional data added as OP_DROP op to the vout (could be null)
-/// @param isCCParam if true put params into the EVAL_TOKENV2 conditon para,
+/// @param isEvalParamActive if true put params into the EVAL_TOKENV2 conditon para,
 /// @returns vout object
 /// @see CCinit
 /// @see CCcontract_info
-CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk, const vscript_t* pvData = nullptr, bool isCCParam = false);
+CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk, const vscript_t* pvData = nullptr, bool isEvalParamActive = false);
 
 /// Another MakeTokensCC1vout overloaded function that creates a token transaction output with a cryptocondition with two eval codes that allows to spend it by one key. 
 /// Resulting vout will have three eval codes (EVAL_TOKENS, evalcode and evalcode2 parameter values).
@@ -231,7 +231,7 @@ CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk, cons
 /// @returns vout object
 /// @see CCinit
 /// @see CCcontract_info
-CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nValue, CPubKey pk, const vscript_t* pvData = nullptr, bool isCCParam = false);
+CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nValue, CPubKey pk, const vscript_t* pvData = nullptr, bool isEvalParamActive = false);
 
 /// MakeTokensCC1of2vout creates a token transaction output with a 1of2 cryptocondition that allows to spend it by either of two keys. 
 /// The resulting vout will have two eval codes (EVAL_TOKENS and evalcode parameter value).
@@ -244,7 +244,7 @@ CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nValu
 /// @returns vout object
 /// @see CCinit
 /// @see CCcontract_info
-CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData = nullptr, bool isCCParam = false);
+CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData = nullptr, bool isEvalParamActive = false);
 
 /// Another overload of MakeTokensCC1of2vout creates a token transaction output with a 1of2 cryptocondition with two eval codes that allows to spend it by either of two keys. 
 /// The resulting vout will have three eval codes (EVAL_TOKENS, evalcode and evalcode2 parameter values).
@@ -258,7 +258,7 @@ CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk1, 
 /// @returns vout object
 /// @see CCinit
 /// @see CCcontract_info
-CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData = nullptr, bool isCCParam = false);
+CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData = nullptr, bool isEvalParamActive = false);
 
 /// MakeTokensCCMofNvout creates a token transaction output with a MofN cryptocondition with two eval codes that allows to spend it by M of N keys. 
 /// The resulting vout will have three eval codes (EVAL_TOKENS, evalcode and evalcode2 parameter values).
@@ -272,7 +272,7 @@ CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, uint8_t evalcode2, CAmount nV
 /// @returns vout object
 /// @see CCinit
 /// @see CCcontract_info
-CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> & pks, const vscript_t* pvData = nullptr, bool isCCParam = false);
+CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> & pks, const vscript_t* pvData = nullptr, bool isEvalParamActive = false);
 
 UniValue TokenList();
 UniValue TokenV2List(const UniValue &params);
@@ -424,26 +424,26 @@ public:
     {
         return ::MakeCC1of2voutMixed(evalcode, nValue, pk1, pk2, pvData);
     }
-    static CTxOut MakeTokensCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, const vscript_t* pvData = NULL, bool isCCParam = false)
+    static CTxOut MakeTokensCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, const vscript_t* pvData = NULL, bool isEvalParamActive = false)
     {
-        return ::MakeTokensCC1voutMixed(evalcode, nValue, pk, pvData, isCCParam);
+        return ::MakeTokensCC1voutMixed(evalcode, nValue, pk, pvData, isEvalParamActive);
     }
-    static CTxOut MakeTokensCC1vout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk, const vscript_t* pvData = NULL, bool isCCParam = false)
+    static CTxOut MakeTokensCC1vout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk, const vscript_t* pvData = NULL, bool isEvalParamActive = false)
     {
-        return ::MakeTokensCC1voutMixed(evalcode1, evalcode2, nValue, pk, pvData, isCCParam);
+        return ::MakeTokensCC1voutMixed(evalcode1, evalcode2, nValue, pk, pvData, isEvalParamActive);
     }
-    static CTxOut MakeTokensCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData = NULL, bool isCCParam = false)
+    static CTxOut MakeTokensCC1of2vout(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData = NULL, bool isEvalParamActive = false)
     {
-        return ::MakeTokensCC1of2voutMixed(evalcode, nValue, pk1, pk2, pvData, isCCParam);
+        return ::MakeTokensCC1of2voutMixed(evalcode, nValue, pk1, pk2, pvData, isEvalParamActive);
     }
-    static CTxOut MakeTokensCC1of2vout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData = NULL, bool isCCParam = false)
+    static CTxOut MakeTokensCC1of2vout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData = NULL, bool isEvalParamActive = false)
     {
-        return ::MakeTokensCC1of2voutMixed(evalcode1, evalcode2, nValue, pk1, pk2, pvData, isCCParam);
+        return ::MakeTokensCC1of2voutMixed(evalcode1, evalcode2, nValue, pk1, pk2, pvData, isEvalParamActive);
     }
 
-    static CTxOut MakeTokensCCMofNvout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> &pks, const vscript_t* pvData = NULL, bool isCCParam = false)
+    static CTxOut MakeTokensCCMofNvout(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> &pks, const vscript_t* pvData = NULL, bool isEvalParamActive = false)
     {
-        return ::MakeTokensCCMofNvoutMixed(evalcode1, evalcode2, nValue, M, pks, pvData, isCCParam);
+        return ::MakeTokensCCMofNvoutMixed(evalcode1, evalcode2, nValue, M, pks, pvData, isEvalParamActive);
     }
     static UniValue FinalizeCCTx(bool remote, uint32_t changeFlag, struct CCcontract_info *cp, CMutableTransaction &mtx, CPubKey mypk, CAmount txfee, CScript opret)
     {
@@ -459,5 +459,7 @@ template <class V> bool ExtractTokensCCVinPubkeys(const CTransaction &tx, std::v
 template <class V> CAmount IsTokenMarkerVout(CTxOut vout);
 /// @private 
 uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey);
+
+int TokensGetMixedVersion(Eval * eval, bool isMixed);
 
 #endif

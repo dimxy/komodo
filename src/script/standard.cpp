@@ -145,7 +145,9 @@ std::vector<unsigned char> COptCCParams::AsVector()
     return std::vector<unsigned char>(cData.begin(), cData.end());
 }
 
-bool komodo_is_vSolutionsFixActive(); // didn't want to bring komodo headers here, it's a special case to bypass bad code in Solver() and ExtractDestination() 
+// didn't want to bring komodo headers here, it's a special case to bypass bad code in Solver() and ExtractDestination() 
+bool komodo_is_vSolutionsFixActive(); 
+int32_t komodo_currentheight();
 
 CScriptID::CScriptID(const CScript& in) : uint160(Hash160(in.begin(), in.end())) {}
 
@@ -246,32 +248,72 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
         std::vector<std::vector<unsigned char>> vParams;
         if (scriptPubKey.IsPayToCryptoCondition(&ccSubScript, vParams))
         {
-            if (scriptPubKey.MayAcceptCryptoCondition())
+            opcodetype pushOpcode;
+            if (scriptPubKey.MayAcceptCryptoCondition(pushOpcode))
             {
                 typeRet = TX_CRYPTOCONDITION;
-                vector<unsigned char> hashBytes; uint160 x; int32_t i; uint8_t hash20[20],*ptr;;
-                x = Hash160(ccSubScript);
-                memcpy(hash20,&x,20);
-                hashBytes.resize(20);
-                ptr = hashBytes.data();
-                for (i=0; i<20; i++)
-                    ptr[i] = hash20[i];
-                vSolutionsRet.push_back(hashBytes);
 
-                if (!komodo_is_vSolutionsFixActive()) 
+                std::vector<uint8_t> ccmixed, dummy;
+                opcodetype opcodeNone, opcodeCC;
+                CScript::const_iterator pc = ccSubScript.begin();
+                ccSubScript.GetOp(pc, opcodeNone, ccmixed);
+                ccSubScript.GetOp(pc, opcodeCC, dummy);
+
+                // ccmixed can't be empty if MayAcceptCryptoCondition() is true
+                if (pushOpcode == OP_PUSHDATA1 && ccmixed[0] == CC_MIXED_MODE_PREFIX) return false; // large cc is not enabled for mixed mode subversion 0
+
+                //std::cerr << __func__ << " ccmixed[0]=" << (int)ccmixed[0]  << " CC_MIXED_MODE_V1_PREFIX=" << (int)CC_MIXED_MODE_V1_PREFIX << " (ccmixed[0] != CC_MIXED_MODE_V1_PREFIX)=" << (ccmixed[0] != CC_MIXED_MODE_V1_PREFIX) << std::endl;
+                if (ccmixed[0] != CC_MIXED_MODE_V1_PREFIX)  // if cc v1 or cc v2 subversion 0
                 {
-                    // allow this code before the hardfork if anyone might accidentally try it
-                    if (vParams.size())
+                    //vector<unsigned char> hashBytes; uint160 x; int32_t i; uint8_t hash20[20],*ptr;;
+                    //memcpy(hash20,&x,20);
+                    //hashBytes.resize(20);
+                    //ptr = hashBytes.data();
+                    //for (i=0; i<20; i++)
+                    //    ptr[i] = hash20[i];
+                    uint160 hash160 = Hash160(ccSubScript);
+                    vector<unsigned char> hashBytes(hash160.begin(), hash160.end());
+                    vSolutionsRet.push_back(hashBytes);
+                    std::cerr << __func__ << " hash160=" << hash160.ToString() << " ccSubScript=" << ccSubScript.ToString() << std::endl;
+
+                    /* let's just removed this: komodo_is_vSolutionsFixActive work unreliable
+                       and also we cannot lock cs_main here to correctly get current height
+                    if (!komodo_is_vSolutionsFixActive()) 
                     {
-                        COptCCParams cp = COptCCParams(vParams[0]);
-                        if (cp.IsValid())
+                        // allow this code before the hardfork if anyone might accidentally try it
+                        if (vParams.size())
                         {
-                            for (auto k : cp.vKeys)
+                            COptCCParams cp = COptCCParams(vParams[0]);
+                            if (cp.IsValid())
                             {
-                                vSolutionsRet.push_back(std::vector<unsigned char>(k.begin(), k.end()));  // we do not need opdrop pubkeys in vSolution as it breaks indexes
+                                for (auto k : cp.vKeys)
+                                {
+                                    vSolutionsRet.push_back(std::vector<unsigned char>(k.begin(), k.end()));  // we do not need opdrop pubkeys in vSolution as it breaks indexes
+                                }
                             }
                         }
                     }
+                    */
+                }
+                else
+                {
+                    // for the new cc with eval params make vSolution in a different way:
+                    // not just hash160 the cc subscript but first parse it and convert to condition binary v1 with no eval params 
+                    // so same conditions with different eval params will have the same vSolution (meaning the cc indexing key)
+            
+                    uint8_t condbuf[1000];
+                
+                    //std::vector<uint8_t> ccmixed(ccSubScript.begin() + 1, ccSubScript.end());
+                    CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixed[1], ccmixed.size()-1);
+                    if (!cond) return false;
+                    size_t ccsize = cc_conditionBinary(cond, condbuf);
+                    cc_free(cond);
+                    std::vector<uint8_t> condv1(condbuf, condbuf + ccsize);
+                    CScript ccscriptv1;
+                    ccscriptv1 << condv1 << opcodeCC;
+                    uint160 hash160 = Hash160(ccscriptv1);
+                    vSolutionsRet.push_back(std::vector<uint8_t>(hash160.begin(), hash160.end()));
+                    //std::cerr << __func__ << " hash160=" <<hash160.ToString() << " condv1=" << HexStr(condv1) << " opcodeCC=" << opcodeCC << " scriptv1=" << ccscriptv1.ToString() << std::endl;
                 }
                 return true;
             }
@@ -403,6 +445,9 @@ bool ExtractDestination(const CScript& _scriptPubKey, CTxDestination& addressRet
 
     else if (IsCryptoConditionsEnabled() != 0 && whichType == TX_CRYPTOCONDITION)
     {
+        /* let's not use komodo_is_vSolutionsFixActive()
+            we cant lock here and this code workd unreliable: it returns incorrect results until a block is mined
+            let's assume nobody ever used this
         if (vSolutions.size() > 1 && !komodo_is_vSolutionsFixActive()) // allow this temporarily before the HF; actually this is incorrect to use opdrop's pubkey as the address
         {
             CPubKey pk = CPubKey((vSolutions[1]));
@@ -410,10 +455,9 @@ bool ExtractDestination(const CScript& _scriptPubKey, CTxDestination& addressRet
             return pk.IsValid();
         }
         else
+        */
         {
             addressRet = CCryptoConditionID(uint160(vSolutions[0]));
-            // we do not create CCLTVID for CC spks as it does not make sense (any timelocks should be inside the cc code)
-            // however we do not fail it either to provide compatibility with the pre-CCLTVID code
         }
         return true;
     }

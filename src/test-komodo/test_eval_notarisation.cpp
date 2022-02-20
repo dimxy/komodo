@@ -24,6 +24,7 @@ namespace TestEvalNotarisation {
     class EvalMock : public Eval
     {
         public:
+            EvalMock() : Eval(0) {}
             uint32_t nNotaries;
             uint8_t notaries[64][33];
             std::map<uint256, CTransaction> txs;

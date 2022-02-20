@@ -742,7 +742,7 @@ int64_t CCtoken_balance2(char *destaddr,uint256 tokenid);
 /// @param[out] destaddr the address for the cc scriptPubKey. Should have at least 64 char buffer space
 /// @param evalcode eval code for which cryptocondition will be made
 /// @param pk pubkey for which cryptocondition will be made
-bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk, bool mixed=false);
+bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk, int mixedVersion = -1);
 
 /// GetCCaddress retrieves the address for the scriptPubKey for the cryptocondition that is made for eval code and public key.
 /// The evalcode is taken from the cp object
@@ -750,7 +750,7 @@ bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk, bool mixed=false)
 /// @param[out] destaddr the address for the cc scriptPubKey. Should have at least 64 char buffer space
 /// @param pk pubkey for which cryptocondition will be made
 /// @see CCcontract_info
-bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk, bool mixed=false);
+bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk, int mixedVersion = -1);
 
 /// GetCCaddress1of2 retrieves the address for the scriptPubKey for the 1of2 cryptocondition that is made for eval code and two public keys.
 /// The evalcode is taken from the cp object
@@ -759,20 +759,20 @@ bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk, bool mix
 /// @param pk first pubkey 1of2 cryptocondition 
 /// @param pk2 second pubkey of 1of2 cryptocondition 
 /// @see CCcontract_info
-bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2, bool mixed=false);
+bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2, int mixedVersion = -1);
 
 /// Gets adddress for token cryptocondition vout
 /// @param cp CCcontract_info structure initialized with EVAL_TOKENS eval code
 /// @param[out] destaddr retrieved address
 /// @param pk public key to create the cryptocondition
-bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk, bool mixed = false);
+bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk, int mixedVersion = -1);
 
 /// Gets adddress for token 1of2 cc vout
 /// @param cp CCcontract_info structure initialized with EVAL_TOKENS eval code
 /// @param[out] destaddr retrieved address
 /// @param pk first public key to create the cryptocondition
 /// @param pk2 second public key to create the cryptocondition
-bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk, CPubKey pk2, bool mixed = false);
+bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk, CPubKey pk2, int mixedVersion = -1);
 
 /// CCaddrTokens1of2set sets pubkeys, private key and cc addr for spending from 1of2 token cryptocondition vout
 /// @param cp contract info structure where the private key is set

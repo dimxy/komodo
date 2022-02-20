@@ -47,6 +47,7 @@ TEST_F(CCTest, testIsPayToCryptoCondition)
 TEST_F(CCTest, testMayAcceptCryptoCondition)
 {
     CC *cond;
+    opcodetype pushOpcode;
 
     // ok
     CCFromJson(cond, R"!!(
@@ -56,7 +57,7 @@ TEST_F(CCTest, testMayAcceptCryptoCondition)
           { "type": "secp256k1-sha-256", "publicKey": "0205a8ad0c1dbc515f149af377981aab58b836af008d4d7ab21bd76faf80550b47" }
       ]
     })!!");
-    ASSERT_TRUE(CCPubKey(cond).MayAcceptCryptoCondition());
+    ASSERT_TRUE(CCPubKey(cond).MayAcceptCryptoCondition(pushOpcode));
 
 
     // prefix not allowed
@@ -67,7 +68,7 @@ TEST_F(CCTest, testMayAcceptCryptoCondition)
       "subfulfillment":
           { "type": "secp256k1-sha-256", "publicKey": "0205a8ad0c1dbc515f149af377981aab58b836af008d4d7ab21bd76faf80550b47" }
       })!!");
-    ASSERT_FALSE(CCPubKey(cond).MayAcceptCryptoCondition());
+    ASSERT_FALSE(CCPubKey(cond).MayAcceptCryptoCondition(pushOpcode));
 
 
     // has no signature nodes
@@ -79,7 +80,7 @@ TEST_F(CCTest, testMayAcceptCryptoCondition)
           { "type": "eval-sha-256", "code": "" }
       ]
     })!!");
-    ASSERT_FALSE(CCPubKey(cond).MayAcceptCryptoCondition());
+    ASSERT_FALSE(CCPubKey(cond).MayAcceptCryptoCondition(pushOpcode));
 }
 
 
@@ -88,7 +89,7 @@ static bool CCVerify(const CMutableTransaction &mtxTo, const CC *cond) {
     ScriptError error;
     CTransaction txTo(mtxTo);
     PrecomputedTransactionData txdata(txTo);
-    auto checker = ServerTransactionSignatureChecker(&txTo, 0, amount, false, nullptr, txdata);
+    auto checker = ServerTransactionSignatureChecker(&txTo, 0, amount, false, 0, nullptr, txdata);
     return VerifyScript(CCSig(cond), CCPubKey(cond), 0, checker, 0, &error);
 };
 
@@ -141,6 +142,7 @@ TEST_F(CCTest, testVerifyEvalCondition)
     class EvalMock : public Eval
     {
     public:
+    EvalMock() : Eval(0) {}
     virtual bool Dispatch(const CC *cond, const CTransaction &tx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker) override
         { return cond->code[0] ? Valid() : Invalid(""); }
     };

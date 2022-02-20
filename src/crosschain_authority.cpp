@@ -18,7 +18,8 @@ int GetSymbolAuthority(const char* symbol)
 
 bool CheckTxAuthority(const CTransaction &tx, CrosschainAuthority auth)
 {
-    EvalRef eval;
+    
+    EvalRef eval(chainActive.Height());
 
     if (tx.vin.size() < auth.requiredSigs) return false;
 

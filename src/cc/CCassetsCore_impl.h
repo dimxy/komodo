@@ -113,7 +113,7 @@ uint8_t GetOrderParams(std::vector<uint8_t> &origpubkey_out, CAmount &unit_price
 
 // Calculate seller/buyer's dest cc address from ask/bid tx funcid
 template<class A>
-bool GetAssetorigaddrs(struct CCcontract_info *cp, char *origCCaddr, char *origNormalAddr, const CTransaction& vintx)
+bool GetAssetorigaddrs(struct CCcontract_info *cp, Eval *eval, char *origCCaddr, char *origNormalAddr, const CTransaction& vintx)
 {
     uint256 assetid; 
     CAmount price, nValue=0; 
@@ -134,7 +134,7 @@ bool GetAssetorigaddrs(struct CCcontract_info *cp, char *origCCaddr, char *origN
     cpTokens = CCinit(&tokensC, A::TokensEvalCode());
 
 	if (vintxFuncId == 's' || vintxFuncId == 'S' || vintxFuncId == 'b' || vintxFuncId == 'B') {
-        if (!GetTokensCCaddress(cpTokens, origCCaddr, pubkey2pk(origpubkey), A::IsMixed()))  // tokens to single-eval token or token+nonfungible
+        if (!GetTokensCCaddress(cpTokens, origCCaddr, pubkey2pk(origpubkey), TokensGetMixedVersion(eval, A::IsMixed())))  // tokens to single-eval token or token+nonfungible
             return false;
 	}
 	else  {
@@ -188,7 +188,7 @@ CAmount AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *o
     else if((funcid == 'S' || funcid == 'x') && 
        (tx.vin[vini].prevout.n >= vinTx.vout.size() ||  // check bounds
 		Getscriptaddress(destaddr, vinTx.vout[tx.vin[vini].prevout.n].scriptPubKey) == false || 
-		!GetTokensCCaddress(cpAssets, unspendableAddr, GetUnspendable(cpAssets, NULL), A::IsMixed()) ||                  
+		!GetTokensCCaddress(cpAssets, unspendableAddr, GetUnspendable(cpAssets, NULL), TokensGetMixedVersion(eval, A::IsMixed())) ||                  
 		strcmp(destaddr, unspendableAddr) != 0))
     {
         CCLogPrintF(ccassets_log, CCLOG_ERROR, "%s cc addr %s is not dual token-evalcode=0x%02x asset unspendable addr %s\n", __func__, destaddr, (int)cpAssets->evalcode, unspendableAddr);
@@ -198,7 +198,7 @@ CAmount AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *o
 	else if ((funcid == 'B' || funcid == 'o') && 
 	   (tx.vin[vini].prevout.n >= vinTx.vout.size() ||  // check bounds
         Getscriptaddress(destaddr, vinTx.vout[tx.vin[vini].prevout.n].scriptPubKey) == false ||
-		!GetCCaddress(cpAssets, unspendableAddr, GetUnspendable(cpAssets, NULL), A::IsMixed()) ||
+		!GetCCaddress(cpAssets, unspendableAddr, GetUnspendable(cpAssets, NULL), AssetsGetMixedVersion(A::IsMixed())) ||
 		strcmp(destaddr, unspendableAddr) != 0))
 	{
         CCLogPrintF(ccassets_log, CCLOG_ERROR, "%s cc addr %s is not evalcode=0x%02x asset unspendable addr %s\n", __func__, destaddr, (int)cpAssets->evalcode, unspendableAddr);
@@ -208,7 +208,7 @@ CAmount AssetValidateCCvin(struct CCcontract_info *cpAssets, Eval* eval, char *o
     //else if ( vinTx.vout[0].nValue < 10000 )
     //    return eval->Invalid("invalid dust for buyvin");
     // get user dest cc and normal addresses:
-    else if(GetAssetorigaddrs<A>(cpAssets, origCCaddr_out, origaddr_out, vinTx) == false)  
+    else if(GetAssetorigaddrs<A>(cpAssets, eval, origCCaddr_out, origaddr_out, vinTx) == false)  
         return eval->Invalid("couldnt get origaddr for vin tx"), 0LL;
 
     //fprintf(stderr,"AssetValidateCCvin() got %.8f to origaddr.(%s)\n", (double)vinTx.vout[tx.vin[vini].prevout.n].nValue/COIN,origaddr);
@@ -293,11 +293,13 @@ bool AssetsValidateTokenId(Eval *eval, struct CCcontract_info *cp, const CTransa
     uint8_t funcId;
     std::string errorStr;
     if (T::CheckTokensvout(cp, eval, tx, v, tokenOpret, reftokenid, funcId, errorStr) >= 0) {
+        std::cerr << __func__ << " CheckTokensvout reftokenid=" << reftokenid.GetHex() << " assetid=" << assetid.GetHex() << std::endl;
         if (reftokenid != assetid)
             return eval->Invalid("invalid tokenid for tokenask");
         else
             return true;
     }
+    std::cerr << __func__ << " CheckTokensvout -1" << std::endl;
     return eval->Invalid("invalid token tx");
 }
 

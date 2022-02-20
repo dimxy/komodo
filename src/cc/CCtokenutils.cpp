@@ -414,16 +414,32 @@ CC *MakeTokensv2CCcond1(uint8_t evalcode, CPubKey pk) {
 }
 
 // make three-eval (token+evalcode+evalcode2) MofN cc vout:
-CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> &pks, const vscript_t* pvData, bool isCCParam)
+CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> &pks, const vscript_t* pvData, bool isEvalParamActive)
 {
     CTxOut vout;
-    CCwrapper payoutCond( MakeTokensv2CCcondMofN(evalcode1, evalcode2, M, pks, (isCCParam ? pvData : nullptr)) );
+    vuint8_t vccdata;
+    if (isEvalParamActive) {
+        // get tokendid and funcd from pvData
+        if (!pvData || pvData->size() < 3) return CTxOut();        
+        uint8_t funcId = (*pvData)[1];
+        uint8_t ver = (*pvData)[2];
+        if (IsTokenCreateFuncid(funcId)) {
+            vccdata = E_MARSHAL(ss << funcId << ver);
+        } else {
+            uint8_t dummyEvalCode;
+            uint8_t ver;
+            uint256 tokenidReversed;
+            if (!E_UNMARSHAL(*pvData, ss >> dummyEvalCode; ss >> funcId; ss >> ver; ss >> tokenidReversed)) return CTxOut();    
+            vccdata = E_MARSHAL(ss << funcId << ver << tokenidReversed);
+            std::cerr << __func__ << " funcId=" << (int)funcId << " tokenidReversed=" << tokenidReversed.GetHex() << std::endl;
+        }
+    }
+    CCwrapper payoutCond( MakeTokensv2CCcondMofN(evalcode1, evalcode2, M, pks, (isEvalParamActive ? &vccdata : nullptr)) );
     if (!CCtoAnon(payoutCond.get())) 
         return vout;
 
-    vout = CTxOut(nValue, CCPubKey(payoutCond.get(),true));
-
-    if (!isCCParam)
+    int nMixedModeSubversion = (isEvalParamActive ? 1 : 0);
+    vout = CTxOut(nValue, CCPubKey(payoutCond.get(), nMixedModeSubversion));
     {
         std::vector<vscript_t> vvData;
         if (pvData)
@@ -432,29 +448,27 @@ CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount n
         COptCCParams ccp = COptCCParams(COptCCParams::VERSION_2, evalcode1, M, pks.size(), pks, vvData);  // ver2 -> add pks
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     }
-    //if (pvData)
-    //    vout.scriptPubKey << *pvData << OP_DROP;
     return vout;
 }
 
 // make three-eval (token+evalcode+evalcode2) cc vout:
-CTxOut MakeTokensCC1voutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk, const vscript_t* pvData, bool isCCParam)
+CTxOut MakeTokensCC1voutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk, const vscript_t* pvData, bool isEvalParamActive)
 {
-    return MakeTokensCCMofNvoutMixed(evalcode1, evalcode2, nValue, 1, { pk }, pvData, isCCParam);
+    return MakeTokensCCMofNvoutMixed(evalcode1, evalcode2, nValue, 1, { pk }, pvData, isEvalParamActive);
 }
 // overload to make two-eval (token+evalcode) cc vout:
-CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk, const vscript_t* pvData, bool isCCParam) {
-    return MakeTokensCCMofNvoutMixed(evalcode, 0, nValue, 1, { pk }, pvData, isCCParam);
+CTxOut MakeTokensCC1voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk, const vscript_t* pvData, bool isEvalParamActive) {
+    return MakeTokensCCMofNvoutMixed(evalcode, 0, nValue, 1, { pk }, pvData, isEvalParamActive);
 }
 
 // overload to make two-eval (token+evalcode) 1of2 cc vout:
-CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData, bool isCCParam) {
-    return MakeTokensCCMofNvoutMixed(evalcode, 0, nValue, 1, { pk1, pk2 }, pvData, isCCParam);
+CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData, bool isEvalParamActive) {
+    return MakeTokensCCMofNvoutMixed(evalcode, 0, nValue, 1, { pk1, pk2 }, pvData, isEvalParamActive);
 }
 
 // overload to make two-eval (token+evalcode) 1of2 cc vout:
-CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData, bool isCCParam) {
-    return MakeTokensCCMofNvoutMixed(evalcode1, evalcode2, nValue, 1, { pk1, pk2}, pvData, isCCParam);
+CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, CPubKey pk1, CPubKey pk2, const vscript_t* pvData, bool isEvalParamActive) {
+    return MakeTokensCCMofNvoutMixed(evalcode1, evalcode2, nValue, 1, { pk1, pk2}, pvData, isEvalParamActive);
 }
 
 // decodes token opret version, current values: 
@@ -462,7 +476,7 @@ CTxOut MakeTokensCC1of2voutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount n
 // 1 after NN HF (also EVAL_TOKENSV2 mixed mode)
 // if funcid == c or t it is version 0
 // if funcid == C or T it is version 1
-uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey)
+/*uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey)
 {
     uint8_t funcId, evalCode, version = 0xFF;
     vscript_t vopret;
@@ -494,4 +508,21 @@ uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey)
         }
     }
     return version;
+}*/
+
+
+int TokensGetMixedVersion(Eval *eval, bool isMixed)
+{
+    if (isMixed) {
+        int nHeight = 0;
+        if (eval) 
+            nHeight = eval->GetCurrentHeight();  // get current block height
+        else {
+            LOCK(cs_main);
+            nHeight = komodo_nextheight(); // assuming we are in rpc and need the next height
+        }
+        return CCUpgrades::IsUpgradeActive(nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1) ? 1 : 0;
+    }
+    else
+        return -1;
 }

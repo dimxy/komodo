@@ -50,6 +50,7 @@ CAmount AssetsGetTxTokenInputs(Eval *eval, struct CCcontract_info *cpTokens, con
 
 const char ccassets_log[] = "ccassets";
 
+inline int AssetsGetMixedVersion(bool isMixed) { return isMixed ? 0 : -1; }  // for non-token outputs return always subversion 0 for the mixed mode 
 
 class AssetsV1 {
 public:

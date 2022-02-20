@@ -240,7 +240,7 @@ bool HeirValidate(struct CCcontract_info* cpHeir, Eval* eval, const CTransaction
  * Checks if vout is to cryptocondition address
  * @return vout value in satoshis
  */
-/* not used, there is IsTokenVout used for tokens case
+/* not used, there is IsTokensvout used for tokens case
 template <class Helper> int64_t IsHeirFundingVout(struct CCcontract_info* cp, const CTransaction& tx, int32_t voutIndex, CPubKey ownerPubkey, CPubKey heirPubkey)
 {
     char destaddr[KOMODO_ADDRESS_BUFSIZE], heirFundingAddr[KOMODO_ADDRESS_BUFSIZE];

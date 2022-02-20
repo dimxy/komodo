@@ -193,14 +193,14 @@ UniValue gettransactionsmany(const UniValue& params, bool fHelp, const CPubKey& 
 // helper for testing, returns index key for a cryptoconditon scriptPubKey
 UniValue getindexkeyforcc(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    if (fHelp || params.size() != 2)
+    if (fHelp || params.size() < 1 && params.size() > 2)
     {
-        string msg = "getindexkeyforcc cc-as-json is-mixed\n"
+        string msg = "getindexkeyforcc cc-as-json [mixed-mode-ver]\n"
             "\nReturns indexing key (formely cc address) for scriptPubKey made from a cryptocondition\n"
             "\nArguments:\n"
             //"address which utxos are added from\n"
             "cc-as-json cryptocondition in json\n"
-            "is-mixed is mixed mode, true or false"
+            "mixed-mode-ver if >= 0 then make mixed mode cc with that version"
             "Result: indexing key\n\n"
             "Sample:\n"
             "getindexkeyforcc \'{ \"type\": \"threshold-sha-256\", \"threshold\": 2, \"subfulfillments\":"
@@ -214,15 +214,11 @@ UniValue getindexkeyforcc(const UniValue& params, bool fHelp, const CPubKey& rem
     CCwrapper cc = cc_conditionFromJSONString(params[0].get_str().c_str(), err);
     if (cc == nullptr)
         throw std::runtime_error(std::string("could not create cryptocondition: ") + err);
-    bool ismixed = false;
-    if (params[1].get_str() == "true")
-        ismixed = true;
-    else if (params[1].get_str() == "false")
-        ismixed = false;
-    else
-        throw std::runtime_error(std::string("is-mixed must be true or false"));
+    int mixedVer = -1;
+    if (params.size() > 1)
+        mixedVer = atoi(params[1].get_str());
 
-    CScript spk = CCPubKey(cc.get(), ismixed);
+    CScript spk = CCPubKey(cc.get(), mixedVer);
     char ccaddress[KOMODO_ADDRESS_BUFSIZE];
     Getscriptaddress(ccaddress, spk);
     return ccaddress;

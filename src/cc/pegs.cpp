@@ -744,7 +744,8 @@ UniValue PegsFund(const CPubKey& pk,uint64_t txfee,uint256 pegstxid, uint256 tok
     }
     if (!found)
         CCERR_RESULT("pegscc",CCLOG_INFO, stream << "invalid tokenid " << tokenid.GetHex());
-    if ((balance=GetTokenBalance<TokensV1>(mypk,tokenid,false))>=amount)
+    CMutableTransaction mtxunused;
+    if ((balance=AddTokenCCInputs<TokensV1>(cpTokens,mtxunused,mypk,tokenid,0,0,false))>=amount)
     {
         PegsFindAccount(cp,mypk,pegstxid,tokenid,accounttxid,account);
         LOGSTREAM("pegscc",CCLOG_DEBUG2, stream << "current accounttxid=" << accounttxid.GetHex() << " [deposit=" << account.first << ",debt=" << account.second << "]" << std::endl);

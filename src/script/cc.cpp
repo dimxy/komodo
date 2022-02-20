@@ -49,8 +49,8 @@ bool IsSignedCryptoCondition(const CC *cond)
 
 static unsigned char* CopyPubKey(CPubKey pkIn)
 {
-    unsigned char* pk = (unsigned char*) malloc(33);
-    memcpy(pk, pkIn.begin(), 33);  // TODO: compressed?
+    unsigned char* pk = (unsigned char*) malloc(CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);
+    memcpy(pk, pkIn.begin(), CPubKey::COMPRESSED_PUBLIC_KEY_SIZE);  // TODO: compressed?
     return pk;
 }
 
@@ -101,15 +101,16 @@ CC* CCNewEval(std::vector<unsigned char> code, std::vector<unsigned char> param)
     return cond;
 }
 
-CScript CCPubKey(const CC *cond, bool mixed)
+CScript CCPubKey(const CC *cond, int subversion)
 {
     unsigned char buf[1000]; size_t len;
-    if (mixed)
+    if (subversion >= 0)
     {
-        buf[0]='M';
-        len = cc_fulfillmentBinaryMixedMode(cond, buf+1,999)+1;
+        buf[0] = CC_MIXED_MODE_PREFIX + subversion;
+        len = cc_fulfillmentBinaryMixedMode(cond, buf+1, sizeof(buf)-1) + 1;
     }
-    else len = cc_conditionBinary(cond, buf);
+    else 
+        len = cc_conditionBinary(cond, buf);
     return CScript() << std::vector<unsigned char>(buf, buf+len) << OP_CHECKCRYPTOCONDITION;
 }
 
@@ -181,15 +182,24 @@ bool GetOpReturnData(const CScript &sig, std::vector<unsigned char> &data)
     return false;
 }
 
-const uint8_t CC_MIXED_MODE_PREFIX = 'M';
+const uint8_t CC_MIXED_MODE_PREFIX = 'M';  // v0
+const uint8_t CC_MIXED_MODE_V1_PREFIX = 'M' + 1;
 
+
+int cc_IsMixedModePrefix(uint8_t condbin0)
+{
+    if (condbin0 && condbin0 >= CC_MIXED_MODE_PREFIX) 
+        return (int)(condbin0 - CC_MIXED_MODE_PREFIX);
+    return -1;
+}
 
 struct CC* cc_readConditionBinaryMaybeMixed(const uint8_t *condBin, size_t condBinLength)
 {
     if (condBinLength == 0)
         return NULL;
 
-    return condBin[0] == CC_MIXED_MODE_PREFIX ?
+    int subversion = cc_IsMixedModePrefix(condBin[0]);
+    return subversion >= 0 ?
         cc_readFulfillmentBinaryMixedMode(condBin+1, condBinLength-1) :
         cc_readConditionBinary(condBin, condBinLength);
 }
@@ -200,7 +210,7 @@ int cc_verifyMaybeMixed(const struct CC *cond, const uint256 sigHash,
 {
     if (condBinLength == 0) return false;
     uint8_t condBuf[1000];
-    if (condBin[0] == CC_MIXED_MODE_PREFIX) {
+    if (cc_IsMixedModePrefix(condBin[0]) >= 0) {
         CC* condMixed = cc_readFulfillmentBinaryMixedMode(condBin+1, condBinLength-1);
         if (!condMixed) return false;
         condBinLength = cc_conditionBinary(condMixed, condBuf);

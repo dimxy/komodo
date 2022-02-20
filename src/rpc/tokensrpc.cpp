@@ -243,9 +243,6 @@ UniValue mytokenv2orders(const UniValue& params, bool fHelp, const CPubKey& remo
 template <class V>
 static UniValue tokenbalance(const std::string& name, const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-    UniValue result(UniValue::VOBJ);
-    CCerror.clear();
-
     if (fHelp || params.size() < 1 || params.size() > 2)
         throw runtime_error(name + " tokenid [pubkey]\n");
     if (ensure_CCrequirements(V::EvalCode()) < 0)
@@ -262,24 +259,7 @@ static UniValue tokenbalance(const std::string& name, const UniValue& params, bo
     else
         vpubkey = Mypubkey();
 
-    CAmount balance = GetTokenBalance<V>(pubkey2pk(vpubkey), tokenid, false);
-
-	if (CCerror.empty()) {
-		char destaddr[KOMODO_ADDRESS_BUFSIZE];
-        struct CCcontract_info *cp, C;
-        cp = CCinit(&C, V::EvalCode());
-
-		result.push_back(Pair("result", "success"));
-		if (GetCCaddress(cp, destaddr, pubkey2pk(vpubkey), V::IsMixed()) != 0)
-			result.push_back(Pair("CCaddress", destaddr));
-
-		result.push_back(Pair("tokenid", params[0].get_str()));
-		result.push_back(Pair("balance", (int64_t)balance));
-	}
-	else {
-		result = MakeResultError(CCerror);
-	}
-
+    UniValue result = GetTokenBalance<V>(pubkey2pk(vpubkey), tokenid, false);
     return result;
 }
 
@@ -517,7 +497,7 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
                 return MakeResultError("could not create transfer token transaction");
         }
         else {
-            UniValue transferred = TokenTransferExt<V>(CPubKey(), 0, tokenid, ccaddressMofN.c_str(), {}, (uint8_t)M, pks, amount, false);
+            UniValue transferred = TokenTransferExt<V>(CPubKey(), 0, tokenid, { ccaddressMofN }, {}, (uint8_t)M, pks, amount, false);
             RETURN_IF_ERROR(CCerror);
             if (!ResultGetTx(transferred).empty())
                 return transferred;

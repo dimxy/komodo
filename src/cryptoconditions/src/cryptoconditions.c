@@ -113,7 +113,7 @@ uint32_t fromAsnSubtypes(const ConditionTypes_t types) {
 }
 
 
-size_t cc_conditionBinary(const CC *cond, unsigned char *buf) {
+size_t cc_conditionBinary(const CC *cond, unsigned char *buf) {  // TODO: make buf size as a param
     Condition_t *asn = calloc(1, sizeof(Condition_t));
     asnCondition(cond, asn);
     size_t out = 0;
@@ -225,7 +225,6 @@ CC *cc_readFulfillmentBinaryWithFlags(const unsigned char *ffill_bin, size_t ffi
     Fulfillment_t *ffill = 0;
     asn_dec_rval_t rval = ber_decode(0, &asn_DEF_Fulfillment, (void **)&ffill, ffill_bin, ffill_bin_len);
     if (rval.code != RC_OK) {
-        fprintf(stderr, "%s ber_decode failed\n", __func__);
         goto end;
     }
     // Do malleability check
@@ -235,7 +234,6 @@ CC *cc_readFulfillmentBinaryWithFlags(const unsigned char *ffill_bin, size_t ffi
         goto end;
     }
     if (rc.encoded != ffill_bin_len || 0 != memcmp(ffill_bin, buf, rc.encoded)) {
-        fprintf(stderr, "%s rc.encoded != ffill_bin_len || 0 != memcmp(ffill_bin, buf, rc.encoded failed\n", __func__);
         goto end;
     }
     

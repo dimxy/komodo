@@ -595,11 +595,11 @@ public:
     bool IsPayToCryptoCondition(CScript *ccSubScript, std::vector<std::vector<unsigned char>>& vSolutions) const;
     bool IsPayToCryptoCondition(CScript *ccSubScript) const;
     bool IsPayToCryptoCondition() const;
-    bool IsPayToCCV2() const; // check scriptPubKey is cryptocondition version 2
-    const std::vector<unsigned char> GetCCV2SPK() const;
+    bool IsPayToCCV2(int &subversion) const; // check scriptPubKey is cryptocondition version 2
+    const std::vector<unsigned char> GetCCV2SPK(int &subversion) const;
     bool SpkHasEvalcodeCCV2(uint8_t eval, std::vector<unsigned char> *pvParam = nullptr) const;
     bool IsCoinImport() const;
-    bool MayAcceptCryptoCondition() const;
+    bool MayAcceptCryptoCondition(opcodetype &opcode) const;
 
     // zHLTC
     bool IsRedeemScriptReveal(CScript scriptpubkey) const;

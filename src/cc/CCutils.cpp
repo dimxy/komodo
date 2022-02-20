@@ -150,7 +150,7 @@ CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, const vscri
     CTxOut vout;
     CCwrapper payoutCond(MakeCCcond1(evalcode,pk));
     if (!CCtoAnon(payoutCond.get())) return (vout);
-    vout = CTxOut(nValue,CCPubKey(payoutCond.get(),true));
+    vout = CTxOut(nValue,CCPubKey(payoutCond.get(), 0));  // TODO make param
     if ( pvData )
     {
         vout.scriptPubKey << *pvData << OP_DROP;
@@ -163,7 +163,7 @@ CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey p
     CTxOut vout;
     CCwrapper payoutCond(MakeCCcond1of2(evalcode,pk1,pk2));
     if (!CCtoAnon(payoutCond.get())) return (vout);
-    vout = CTxOut(nValue,CCPubKey(payoutCond.get(),true));
+    vout = CTxOut(nValue,CCPubKey(payoutCond.get(), 0));  // TODO make param
     if ( pvData )
     {
         vout.scriptPubKey << *pvData << OP_DROP;
@@ -393,30 +393,30 @@ CPubKey CCCustomtxidaddr(char *txidaddr,uint256 txid,uint8_t taddr,uint8_t prefi
     return(pk);
 }
 
-bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk,bool mixed)
+bool _GetCCaddress(char* destaddr, uint8_t evalcode, CPubKey pk, int nMixedModeVersion)
 {
-    CCwrapper payoutCond(MakeCCcond1(evalcode,pk));
+    CCwrapper payoutCond(MakeCCcond1(evalcode, pk));
     destaddr[0] = 0;
-    if (payoutCond.get() != 0 )
-    {
-        if (mixed) CCtoAnon(payoutCond.get());
-        Getscriptaddress(destaddr,CCPubKey(payoutCond.get(),mixed));
+    if (payoutCond.get() != 0) {
+        if (nMixedModeVersion >= 0)
+            CCtoAnon(payoutCond.get());
+        Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), nMixedModeVersion));
     }
-    return(destaddr[0] != 0);
+    return (destaddr[0] != 0);
 }
 
-bool GetCCaddress(struct CCcontract_info *cp,char *destaddr,CPubKey pk,bool mixed)
+bool GetCCaddress(struct CCcontract_info* cp, char* destaddr, CPubKey pk, int nMixedModeVersion)
 {
     destaddr[0] = 0;
-    if ( pk.size() == 0 )
-        pk = GetUnspendable(cp,0);
-    return(_GetCCaddress(destaddr,cp->evalcode,pk,mixed));
+    if (pk.size() == 0)
+        pk = GetUnspendable(cp, 0);
+    return (_GetCCaddress(destaddr, cp->evalcode, pk, nMixedModeVersion));
 }
 
-static bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode1, uint8_t evalcode2, CPubKey pk, bool mixed)
+static bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode1, uint8_t evalcode2, CPubKey pk, int nMixedModeVersion)
 {
 	CCwrapper payoutCond;
-    if (!mixed)
+    if (nMixedModeVersion < 0)
         payoutCond.reset(MakeTokensCCcond1(evalcode1, evalcode2, pk));
     else
         payoutCond.reset(MakeTokensv2CCcond1(evalcode1, evalcode2, pk));
@@ -424,38 +424,38 @@ static bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode1, uint8_t evalc
 	destaddr[0] = 0;
 	if (payoutCond != nullptr)
 	{
-        if (mixed) 
+        if (nMixedModeVersion >= 0) 
             CCtoAnon(payoutCond.get());
-		Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), mixed));
+		Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), nMixedModeVersion));
 	}
 	return(destaddr[0] != 0);
 }
 
 // get scriptPubKey adddress for three/dual eval token cc vout
-bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk, bool mixed)
+bool GetTokensCCaddress(struct CCcontract_info *cp, char *destaddr, CPubKey pk, int nMixedModeVersion)
 {
 	destaddr[0] = 0;
 	if (pk.size() == 0)
 		pk = GetUnspendable(cp, 0);
-	return(_GetTokensCCaddress(destaddr, cp->evalcode, 0, pk, mixed));
+	return(_GetTokensCCaddress(destaddr, cp->evalcode, 0, pk, nMixedModeVersion));
 }
 
-bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2, bool mixed)
+bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubKey pk2, int nMixedModeVersion)
 {
     CCwrapper payoutCond(MakeCCcond1of2(cp->evalcode,pk,pk2));
     destaddr[0] = 0;
     if ( payoutCond.get() != 0 )
     {
-        if (mixed) CCtoAnon(payoutCond.get());
-        Getscriptaddress(destaddr,CCPubKey(payoutCond.get(),mixed));
+        if (nMixedModeVersion >= 0) CCtoAnon(payoutCond.get());
+        Getscriptaddress(destaddr,CCPubKey(payoutCond.get(), nMixedModeVersion));
     }
     return(destaddr[0] != 0);
 }
 
-bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk1, CPubKey pk2, bool mixed)
+bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey pk1, CPubKey pk2, int nMixedModeVersion)
 {
 	CCwrapper payoutCond;
-    if (!mixed)
+    if (nMixedModeVersion >= 0)
         payoutCond.reset(MakeTokensCCcond1of2(cp->evalcode, pk1, pk2));
     else
         payoutCond.reset(MakeTokensv2CCcond1of2(cp->evalcode, pk1, pk2));
@@ -463,9 +463,9 @@ bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey 
 	destaddr[0] = 0;
 	if (payoutCond != nullptr) 
 	{
-        if (mixed) 
+        if (nMixedModeVersion >= 0) 
             CCtoAnon(payoutCond.get());
-		Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), mixed));
+		Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), nMixedModeVersion));
 	}
 	return(destaddr[0] != 0);
 }
@@ -613,6 +613,22 @@ CPubKey GetUnspendable(struct CCcontract_info *cp,uint8_t *unspendablepriv)
         memcpy(unspendablepriv,cp->CCpriv,32);
     return(pubkey2pk(ParseHex(cp->CChexstr)));
 }
+
+// get non-mixed cc address
+std::string GetUnspendableCCaddr(struct CCcontract_info *cp)
+{
+    char ccaddr[KOMODO_ADDRESS_BUFSIZE]; 
+    _GetCCaddress(ccaddr, cp->evalcode, pubkey2pk(ParseHex(cp->CChexstr)), -1);
+    return std::string(ccaddr);
+}
+
+std::string GetUnspendableCCaddrMixed(struct CCcontract_info *cp, int mixedSubversion)
+{
+    char ccaddr[KOMODO_ADDRESS_BUFSIZE]; 
+    _GetCCaddress(ccaddr, cp->evalcode, pubkey2pk(ParseHex(cp->CChexstr)), mixedSubversion);
+    return std::string(ccaddr);
+}
+
 
 void CCclearvars(struct CCcontract_info *cp)
 {
@@ -1361,7 +1377,6 @@ CScript GetCCDropAsOpret(const CScript &scriptPubKey)
 
     if (scriptPubKey.IsPayToCryptoCondition(&dummy, vParams))
     {
-
         if (vParams.size() > 0)  {
             COptCCParams parsed(vParams[0]);
 
@@ -1371,34 +1386,6 @@ CScript GetCCDropAsOpret(const CScript &scriptPubKey)
                 return opret;
             }
         }
-
-        /* parse OP_DROP without verus header (such opdrops are not supported anymore):
-        if (vParams.size() >= 1)  // allow more data after cc opret
-        {
-            //uint8_t version;
-            //uint8_t evalCode;
-            //uint8_t m, n;
-            std::vector< vscript_t > vData;
-
-            // parse vParams[0] as script
-            // try read verus header <evalcode version M N>, do not allow pubkeys after the header
-            CScript inScript(vParams[0].begin(), vParams[0].end());
-            CScript::const_iterator pc = inScript.begin();
-            inScript.GetPushedData(pc, vData);
-
-            if (vData.size() > 1 && vData[0].size() == 4) // first vector is 4-byte verus header
-            {
-                // support Verus-style vData
-                opret << OP_RETURN << vData[1];  // return vData[1] as cc opret
-                return true;
-            }
-            else if (vParams.size() == 1)
-            {
-                // support token-v2-style vData:
-                opret << OP_RETURN << vParams[0];  // no verus header, treat vParams[0] as cc data and return as opret
-                return true;
-            }
-        } */
     }
     return CScript();
 }
@@ -1452,20 +1439,30 @@ UniValue CCaddress(struct CCcontract_info *cp, const char *name, const std::vect
     
     else if (strcmp(name,"Tokens")!=0 && strcmp(name,"Tokensv2")!=0)
     {
-        if (GetTokensCCaddress(cp, destaddr, globalpk, mixed)>0)
+        int beginVer = mixed ? 0 : -1;
+        int endVer = mixed ? 1 : -1;
+        for (int ver = beginVer; ver <= endVer; ver ++)
         {
-            sprintf(str,"GlobalPk %s/Tokens CC Address",name);
-            result.push_back(Pair(str,destaddr));
+            if (GetTokensCCaddress(cp, destaddr, globalpk, ver)>0)
+            {
+                sprintf(str,"GlobalPk %s/Tokens CC Address",name);
+                result.push_back(Pair(str,destaddr));
+            }
         }
     }
     if (pubkey.size() == 33)
     {
-        if (GetCCaddress(cp,destaddr,pubkey2pk(pubkey), mixed) != 0)
+        int beginVer = mixed ? 0 : -1;
+        int endVer = mixed ? 1 : -1;
+        for (int ver = beginVer; ver <= endVer; ver ++)
         {
-            sprintf(str,"pubkey %s CC Address",name);
-            result.push_back(Pair(str,destaddr));
-            sprintf(str,"pubkey %s CC Balance",name);
-            result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,0))));
+            if (GetCCaddress(cp,destaddr,pubkey2pk(pubkey), ver) != 0)
+            {
+                sprintf(str,"pubkey %s CC Address",name);
+                result.push_back(Pair(str,destaddr));
+                sprintf(str,"pubkey %s CC Balance",name);
+                result.push_back(Pair(str,ValueFromAmount(CCaddress_balance(destaddr,0))));
+            }
         }
     }
     if ((strcmp(name,"Channels")==0 || strcmp(name,"Heir")==0) && pubkey.size() == 33)

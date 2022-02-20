@@ -43,7 +43,7 @@ int TestCC(CMutableTransaction &mtxTo, unsigned int nIn, CC *cond)
     ScriptError error;
     CTransaction txTo(mtxTo);
     PrecomputedTransactionData txdata(txTo);
-    auto checker = ServerTransactionSignatureChecker(&txTo, nIn, amount, false, nullptr, txdata);
+    auto checker = ServerTransactionSignatureChecker(&txTo, nIn, amount, false, 0, nullptr, txdata);
     return VerifyScript(txTo.vin[nIn].scriptSig, CCPubKey(cond), 0, checker, 0, &error);
 }
 
@@ -72,6 +72,7 @@ const EvalCode EVAL_DISPUTEBET = 0xf2;
 class EvalMock : public Eval
 {
 public:
+    EvalMock() : Eval(0) {}
     uint256 MoM;
     int currentHeight;
     std::map<uint256, CTransaction> txs;

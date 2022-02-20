@@ -32,7 +32,10 @@ namespace CCUpgrades  {
 
     enum UPGRADE_ID  {
         CCASSETS_OPDROP_VALIDATE_FIX = 0x01,
-        CCTOKENS_CCPARAMS            = 0x02,
+
+        // new mixed mode marker meaning the cc index key will be made with cc_conditionBinary (to remove all optional eval params) 
+        // and at the same time activation of token data in the eval param 
+        CCMIXEDMODE_SUBVER_1         = 0x02,  
     };
 
     struct UpgradeInfo {

@@ -102,9 +102,9 @@ static CC *evalFromJSON(const cJSON *params, char *err) {
     cond->param = param;
     cond->paramLength = param_len;
     if (cond->param)  {
-        unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
-        printf("%s cond->param=%s\n", __func__, hex);
-        free(hex);
+        //unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
+        //printf("%s cond->param=%s\n", __func__, hex);
+        //free(hex);
     }
     return cond;
 }
@@ -141,8 +141,7 @@ static CC *evalFromFulfillment(const Fulfillment_t *ffill) {
     if (eval->param)  {
         OCTET_STRING_t paramOctets = *eval->param;
         cond->paramLength = paramOctets.size;
-    //if (paramOctets.size) {
-        unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
+        unsigned char *hex = cc_hex_encode(paramOctets.buf, paramOctets.size);
         printf("%s size %ld cond->param=%s\n", __func__, paramOctets.size, hex);
         free(hex);
         cond->param = calloc(1, paramOctets.size);
@@ -159,7 +158,7 @@ static Fulfillment_t *evalToFulfillment(const CC *cond) {
     EvalFulfillment_t *eval = &ffill->choice.evalSha256;
     OCTET_STRING_fromBuf(&eval->code, cond->code, cond->codeLength);
     if (cond->param) {
-        eval->param = (OCTET_STRING_t*)malloc(sizeof(OCTET_STRING_t));
+        eval->param = (OCTET_STRING_t*)calloc(1, sizeof(OCTET_STRING_t));
         OCTET_STRING_fromBuf(eval->param, cond->param, cond->paramLength);
         unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
         printf("%s cond->param=%s\n", __func__, hex);
@@ -220,19 +219,17 @@ int cc_verifyEval(const CC *cond, VerifyEval verify, void *context) {
 static CC* evalCopy(const CC* cond)
 {
     CC *condCopy = cc_new(CC_Eval);
-    condCopy->code = calloc(1, cond->codeLength);
+    condCopy->code = calloc(cond->codeLength, sizeof(uint8_t));
     memcpy(condCopy->code, cond->code, cond->codeLength);
     condCopy->codeLength=cond->codeLength;
 
     condCopy->param = NULL;
     condCopy->paramLength=cond->paramLength;
     if (cond->paramLength)  {
-        condCopy->param = calloc(1, cond->paramLength);
+        condCopy->param = calloc(cond->paramLength, sizeof(uint8_t));
         memcpy(condCopy->param, cond->param, cond->paramLength);
-        condCopy->paramLength=cond->paramLength;
     }
-
     return (condCopy);
 }
 
-struct CCType CC_EvalType = { 15, "eval-sha-256", Condition_PR_evalSha256, 0, &evalFingerprint, &evalCost, &evalSubtypes, &evalFromJSON, &evalToJSON, &evalFromFulfillment, &evalToFulfillment, &evalIsFulfilled, &evalFree };
+struct CCType CC_EvalType = { 15, "eval-sha-256", Condition_PR_evalSha256, 0, &evalFingerprint, &evalCost, &evalSubtypes, &evalFromJSON, &evalToJSON, &evalFromFulfillment, &evalToFulfillment, &evalIsFulfilled, &evalFree, &evalCopy };

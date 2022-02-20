@@ -26,7 +26,6 @@ static asn_TYPE_member_t asn_MBR_EvalFulfillment_1[] = {
 		"param"
 		},
 };
-
 static const ber_tlv_tag_t asn_DEF_EvalFulfillment_tags_1[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
@@ -66,3 +65,4 @@ asn_TYPE_descriptor_t asn_DEF_EvalFulfillment = {
 	2,	/* Elements count */
 	&asn_SPC_EvalFulfillment_specs_1	/* Additional specs */
 };
+

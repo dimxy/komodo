@@ -28,6 +28,7 @@ static uint8_t testNum = 0;
 
 class TestCoinImport : public ::testing::Test, public Eval {
 public:
+    TestCoinImport() : Eval(0) {}
     CMutableTransaction burnTx; std::vector<uint8_t> rawproof;
     std::vector<CTxOut> payouts;
     TxProof proof;
@@ -75,7 +76,7 @@ protected:
     {
         CTransaction importTx(mtx);
         PrecomputedTransactionData txdata(importTx);
-        ServerTransactionSignatureChecker checker(&importTx, 0, 0, false, nullptr, txdata);
+        ServerTransactionSignatureChecker checker(&importTx, 0, 0, false, 0, nullptr, txdata);
         CValidationState verifystate;
         if (!VerifyCoinImport(importTx.vin[0].scriptSig, checker, verifystate))
             printf("TestRunCCEval: %s\n", verifystate.GetRejectReason().data());

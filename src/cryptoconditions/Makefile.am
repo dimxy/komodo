@@ -2,7 +2,7 @@ noinst_LIBRARIES=libcryptoconditions_core.a
 SUBDIRS = src/include/secp256k1
 
 CFLAGS = -g -O0
-CPPFLAGS = -DEMIT_ASN_DEBUG=1
+# CPPFLAGS = -DEMIT_ASN_DEBUG=1
 
 include_HEADERS = include/cryptoconditions.h
 

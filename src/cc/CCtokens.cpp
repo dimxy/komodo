@@ -22,6 +22,9 @@
 
 #include "CCtokens_impl.h"
 
+std::string GetUnspendableCCaddr(struct CCcontract_info *cp);
+std::string GetUnspendableCCaddrMixed(struct CCcontract_info *cp, int mixedSubversion);
+
 
 thread_local uint32_t tokenValIndentSize = 0; // for debug logging
 
@@ -52,7 +55,8 @@ static void FilterOutTokensUnspendablePk(const std::vector<CPubKey> &sourcePubke
 
 static std::vector<uint8_t> GetEvalCodesCCV2(const CScript& spk)
 {
-    std::vector<unsigned char> ccdata = spk.GetCCV2SPK();
+    int subversion;
+    std::vector<unsigned char> ccdata = spk.GetCCV2SPK(subversion);
     std::vector<uint8_t> vevalcodes;
 
     if (ccdata.empty())
@@ -518,35 +522,35 @@ CAmount TokensV2::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
     }
 
     std::vector<vscript_t> vvOpropParams;
-    vscript_t vCCParams;
+    vscript_t vEvalParam;
     CScript dummy;	
     if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition(&dummy, vvOpropParams) && 
-        tx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_TOKENSV2, &vCCParams))  // it's token output, check it
+        tx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_TOKENSV2, &vEvalParam))  // it's token output, check it
     {        
         bool isLastVoutOpret;
-        if (!CCUpgrades::IsUpgradeActive(eval->GetCurrentHeight(), CCUpgrades::GetUpgrades(), CCUpgrades::CCTOKENS_CCPARAMS))
+        int32_t currentHeight = 0;
         {
-            if (!(opret = GetCCDropAsOpret(tx.vout[v].scriptPubKey)).empty())
-            {
-                isLastVoutOpret = false;    
-            }
-            else
-            {
-                isLastVoutOpret = true;
-            }
+            currentHeight = eval ? eval->GetCurrentHeight() : chainActive.Height();
+        }
+        bool isEvalParamActive = CCUpgrades::IsUpgradeActive(currentHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1);
+        opret = GetCCDropAsOpret(tx.vout[v].scriptPubKey);  // first try opdrop
+        if (isEvalParamActive || !opret.empty())  // token in eval param always only opdrop, no opreturns
+        {
+            isLastVoutOpret = false;    
         }
         else
         {
-            isLastVoutOpret = false;   
-            opret << OP_RETURN << vCCParams;  // make opret to parse with decode opret func 
+            opret = tx.vout.back().scriptPubKey;
+            isLastVoutOpret = true;
         }
 
         uint256 tokenIdOpret;
-        std::vector<vscript_t>  vdatas;
+        std::vector<vscript_t>  vvExtraData;
         std::vector<CPubKey> vpksdummy;
-
+        
+        std::cerr << __func__ << " isLastVoutOpret=" << isLastVoutOpret << " opret=" << opret.ToString() << " vout=" << v << std::endl;
         // token opret most important checks (tokenid == reftokenid, tokenid is non-zero, tx is 'tokenbase'):
-        funcId = TokensV2::DecodeTokenOpRet(opret, tokenIdOpret, vpksdummy, vdatas);
+        funcId = TokensV2::DecodeTokenOpRet(opret, tokenIdOpret, vpksdummy, vvExtraData);
         if (funcId == 0)    {
             // bad opreturn
             errorStr = "can't decode opreturn data";
@@ -554,10 +558,33 @@ CAmount TokensV2::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
             return -1;  // not token vout, skip
         } 
 
+        // for token data in param read the funcid and tokenid from the eval param:
+        if (isEvalParamActive)  {
+            if (vEvalParam.size() > 0)  {
+                funcId = vEvalParam[0];
+                if (!IsTokenCreateFuncid(funcId))  {
+                    uint8_t ver;
+                    uint256 tokenIdOpretReversed;
+                    if (!E_UNMARSHAL(vEvalParam, ss >> funcId; ss >> ver; ss >> tokenIdOpretReversed)) {  // in the tokendata tokenid stored reversed for historical reasons
+                        errorStr = "can't decode token eval param";
+                        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " can't decode token eval param for txid=" << tx.GetHash().GetHex() << " v=" << v << " vCCParams=" << HexStr(vEvalParam) << std::endl);
+                        return -1; // not token vout, skip
+                    }
+                    tokenIdOpret = revuint256(tokenIdOpretReversed);
+                }
+            }
+            else
+            {
+                errorStr = "can't decode token eval param (empty)";
+                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found token vout with empty token eval param for txid=" << tx.GetHash().GetHex() << " v=" << v << " vCCParams=" << HexStr(vEvalParam) << std::endl);
+                return -1; // not token vout, skip
+            }
+        }
+
         // basic checks:
         if (IsTokenCreateFuncid(funcId))    {
             // call extra data validators
-            for (auto const &vd : vdatas)
+            for (auto const &vd : vvExtraData)
                 if (vd.size() > 0 && vd[0] != 0)
                     if (!SubcallCCValidate(eval, vd[0], tx, 0))
                         return -1;
@@ -565,11 +592,11 @@ CAmount TokensV2::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
             // set returned tokend to tokenbase txid:
             reftokenid = tx.GetHash();
         }
-        else if (IsTokenTransferFuncid(funcId))      {
+        else if (IsTokenTransferFuncid(funcId))   {
             // set returned tokenid to tokenid in opreturn:
             reftokenid = tokenIdOpret;
         }
-        else       {
+        else   {
             errorStr = "funcid not supported";
             return -1;
         }
@@ -755,6 +782,9 @@ static bool CheckTokensV2CreateTx(struct CCcontract_info *cp, Eval* eval, const 
 // token 2 cc validation entry point
 bool Tokensv2Validate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn) 
 { 
+    std::cerr << __func__ << " eval->GetCurrentHeight()=" << eval->GetCurrentHeight() << std::endl;
+    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY30") == 0 && eval->GetCurrentHeight() <= 270) return true;
+
     // check boundaries:
     if (tx.vout.size() < 1) 
         return report_validation_error(__func__, eval, tx, "no vouts");
@@ -778,7 +808,6 @@ bool Tokensv2Validate(struct CCcontract_info *cp, Eval* eval, const CTransaction
 
     return true; 
 }
-
 
 UniValue TokenList()
 {
@@ -859,81 +888,177 @@ UniValue TokenV2List(const UniValue &params)
 	struct CCcontract_info *cp, C; 
 	cp = CCinit(&C, EVAL_TOKENSV2);
 
-    auto addTokenId = [&](uint256 tokenid, const CScript &opreturn) {
+    /*
+    auto addTokenId = [&](uint256 tokenid, const CScript &opreturn) -> bool {
         vscript_t origpubkey;
 	    std::string name, description;
         std::vector<vscript_t>  oprets;
 
-        if (IsTxidInActiveChain(tokenid))
-        {
-            if (DecodeTokenCreateOpRetV2(opreturn, origpubkey, name, description, oprets) != 0) {
-                if (checkPK.IsValid()) { 
-                    if (checkPK == pubkey2pk(origpubkey))
-                        result.push_back(tokenid.GetHex());
-                }
-                else if (!checkAddr.empty())  {
-                    char origaddr[KOMODO_ADDRESS_BUFSIZE];
-                    Getscriptaddress(origaddr, TokensV2::MakeCC1vout(EVAL_TOKENSV2, 0LL, pubkey2pk(origpubkey)).scriptPubKey);
-                    if (checkAddr == origaddr)
-                        result.push_back(tokenid.GetHex());
-                }
-                else 
+        //if (IsTxidInActiveChain(tokenid)) // already checked 
+        //{
+        std::cerr << "addTokenId" << " opreturn=" << opreturn.ToString() << std::endl;
+        if (DecodeTokenCreateOpRetV2(opreturn, origpubkey, name, description, oprets) != 0) {
+            if (checkPK.IsValid()) { 
+                if (checkPK == pubkey2pk(origpubkey))
                     result.push_back(tokenid.GetHex());
             }
-            else {
-                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "DecodeTokenCreateOpRetV2 failed for tokenid=" << tokenid.GetHex() << " opreturn.size=" << opreturn.size() << std::endl);
+            else if (!checkAddr.empty())  {
+                char origaddr[KOMODO_ADDRESS_BUFSIZE];
+                Getscriptaddress(origaddr, TokensV2::MakeCC1vout(EVAL_TOKENSV2, 0LL, pubkey2pk(origpubkey)).scriptPubKey);
+                if (checkAddr == origaddr)
+                    result.push_back(tokenid.GetHex());
             }
+            else 
+                result.push_back(tokenid.GetHex());
+            return true;
         }
+        else {
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "DecodeTokenCreateOpRetV2 failed for tokenid=" << tokenid.GetHex() << " opreturn.size=" << opreturn.size() << std::endl);
+        }
+        //}
+        return false;
+    };
+    */
+
+    auto addTokenId = [&](const CTransaction &creationtx)  {
+        CAmount supply = 0LL;
+        for (int v = 0; v < creationtx.vout.size(); v++)  {
+            CAmount output;
+            if ((output = IsTokensvout<TokensV2>(cp, NULL, creationtx, v, creationtx.GetHash())) > 0)
+                supply += output;
+        }
+        if (supply > 0)
+            result.push_back(creationtx.GetHash().GetHex());
     };
 
     if (beginHeight > 0 || endHeight > 0)    {
-        if (endHeight <= 0)
+        if (endHeight <= 0)   {
+            LOCK(cs_main);
             endHeight = chainActive.Height();
-        std::vector<std::pair<CAddressIndexKey, CAmount>> addressIndexOutputs;
-        SetAddressIndexTxids(addressIndexOutputs, cp->unspendableCCaddr, CC_OUTPUTS_TRUE, beginHeight, endHeight);
-        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "SetAddressIndexTxids addressIndexOutputs.size()=" << addressIndexOutputs.size() << std::endl);
-            for (const auto &it : addressIndexOutputs) {
-                CTransaction creationtx;
-                uint256 hashBlock;
-                if (!it.first.spending &&
-                    myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
-                {
-                    LOCK(cs_main);
-                    if (IsBlockHashInActiveChain(hashBlock))
-                        addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);    
+        }
+
+        // check on marker (always mixed mode subver=0)
+        std::vector<std::pair<CAddressIndexKey, CAmount>> addressIndexOutputs0;
+        SetAddressIndexTxids(addressIndexOutputs0, GetUnspendableCCaddrMixed(cp, 0).c_str(), CC_OUTPUTS_TRUE, beginHeight, endHeight);
+        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " GetUnspendableCCaddrMixed(cp, 0)=" << GetUnspendableCCaddrMixed(cp, 0) << "SetAddressIndexTxids addressIndexOutputs0.size()=" << addressIndexOutputs0.size() << std::endl);
+        for (const auto &it : addressIndexOutputs0) {
+            CTransaction creationtx;
+            uint256 hashBlock;
+            if (!it.first.spending &&
+                myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
+            {
+                LOCK(cs_main);
+                if (IsBlockHashInActiveChain(hashBlock))  {
+                    //if (!addTokenId(it.first.txhash, creationtx.vout[it.first.index].scriptPubKey))
+                    //    addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);
+                    addTokenId(creationtx);
                 }
             }
+        }
+
+        /* we do not need this because unspendableCCaddr is now always created as cc non-mixed
+           also we do not use the activation height in Solver (we use new versioning cc prefix 'M' + subver in the cc spk)
+           so the marker is always on cc address non-mixed 
+        // check on index key made from basic condition (with removed eval params)  
+        std::vector<std::pair<CAddressIndexKey, CAmount>> addressIndexOutputs1;
+        SetAddressIndexTxids(addressIndexOutputs1, GetUnspendableCCaddrMixed(cp, 1).c_str(), CC_OUTPUTS_TRUE, beginHeight, endHeight);
+        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " GetUnspendableCCaddrMixed(cp, 1)=" << GetUnspendableCCaddrMixed(cp, 1) << "SetAddressIndexTxids(GetUnspendableCCaddrV1(cp)) addressIndexOutputs1.size()=" << addressIndexOutputs1.size() << std::endl);
+        for (const auto &it : addressIndexOutputs1) {
+            CTransaction creationtx;
+            uint256 hashBlock;
+            if (!it.first.spending &&
+                myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
+            {
+                LOCK(cs_main);
+                if (IsBlockHashInActiveChain(hashBlock))
+                    //if (!addTokenId(it.first.txhash, creationtx.vout[it.first.index].scriptPubKey))
+                    //    addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);
+                    addTokenId(creationtx);
+            }
+        }
+        */
     }
     else
     {
         if (fUnspentCCIndex)
         {
-            std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
-
-            SetCCunspentsCCIndex(unspentOutputs, cp->unspendableCCaddr, zeroid);    // find by burnable validated cc addr marker
-            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " cp->unspendableCCaddr=" << cp->unspendableCCaddr << " SetCCunspentsCCIndex unspentOutputs.size()=" << unspentOutputs.size() << std::endl);
-            for (const auto &it : unspentOutputs) {
-                LOCK(cs_main);
-                if (IsTxidInActiveChain(it.first.creationid))
-                    addTokenId(it.first.creationid, it.second.opreturn);
-            }
-        }
-        else
-        {
-            std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
-
-            SetCCunspents(unspentOutputs, cp->unspendableCCaddr, CC_OUTPUTS_TRUE);
-            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " cp->unspendableCCaddr=" << cp->unspendableCCaddr << " SetCCunspents unspentOutputs.size()=" << unspentOutputs.size() << std::endl);    
-            for (const auto &it : unspentOutputs) {
+            std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs0;
+            SetCCunspentsCCIndex(unspentOutputs0, GetUnspendableCCaddrMixed(cp, 0).c_str(), zeroid);    // find by burnable validated cc addr marker
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " GetUnspendableCCaddrMixed(cp, 0)=" << GetUnspendableCCaddrMixed(cp, 0) << " SetCCunspentsCCIndex unspentOutputs0.size()=" << unspentOutputs0.size() << std::endl);
+            for (const auto &it : unspentOutputs0) {
+                //LOCK(cs_main);
+                //if (IsTxidInActiveChain(it.first.creationid))   {}
+                //if (!addTokenId(it.first.creationid, it.second.scriptPubKey))
+                //    addTokenId(it.first.creationid, it.second.opreturn);
                 CTransaction creationtx;
                 uint256 hashBlock;
                 if (myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
                 {
                     LOCK(cs_main);
                     if (IsBlockHashInActiveChain(hashBlock))
-                        addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);    
+                        addTokenId(creationtx);
                 }
             }
+
+            /*
+            // check on index key made from basic condition (with removed eval params)  
+            std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs1;
+            SetCCunspentsCCIndex(unspentOutputs1, GetUnspendableCCaddrMixed(cp, 1).c_str(), zeroid);    // find by burnable validated cc addr marker
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " GetUnspendableCCaddrMixed(cp, 1)=" << GetUnspendableCCaddrMixed(cp, 1) << " SetCCunspentsCCIndex unspentOutputs1.size()=" << unspentOutputs1.size() << std::endl);
+            for (const auto &it : unspentOutputs1) {
+                //LOCK(cs_main);
+                //if (IsTxidInActiveChain(it.first.creationid))
+                //    if (!addTokenId(it.first.creationid, it.second.scriptPubKey))
+                //        addTokenId(it.first.creationid, it.second.opreturn);
+                CTransaction creationtx;
+                uint256 hashBlock;
+                if (myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
+                {
+                    LOCK(cs_main);
+                    if (IsBlockHashInActiveChain(hashBlock))
+                        addTokenId(creationtx);
+                }
+            }
+            */
+        }
+        else
+        {
+            std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs0;
+            SetCCunspents(unspentOutputs0, GetUnspendableCCaddrMixed(cp, 0).c_str(), CC_OUTPUTS_TRUE);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " GetUnspendableCCaddrMixed(cp, 0)=" << GetUnspendableCCaddrMixed(cp, 0) << " SetCCunspents unspentOutputs0.size()=" << unspentOutputs0.size() << std::endl);    
+            for (const auto &it : unspentOutputs0) {
+                CTransaction creationtx;
+                uint256 hashBlock;
+                if (myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
+                {
+                    LOCK(cs_main);
+                    //if (IsBlockHashInActiveChain(hashBlock))
+                    //    if (!addTokenId(it.first.txhash, creationtx.vout[it.first.index].scriptPubKey))
+                    //        addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);
+                    if (IsBlockHashInActiveChain(hashBlock))
+                        addTokenId(creationtx);
+                }
+            }
+
+            /*
+            // check on index key made from basic condition (with removed eval params)  
+            std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs1;
+            SetCCunspents(unspentOutputs1, GetUnspendableCCaddrMixed(cp, 0).c_str(), CC_OUTPUTS_TRUE);
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " GetUnspendableCCaddrMixed(cp, 0)=" << GetUnspendableCCaddrMixed(cp, 0) << " SetCCunspents unspentOutputs1.size()=" << unspentOutputs1.size() << std::endl);    
+            for (const auto &it : unspentOutputs1) {
+                CTransaction creationtx;
+                uint256 hashBlock;
+                if (myGetTransaction(it.first.txhash, creationtx, hashBlock) && creationtx.vout.size() > 0)
+                {
+                    LOCK(cs_main);
+                    //if (IsBlockHashInActiveChain(hashBlock))
+                    //    if (!addTokenId(it.first.txhash, creationtx.vout[it.first.index].scriptPubKey))
+                    //        addTokenId(it.first.txhash, creationtx.vout.back().scriptPubKey);   
+                    if (IsBlockHashInActiveChain(hashBlock))
+                        addTokenId(creationtx);
+                }
+            }
+            */
         }
     }
 

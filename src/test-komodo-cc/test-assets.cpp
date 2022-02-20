@@ -43,6 +43,7 @@ uint256 getRandomHash()
 class EvalMock : public Eval
 {
 public:
+    EvalMock() : Eval(0) {}
     typedef std::map<uint256, CTransaction> txns_type;
     typedef std::map<uint256, CBlockIndex> blocks_type;
 private:
@@ -107,7 +108,7 @@ private:
     {
         CTransaction tx(mtx);
         PrecomputedTransactionData txdata(tx);
-        ServerTransactionSignatureChecker checker(&tx, 0, 0, false, NULL, txdata);
+        ServerTransactionSignatureChecker checker(&tx, 0, 0, false, 0, NULL, txdata);
         CValidationState verifystate;
         VerifyEval verifyEval = [] (CC *cond, void *checker) {
             //fprintf(stderr,"checker.%p\n",(TransactionSignatureChecker*)checker);
@@ -138,11 +139,13 @@ private:
             }
         }
         for(const auto &vout : tx.vout)  {
-            if (vout.scriptPubKey.IsPayToCCV2())  {
+            int subversion;
+            if (vout.scriptPubKey.IsPayToCCV2(subversion))  {
 
                 ScriptError error;
+                int subversion;
 
-                bool bCheck = checker.CheckCryptoConditionSpk(vout.scriptPubKey.GetCCV2SPK(), &error);
+                bool bCheck = checker.CheckCryptoConditionSpk(vout.scriptPubKey.GetCCV2SPK(subversion), &error);
                 if (!bCheck) {
                     LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " CheckCryptoCondition error=" << ScriptErrorString(error) << " eval=" << (*this).state.GetRejectReason() << std::endl);
                     return false;
@@ -360,11 +363,16 @@ static bool TestFinalizeTx(CMutableTransaction& mtx, struct CCcontract_info *cp,
     char myccaddr[KOMODO_ADDRESS_BUFSIZE], 
          globaladdr[KOMODO_ADDRESS_BUFSIZE],
          mytokenaddr[KOMODO_ADDRESS_BUFSIZE] = { '\0' };
+    char myccaddrv1[KOMODO_ADDRESS_BUFSIZE], 
+         globaladdrv1[KOMODO_ADDRESS_BUFSIZE],
+         mytokenaddrv1[KOMODO_ADDRESS_BUFSIZE] = { '\0' };
     globalpk = GetUnspendable(cp, NULL);
-    _GetCCaddress(myccaddr, cp->evalcode, mypk, true);
-    _GetCCaddress(globaladdr, cp->evalcode, globalpk, true);
-    GetTokensCCaddress(cp, mytokenaddr, mypk, true); // get token or nft probe
-
+    _GetCCaddress(myccaddr, cp->evalcode, mypk, 0);
+    _GetCCaddress(globaladdr, cp->evalcode, globalpk, 0);
+    GetTokensCCaddress(cp, mytokenaddr, mypk, 0); // get token or nft probe
+    _GetCCaddress(myccaddrv1, cp->evalcode, mypk, 1);
+    _GetCCaddress(globaladdrv1, cp->evalcode, globalpk, 1);
+    GetTokensCCaddress(cp, mytokenaddrv1, mypk, 1); // get token or nft probe
     PrecomputedTransactionData txdata(mtx);
     for (int i = 0; i < mtx.vin.size(); i ++) 
     {
@@ -408,23 +416,37 @@ static bool TestFinalizeTx(CMutableTransaction& mtx, struct CCcontract_info *cp,
                     privkey = myprivkey;
                     cond.reset(MakeTokensv2CCcond1(cp->evalcode, mypk));
                     //LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " vini." << i << " found mytokenaddr=" << mytokenaddr << " evalcode=" << (int)cp->evalcode << std::endl);
+                } else if (strcmp(destaddr, globaladdrv1) == 0) {
+                    privkey = cp->CCpriv;
+                    cond.reset(MakeCCcond1(cp->evalcode, globalpk));
+                    //LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " vini." << i << " found globaladdress=" << globaladdr << " destaddr=" << destaddr << " strlen=" << strlen(globaladdr) << " evalcode=" << (int)cp->evalcode << std::endl);
+                } else if (strcmp(destaddr, myccaddrv1) == 0) {
+                    privkey = myprivkey;
+                    cond.reset(MakeCCcond1(cp->evalcode, mypk));
+                    //LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " vini." << i << " found myccaddr=" << myccaddr << std::endl);
+                } else if (strcmp(destaddr, mytokenaddrv1) == 0) {
+                    privkey = myprivkey;
+                    cond.reset(MakeTokensv2CCcond1(cp->evalcode, mypk));
+                    //LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " vini." << i << " found mytokenaddr=" << mytokenaddr << " evalcode=" << (int)cp->evalcode << std::endl);
                 } else {
                     const uint8_t nullpriv[32] = {'\0'};
                     // use vector of dest addresses and conds to probe vintxconds
-                    for (auto& t : cp->CCvintxprobes) {
-                        char coinaddr[KOMODO_ADDRESS_BUFSIZE];
-                        if (t.CCwrapped.get() != NULL) {
-                            CCwrapper anonCond = t.CCwrapped;
-                            CCtoAnon(anonCond.get());
-                            Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), true));
-                            if (strcmp(destaddr, coinaddr) == 0) {
-                                //LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " vini." << i << " found vintxprobe=" << coinaddr  << " privkey=" << (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0) << std::endl);
-                                if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
-                                    privkey = t.CCpriv;
-                                else
-                                    privkey = myprivkey;
-                                cond = t.CCwrapped;
-                                break;
+                    for (int mixedVer = 0; mixedVer <= 1 && cond.get() == nullptr; mixedVer ++)  {
+                        for (auto& t : cp->CCvintxprobes) {
+                            char coinaddr[KOMODO_ADDRESS_BUFSIZE];
+                            if (t.CCwrapped.get() != NULL) {
+                                CCwrapper anonCond = t.CCwrapped;
+                                CCtoAnon(anonCond.get());
+                                Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), mixedVer));
+                                if (strcmp(destaddr, coinaddr) == 0) {
+                                    //LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " vini." << i << " found vintxprobe=" << coinaddr  << " privkey=" << (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0) << std::endl);
+                                    if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
+                                        privkey = t.CCpriv;
+                                    else
+                                        privkey = myprivkey;
+                                    cond = t.CCwrapped;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -627,8 +649,7 @@ static CMutableTransaction MakeTokenV2AskTx(struct CCcontract_info *cpTokens, CP
     }
 
     TokenDataTuple tokenData;
-    vuint8_t vextraData;
-    if (!GetTokenData<TokensV2>(&eval, tokenid, tokenData, vextraData)) {
+    if (!GetTokenData<TokensV2>(&eval, tokenid, tokenData)) {
         LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " cant get tokendata" << std::endl);
         return CTransaction(); 
     }
@@ -715,8 +736,7 @@ static CMutableTransaction MakeTokenV2FillAskTx(struct CCcontract_info *cpAssets
     CAmount orig_assetoshis = asktx.vout[askvout].nValue;
 
     TokenDataTuple tokenData;
-    vuint8_t vextraData;
-    if (!GetTokenData<TokensV2>(&eval, tokenid, tokenData, vextraData)) {
+    if (!GetTokenData<TokensV2>(&eval, tokenid, tokenData)) {
         LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " cant get tokendata" << std::endl);
         return CTransaction(); 
     }
@@ -830,8 +850,7 @@ static CMutableTransaction MakeTokenV2FillBidTx(struct CCcontract_info *cpTokens
     }
 
     TokenDataTuple tokenData;
-    vuint8_t vextraData;
-    if (!GetTokenData<TokensV2>(&eval, tokenid, tokenData, vextraData)) {
+    if (!GetTokenData<TokensV2>(&eval, tokenid, tokenData)) {
         LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " cant get token data" << std::endl);
         return CTransaction();
     }
@@ -934,8 +953,7 @@ static CMutableTransaction MakeTokenV2CancelAskTx(struct CCcontract_info *cpAsse
     CAmount askamount = asktx.vout[ASSETS_GLOBALADDR_VOUT].nValue;
 
     TokenDataTuple tokenData;
-    vuint8_t vextraData;
-    if (!GetTokenData<TokensV2>(&eval, tokenid, tokenData, vextraData)) {
+    if (!GetTokenData<TokensV2>(&eval, tokenid, tokenData)) {
         LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " could not load token data" << std::endl);
         return CTransaction();
     }
@@ -1011,8 +1029,7 @@ static CMutableTransaction MakeTokenV2CancelBidTx(struct CCcontract_info *cpAsse
     CAmount bidamount = bidtx.vout[ASSETS_GLOBALADDR_VOUT].nValue;
 
     TokenDataTuple tokenData;
-    vuint8_t vextraData;
-    if (!GetTokenData<TokensV2>(&eval, tokenid, tokenData, vextraData)) {
+    if (!GetTokenData<TokensV2>(&eval, tokenid, tokenData)) {
         LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " could not load token data" << std::endl);
         return CTransaction();
     }

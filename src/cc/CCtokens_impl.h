@@ -26,16 +26,63 @@
 
 bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char> &vParam);
 
+template <class V>
+bool ParseTokenCreateTx(const CTransaction &tokenbaseTx, TokenDataTuple &tokenData)
+{
+    tokenData = std::make_tuple(vuint8_t(), std::string(), std::string(), (CAmount)0LL, vuint8_t());
+    
+    struct CCcontract_info *cpTokens, CTokens;
+    cpTokens = CCinit(&CTokens, V::EvalCode());
+    CAmount supply = 0;
+    std::vector<vscript_t>  vvExtraData;
+    vscript_t vextraData;
+    vuint8_t origpubkey;
+    std::string name, description;
+    uint256 tokenid = tokenbaseTx.GetHash();
 
+    // check only for non-mixed,
+    // assume for mixed mode cannot be invalid tokencreatetx
+    if (!V::IsMixed()) 
+    {
+        uint8_t funcid = V::DecodeTokenCreateOpRet(tokenbaseTx.vout.back().scriptPubKey, origpubkey, name, description, vvExtraData);
+        if (tokenbaseTx.vout.size() > 0 && !IsTokenCreateFuncid(funcid))
+            return false;
+        for (int v = 0; v < tokenbaseTx.vout.size(); v++)  {
+            CAmount output;
+            if ((output = IsTokensvout<V>(cpTokens, NULL, tokenbaseTx, v, tokenid)) > 0)  
+                supply += output;
+        }
+    }
+    else
+    {
+        uint256 tokenIdOut;
+        CScript opretOut;
+        uint8_t funcIdOut = 0;
+        std::string errStr;
+        for (int v = 0; v < tokenbaseTx.vout.size(); v++)  {
+            CAmount output;
+            // check and get opreturn
+            // actually only 1 token output possible in tokencreate
+            if ((output = TokensV2::CheckTokensvout(cpTokens, NULL, tokenbaseTx, v, opretOut, tokenIdOut, funcIdOut, errStr)) > 0) { 
+                if (TokensV2::DecodeTokenCreateOpRet(opretOut, origpubkey, name, description, vvExtraData) == 0)
+                    return false;
+                supply += output;
+            }
+        }
+    }
+    if (supply > 0) {
+        if (vvExtraData.size() > 0)
+            vextraData = vvExtraData[0];
+        tokenData = std::make_tuple(origpubkey, name, description, supply, vextraData);
+        return true;
+    }
+    return false;
+}
 // get non-fungible data from 'tokenbase' tx (the data might be empty)
 template <class V>
-bool GetTokenData(Eval *eval, uint256 tokenid, TokenDataTuple &tokenData, vscript_t &vextraData)
+bool GetTokenData(Eval *eval, uint256 tokenid, TokenDataTuple &tokenData, bool bMempool = true)
 {
-    CTransaction tokenbasetx;
-    uint256 hashBlock;
-
-    tokenData = std::make_tuple(vuint8_t(), std::string(), std::string());
-
+    /*
     if (!GetTxUnconfirmedOpt(eval, tokenid, tokenbasetx, hashBlock)) {
         LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "could not load token creation tx=" << tokenid.GetHex() << std::endl);
         return false;
@@ -55,9 +102,23 @@ bool GetTokenData(Eval *eval, uint256 tokenid, TokenDataTuple &tokenData, vscrip
             return true;
         }
     }
-    return false;
+    */
+
+    CTransaction tokenbaseTx;
+    uint256 hashBlock;
+
+	if (!GetTxUnconfirmedOpt(eval, tokenid, tokenbaseTx, hashBlock))   {
+        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "cant find tokenid=" << tokenid.GetHex() << std::endl);
+		return false;
+	}
+    if (!bMempool && hashBlock.IsNull()) {
+        return false;
+    }
+    return ParseTokenCreateTx<V>(tokenbaseTx, tokenData);
+   
 }
 
+/* not used
 template <class V>
 uint8_t GetTokenOpReturnVersion(Eval *eval, uint256 tokenid)
 {
@@ -73,7 +134,7 @@ uint8_t GetTokenOpReturnVersion(Eval *eval, uint256 tokenid)
         return DecodeTokenOpretVersion(tokencreatetx.vout.back().scriptPubKey);
     else
         return 0;
-}
+}*/
 
 // overload, adds inputs from token cc addr and returns non-fungible opret payload if present
 // also sets evalcode in cp, if needed
@@ -133,7 +194,8 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 		}
     }; // auto add_token_vin
 
-    if (fUnspentCCIndex && GetTokenOpReturnVersion<V>(NULL, tokenid) > 0)
+    // fUnspentCCIndex supported only if version in token data >= 1
+    if (fUnspentCCIndex /*&& GetTokenOpReturnVersion<V>(NULL, tokenid) > 0 - assume user know which token used*/) 
     {
         std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
 
@@ -151,9 +213,9 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
         std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
 
         if (useMempool)  
-	        SetCCunspentsWithMempool(unspentOutputs, (char*)tokenaddr, CC_INPUTS_TRUE);
+	        SetCCunspentsWithMempool(unspentOutputs, tokenaddr, CC_INPUTS_TRUE);
         else
-        	SetCCunspents(unspentOutputs, (char*)tokenaddr, CC_INPUTS_TRUE);
+        	SetCCunspents(unspentOutputs, tokenaddr, CC_INPUTS_TRUE);
             
         LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << funcname << "()" << " unspent index found unspentOutputs=" << unspentOutputs.size() << std::endl);
         for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
@@ -167,10 +229,19 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 template <class V>
 CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, const CPubKey &pk, uint256 tokenid, CAmount total, int32_t maxinputs, bool useMempool) 
 {
-    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-    
-    GetTokensCCaddress(cp, tokenaddr, pk, V::IsMixed());  
-    return AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, maxinputs, useMempool);
+    CAmount inputs = 0LL;
+
+    int beginVer = V::IsMixed() ? 0 : -1;
+    int endVer = V::IsMixed() ? 1 : -1;
+
+    for (int ver = beginVer; ver <= endVer; ver ++) {
+        char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+        GetTokensCCaddress(cp, tokenaddr, pk, ver);  
+        std::cerr << __func__ << " tokenaddr=" << tokenaddr << std::endl;
+        inputs += AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, maxinputs, useMempool);
+        if (total > 0 && inputs >= total) break; // if total == 0 this just getting the balance
+    }
+    return inputs;
 } 
 
 template<class V>
@@ -219,19 +290,20 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
             return MakeResultError("insufficient token inputs");
         }
 
-        if (probecond.first != nullptr)
-        {
+        //if (probecond.first != nullptr)
+        //{
             // add probe cc and kogs priv to spend from kogs global pk
-            CCAddVintxCond(cp, probecond.first, probecond.second);
-        }
+        //    CCAddVintxCond(cp, probecond.first, probecond.second);
+        //}
 
+        bool isEvalParamActive = CCUpgrades::IsUpgradeActive(komodo_nextheight(), CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1);
         CScript opret = V::EncodeTokenOpRet(tokenid, destpubkeys, {});
         vscript_t vdata;
         GetOpReturnData(opret, vdata);
         if (destpubkeys.size() == 1)
-            mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), amount, destpubkeys[0], &vdata));  
+            mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), amount, destpubkeys[0], &vdata, isEvalParamActive));  
         else if (destpubkeys.size() == 2)
-            mtx.vout.push_back(V::MakeTokensCC1of2vout(V::EvalCode(), amount, destpubkeys[0], destpubkeys[1], &vdata)); 
+            mtx.vout.push_back(V::MakeTokensCC1of2vout(V::EvalCode(), amount, destpubkeys[0], destpubkeys[1], &vdata, isEvalParamActive)); 
         else
         {
             CCerror = "zero or unsupported destination pk count";
@@ -245,7 +317,7 @@ UniValue TokenAddTransferVout(CMutableTransaction &mtx, struct CCcontract_info *
             CScript opret = V::EncodeTokenOpRet(tokenid, {mypk}, {});
             vscript_t vdata;
             GetOpReturnData(opret, vdata);
-            mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk, &vdata));
+            mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk, &vdata, isEvalParamActive));
         }
 
         return MakeResultSuccess("");
@@ -290,10 +362,9 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
 // total - token amount to transfer
 // returns: signed transfer tx in hex
 template <class V>
-UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const char *tokenaddr, std::vector<std::pair<CCwrapper, uint8_t*>> probeconds, uint8_t M, std::vector<CPubKey> destpubkeys, CAmount total, bool useMempool)
+UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const std::vector<std::string> &tokenaddrs, std::vector<std::pair<CCwrapper, uint8_t*>> probeconds, uint8_t M, std::vector<CPubKey> destpubkeys, CAmount total, bool useMempool)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-	CAmount CCchange = 0, inputs = 0;  
     struct CCcontract_info *cp, C;
 
 	if (total < 0)	{
@@ -317,11 +388,20 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
     CAmount normalInputs = AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, useMempool);
 
     if (normalInputs > 0)
-	{        
-		if ((inputs = AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, CC_MAXVINS, useMempool)) >= total)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
+	{   
+        CAmount CCchange = 0, CCinputs = 0;  
+        for (auto addr : tokenaddrs)  {
+            CAmount outputs = AddTokenCCInputs<V>(cp, mtx, addr.c_str(), tokenid, total, CC_MAXVINS, useMempool);
+            if (outputs > 0)
+                CCinputs += outputs;
+            if (CCinputs >= total)
+                break;
+        }
+
+		if (CCinputs >= total)  // NOTE: AddTokenCCInputs might set cp->additionalEvalCode which is used in FinalizeCCtx!
     	{  
-			if (inputs > total)
-				CCchange = (inputs - total);
+			if (CCinputs > total)
+				CCchange = (CCinputs - total);
 
             if (destpubkeys.size() == 0) {
                 CCerror = "no dest pubkeys";
@@ -341,16 +421,16 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                 }
             }
 
-            vscript_t vdata;
+            vscript_t vOpdropData;
             CScript opret;
             CScript oprettmp = V::EncodeTokenOpRet(tokenid, destpubkeys, {} );
-            bool ccParamsActive = CCUpgrades::IsUpgradeActive(komodo_nextheight()+1, CCUpgrades::GetUpgrades(), CCUpgrades::CCTOKENS_CCPARAMS);
-            if (!ccParamsActive)
+            bool isEvalParamActive = CCUpgrades::IsUpgradeActive(komodo_nextheight(), CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1);
+            if (!isEvalParamActive)
                 opret = oprettmp;
             else
-                GetOpReturnData(oprettmp, vdata);
+                GetOpReturnData(oprettmp, vOpdropData);
 
-            mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, total, M, destpubkeys, &vdata, ccParamsActive)); 
+            mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, total, M, destpubkeys, &vOpdropData, isEvalParamActive)); 
 
             // add optional custom probe conds to non-usual sign vins
             for (const auto &p : probeconds)
@@ -362,26 +442,26 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                 for(int ccvin = 0; ccvin < mtx.vin.size(); ccvin ++) { 
                     CTransaction vintx;
                     uint256 hashBlock;
-                    //std::vector<vscript_t> vParams;
-                    vscript_t vParams;
-                    //CScript dummy;	
+                    std::vector<vscript_t> vvOpropVin;
+                    CScript dummy;	
+
                     if (myGetTransaction(mtx.vin[ccvin].prevout.hash, vintx, hashBlock) &&
-                        //vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.IsPayToCryptoCondition(&dummy, vParams) &&  // get opdrop
-                        vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.IsPayToCryptoCondition() && 
-                        vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.SpkHasEvalcodeCCV2(V::EvalCode(), &vParams) &&
-                        vParams.size() > 0)  
+                        vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.IsPayToCryptoCondition(&dummy, vvOpropVin) &&  // get opdrop
+                        //vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.IsPayToCryptoCondition() && 
+                        vintx.vout[mtx.vin[ccvin].prevout.n].scriptPubKey.SpkHasEvalcodeCCV2(V::EvalCode()))  
                     {
                         //COptCCParams ccparams(vParams[0]);
-                        COptCCParams ccparams(vParams);
+                        COptCCParams ccparams(vvOpropVin[0]);
+                        std::cerr << __func__ << " ccparams.version=" << (int)ccparams.version << " ccparams.vKeys.size()=" << ccparams.vKeys.size() << std::endl;
                         if (ccparams.version != 0 && ccparams.vKeys.size() > 1)    {
-                            vscript_t vdataChange;
+                            vscript_t vOpdropDataChange;
                             CScript oprettmp = V::EncodeTokenOpRet(tokenid, destpubkeys, {} );
-                            GetOpReturnData(oprettmp, vdataChange);
+                            GetOpReturnData(oprettmp, vOpdropDataChange);
                             if (CCchange != 0) {
-                                mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, CCchange, ccparams.m, ccparams.vKeys, &vdataChange, ccParamsActive));
+                                mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, CCchange, ccparams.m, ccparams.vKeys, &vOpdropDataChange, isEvalParamActive));
                                 CCchange = 0; // change just added 
                             }
-                            CCwrapper ccprobeMofN( MakeTokensv2CCcondMofN(V::EvalCode(), 0, ccparams.m, ccparams.vKeys, &vdataChange) );
+                            CCwrapper ccprobeMofN( MakeTokensv2CCcondMofN(V::EvalCode(), 0, ccparams.m, ccparams.vKeys) );
                             CCAddVintxCond(cp, ccprobeMofN, nullptr); //add MofN probe to find vins and sign
                             break;
                         }
@@ -393,7 +473,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                 vscript_t vdataChange;
                 CScript oprettmp = V::EncodeTokenOpRet(tokenid, destpubkeys, {} );
                 GetOpReturnData(oprettmp, vdataChange);
-				mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk, &vdataChange, ccParamsActive));
+				mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk, &vdataChange, isEvalParamActive));
             }
 
             // TODO maybe add also opret blobs form vintx
@@ -405,7 +485,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                                                                                                                                                    
 		}
 		else {
-            if (inputs == 0LL)
+            if (CCinputs == 0LL)
                 CCerror = strprintf("no token inputs");
             else
                 CCerror = strprintf("insufficient token inputs");
@@ -424,18 +504,30 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
 template<class V>
 std::string TokenTransfer(CAmount txfee, uint256 tokenid, uint8_t M, const std::vector<CPubKey> &destpubkeys, CAmount total)
 {
-    char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
     CPubKey mypk = pubkey2pk(Mypubkey());
 
     struct CCcontract_info *cp, C;
     cp = CCinit(&C, V::EvalCode());
 
     TokenDataTuple tokenData;
-    vscript_t vextraData;
-    GetTokenData<V>(NULL, tokenid, tokenData, vextraData);
-    GetTokensCCaddress(cp, tokenaddr, mypk, V::IsMixed());
+    GetTokenData<V>(NULL, tokenid, tokenData);
+    vuint8_t vextraData = std::get<4>(tokenData);
 
-    UniValue sigData = TokenTransferExt<V>(CPubKey(), txfee, tokenid, tokenaddr, {}, M, destpubkeys, total, true);
+    std::vector<std::string> tokenaddrs;
+    if (!V::IsMixed()) {
+        char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+        GetTokensCCaddress(cp, tokenaddr, mypk, -1);
+        tokenaddrs.push_back(tokenaddr);
+    }
+    else {
+        for (int ver = 0; ver <= 1; ver ++) {
+            char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+            GetTokensCCaddress(cp, tokenaddr, mypk, ver);
+            tokenaddrs.push_back(tokenaddr);
+        }
+    }
+
+    UniValue sigData = TokenTransferExt<V>(CPubKey(), txfee, tokenid, tokenaddrs, {}, M, destpubkeys, total, true);
     return ResultGetTx(sigData);
 }
 
@@ -497,15 +589,20 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
             vvextra.push_back(nonfungibleData);
         CScript opret;
         CScript oprettmp = V::EncodeTokenCreateOpRet(vscript_t(mypk.begin(), mypk.end()), name, description, vvextra);
-        bool isCCParamActive = CCUpgrades::IsUpgradeActive(komodo_nextheight()+1, CCUpgrades::GetUpgrades(), CCUpgrades::CCTOKENS_CCPARAMS);
-        if (!isCCParamActive)
+        int32_t nextHeight = 0;
+        {
+            LOCK(cs_main);
+            nextHeight = komodo_nextheight();
+        }
+        bool isEvalParamActive = CCUpgrades::IsUpgradeActive(nextHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1);
+        if (!isEvalParamActive)
             opret = oprettmp;
         else
             GetOpReturnData(oprettmp, vdata);
 
-        // NOTE: we should prevent spending fake-tokens from this marker in IsTokenvout():
+        // NOTE: we should prevent spending fake-tokens from this marker in IsTokensvout():
         mtx.vout.push_back(V::MakeCC1vout(V::EvalCode(), TOKENS_MARKER_VALUE, GetUnspendable(cp, NULL)));            // new marker to token cc addr, burnable and validated, vout pos now changed to 0 (from 1)
-		mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), tokensupply, mypk, &vdata, isCCParamActive));
+		mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), tokensupply, mypk, &vdata, isEvalParamActive));
 
         if (additionalMarkerEvalCode > 0) 
         {
@@ -538,35 +635,62 @@ std::string CreateTokenLocal(CAmount txfee, CAmount tokensupply, std::string nam
 
 
 template <class V>
-CAmount GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool)
+UniValue GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool)
 {
 	uint256 hashBlock;
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-	CTransaction tokentx;
+	CTransaction creationtx;
     uint256 tokenidInOpret;
     std::vector<CPubKey> pks;
     std::vector<vscript_t> oprets;
 
+	struct CCcontract_info *cp, C;
+	cp = CCinit(&C, V::EvalCode());
+
 	// CCerror = strprintf("obsolete, cannot return correct value without eval");
 	// return 0;
 
-	if (myGetTransaction(tokenid, tokentx, hashBlock) == 0)
+	if (myGetTransaction(tokenid, creationtx, hashBlock) == 0)
 	{
         LOGSTREAMFN(cctokens_log, CCLOG_INFO, stream << "cant find tokenid" << std::endl);
-		CCerror = strprintf("cant find tokenid");
-		return 0;
+		return MakeResultError("cant find tokenid");
 	}
 
-    uint8_t funcid = V::DecodeTokenOpRet(tokentx.vout.back().scriptPubKey, tokenidInOpret, pks, oprets);
-    if (tokentx.vout.size() < 2 || !IsTokenCreateFuncid(funcid))
+    if (!V::IsMixed())  // assume for token mixed mode cannot be invalid tokencreate
     {
-        CCerror = strprintf("not a tokenid (invalid tokenbase)");
-        return 0;
+        // check tokencreate tx:
+        /*uint8_t funcid = V::DecodeTokenOpRet(creationtx.vout.back().scriptPubKey, tokenidInOpret, pks, oprets);
+        if (creationtx.vout.size() < 2 || !IsTokenCreateFuncid(funcid))
+        {
+            CCerror = strprintf("not a tokenid (invalid tokenbase)");
+            return 0;
+        }*/
+        CAmount supply = 0LL;
+        for (int i = 0; i < creationtx.vout.size(); i++)  {
+            CAmount output;
+            if ((output = IsTokensvout<TokensV2>(cp, NULL, creationtx, i, creationtx.GetHash())) > 0)
+                supply += output;
+        }
+        if (supply == 0LL)  {
+            return MakeResultError("not a tokenid (invalid tokenbase)");
+        }
     }
+    int beginVer = V::IsMixed() ? 0 : -1;
+    int endVer = V::IsMixed() ? 1 : -1;
+    UniValue result(UniValue::VOBJ); 
+    CAmount total = 0LL;
+    for (int ver = beginVer; ver <= endVer; ver ++)
+    {
+        char tokenaddr[KOMODO_ADDRESS_BUFSIZE]; 
+        GetTokensCCaddress(cp, tokenaddr, pk, ver); 
+	    CAmount input = AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, 0, 0, usemempool);
+        total += input;
+        result.push_back(Pair(std::string(tokenaddr), input));
 
-	struct CCcontract_info *cp, C;
-	cp = CCinit(&C, V::EvalCode());
-	return(AddTokenCCInputs<V>(cp, mtx, pk, tokenid, 0, 0, usemempool));
+    }
+    result.push_back(Pair("tokenid", tokenid.GetHex()));
+    result.push_back(Pair("balance", total));
+    return result;
 }
 
 template <class V>
@@ -580,13 +704,10 @@ UniValue GetAllTokenBalances(CPubKey pk, bool useMempool)
 	struct CCcontract_info *cp, C;
 	cp = CCinit(&C, V::EvalCode());
 
-    char tokenaddr[KOMODO_ADDRESS_BUFSIZE]; 
-    GetTokensCCaddress(cp, tokenaddr, pk, V::IsMixed()); 
-
     std::map<uint256, CAmount> mapBalances; 
 
     // make lambda to use it for either index kind:
-    auto add_token_amount = [&](uint256 txhash, int32_t index, CAmount satoshis) -> void
+    auto add_token_amount = [&](const char *tokenaddr, uint256 txhash, int32_t index, CAmount satoshis) -> void
     {
         CTransaction tx;
         uint256 hashBlock;
@@ -594,54 +715,63 @@ UniValue GetAllTokenBalances(CPubKey pk, bool useMempool)
         if (satoshis == 0)
             return;  // skip null utxos 
 
-		if (myGetTransaction(txhash, tx, hashBlock) != 0)
-		{
+        if (myGetTransaction(txhash, tx, hashBlock) != 0)
+        {
             char destaddr[KOMODO_ADDRESS_BUFSIZE];
-			Getscriptaddress(destaddr, tx.vout[index].scriptPubKey);
-			if (strcmp(destaddr, tokenaddr) != 0)      
-				return;
-			
+            Getscriptaddress(destaddr, tx.vout[index].scriptPubKey);
+            if (strcmp(destaddr, tokenaddr) != 0)      
+                return;
+            
             LOGSTREAM(cctokens_log, CCLOG_DEBUG1, stream << funcname << "()" << " checking tx vout destaddress=" << destaddr << " amount=" << tx.vout[index].nValue << std::endl);
 
-            uint8_t funcId = 0;
+            uint8_t funcIdOut = 0;
             uint256 tokenIdOut;
-            CScript opret;
+            CScript opretOut;
             std::string errorStr;
 
-            CAmount retAmount = V::CheckTokensvout(cp, NULL, tx, index, opret, tokenIdOut, funcId, errorStr);
+            CAmount retAmount = V::CheckTokensvout(cp, NULL, tx, index, opretOut, tokenIdOut, funcIdOut, errorStr);
 
-			if (retAmount > 0 && !myIsutxo_spentinmempool(ignoretxid, ignorevin, txhash, index))
-			{           
+            if (retAmount > 0 && !myIsutxo_spentinmempool(ignoretxid, ignorevin, txhash, index))
+            {           
                 CAmount prevAmount = mapBalances[tokenIdOut]; 
                 mapBalances[tokenIdOut] = prevAmount + retAmount;
-			}
-		}
+            }
+        }
     }; // auto add_token_amount
 
-    if (fUnspentCCIndex)
-    {
-        std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
+    int beginVer = V::IsMixed() ? 0 : -1;
+    int endVer = V::IsMixed() ? 1 : -1;
 
-        SetCCunspentsCCIndex(unspentOutputs, tokenaddr);
-        if (useMempool)  
-            AddCCunspentsCCIndexMempool(unspentOutputs, tokenaddr);
-            
-        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " unspent ccindex found unspentOutputs=" << unspentOutputs.size() << std::endl);
-        for (std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
-            add_token_amount(it->first.txhash, it->first.index, it->second.satoshis);
-    }
-    else
+    for (int ver = beginVer; ver <= endVer; ver ++)
     {
-        std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+        char tokenaddr[KOMODO_ADDRESS_BUFSIZE]; 
+        GetTokensCCaddress(cp, tokenaddr, pk, ver); 
 
-        if (useMempool)  
-	        SetCCunspentsWithMempool(unspentOutputs, (char*)tokenaddr, CC_INPUTS_TRUE);
+        if (fUnspentCCIndex)
+        {
+            std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
+
+            SetCCunspentsCCIndex(unspentOutputs, tokenaddr);
+            if (useMempool)  
+                AddCCunspentsCCIndexMempool(unspentOutputs, tokenaddr);
+                
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " tokenaddr=" << tokenaddr << " unspent ccindex found unspentOutputs=" << unspentOutputs.size() << std::endl);
+            for (std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
+                add_token_amount(tokenaddr, it->first.txhash, it->first.index, it->second.satoshis);
+        }
         else
-        	SetCCunspents(unspentOutputs, (char*)tokenaddr, CC_INPUTS_TRUE);
-            
-        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " unspent index found unspentOutputs=" << unspentOutputs.size() << std::endl);
-        for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
-            add_token_amount(it->first.txhash, it->first.index, it->second.satoshis);
+        {
+            std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > unspentOutputs;
+
+            if (useMempool)  
+                SetCCunspentsWithMempool(unspentOutputs, tokenaddr, CC_INPUTS_TRUE);
+            else
+                SetCCunspents(unspentOutputs, tokenaddr, CC_INPUTS_TRUE);
+                
+            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " tokenaddr=" << tokenaddr << " unspent index found unspentOutputs=" << unspentOutputs.size() << std::endl);
+            for (std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> >::const_iterator it = unspentOutputs.begin(); it != unspentOutputs.end(); it++)
+                add_token_amount(tokenaddr, it->first.txhash, it->first.index, it->second.satoshis);
+        }
     }
 
     for(auto const &m : mapBalances)  {
@@ -659,14 +789,14 @@ UniValue TokenInfo(uint256 tokenid, E parseExtraData)
 	UniValue result(UniValue::VOBJ); 
     uint256 hashBlock; 
     CTransaction tokenbaseTx; 
-    std::vector<uint8_t> origpubkey; 
-    std::vector<vscript_t>  oprets;
-    vscript_t vextraData;
-    std::string name, description; 
+    //std::vector<uint8_t> origpubkey; 
+    //std::vector<vscript_t>  vvExtraData;
+    vscript_t vExtraData;
+    //std::string name, description; 
     uint8_t version;
 
-    struct CCcontract_info *cpTokens, CTokens;
-    cpTokens = CCinit(&CTokens, V::EvalCode());
+    /*struct CCcontract_info *cpTokens, CTokens;
+    cpTokens = CCinit(&CTokens, V::EvalCode());*/
 
 	if( !myGetTransaction(tokenid, tokenbaseTx, hashBlock) )
 	{
@@ -681,38 +811,62 @@ UniValue TokenInfo(uint256 tokenid, E parseExtraData)
         return(result);
     }
 
-    uint8_t funcid = V::DecodeTokenCreateOpRet(tokenbaseTx.vout.back().scriptPubKey, origpubkey, name, description, oprets);
-	if (tokenbaseTx.vout.size() > 0 && !IsTokenCreateFuncid(funcid))
-	{
-        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "passed tokenid isnt token creation txid=" << tokenid.GetHex() << std::endl);
-		result.push_back(Pair("result", "error"));
-		result.push_back(Pair("error", "tokenid isnt token creation txid"));
-        return result;
-	}
+    /*
+    CAmount supply = 0;
+    // check only for non-mixed,
+    // assume for mixed mode cannot be invalid tokencreatetx
+    if (!V::IsMixed()) 
+    {
+        uint8_t funcid = V::DecodeTokenCreateOpRet(tokenbaseTx.vout.back().scriptPubKey, origpubkey, name, description, vvExtraData);
+        if (tokenbaseTx.vout.size() > 0 && !IsTokenCreateFuncid(funcid))
+            return MakeResultError("tokenid isnt token creation txid");
+        for (int v = 0; v < tokenbaseTx.vout.size(); v++)  {
+            CAmount output;
+            if ((output = IsTokensvout<V>(cpTokens, NULL, tokenbaseTx, v, tokenid)) > 0)  
+                supply += output;
+        }
+    }
+    else
+    {
+        uint256 tokenIdOut;
+        CScript opretOut;
+        uint8_t funcIdOut = 0;
+        std::string errStr;
+        for (int v = 0; v < tokenbaseTx.vout.size(); v++)  {
+            CAmount output;
+            // check and get opreturn
+            // actually only 1 token output possible in tokencreate
+            if ((output = TokensV2::CheckTokensvout(cpTokens, NULL, tokenbaseTx, v, opretOut, tokenIdOut, funcIdOut, errStr)) > 0) { 
+                if (V::DecodeTokenCreateOpRet(opretOut, origpubkey, name, description, vvExtraData) == 0)
+                    return MakeResultError("cannot decode token creation tx");
+                supply += output;
+            }
+        }
+    }*/
+
+    TokenDataTuple tokenData;
+    if (!ParseTokenCreateTx<V>(tokenbaseTx, tokenData))
+        return MakeResultError("cannot decode token creation tx");
 	result.push_back(Pair("result", "success"));
 	result.push_back(Pair("tokenid", tokenid.GetHex()));
-	result.push_back(Pair("owner", HexStr(origpubkey)));
-	result.push_back(Pair("name", name));
+	result.push_back(Pair("owner", HexStr(std::get<0>(tokenData))));
+	result.push_back(Pair("name", std::get<1>(tokenData)));
+	result.push_back(Pair("description", std::get<2>(tokenData)));
+	result.push_back(Pair("supply", std::get<3>(tokenData)));
 
-    CAmount supply = 0, output;
-    for (int v = 0; v < tokenbaseTx.vout.size(); v++)
-        if ((output = IsTokensvout<V>(cpTokens, NULL, tokenbaseTx, v, tokenid)) > 0)
-            supply += output;
-	result.push_back(Pair("supply", supply));
-	result.push_back(Pair("description", description));
-
-    if (oprets.size() > 0)
-        vextraData = oprets[0];
-    if( !vextraData.empty() )    {
-        result.push_back(Pair("data", HexStr(vextraData)));
-        UniValue extraDataAsJson = parseExtraData(vextraData);
+    //if (vvExtraData.size() > 0)
+    //    vExtraData = vvExtraData[0];
+    vExtraData = std::get<4>(tokenData);
+    if( !vExtraData.empty() )    {
+        result.push_back(Pair("data", HexStr(vExtraData)));
+        UniValue extraDataAsJson = parseExtraData(vExtraData);
         if (!extraDataAsJson.isNull())
             result.push_back(Pair("dataAsJson", extraDataAsJson));
 
     }
 
-    result.push_back(Pair("version", DecodeTokenOpretVersion(tokenbaseTx.vout.back().scriptPubKey)));
-    result.push_back(Pair("IsMixed", V::EvalCode() == TokensV2::EvalCode() ? "yes" : "no"));
+    //result.push_back(Pair("TokenDataVersion", DecodeTokenOpretVersion(tokenbaseTx.vout.back().scriptPubKey)));
+    result.push_back(Pair("IsMixed", V::IsMixed() ? "yes" : "no"));
 
     if (tokenbaseTx.IsCoinImport()) { // if imported token
         ImportProof proof;
@@ -879,7 +1033,7 @@ static CAmount HasBurnedTokensvouts(Eval *eval, const CTransaction& tx, uint256 
     std::vector<CPubKey> vDeadPubkeys, voutPubkeysDummy;
     std::vector<vscript_t>  oprets;
     TokenDataTuple tokenData;
-    vscript_t vopretExtra, vextraData;
+    vscript_t vopretExtra;
 
     uint8_t evalCode = V::EvalCode();     // if both payloads are empty maybe it is a transfer to non-payload-one-eval-token vout like GatewaysClaim
     uint8_t evalCode2 = 0;              // will be checked if zero or not
@@ -907,7 +1061,8 @@ static CAmount HasBurnedTokensvouts(Eval *eval, const CTransaction& tx, uint256 
 
     LOGSTREAMFN(cctokens_log, CCLOG_DEBUG2, stream << "vopretExtra=" << HexStr(vopretExtra) << std::endl);
 
-    GetTokenData<V>(eval, reftokenid, tokenData, vextraData);
+    GetTokenData<V>(eval, reftokenid, tokenData);
+    vuint8_t vextraData = std::get<4>(tokenData);
     if (vextraData.size() > 0)
         evalCode = vextraData.begin()[0];
     if (vopretExtra.size() > 0)
@@ -1015,8 +1170,8 @@ static bool CheckMarkerSpending(struct CCcontract_info *cp, Eval *eval, const CT
                 if (burnedAmount > 0)
                 {
                     TokenDataTuple tokenData;
-                    vscript_t vextraData;
-                    GetTokenData<V>(eval, tokenid, tokenData, vextraData);
+                    GetTokenData<V>(eval, tokenid, tokenData);
+                    vuint8_t vextraData = std::get<4>(tokenData);
                     if (!vextraData.empty())
                     {
                         CTransaction tokenbaseTx;
@@ -1111,6 +1266,27 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
             uint8_t funcId = 0;
             LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << funcname << "()" << " checking cc tx.vout[" << i << "] nValue=" << tx.vout[i].nValue << std::endl);
 
+            CAmount markerAmount = IsTokenMarkerVout<V>(tx.vout[i]);
+            std::cerr << __func__ << " IsTokenMarkerVout=" << markerAmount << " i=" << i << std::endl;
+            bool isEvalParamActive = CCUpgrades::IsUpgradeActive(eval ? eval->GetCurrentHeight() : chainActive.Height(), CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1);
+
+            if (isEvalParamActive)  {
+                if (markerAmount > 0)  {
+                    ++ markerVouts;
+                    if (IsTokenCreateFuncid(funcId) && markerVouts > 1) {
+                        errorStr = "tokencreate cannot have more than one marker";
+                        return false;
+                    }
+
+                    LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << funcname << "()" << " skipping marker tx.vout[" << i << "] nValue=" << tx.vout[i].nValue << std::endl);
+                    continue; // skip marker
+                }
+                else if (markerAmount < 0) {
+                    errorStr = "invalid marker value";
+                    return false;
+                }
+            }
+
             // indeed, if we pass 'true' we'll be checking this tx vout again
             tokenValIndentSize++;
             tokenoshis = V::CheckTokensvout(cp, eval, tx, i, opret, reftokenid, funcId, errorStr);
@@ -1119,20 +1295,23 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
             if (tokenoshis < 0) 
                 return false;
 
-            CAmount markerAmount = IsTokenMarkerVout<V>(tx.vout[i]);
-            if (markerAmount > 0)  {
-                ++ markerVouts;
-                if (IsTokenCreateFuncid(funcId) && markerVouts > 1) {
-                    errorStr = "tokencreate cannot have more than one marker";
+            //CAmount markerAmount = IsTokenMarkerVout<V>(tx.vout[i]);
+            //std::cerr << __func__ << " IsTokenMarkerVout=" << markerAmount << " i=" << i << std::endl;
+            if (!isEvalParamActive)  {
+                if (markerAmount > 0)  {
+                    ++ markerVouts;
+                    if (IsTokenCreateFuncid(funcId) && markerVouts > 1) {
+                        errorStr = "tokencreate cannot have more than one marker";
+                        return false;
+                    }
+
+                    LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << funcname << "()" << " skipping marker tx.vout[" << i << "] nValue=" << tx.vout[i].nValue << std::endl);
+                    continue; // skip marker
+                }
+                else if (markerAmount < 0) {
+                    errorStr = "invalid marker value";
                     return false;
                 }
-
-                LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << funcname << "()" << " skipping marker tx.vout[" << i << "] nValue=" << tx.vout[i].nValue << std::endl);
-                continue; // skip marker
-            }
-            else if (markerAmount < 0) {
-                errorStr = "invalid marker value";
-                return false;
             }
 
             if (IsTokenCreateFuncid(funcId))

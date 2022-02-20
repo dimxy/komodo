@@ -406,7 +406,7 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
     }
     // init addresses now here:
     if (cp->CChexstr[0])    {
-        _GetCCaddress(cp->unspendableCCaddr, cp->evalcode, pubkey2pk(ParseHex(cp->CChexstr)), ismixed);
+        _GetCCaddress(cp->unspendableCCaddr, cp->evalcode, pubkey2pk(ParseHex(cp->CChexstr)), 0);  // make old version global address but we should select the right version in the code
         Getscriptaddress(cp->normaladdr, CScript() << ParseHex(cp->CChexstr) << OP_CHECKSIG);
     }
     return(cp);

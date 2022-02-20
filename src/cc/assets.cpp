@@ -167,8 +167,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
     uint256 hashBlock, assetid; 
     int32_t ccvins = -1, ccvouts = -1;
 	CAmount unit_price, vin_unit_price; 
-    vuint8_t vorigpubkey, vin_origpubkey, vextraData;
-    TokenDataTuple tokenData;
+    vuint8_t vorigpubkey, vin_origpubkey;
 	uint8_t funcid, evalCodeInOpret; 
 	char destaddr[KOMODO_ADDRESS_BUFSIZE], origNormalAddr[KOMODO_ADDRESS_BUFSIZE], ownerNormalAddr[KOMODO_ADDRESS_BUFSIZE]; 
     char origTokensCCaddr[KOMODO_ADDRESS_BUFSIZE], origCCaddrDummy[KOMODO_ADDRESS_BUFSIZE]; 
@@ -197,21 +196,23 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
 	cpTokens = CCinit(&tokensC, T::EvalCode());
 
     // non-fungible tokens support:
-    GetTokenData<T>(eval, assetid, tokenData, vextraData);
+    TokenDataTuple tokenData;
+    GetTokenData<T>(eval, assetid, tokenData);
     vuint8_t ownerpubkey = std::get<0>(tokenData);
+    vuint8_t vextraData = std::get<4>(tokenData);
     Getscriptaddress(ownerNormalAddr, CScript() << ownerpubkey << OP_CHECKSIG);
 
 	// find dual-eval tokens global addr where tokens are locked:
-	GetTokensCCaddress(cpAssets, tokensDualEvalUnspendableCCaddr, GetUnspendable(cpAssets, NULL), A::IsMixed());
+	GetTokensCCaddress(cpAssets, tokensDualEvalUnspendableCCaddr, GetUnspendable(cpAssets, NULL), TokensGetMixedVersion(eval, A::IsMixed()));
 
     // originator cc address, this is for marker validation:
-    GetCCaddress(cpAssets, origAssetsCCaddr, pubkey2pk(vorigpubkey), A::IsMixed()); 
+    GetCCaddress(cpAssets, origAssetsCCaddr, pubkey2pk(vorigpubkey), AssetsGetMixedVersion(A::IsMixed())); 
 
     // global cc address:
-    GetCCaddress(cpAssets, globalAssetsCCaddr, GetUnspendable(cpAssets, NULL), A::IsMixed()); 
+    GetCCaddress(cpAssets, globalAssetsCCaddr, GetUnspendable(cpAssets, NULL), AssetsGetMixedVersion(A::IsMixed())); 
 
     // marker cc address:
-    GetCCaddress1of2(cpAssets, markerCCaddress, pubkey2pk(vorigpubkey), GetUnspendable(cpAssets, NULL), A::IsMixed()); 
+    GetCCaddress1of2(cpAssets, markerCCaddress, pubkey2pk(vorigpubkey), GetUnspendable(cpAssets, NULL), AssetsGetMixedVersion(A::IsMixed())); 
 
     // cancelask/bid could have no normal vins (taking txfee from marker):
     // if( IsCCInput(tx.vin[0].scriptSig) != false )   // vin0 should be normal vin
@@ -437,9 +438,11 @@ static bool AssetsValidateInternal(struct CCcontract_info *cp, Eval* eval,const 
                 else if (unit_price <= ASSETS_NORMAL_DUST)
                     return eval->Invalid("invalid or too low unit price");
 
-                if (tx.vout[2].scriptPubKey.IsPayToCryptoCondition())
-                    if (!tx.vout[2].scriptPubKey.IsPayToCCV2() || tx.vout[2].scriptPubKey.SpkHasEvalcodeCCV2(T::EvalCode()))  // have token change
+                if (tx.vout[2].scriptPubKey.IsPayToCryptoCondition())  {
+                    int subversion;
+                    if (!tx.vout[2].scriptPubKey.IsPayToCCV2(subversion) || tx.vout[2].scriptPubKey.SpkHasEvalcodeCCV2(T::EvalCode()))  // have token change
                         ccvouts ++;
+                }
 
                 // check should not be assets cc vins for tokenv2ask at all:
                 for (auto const &vin : tx.vin)   {
@@ -625,6 +628,7 @@ bool AssetsValidate(struct CCcontract_info *cpAssets, Eval* eval,const CTransact
 // redirect to AssetsValidateInternal and log error
 bool Assetsv2Validate(struct CCcontract_info *cp, Eval* eval,const CTransaction &tx, uint32_t nIn)
 {
+    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY30") == 0 && eval->GetCurrentHeight() <= 270) return true;
     if (!AssetsValidateInternal<TokensV2, AssetsV2>(cp, eval, tx, nIn))    {
         LOGSTREAMFN(ccassets_log, CCLOG_ERROR, stream << "validation error: " << eval->state.GetRejectReason() << ", code: " << eval->state.GetRejectCode() << ", tx: " << HexStr(E_MARSHAL(ss << tx)) << std::endl);
         return false;

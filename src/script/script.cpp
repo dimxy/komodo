@@ -450,7 +450,8 @@ bool CScript::IsPayToCryptoCondition(CScript *pCCSubScript, std::vector<std::vec
     opcodetype opcode,opcode1;
     if (this->GetOp(pc, opcode, data))
         // Sha256 conditions are <76 bytes
-        if (data.size()>0 && (data[0]=='M' || (data[0]!='M' && opcode > OP_0 && opcode < OP_PUSHDATA1)))
+        //if (data.size()>0 && (data[0] == CC_MIXED_MODE_PREFIX || (data[0] != CC_MIXED_MODE_PREFIX && opcode > OP_0 && opcode < OP_PUSHDATA1)))
+        if (data.size()>0 && (cc_IsMixedModePrefix(data[0]) >= 0 || (cc_IsMixedModePrefix(data[0]) < 0 && opcode > OP_0 && opcode < OP_PUSHDATA1)))
         //if (opcode > OP_0 && opcode < OP_PUSHDATA1)
             if (this->GetOp(pc, opcode1, data))
                 if (opcode1 == OP_CHECKCRYPTOCONDITION)
@@ -458,7 +459,7 @@ bool CScript::IsPayToCryptoCondition(CScript *pCCSubScript, std::vector<std::vec
                     const_iterator pcCCEnd = pc;
                     if (GetBalancedData(pc, vParams))
                     {
-                        if (pCCSubScript)
+                        if (pCCSubScript) 
                             *pCCSubScript = CScript(begin(),pcCCEnd);
                         return true;
                     }
@@ -477,7 +478,7 @@ bool CScript::IsPayToCryptoCondition() const
     return IsPayToCryptoCondition(NULL);
 }
 
-bool CScript::IsPayToCCV2() const
+bool CScript::IsPayToCCV2(int &subversion) const
 {
     const_iterator pc = begin();
     std::vector<unsigned char> data;
@@ -486,12 +487,13 @@ bool CScript::IsPayToCCV2() const
     if (!this->IsPayToCryptoCondition()) return (false);
     if (this->GetOp(pc, opcode, data))
     {
-        if (data[0]==CC_MIXED_MODE_PREFIX) return (true);
+        subversion = cc_IsMixedModePrefix(data[0]);
+        if (subversion >= 0) return (true);
     }
     return (false);
 }
 
-const std::vector<unsigned char> CScript::GetCCV2SPK() const
+const std::vector<unsigned char> CScript::GetCCV2SPK(int &subversion) const
 {
     const_iterator pc = begin();
     std::vector<unsigned char> data;
@@ -500,7 +502,8 @@ const std::vector<unsigned char> CScript::GetCCV2SPK() const
     if (!this->IsPayToCryptoCondition()) return (std::vector<unsigned char>());
     if (this->GetOp(pc, opcode, data))
     {
-        if (data[0]==CC_MIXED_MODE_PREFIX) return data;
+        subversion = cc_IsMixedModePrefix(data[0]);
+        if (subversion >= 0) return data;
     }
     return (std::vector<unsigned char>());
 }
@@ -512,7 +515,8 @@ struct HasEvalCodeContext {
 
 bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode, std::vector<unsigned char> *pvParam) const
 {
-    std::vector<unsigned char> ccdata = this->GetCCV2SPK();
+    int subversion;
+    std::vector<unsigned char> ccdata = this->GetCCV2SPK(subversion);
 
     if (ccdata.empty())
         return (false);
@@ -542,14 +546,17 @@ bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode, std::vector<unsigned char> *p
     return rc;
 }
 
-bool CScript::MayAcceptCryptoCondition() const
+// modified to enabled large cc scripts (for 'M'+1 mixed conditions)
+// now returns the size to check that this is enabled only for the right version  
+bool CScript::MayAcceptCryptoCondition(opcodetype &opcode) const
 {
     // Get the type mask of the condition
     const_iterator pc = this->begin();
     vector<unsigned char> data;
-    opcodetype opcode;
+    //opcodetype opcode;
     if (!this->GetOp(pc, opcode, data)) return false;
-    if (!(opcode > OP_0 && opcode < OP_PUSHDATA1)) return false;
+    //if (!(opcode > OP_0 && opcode < OP_PUSHDATA1)) return false;
+    if (!(opcode > OP_0 && opcode < OP_PUSHDATA2)) return false;
     CC *cond = cc_readConditionBinaryMaybeMixed(data.data(), data.size());
     if (!cond) return false;
     bool out = IsSupportedCryptoCondition(cond);
