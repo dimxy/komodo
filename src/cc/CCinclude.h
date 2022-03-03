@@ -151,6 +151,10 @@ struct CC_meta
 class CCwrapper 
 {
 public:
+    static const uint8_t dontsign[32];
+    static const uint8_t usemypriv[32];
+
+public:
     CCwrapper() : m_cond(NULL)
     {
     }

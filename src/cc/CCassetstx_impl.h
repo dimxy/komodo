@@ -279,7 +279,7 @@ UniValue CreateSell(const CPubKey &mypk, CAmount txfee, CAmount numtokens, uint2
 
             // cond to spend NFT from mypk 
             CCwrapper wrCond(T::MakeTokensCCcond1(T::EvalCode(), mypk));
-            CCAddVintxCond(cpTokens, wrCond, NULL); //NULL indicates to use myprivkey
+            CCAddVintxCond(cpTokens, wrCond, CCwrapper::usemypriv); // indicates to use myprivkey
 
             UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpTokens, mtx, mypk, txfee, 
                 T::EncodeTokenOpRet(assetid, { unspendableAssetsPubkey }, 
@@ -429,7 +429,7 @@ UniValue CancelBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 assetid, uin
             // probe to spend marker:
             std::cerr << __func__ << " origpk=" << HexStr(origpk) << " unspendableAssetsPk=" << HexStr(unspendableAssetsPk) << std::endl;
             CCwrapper wrCond(::MakeCCcond1of2(A::EvalCode(), origpk, unspendableAssetsPk)); 
-            CCAddVintxCond(cpAssets, wrCond, mypk == origpk ? nullptr : unspendableAssetsPrivkey); // spend with mypk or with shared pk (for expired orders)
+            CCAddVintxCond(cpAssets, wrCond, mypk == origpk ? CCwrapper::usemypriv : unspendableAssetsPrivkey); // spend with mypk or with shared pk (for expired orders)
 
             UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee,
                 T::EncodeTokenOpRet(assetid, {},
@@ -512,7 +512,7 @@ UniValue CancelSell(const CPubKey &mypk, CAmount txfee, uint256 assetid, uint256
             // probe to spend marker
             if (mypk == origpk) {
                 CCwrapper wrCond(::MakeCCcond1of2(A::EvalCode(), origpk, unspendableAssetsPk)); 
-                CCAddVintxCond(cpAssets, wrCond, nullptr);  // spend with mypk
+                CCAddVintxCond(cpAssets, wrCond, CCwrapper::usemypriv);  // spend with mypk
             } else {
                 CCwrapper wrCond(::MakeCCcond1of2(A::EvalCode(), origpk, unspendableAssetsPk)); 
                 CCAddVintxCond(cpAssets, wrCond, unspendableAssetsPrivkey);  // spend with shared pk (for expired orders)               
@@ -636,11 +636,11 @@ UniValue FillBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 assetid, uint2
                 CCAddVintxCond(cpTokens, wrCond1, unspendableAssetsPrivkey);
                 
                 CCwrapper wrCond2(T::MakeTokensCCcond1(T::EvalCode(), mypk));  // spend my tokens to fill buy
-                CCAddVintxCond(cpTokens, wrCond2, NULL); //NULL indicates to use myprivkey
+                CCAddVintxCond(cpTokens, wrCond2, CCwrapper::usemypriv); // indicates to use myprivkey
 
                 // probe to spend marker
                 CCwrapper wrCond3(::MakeCCcond1of2(A::EvalCode(), origpk, unspendableAssetsPk)); 
-                CCAddVintxCond(cpAssets, wrCond3, nullptr);  // spend with mypk
+                CCAddVintxCond(cpAssets, wrCond3, CCwrapper::usemypriv);  // spend with mypk
 
                 UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpTokens, mtx, mypk, txfee,
                     T::EncodeTokenOpRet(assetid, { origpk },
@@ -767,7 +767,7 @@ UniValue FillSell(const CPubKey &mypk, CAmount txfee, uint256 assetid, uint256 a
 
             // probe to spend marker
             CCwrapper wrCond2(::MakeCCcond1of2(A::EvalCode(), origpk, unspendableAssetsPk)); 
-            CCAddVintxCond(cpAssets, wrCond2, nullptr);  // spend with mypk
+            CCAddVintxCond(cpAssets, wrCond2, CCwrapper::usemypriv);  // spend with mypk
 
             UniValue sigData = T::FinalizeCCTx(IsRemoteRPCCall(), FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee,
 				T::EncodeTokenOpRet(assetid, { mypk }, 

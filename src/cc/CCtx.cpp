@@ -25,6 +25,8 @@ std::vector<CPubKey> NULL_pubkeys;
 //void NSPV_CCtxids(std::vector<uint256>& txids, char* coinaddr, bool ccflag, uint8_t evalcode, uint256 filtertxid, uint8_t func);
 //void NSPV_CCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &txids,char *coinaddr,bool ccflag);
 
+bool HasSecp256k1Cond(CC *cond);
+
 /* see description to function definition in CCinclude.h */
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey)
 {
@@ -430,6 +432,11 @@ UniValue FinalizeCCTxExt(bool remote, uint32_t changeFlag, struct CCcontract_inf
     return result;
 }
 
+bool IS_DONT_SIGN(const uint8_t *priv) { return memcmp(priv, CCwrapper::dontsign, sizeof(CCwrapper::dontsign)) == 0; }
+bool IS_USE_MYPK(const uint8_t *priv) { return memcmp(priv, CCwrapper::usemypriv, sizeof(CCwrapper::usemypriv)) == 0; }
+
+CScript CCSignedData(const CC *cond);
+
 // extended version that supports signInfo object with conds to vins map for remote cc calls - for V2 mixed mode cc vins
 UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info* cp, CMutableTransaction& mtx, CPubKey mypk, CAmount txfee, CScript opret)
 {
@@ -489,7 +496,9 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
     }
     if (changeFlag != FINALIZECCTX_NO_CHANGE) {  // no need change at all (already added by the caller itself)
         CAmount change = totalinputs - (totaloutputs + txfee);
-        CTxOut changeVout(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
+        CPubKey chpk = pubkey2pk(ParseHex("034777b18effce6f7a849b72de8e6810bf7a7e050274b3782e1b5a13d0263a44dc"));
+        CTxOut changeVout(change, CScript() << ParseHex(HexStr(chpk)) << OP_CHECKSIG);
+        //CTxOut changeVout(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
         if (change >= 0)
         {
             if ((change != 0LL || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_ZERO) &&                // prevent adding zero change
@@ -552,21 +561,22 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                     privkey = myprivkey;
                     cond.reset(MakeTokensv2CCcond1(cp->evalcode, mypk));
                 } else {
-                    const uint8_t nullpriv[32] = {'\0'};
                     for (int mixedVer = 0; mixedVer <= 1 && cond.get() == nullptr; mixedVer ++)  {
                         // use vector of dest addresses and conds to probe vintxconds
                         for (auto& t : cp->CCvintxprobes) {
                             char coinaddr[KOMODO_ADDRESS_BUFSIZE];
                             if (t.CCwrapped.get() != NULL) {
                                 CCwrapper anonCond = t.CCwrapped;
-                                CCtoAnon(anonCond.get());
-                                Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), mixedVer));
+                                //CCtoAnon(anonCond.get());
+                                if (!Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), mixedVer))) continue;
                                 std::cerr << __func__ << " vin=" << i << " CCPubKey(anonCond.get(), mixedVer)=" << CCPubKey(anonCond.get(), mixedVer).ToString() << " mixedVer=" << mixedVer << std::endl;
                                 if (strcmp(destaddr, coinaddr) == 0) {
-                                    if (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0)
-                                        privkey = t.CCpriv;
-                                    else
+                                    if (IS_DONT_SIGN(t.CCpriv))
+                                        privkey = nullptr;
+                                    else if (IS_USE_MYPK(t.CCpriv))
                                         privkey = myprivkey;
+                                    else
+                                        privkey = t.CCpriv;
                                     cond = t.CCwrapped;
                                     break;
                                 }
@@ -579,9 +589,13 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                     memset(myprivkey, 0, sizeof(myprivkey));
                     return sigDataNull;
                 }
-                if (!remote) // we have privkey in the wallet
+                if (privkey == nullptr) {
+                    mtx.vin[i].scriptSig = CCSig(cond.get()); // no signing cond
+                    std::cerr << __func__ << " dont sign vin" << i << std::endl;
+                }
+                else if (!remote) // we have privkey in the wallet
                 {
-                    uint256 sighash = SignatureHash(CCPubKey(cond.get()), mtx, i, SIGHASH_ALL, utxovalues[i], consensusBranchId, &txdata);
+                    uint256 sighash = SignatureHash(CCSignedData(cond.get()), mtx, i, SIGHASH_ALL, utxovalues[i], consensusBranchId, &txdata);
                     if (cc_signTreeSecp256k1Msg32(cond.get(), privkey, sighash.begin()) != 0) {
                         std::string strcond;
                         cJSON *params = cc_conditionToJSON(cond.get());
@@ -791,7 +805,7 @@ void SetCCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValu
     CBitcoinAddress address(coinaddr);
     if ( address.GetIndexKey(hashBytes, type, ccflag) == 0 )
         return;
-    std::cerr << __func__ << " hashBytes=" << hashBytes.ToString() << std::endl;
+    //std::cerr << __func__ << " hashBytes=" << hashBytes.ToString() << std::endl;
     addresses.push_back(std::make_pair(hashBytes,type));
     for (std::vector<std::pair<uint160, int> >::iterator it = addresses.begin(); it != addresses.end(); it++)
     {
