@@ -1425,7 +1425,7 @@ int64_t prices_enumaddedbets(uint256 &batontxid, std::vector<OneBetData> &bets, 
         bool isLoaded = false;
         uint8_t funcId = 0;
         int64_t amount;
-        EvalRef eval(chainActive.Height());
+        EvalRef eval(0);
 
         if ((isLoaded = eval->GetTxConfirmed(batontxid, txBaton, blockIdx)) &&
             blockIdx.IsValid() &&

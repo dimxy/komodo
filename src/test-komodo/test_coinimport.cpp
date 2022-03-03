@@ -76,7 +76,9 @@ protected:
     {
         CTransaction importTx(mtx);
         PrecomputedTransactionData txdata(importTx);
-        ServerTransactionSignatureChecker checker(&importTx, 0, 0, false, 0, nullptr, txdata);
+        std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker(new CCheckCCEvalCodes());
+        std::shared_ptr<CEvalContext> evalContext(new CEvalContext());
+        ServerTransactionSignatureChecker checker(&importTx, 0, 0, false, 0, evalcodeChecker, evalContext, txdata);
         CValidationState verifystate;
         if (!VerifyCoinImport(importTx.vin[0].scriptSig, checker, verifystate))
             printf("TestRunCCEval: %s\n", verifystate.GetRejectReason().data());

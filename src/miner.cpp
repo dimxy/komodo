@@ -590,7 +590,8 @@ CBlockTemplate* CreateNewBlock(const CPubKey _pk, const CScript& _scriptPubKeyIn
             CValidationState state;
             PrecomputedTransactionData txdata(tx);
             std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker(new CCheckCCEvalCodes());
-            if (!ContextualCheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId, nHeight, evalcodeChecker))
+            std::shared_ptr<CEvalContext> evalContext (new CEvalContext());
+            if (!ContextualCheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId, nHeight, evalcodeChecker, evalContext))
             {
                 //fprintf(stderr,"context failure\n");
                 continue;

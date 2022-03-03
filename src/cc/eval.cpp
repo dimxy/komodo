@@ -34,9 +34,10 @@ Eval* EVAL_TEST = 0;
 struct CCcontract_info CCinfos[0x100];
 extern pthread_mutex_t KOMODO_CC_mutex;
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, int32_t nHeight, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, int32_t nHeight, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker, std::shared_ptr<CEvalContext> evalContext)
 {
     EvalRef eval(nHeight);
+    eval->evalContext = evalContext; // set context for use by cc validation
     pthread_mutex_lock(&KOMODO_CC_mutex);
     bool out = eval->Dispatch(cond, tx, nIn, evalcodeChecker);
     pthread_mutex_unlock(&KOMODO_CC_mutex);
@@ -78,7 +79,7 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,s
         return Invalid("empty-eval");
 
     uint8_t ecode = cond->code[0];
-    if (evalcodeChecker.get()!=NULL && evalcodeChecker->CheckEvalCode(txTo.GetHash(),ecode)!=0) return true;
+    if (evalcodeChecker.get()!=NULL && evalcodeChecker->CheckEvalCode(txTo.GetHash(),ecode)!=0) return true;  // eval code already has been validated
     if ( ASSETCHAINS_CCDISABLES[ecode] != 0 )
     {
         // check if a height activation has been set. 

@@ -108,7 +108,9 @@ private:
     {
         CTransaction tx(mtx);
         PrecomputedTransactionData txdata(tx);
-        ServerTransactionSignatureChecker checker(&tx, 0, 0, false, 0, NULL, txdata);
+        std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker(new CCheckCCEvalCodes());
+        std::shared_ptr<CEvalContext> evalContext(new CEvalContext());
+        ServerTransactionSignatureChecker checker(&tx, 0, 0, false, 0, evalcodeChecker, evalContext, txdata);
         CValidationState verifystate;
         VerifyEval verifyEval = [] (CC *cond, void *checker) {
             //fprintf(stderr,"checker.%p\n",(TransactionSignatureChecker*)checker);
@@ -436,7 +438,7 @@ static bool TestFinalizeTx(CMutableTransaction& mtx, struct CCcontract_info *cp,
                             char coinaddr[KOMODO_ADDRESS_BUFSIZE];
                             if (t.CCwrapped.get() != NULL) {
                                 CCwrapper anonCond = t.CCwrapped;
-                                CCtoAnon(anonCond.get());
+                                //CCtoAnon(anonCond.get());
                                 Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), mixedVer));
                                 if (strcmp(destaddr, coinaddr) == 0) {
                                     //LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " vini." << i << " found vintxprobe=" << coinaddr  << " privkey=" << (memcmp(t.CCpriv, nullpriv, sizeof(t.CCpriv) / sizeof(t.CCpriv[0])) != 0) << std::endl);

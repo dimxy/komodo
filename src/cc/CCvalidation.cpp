@@ -21,7 +21,7 @@
 
 bool FetchCCtx(uint256 txid, CTransaction& tx, struct CCcontract_info *cp)
 {
-    //EvalRef eval(chainActive.Height()); 
+    //EvalRef eval(0); 
     uint256 hashBlock;
     if (myGetTransaction(txid,tx,hashBlock)==0) return (false);
     return (ValidateCCtx(tx,cp));
@@ -29,7 +29,7 @@ bool FetchCCtx(uint256 txid, CTransaction& tx, struct CCcontract_info *cp)
 
 bool ValidateCCtx(const CTransaction& tx, struct CCcontract_info *cp)
 {
-    EvalRef eval(chainActive.Height());
+    EvalRef eval(0);
     if (cp->validate(cp,eval.get(),tx,0)) return (true);
     return (false);
 }

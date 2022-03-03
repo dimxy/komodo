@@ -59,6 +59,13 @@
         EVAL(EVAL_IMPORTGATEWAY, 0xf3)  \
         EVAL(EVAL_TOKENSV2, 0xf5) \
         EVAL(EVAL_ASSETSV2, 0xf6) \
+        EVAL(EVAL_TOKENDATA, 0xf7) \
+        EVAL(EVAL_GENERICTOKENASK, 0x81) \
+        EVAL(EVAL_GENERICTOKENBID, 0x82) \
+        EVAL(EVAL_GENERICTOKENDEX, 0x83) \
+        EVAL(EVAL_GENERICTOKENROYALTY, 0x84) \
+        EVAL(EVAL_GENERICTOKENAUCTION, 0x85) \
+
 
 
 // evalcodes 0x10 to 0x7f are reserved for cclib dynamic CC
@@ -71,6 +78,8 @@ typedef uint8_t EvalCode;
 class AppVM;
 class NotarisationData;
 class CCheckCCEvalCodes;
+class CEvalContext;
+
 
 
 class Eval
@@ -116,6 +125,10 @@ public:
     virtual bool CheckNotaryInputs(const CTransaction &tx, uint32_t height, uint32_t timestamp) const;
     virtual uint32_t GetAssetchainsCC() const;
     virtual std::string GetAssetchainsSymbol() const;
+
+    // context shared between all eval validation calls
+    std::shared_ptr<CEvalContext> evalContext; 
+
 private:
     int32_t nCurrentHeight;
 };
@@ -138,7 +151,7 @@ public:
 
 
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, int32_t nHeight, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, int32_t nHeight, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker, std::shared_ptr<CEvalContext> evalContext);
 
 
 /*

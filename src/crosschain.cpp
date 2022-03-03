@@ -155,7 +155,7 @@ TxProof GetCrossChainProof(const uint256 txid, const char* targetSymbol, uint32_
      * backnotarisation for B (given by kmdheight of notarisation), find the MoM within the MoMs for
      * that range, and finally extend the proof to lead to the MoMoM (proof root).
      */
-    EvalRef eval(chainActive.Height());  // TODO: why do we ever use eval here? it is for cc validation (dimxy)
+    EvalRef eval(0);  // TODO: why do we ever use eval here? it is for cc validation (dimxy)
     uint256 MoM = assetChainProof.second.Exec(txid);
 
     // Get a kmd height for given notarisation Txid
@@ -270,7 +270,7 @@ bool GetNextBacknotarisation(uint256 kmdNotarisationTxid, Notarisation &out)
         return false;
 
     // Need to get block height of that backnotarisation
-    EvalRef eval(chainActive.Height());
+    EvalRef eval(0);
     CBlockIndex block;
     CTransaction tx;
     if (!eval->GetTxConfirmed(bn.first, tx, block)){
@@ -296,7 +296,7 @@ bool CheckMoMoM(uint256 kmdNotarisationHash, uint256 momom)
         return false;
 
     // Need to get block height of that backnotarisation
-    EvalRef eval(chainActive.Height());
+    EvalRef eval(0);
     CBlockIndex block;
     CTransaction tx;
     if (!eval->GetTxConfirmed(bn.first, tx, block)){
@@ -330,7 +330,7 @@ bool CheckNotariesApproval(uint256 burntxid, const std::vector<uint256> & notary
 
     //unmarshal notaries approval txids
     for(auto notarytxid : notaryTxids ) {
-        EvalRef eval(chainActive.Height());
+        EvalRef eval(0);
         CBlockIndex block;
         CTransaction notarytx;  // tx with notary approval of txproof existence
 
