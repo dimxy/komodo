@@ -141,9 +141,9 @@ static CC *evalFromFulfillment(const Fulfillment_t *ffill) {
     if (eval->param)  {
         OCTET_STRING_t paramOctets = *eval->param;
         cond->paramLength = paramOctets.size;
-        unsigned char *hex = cc_hex_encode(paramOctets.buf, paramOctets.size);
-        printf("%s size %ld cond->param=%s\n", __func__, paramOctets.size, hex);
-        free(hex);
+        //unsigned char *hex = cc_hex_encode(paramOctets.buf, paramOctets.size);
+        //printf("%s size %ld cond->param=%s\n", __func__, paramOctets.size, hex);
+        //free(hex);
         cond->param = calloc(1, paramOctets.size);
         memcpy(cond->param, paramOctets.buf, paramOctets.size);
     }
@@ -160,9 +160,9 @@ static Fulfillment_t *evalToFulfillment(const CC *cond) {
     if (cond->param) {
         eval->param = (OCTET_STRING_t*)calloc(1, sizeof(OCTET_STRING_t));
         OCTET_STRING_fromBuf(eval->param, cond->param, cond->paramLength);
-        unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
-        printf("%s cond->param=%s\n", __func__, hex);
-        free(hex);
+        //unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);
+        //printf("%s cond->param=%s\n", __func__, hex);
+        //free(hex);
     }
     return ffill;
 }
@@ -229,6 +229,7 @@ static CC* evalCopy(const CC* cond)
         condCopy->param = calloc(cond->paramLength, sizeof(uint8_t));
         memcpy(condCopy->param, cond->param, cond->paramLength);
     }
+    condCopy->dontFulfill = cond->dontFulfill;
     return (condCopy);
 }
 

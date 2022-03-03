@@ -290,7 +290,13 @@ static Fulfillment_t *secp256k1ToFulfillment(const CC *cond, FulfillmentFlags _f
     Secp256k1Fulfillment_t *sec = &ffill->choice.secp256k1Sha256;
 
     OCTET_STRING_fromBuf(&sec->publicKey, cond->publicKey, SECP256K1_PK_SIZE);
+    //if (cond->signature)
     OCTET_STRING_fromBuf(&sec->signature, cond->signature, SECP256K1_SIG_SIZE);
+    /*else {
+        uint8_t *fakesig = (uint8_t*)calloc(1, SECP256K1_SIG_SIZE);
+        OCTET_STRING_fromBuf(&sec->signature, fakesig, SECP256K1_SIG_SIZE);
+        free(fakesig);
+    }*/
     return ffill;
 }
 
@@ -316,6 +322,7 @@ static CC* secp256k1Copy(const CC* cond)
         condCopy->signature = calloc(1, SECP256K1_SIG_SIZE);
         memcpy(condCopy->signature, cond->signature, SECP256K1_SIG_SIZE);
     }
+    condCopy->dontFulfill = cond->dontFulfill;
     return (condCopy);
 }
 

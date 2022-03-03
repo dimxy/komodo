@@ -88,6 +88,7 @@ static CC* preimageCopy(const CC* cond)
     condCopy->preimage = calloc(1, cond->preimageLength);
     memcpy(condCopy->preimage, cond->preimage, cond->preimageLength);
     condCopy->preimageLength = cond->preimageLength;
+    condCopy->dontFulfill = cond->dontFulfill;
     return (condCopy);
 }
 

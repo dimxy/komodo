@@ -188,6 +188,7 @@ static CC* ed25519Copy(const CC* cond)
         condCopy->signature = calloc(1, 64);
         memcpy(condCopy->signature, cond->signature, 64);
     }
+    condCopy->dontFulfill = cond->dontFulfill;
     return (condCopy);
 }
 

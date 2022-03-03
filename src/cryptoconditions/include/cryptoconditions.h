@@ -69,6 +69,7 @@ typedef struct CC {
         struct { uint8_t fingerprint[32]; uint32_t subtypes; unsigned long cost; 
                  struct CCType *conditionType; };
     };
+    int dontFulfill;
 } CC;
 
 /*

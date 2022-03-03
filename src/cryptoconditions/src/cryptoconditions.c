@@ -190,6 +190,8 @@ Condition_t *asnConditionNew(const CC *cond) {
 
 
 Fulfillment_t *asnFulfillmentNew(const CC *cond, FulfillmentFlags flags) {
+    //printf("%s type ptr %p\n", __func__, cond->type);
+    //printf("%s type %d\n", __func__, cond->type->typeId);
     return cond->type->toFulfillment(cond, flags);
 }
 
@@ -272,6 +274,7 @@ int cc_verify(const struct CC *cond, const unsigned char *msg, size_t msgLength,
     unsigned char targetBinary[1000];
     //fprintf(stderr,"in cc_verify cond.%p msg.%p[%d] dohash.%d condbin.%p[%d]\n",cond,msg,(int32_t)msgLength,doHashMsg,condBin,(int32_t)condBinLength);
     const size_t binLength = cc_conditionBinary(cond, targetBinary);
+    printf("%s condBin=%s targetBinary=%s\n",  __func__, cc_hex_encode(condBin, condBinLength), cc_hex_encode(targetBinary, binLength));
     if (0 != memcmp(condBin, targetBinary, binLength)) {
         fprintf(stderr,"cc_verify error A\n");
         return 0;

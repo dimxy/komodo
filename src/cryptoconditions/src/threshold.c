@@ -124,7 +124,7 @@ static int cmpConditionCost(const void *a, const void *b) {
 
 static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
     ThresholdFulfillment_t *t = ffill->choice.thresholdSha256;
-    FulfillmentFlags flags = 0;
+    FulfillmentFlags flags = MixedMode;
 
     Fulfillment_t** arrFulfills = t->subfulfillments.list.array;
     size_t nffills = t->subfulfillments.list.count;
@@ -178,6 +178,7 @@ static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
 
 
 static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags flags) {
+    //printf("%s flags & MixedMode %d\n", __func__, (flags & MixedMode));
     if (flags & MixedMode) return thresholdFromFulfillmentMixed(ffill);
 
     ThresholdFulfillment_t *t = ffill->choice.thresholdSha256;
@@ -220,9 +221,12 @@ static Fulfillment_t *thresholdToFulfillmentMixed(const CC *cond, FulfillmentFla
 
     for (int i=0; i<cond->size; i++) {
         CC *sub = cond->subconditions[i];
+        //printf("%s sub->type=%d  sub->dontFulfill=%d\n", __func__, sub->type->typeId, sub->dontFulfill);
         if (fulfillment = asnFulfillmentNew(sub, flags)) {
+            //printf("%s sub->type=%d added as ffill\n", __func__, sub->type->typeId);
             asn_set_add(&tf->subfulfillments, fulfillment);
         } else {
+            //printf("%s sub->type=%d added as cond\n", __func__, sub->type->typeId);
             asn_set_add(&tf->subconditions, asnConditionNew(sub));
         }
     }
@@ -235,6 +239,7 @@ static Fulfillment_t *thresholdToFulfillmentMixed(const CC *cond, FulfillmentFla
 
 
 static Fulfillment_t *thresholdToFulfillment(const CC *cond, FulfillmentFlags flags) {
+    //printf("%s flags & MixedMode %d\n", __func__, (flags & MixedMode));
     if (flags & MixedMode) return thresholdToFulfillmentMixed(cond, flags);
 
     Fulfillment_t *fulfillment;
@@ -250,7 +255,7 @@ static Fulfillment_t *thresholdToFulfillment(const CC *cond, FulfillmentFlags fl
 
     for (int i=0; i<cond->size; i++) {
         CC *sub = subconditions[i];
-        if (needed && (fulfillment = asnFulfillmentNew(sub, flags))) {
+        if (needed && !sub->dontFulfill && (fulfillment = asnFulfillmentNew(sub, flags))) {
             asn_set_add(&tf->subfulfillments, fulfillment);
             needed--;
         } else {
@@ -345,6 +350,7 @@ static CC* thresholdCopy(const CC* cond)
     for (int i=0; i<cond->size; i++) {
         condCopy->subconditions[i]=cond->subconditions[i]->type->copy(cond->subconditions[i]);
     }
+    condCopy->dontFulfill = cond->dontFulfill;
     return (condCopy);
 }
 
