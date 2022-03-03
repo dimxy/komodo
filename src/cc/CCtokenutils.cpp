@@ -20,7 +20,7 @@
 #include "CCtokens.h"
 #include "CCupgrades.h"
 
-bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char> &vParam);
+// bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char> &vParam);
 
 CScript EncodeTokenCreateOpRetV1(const std::vector<uint8_t> &origpubkey, const std::string &name, const std::string &description, const std::vector<vscript_t> &oprets)
 {        
@@ -422,21 +422,34 @@ CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount n
         // get tokendid and funcd from pvData
         if (!pvData || pvData->size() < 3) return CTxOut();        
         uint8_t funcId = (*pvData)[1];
-        uint8_t ver = (*pvData)[2];
+        uint8_t ver;
+        uint8_t dummyEvalCode;
         if (IsTokenCreateFuncid(funcId)) {
-            vccdata = E_MARSHAL(ss << funcId << ver);
-        } else {
-            uint8_t dummyEvalCode;
             uint8_t ver;
+            vuint8_t vpk;
+            std::string name, desc;
+            std::vector<vscript_t>  vvExtraData;
+            if (!E_UNMARSHAL(*pvData, ss >> dummyEvalCode >> funcId >> ver; ss >> vpk >> name >> desc; 
+                while (!ss.eof()) {
+                    vuint8_t vblob;
+                    ss >> vblob;
+                    vvExtraData.push_back(vblob);                   
+                }
+            )) return CTxOut();
+            vccdata = E_MARSHAL(ss << funcId << ver << vpk << name << desc;
+                for (auto const &vdata : vvExtraData)
+                    ss << vdata;
+            );
+        } else {
             uint256 tokenidReversed;
-            if (!E_UNMARSHAL(*pvData, ss >> dummyEvalCode; ss >> funcId; ss >> ver; ss >> tokenidReversed)) return CTxOut();    
+            if (!E_UNMARSHAL(*pvData, ss >> dummyEvalCode >> funcId >> ver; ss >> tokenidReversed)) return CTxOut();    
             vccdata = E_MARSHAL(ss << funcId << ver << tokenidReversed);
-            std::cerr << __func__ << " funcId=" << (int)funcId << " tokenidReversed=" << tokenidReversed.GetHex() << std::endl;
+            //std::cerr << __func__ << " funcId=" << (int)funcId << " tokenidReversed=" << tokenidReversed.GetHex() << std::endl;
         }
     }
     CCwrapper payoutCond( MakeTokensv2CCcondMofN(evalcode1, evalcode2, M, pks, (isEvalParamActive ? &vccdata : nullptr)) );
-    if (!CCtoAnon(payoutCond.get())) 
-        return vout;
+    //if (!CCtoAnon(payoutCond.get())) 
+    //    return vout;
 
     int nMixedModeSubversion = (isEvalParamActive ? 1 : 0);
     vout = CTxOut(nValue, CCPubKey(payoutCond.get(), nMixedModeSubversion));

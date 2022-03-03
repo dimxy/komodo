@@ -522,69 +522,94 @@ CAmount TokensV2::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
     }
 
     std::vector<vscript_t> vvOpropParams;
-    vscript_t vEvalParam;
+    std::set<vscript_t> vvEvalParams;
     CScript dummy;	
     if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition(&dummy, vvOpropParams) && 
-        tx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_TOKENSV2, &vEvalParam))  // it's token output, check it
+        tx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_TOKENSV2, &vvEvalParams))  // it's token output, check it
     {        
         bool isLastVoutOpret;
-        int32_t currentHeight = 0;
-        {
-            currentHeight = eval ? eval->GetCurrentHeight() : chainActive.Height();
-        }
-        bool isEvalParamActive = CCUpgrades::IsUpgradeActive(currentHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1);
-        opret = GetCCDropAsOpret(tx.vout[v].scriptPubKey);  // first try opdrop
-        if (isEvalParamActive || !opret.empty())  // token in eval param always only opdrop, no opreturns
-        {
-            isLastVoutOpret = false;    
-        }
-        else
-        {
-            opret = tx.vout.back().scriptPubKey;
-            isLastVoutOpret = true;
-        }
-
         uint256 tokenIdOpret;
         std::vector<vscript_t>  vvExtraData;
         std::vector<CPubKey> vpksdummy;
-        
-        std::cerr << __func__ << " isLastVoutOpret=" << isLastVoutOpret << " opret=" << opret.ToString() << " vout=" << v << std::endl;
-        // token opret most important checks (tokenid == reftokenid, tokenid is non-zero, tx is 'tokenbase'):
-        funcId = TokensV2::DecodeTokenOpRet(opret, tokenIdOpret, vpksdummy, vvExtraData);
-        if (funcId == 0)    {
-            // bad opreturn
-            errorStr = "can't decode opreturn data";
-            LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found token vout with non-token opret for txid=" << tx.GetHash().GetHex() << " v=" << v << " isLastVoutOpret=" << isLastVoutOpret << std::endl);
-            return -1;  // not token vout, skip
-        } 
 
-        // for token data in param read the funcid and tokenid from the eval param:
-        if (isEvalParamActive)  {
-            if (vEvalParam.size() > 0)  {
-                funcId = vEvalParam[0];
-                if (!IsTokenCreateFuncid(funcId))  {
+        int32_t currentHeight = eval ? eval->GetCurrentHeight() : 0;    
+        bool isEvalParamActive = CCUpgrades::IsUpgradeActive(currentHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1);
+        if (currentHeight && isEvalParamActive || !currentHeight && vvEvalParams.size() > 0)  
+        {
+            if (vvEvalParams.size() != 1) { errorStr = "tokens vout must have only one eval param";  return -1; }
+            vscript_t vEvalTokenParam = (*vvEvalParams.begin());
+            if (vEvalTokenParam.size() > 0)
+            {
+                // for token data in the eval param read the funcid and tokenid from the eval param:
+                funcId = vEvalTokenParam[0];
+                if (IsTokenCreateFuncid(funcId))  {
+                    uint8_t ver;
+                    vuint8_t vpk;
+                    std::string name, desc;
+                    if (!E_UNMARSHAL(vEvalTokenParam, ss >> funcId; ss >> ver; ss >> vpk >> name >> desc; 
+                        while (!ss.eof()) {
+                            vuint8_t vblob;
+                            ss >> vblob;
+                            vvExtraData.push_back(vblob);                   
+                        }
+                    )) 
+                    {  // in the tokendata tokenid stored reversed for historical reasons
+                        errorStr = "can't decode token create eval param";
+                        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " can't decode token eval param for txid=" << tx.GetHash().GetHex() << " v=" << v << " vEvalTokenParam=" << HexStr(vEvalTokenParam) << std::endl);
+                        return -1; // not token vout, skip
+                    }
+                    // fake opreturn:
+                    opret = TokensV2::EncodeTokenCreateOpRet(vpk, name, desc, vvExtraData);
+                }
+                else if (IsTokenTransferFuncid(funcId))
+                {
                     uint8_t ver;
                     uint256 tokenIdOpretReversed;
-                    if (!E_UNMARSHAL(vEvalParam, ss >> funcId; ss >> ver; ss >> tokenIdOpretReversed)) {  // in the tokendata tokenid stored reversed for historical reasons
-                        errorStr = "can't decode token eval param";
-                        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " can't decode token eval param for txid=" << tx.GetHash().GetHex() << " v=" << v << " vCCParams=" << HexStr(vEvalParam) << std::endl);
+                    if (!E_UNMARSHAL(vEvalTokenParam, ss >> funcId; ss >> ver; ss >> tokenIdOpretReversed)) 
+                    {  // in the tokendata tokenid stored reversed for historical reasons
+                        errorStr = "can't decode token transfer eval param";
+                        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " can't decode token eval param for txid=" << tx.GetHash().GetHex() << " v=" << v << " vEvalTokenParam=" << HexStr(vEvalTokenParam) << std::endl);
                         return -1; // not token vout, skip
                     }
                     tokenIdOpret = revuint256(tokenIdOpretReversed);
+                    opret = TokensV2::EncodeTokenOpRet(tokenIdOpret, {}, {});
                 }
             }
             else
             {
                 errorStr = "can't decode token eval param (empty)";
-                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found token vout with empty token eval param for txid=" << tx.GetHash().GetHex() << " v=" << v << " vCCParams=" << HexStr(vEvalParam) << std::endl);
+                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found token vout with empty token eval param for txid=" << tx.GetHash().GetHex() << " v=" << v << " vEvalTokenParam=" << HexStr(vEvalTokenParam) << std::endl);
                 return -1; // not token vout, skip
             }
+        }
+        else
+        {
+            opret = GetCCDropAsOpret(tx.vout[v].scriptPubKey);  // first try opdrop
+            if (!opret.empty())  // token in eval param always only opdrop, no opreturns
+            {
+                isLastVoutOpret = false;    
+            }
+            else
+            {
+                opret = tx.vout.back().scriptPubKey;
+                isLastVoutOpret = true;
+            }
+
+            std::cerr << __func__ << " isLastVoutOpret=" << isLastVoutOpret << " opret=" << opret.ToString() << " vout=" << v << std::endl;
+            // token opret most important checks (tokenid == reftokenid, tokenid is non-zero, tx is 'tokenbase'):
+            funcId = TokensV2::DecodeTokenOpRet(opret, tokenIdOpret, vpksdummy, vvExtraData);
+            if (funcId == 0)   {
+                // bad opreturn
+                errorStr = "can't decode opreturn data";
+                LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << " found token vout with non-token opret for txid=" << tx.GetHash().GetHex() << " v=" << v << " isLastVoutOpret=" << isLastVoutOpret << std::endl);
+                return -1;  // not token vout, skip
+            } 
         }
 
         // basic checks:
         if (IsTokenCreateFuncid(funcId))    {
             // call extra data validators
-            for (auto const &vd : vvExtraData)
+            for (auto const &vd : vvExtraData) // TODO: move extraData to Eval Param to make token opdrop totally non-validated
                 if (vd.size() > 0 && vd[0] != 0)
                     if (!SubcallCCValidate(eval, vd[0], tx, 0))
                         return -1;

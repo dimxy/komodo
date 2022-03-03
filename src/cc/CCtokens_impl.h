@@ -462,7 +462,7 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                                 CCchange = 0; // change just added 
                             }
                             CCwrapper ccprobeMofN( MakeTokensv2CCcondMofN(V::EvalCode(), 0, ccparams.m, ccparams.vKeys) );
-                            CCAddVintxCond(cp, ccprobeMofN, nullptr); //add MofN probe to find vins and sign
+                            CCAddVintxCond(cp, ccprobeMofN, CCwrapper::usemypriv); //add MofN probe to find vins and sign
                             break;
                         }
                     }
@@ -1267,7 +1267,7 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
             LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << indentStr << funcname << "()" << " checking cc tx.vout[" << i << "] nValue=" << tx.vout[i].nValue << std::endl);
 
             CAmount markerAmount = IsTokenMarkerVout<V>(tx.vout[i]);
-            std::cerr << __func__ << " IsTokenMarkerVout=" << markerAmount << " i=" << i << std::endl;
+            //std::cerr << __func__ << " IsTokenMarkerVout=" << markerAmount << " i=" << i << std::endl;
             bool isEvalParamActive = CCUpgrades::IsUpgradeActive(eval ? eval->GetCurrentHeight() : chainActive.Height(), CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1);
 
             if (isEvalParamActive)  {

@@ -28,6 +28,7 @@
 
 #include "../cc/CCinclude.h"
 #include "../cc/CCtokens.h"
+#include "../cc/CCTokenData.h"
 #include "../cc/CCassets.h"
 
 #include "../cc/CCtokens_impl.h"
@@ -136,7 +137,7 @@ UniValue tokenv2list(const UniValue& params, bool fHelp, const CPubKey& remotepk
         throw runtime_error("tokenv2list [json-params]\n"
                             "json-params optional params as a json object, limiting tokenv2list output:\n"
                             "  { \"beginHeight\": number \"endHeight\": number, \"pubkey\": hexstring, \"address\": string }\n"
-                            "  \"beginHeight\", \"endHeight\" - height interval where to search tokenv2create transactions, if beginHeight omitted the first block used, if endHeight omitted the chain tip used"
+                            "  \"beginHeight\", \"endHeight\" - begin and end height interval where to search token creation transactions, if beginHeight omitted the first block used, if endHeight omitted the chain tip used"
                             "  \"pubkey\" - search tokens created by a specific pubkey\n"
                             "  \"address\" - search created on a specific cc address\n");
 
@@ -380,15 +381,34 @@ if (fHelp || params.size() > 4 || params.size() < 2)
                             "create tokens version 2\n"
                             "  name - token name string\n"
                             "  supply - token supply in coins\n"
-                            "  description - optional description"
-                            "  tokens data - an optional hex string with token data. If the first byte is non-null it means a evalcode which these tokens will be routed into\n"
+                            "  description - optional description\n"
+                            "  tokens data - an optional token data param:\n"
+                            "     - a hex string. If the first byte is non-null it is a evalcode which these tokens will be routed into to validation\n"
+                            "     - a json object { \"url\":<url-string>, \"id\":<token application id>, \"royalty\":<royalty 0..999>, \"arbitrary\":<arbitrary-data-hex> }\n"
         );
 
     vuint8_t tokenData;
     if (params.size() >= 4)    {
+        // try to parse as hex
         tokenData = ParseHex(params[3].get_str());
-        if (tokenData.empty())
-            return MakeResultError("Tokel token data incorrect");
+        if (tokenData.empty()) {
+            // try to parse as json
+            UniValue jsonParams;
+            std::string sError;
+
+            if (params[3].getType() == UniValue::VOBJ)
+                jsonParams = params[3].get_array();
+            else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+                jsonParams.read(params[3].get_str().c_str());
+            if (jsonParams.getType() != UniValue::VOBJ)
+                throw runtime_error("parameter 4 must be a json object\n");   
+
+            tokenData = ParseTokenJson(jsonParams);
+            if (tokenData.empty())
+                throw runtime_error("token data incorrect");
+            if (!CheckTokenData(tokenData, sError))
+                throw runtime_error("token data incorrect: " + sError);
+        }
     }
     return tokencreate<TokensV2>(params, tokenData, fHelp, remotepk);
 }
