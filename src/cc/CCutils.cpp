@@ -149,7 +149,7 @@ CTxOut MakeCC1voutMixed(uint8_t evalcode,CAmount nValue, CPubKey pk, const vscri
 {
     CTxOut vout;
     CCwrapper payoutCond(MakeCCcond1(evalcode,pk));
-    if (!CCtoAnon(payoutCond.get())) return (vout);
+    //if (!CCtoAnon(payoutCond.get())) return (vout);
     vout = CTxOut(nValue,CCPubKey(payoutCond.get(), 0));  // TODO make param
     if ( pvData )
     {
@@ -162,7 +162,7 @@ CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey p
 {
     CTxOut vout;
     CCwrapper payoutCond(MakeCCcond1of2(evalcode,pk1,pk2));
-    if (!CCtoAnon(payoutCond.get())) return (vout);
+    //if (!CCtoAnon(payoutCond.get())) return (vout);
     vout = CTxOut(nValue,CCPubKey(payoutCond.get(), 0));  // TODO make param
     if ( pvData )
     {
@@ -398,8 +398,8 @@ bool _GetCCaddress(char* destaddr, uint8_t evalcode, CPubKey pk, int nMixedModeV
     CCwrapper payoutCond(MakeCCcond1(evalcode, pk));
     destaddr[0] = 0;
     if (payoutCond.get() != 0) {
-        if (nMixedModeVersion >= 0)
-            CCtoAnon(payoutCond.get());
+        //if (nMixedModeVersion >= 0)
+        //    CCtoAnon(payoutCond.get());
         Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), nMixedModeVersion));
     }
     return (destaddr[0] != 0);
@@ -424,8 +424,8 @@ static bool _GetTokensCCaddress(char *destaddr, uint8_t evalcode1, uint8_t evalc
 	destaddr[0] = 0;
 	if (payoutCond != nullptr)
 	{
-        if (nMixedModeVersion >= 0) 
-            CCtoAnon(payoutCond.get());
+        //if (nMixedModeVersion >= 0) 
+        //    CCtoAnon(payoutCond.get());
 		Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), nMixedModeVersion));
 	}
 	return(destaddr[0] != 0);
@@ -446,7 +446,7 @@ bool GetCCaddress1of2(struct CCcontract_info *cp,char *destaddr,CPubKey pk,CPubK
     destaddr[0] = 0;
     if ( payoutCond.get() != 0 )
     {
-        if (nMixedModeVersion >= 0) CCtoAnon(payoutCond.get());
+        //if (nMixedModeVersion >= 0) CCtoAnon(payoutCond.get());
         Getscriptaddress(destaddr,CCPubKey(payoutCond.get(), nMixedModeVersion));
     }
     return(destaddr[0] != 0);
@@ -463,8 +463,8 @@ bool GetTokensCCaddress1of2(struct CCcontract_info *cp, char *destaddr, CPubKey 
 	destaddr[0] = 0;
 	if (payoutCond != nullptr) 
 	{
-        if (nMixedModeVersion >= 0) 
-            CCtoAnon(payoutCond.get());
+        //if (nMixedModeVersion >= 0) 
+        //    CCtoAnon(payoutCond.get());
 		Getscriptaddress(destaddr, CCPubKey(payoutCond.get(), nMixedModeVersion));
 	}
 	return(destaddr[0] != 0);
@@ -1141,6 +1141,7 @@ void CCAddVintxCond(struct CCcontract_info *cp, const CCwrapper &condWrapped, co
 {
     if (cp == NULL) return;
     if (condWrapped.get() == NULL) return;
+    if (priv == nullptr) return;
 
     struct CCVintxProbe ccprobe(condWrapped, priv);
     cp->CCvintxprobes.push_back(ccprobe);
@@ -1591,9 +1592,10 @@ struct UpdateEvalCodeContext {
     const std::vector<unsigned char> *pvParam;
 };
 
+// unused for now
 // updates param in eval condition
 // if vParam empty clears the param in cond
-bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char> &vParam) 
+/*bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char> &vParam) 
 {
     if (cond == nullptr)
         return false;
@@ -1619,4 +1621,23 @@ bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char
     bool rc = !cc_verifyEval(cond, eval, &hasEvalCtx);
     cc_free(cond);
     return rc;
+}*/
+
+bool HasSecp256k1Cond(CC *cond)
+{
+    auto findEval = [](CC *cond, struct CCVisitor _) {
+        bool r = false;
+
+        if (cc_typeId(cond) == CC_Secp256k1) {
+            r = true;
+        }
+        // false for a match, true for continue
+        return r ? 0 : 1;
+    };
+
+    CCVisitor visitor = { findEval, (uint8_t*)"", 0, (void*)nullptr };
+    return !cc_visit(cond, visitor);
 }
+
+const uint8_t CCwrapper::dontsign[32]  = { 0 };
+const uint8_t CCwrapper::usemypriv[32] = { 0xff };
