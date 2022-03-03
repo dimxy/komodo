@@ -30,7 +30,7 @@ bool IsSupportedCryptoCondition(const CC *cond)
     if (mask & ~CCEnabledTypes) return false;
 
     // Also require that the condition have at least one signable node
-    if (!(mask & CCSigningNodes)) return false;
+    //if (!(mask & CCSigningNodes)) return false;  // TODO not clear how to enable this in a hardfork. Better have a version
 
     return true;
 }
@@ -62,6 +62,7 @@ CC* CCNewThreshold(int t, std::vector<CC*> v)
     cond->size = v.size();
     cond->subconditions = (CC**) calloc(v.size(), sizeof(CC*));
     memcpy(cond->subconditions, v.data(), v.size() * sizeof(CC*));
+    cond->dontFulfill = 0;
     return cond;
 }
 
@@ -70,6 +71,7 @@ CC* CCNewSecp256k1(CPubKey k)
 {
     CC *cond = cc_new(CC_Secp256k1);
     cond->publicKey = CopyPubKey(k);
+    cond->dontFulfill = 0;
     return cond;
 }
 
@@ -82,6 +84,7 @@ CC* CCNewEval(std::vector<unsigned char> code)
     cond->codeLength = code.size();
     cond->param = nullptr;
     cond->paramLength = 0;
+    cond->dontFulfill = 0;
     return cond;
 }
 
@@ -98,12 +101,14 @@ CC* CCNewEval(std::vector<unsigned char> code, std::vector<unsigned char> param)
         memcpy(cond->param, param.data(), param.size());
         cond->paramLength = param.size();
     }
+    cond->dontFulfill = 0;
     return cond;
 }
 
 CScript CCPubKey(const CC *cond, int subversion)
 {
     unsigned char buf[1000]; size_t len;
+    //len = cc_fulfillmentBinary(cond, buf, sizeof(buf));
     if (subversion >= 0)
     {
         buf[0] = CC_MIXED_MODE_PREFIX + subversion;
@@ -111,6 +116,25 @@ CScript CCPubKey(const CC *cond, int subversion)
     }
     else 
         len = cc_conditionBinary(cond, buf);
+    CScript s = CScript() << std::vector<unsigned char>(buf, buf+len) << OP_CHECKCRYPTOCONDITION;
+    std::cerr << __func__ << " cc script1=" << s.ToString() << std::endl;
+
+    /*CC *cc = cc_readFulfillmentBinaryMixedMode(buf+1, len-1);
+    int len1 = cc_fulfillmentBinaryMixedMode(cc, buf+1, sizeof(buf)-1) + 1;
+    CScript s2 = CScript() << std::vector<unsigned char>(buf, buf+len1) << OP_CHECKCRYPTOCONDITION;
+    std::cerr << __func__ << " cc script2=" << s2.ToString() << std::endl;
+    cc_free(cc);*/
+
+
+    return s;
+}
+
+//bool CCtoAnon2(const CC* cond);
+CScript CCSignedData(const CC *cond)
+{
+    unsigned char buf[1000]; size_t len;
+    //CCtoAnon2(cond);
+    len = cc_conditionBinary(cond, buf);
     return CScript() << std::vector<unsigned char>(buf, buf+len) << OP_CHECKCRYPTOCONDITION;
 }
 
@@ -213,9 +237,15 @@ int cc_verifyMaybeMixed(const struct CC *cond, const uint256 sigHash,
     if (cc_IsMixedModePrefix(condBin[0]) >= 0) {
         CC* condMixed = cc_readFulfillmentBinaryMixedMode(condBin+1, condBinLength-1);
         if (!condMixed) return false;
+        //CCtoAnon2(condMixed);
         condBinLength = cc_conditionBinary(condMixed, condBuf);
         condBin = condBuf;
         cc_free(condMixed);
-    }
+    }  // temp off
+    // convert ffil to cond:
+    //CC* condMixed = cc_readFulfillmentBinary(condBin, condBinLength); 
+    //condBinLength = cc_conditionBinary(condMixed, condBuf);
+    //condBin = condBuf;
+    //cc_free(condMixed);
     return cc_verify(cond, sigHash.begin(), 32, 0, condBin, condBinLength, verifyEval, evalContext);
 }
