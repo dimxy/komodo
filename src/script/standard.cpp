@@ -260,7 +260,10 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                 ccSubScript.GetOp(pc, opcodeCC, dummy);
 
                 // ccmixed can't be empty if MayAcceptCryptoCondition() is true
-                if (pushOpcode == OP_PUSHDATA1 && ccmixed[0] == CC_MIXED_MODE_PREFIX) return false; // large cc is not enabled for mixed mode subversion 0
+                if (pushOpcode >= OP_PUSHDATA1 && ccmixed[0] == CC_MIXED_MODE_PREFIX) { 
+                    std::cerr << __func__ << " OP_PUSHDATA1+ not enabled for mixedmode subver 0 (but this may be just a try to decode)" << std::endl; 
+                    return false; // large cc is not enabled for mixed mode subversion 0
+                }
 
                 //std::cerr << __func__ << " ccmixed[0]=" << (int)ccmixed[0]  << " CC_MIXED_MODE_V1_PREFIX=" << (int)CC_MIXED_MODE_V1_PREFIX << " (ccmixed[0] != CC_MIXED_MODE_V1_PREFIX)=" << (ccmixed[0] != CC_MIXED_MODE_V1_PREFIX) << std::endl;
                 if (ccmixed[0] != CC_MIXED_MODE_V1_PREFIX)  // if cc v1 or cc v2 subversion 0
@@ -305,6 +308,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                 
                     //std::vector<uint8_t> ccmixed(ccSubScript.begin() + 1, ccSubScript.end());
                     CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixed[1], ccmixed.size()-1);
+                    //CC* cond = cc_readFulfillmentBinary(&ccmixed[0], ccmixed.size());
                     if (!cond) return false;
                     size_t ccsize = cc_conditionBinary(cond, condbuf);
                     cc_free(cond);
@@ -313,10 +317,11 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                     ccscriptv1 << condv1 << opcodeCC;
                     uint160 hash160 = Hash160(ccscriptv1);
                     vSolutionsRet.push_back(std::vector<uint8_t>(hash160.begin(), hash160.end()));
-                    //std::cerr << __func__ << " hash160=" <<hash160.ToString() << " condv1=" << HexStr(condv1) << " opcodeCC=" << opcodeCC << " scriptv1=" << ccscriptv1.ToString() << std::endl;
+                    std::cerr << __func__ << " hash160=" <<hash160.ToString() << " condv1=" << HexStr(condv1) << " opcodeCC=" << opcodeCC << " scriptv1=" << ccscriptv1.ToString() << std::endl;
                 }
                 return true;
             }
+            std::cerr << __func__ << " MayAcceptCryptoCondition returned false" << std::endl; 
             return false;
         }
     }
@@ -380,7 +385,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
         //int32_t i; uint8_t *ptr = (uint8_t *)scriptPubKey.data();
         //for (i=0; i<scriptPubKey.size(); i++)
         //    fprintf(stderr,"%02x",ptr[i]);
-        //fprintf(stderr," non-standard scriptPubKey\n");
+        fprintf(stderr,"%s non-standard scriptPubKey %s\n", __func__, scriptPubKey.ToString().c_str());
         return false;
     }
 

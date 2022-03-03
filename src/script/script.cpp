@@ -451,7 +451,7 @@ bool CScript::IsPayToCryptoCondition(CScript *pCCSubScript, std::vector<std::vec
     if (this->GetOp(pc, opcode, data))
         // Sha256 conditions are <76 bytes
         //if (data.size()>0 && (data[0] == CC_MIXED_MODE_PREFIX || (data[0] != CC_MIXED_MODE_PREFIX && opcode > OP_0 && opcode < OP_PUSHDATA1)))
-        if (data.size()>0 && (cc_IsMixedModePrefix(data[0]) >= 0 || (cc_IsMixedModePrefix(data[0]) < 0 && opcode > OP_0 && opcode < OP_PUSHDATA1)))
+// temp no checking:        if (data.size()>0 && (cc_IsMixedModePrefix(data[0]) >= 0 || (cc_IsMixedModePrefix(data[0]) < 0 && opcode > OP_0 && opcode < OP_PUSHDATA1)))
         //if (opcode > OP_0 && opcode < OP_PUSHDATA1)
             if (this->GetOp(pc, opcode1, data))
                 if (opcode1 == OP_CHECKCRYPTOCONDITION)
@@ -502,48 +502,50 @@ const std::vector<unsigned char> CScript::GetCCV2SPK(int &subversion) const
     if (!this->IsPayToCryptoCondition()) return (std::vector<unsigned char>());
     if (this->GetOp(pc, opcode, data))
     {
-        subversion = cc_IsMixedModePrefix(data[0]);
-        if (subversion >= 0) return data;
+        //subversion = cc_IsMixedModePrefix(data[0]);
+        //if (subversion >= 0) return data;
+        return data;
     }
     return (std::vector<unsigned char>());
 }
 
 struct HasEvalCodeContext {
     uint8_t evalCode;
-    std::vector<unsigned char> *pvParam;
+    std::set< std::vector<uint8_t> > *pvvParams;
 };
 
-bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode, std::vector<unsigned char> *pvParam) const
+bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode, std::set< std::vector<uint8_t> > *pvvParamsIn) const
 {
     int subversion;
-    std::vector<unsigned char> ccdata = this->GetCCV2SPK(subversion);
+    std::vector<uint8_t> ccdata = this->GetCCV2SPK(subversion);
 
     if (ccdata.empty())
         return (false);
     
-    CC* cond = cc_readFulfillmentBinaryMixedMode((unsigned char*)ccdata.data() + 1, ccdata.size() - 1);
+    CC* cond = cc_readFulfillmentBinaryMixedMode((uint8_t*)ccdata.data() + 1, ccdata.size() - 1); 
+    //* cond = cc_readFulfillmentBinary((uint8_t*)ccdata.data(), ccdata.size());
     if (cond == nullptr)
         return false;
     
     VerifyEval eval = [](CC* cond, void* context) {
         struct HasEvalCodeContext *pctx = (struct HasEvalCodeContext*) context;
         if (pctx->evalCode == cond->code[0]) {
-            if (pctx->pvParam) {
-                if (cond->paramLength)
-                    *pctx->pvParam = std::vector<unsigned char>(cond->param, cond->param + cond->paramLength);
-                else
-                    pctx->pvParam->clear();
+            if (pctx->pvvParams) {
+                if (cond->param && cond->paramLength)
+                    pctx->pvvParams->insert( std::vector<uint8_t>(cond->param, cond->param + cond->paramLength) );
+                //else
+                //    pctx->pvvParam->clear();
             }
-            return 0;
         }
-        else
-            return 1;
+        return 1;
     };
-    struct HasEvalCodeContext hasEvalCtx = { evalCode, pvParam };
+    std::set< std::vector<uint8_t> > vvLocalParams;
+    std::set< std::vector<uint8_t> > *pvvParams = pvvParamsIn ? pvvParamsIn : &vvLocalParams;
+    struct HasEvalCodeContext hasEvalCtx = { evalCode, pvvParams };
 
-    bool rc = !cc_verifyEval(cond, eval, &hasEvalCtx);
+    cc_verifyEval(cond, eval, &hasEvalCtx);
     cc_free(cond);
-    return rc;
+    return pvvParams->size() != 0;
 }
 
 // modified to enabled large cc scripts (for 'M'+1 mixed conditions)
@@ -556,8 +558,9 @@ bool CScript::MayAcceptCryptoCondition(opcodetype &opcode) const
     //opcodetype opcode;
     if (!this->GetOp(pc, opcode, data)) return false;
     //if (!(opcode > OP_0 && opcode < OP_PUSHDATA1)) return false;
-    if (!(opcode > OP_0 && opcode < OP_PUSHDATA2)) return false;
+    if (!(opcode > OP_0 && opcode <= OP_PUSHDATA2)) return false;
     CC *cond = cc_readConditionBinaryMaybeMixed(data.data(), data.size());
+    //CC *cond = cc_readFulfillmentBinary(data.data(), data.size());
     if (!cond) return false;
     bool out = IsSupportedCryptoCondition(cond);
     cc_free(cond);

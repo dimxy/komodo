@@ -32,6 +32,7 @@
 #include <string.h>
 #include <string>
 #include <vector>
+#include <set>
 
 #define OPRETTYPE_TIMELOCK 1
 #define OPRETTYPE_STAKEPARAMS 2
@@ -597,7 +598,7 @@ public:
     bool IsPayToCryptoCondition() const;
     bool IsPayToCCV2(int &subversion) const; // check scriptPubKey is cryptocondition version 2
     const std::vector<unsigned char> GetCCV2SPK(int &subversion) const;
-    bool SpkHasEvalcodeCCV2(uint8_t eval, std::vector<unsigned char> *pvParam = nullptr) const;
+    bool SpkHasEvalcodeCCV2(uint8_t eval, std::set< std::vector<uint8_t> > *pvvParams = nullptr) const;
     bool IsCoinImport() const;
     bool MayAcceptCryptoCondition(opcodetype &opcode) const;
 

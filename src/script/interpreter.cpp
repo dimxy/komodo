@@ -1358,6 +1358,7 @@ bool TransactionSignatureChecker::CheckSig(
     return true;
 }
 
+CScript CCSignedData(const CC *cond);
 
 int TransactionSignatureChecker::CheckCryptoCondition(
         const std::vector<unsigned char>& condBin,
@@ -1366,21 +1367,25 @@ int TransactionSignatureChecker::CheckCryptoCondition(
         uint32_t consensusBranchId) const
 {
     // Hash type is one byte tacked on to the end of the fulfillment
-    if (ffillBin.empty())
+    if (ffillBin.empty())  {
+        std::cerr << __func__ << " ffillBin is empty" << std::endl;
         return false;
+    }
 
     CC *cond;
     int error = cc_readFulfillmentBinaryExt((unsigned char*)ffillBin.data(), ffillBin.size()-1, &cond);
-    if (error || !cond) return -1;
+    if (error || !cond) {  std::cerr << __func__ << " cant decode ffillBin" << std::endl; return -1; }
 
-    if (!IsSupportedCryptoCondition(cond)) return 0;
-    if (!IsSignedCryptoCondition(cond)) return 0;
+    if (!IsSupportedCryptoCondition(cond)) { std::cerr << __func__ << " not supported condition" << std::endl; return 0; }
+    // TODO make for cc version: 
+    // if (!IsSignedCryptoCondition(cond)) return 0;
     
     uint256 sighash;
     int nHashType = ffillBin.back();
     try {
-        sighash = SignatureHash(CCPubKey(cond), *txTo, nIn, nHashType, amount, consensusBranchId, this->txdata);
+        sighash = SignatureHash(CCSignedData(cond), *txTo, nIn, nHashType, amount, consensusBranchId, this->txdata);
     } catch (logic_error ex) {
+        std::cerr << __func__ << " cant get signature hash for condition" << std::endl; 
         return 0;
     }
     VerifyEval eval = [] (CC *cond, void *checker) {
@@ -1393,6 +1398,7 @@ int TransactionSignatureChecker::CheckCryptoCondition(
             cond, sighash, condBin.data(), condBin.size(), eval, (void*)this);
     //fprintf(stderr,"out.%d from cc_verify\n",(int32_t)out);
     cc_free(cond);
+    std::cerr << __func__ << " CheckCryptoCondition returns " << out << std::endl; 
     return out;
 }
 
