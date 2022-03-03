@@ -292,6 +292,7 @@ libbitcoin_server_a_SOURCES = \
   cc/CCutils.cpp \
   cc/CCvalidation.cpp \
   cc/CCtokens.cpp \
+  cc/CCTokenData.cpp \
   cc/assets.cpp \
   cc/faucet.cpp \
   cc/rewards.cpp \
@@ -308,6 +309,8 @@ libbitcoin_server_a_SOURCES = \
   cc/auction.cpp \
   cc/betprotocol.cpp \
   cc/CCupgrades.cpp \
+  cc/GenericAssets.cpp \
+  cc/GenericAssetsRpcImpl.cpp \
   chain.cpp \
   checkpoints.cpp \
   fs.cpp \
@@ -344,6 +347,7 @@ libbitcoin_server_a_SOURCES = \
   rpc/server.cpp \
   rpc/ccutilsrpc.cpp \
   rpc/tokensrpc.cpp \
+  rpc/genericassetsrpc.cpp \
   script/serverchecker.cpp \
   script/sigcache.cpp \
   timedata.cpp \
