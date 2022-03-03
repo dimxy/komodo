@@ -32,6 +32,8 @@
 #include "CCGateways.h"
 #include "CCtokens.h"
 #include "CCImportGateway.h"
+#include "GenericAssets.h"
+#include "CCTokenData.h"
 
 /*
  CCcustom has most of the functions that need to be extended to create a new CC contract.
@@ -231,6 +233,45 @@ uint8_t Assetsv2CCpriv[32] = { 0x46, 0x58, 0x3b, 0x18, 0xee, 0x16, 0x63, 0x51, 0
 #undef FUNCNAME
 #undef EVALCODE
 
+
+// Generic Token Ask
+#define FUNCNAME IsGenericTokenAskInput
+#define EVALCODE EVAL_GENERICTOKENASK
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+// Generic Token Bid
+#define FUNCNAME IsGenericTokenBidInput
+#define EVALCODE EVAL_GENERICTOKENBID
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+// Generic Token DEX
+#define FUNCNAME IsGenericTokenDEXInput
+#define EVALCODE EVAL_GENERICTOKENDEX
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+// Generic Token Auction
+#define FUNCNAME IsGenericTokenAuctionInput
+#define EVALCODE EVAL_GENERICTOKENAUCTION
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+// Generic Token Royalty
+#define FUNCNAME IsGenericTokenRoyaltyInput
+#define EVALCODE EVAL_GENERICTOKENROYALTY
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
+// TokenData validator 
+#define FUNCNAME IsTokenDataInput
+#define EVALCODE EVAL_TOKENDATA
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
     CPubKey pk; int32_t i; uint8_t pub33[33],check33[33],hash[32]; char CCaddr[64],checkaddr[64],str[67];
@@ -396,6 +437,33 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
             memcpy(cp->CCpriv,Assetsv2CCpriv,32);
             cp->validate = Assetsv2Validate;
             cp->ismyvin = IsAssetsv2Input;
+            ismixed = true;
+            break;
+
+        case EVAL_GENERICTOKENASK:
+            cp->validate = GenericTokenAskValidate;
+            cp->ismyvin = IsGenericTokenAskInput;
+            ismixed = true;
+            break;
+        case EVAL_GENERICTOKENBID:
+            cp->validate = GenericTokenBidValidate;
+            cp->ismyvin = IsGenericTokenBidInput;
+            ismixed = true;
+            break;
+        case EVAL_GENERICTOKENDEX:
+            cp->validate = GenericTokenDEXValidate;
+            cp->ismyvin = IsGenericTokenDEXInput;
+            ismixed = true;
+            break;
+        case EVAL_GENERICTOKENROYALTY:
+            cp->validate = GenericTokenRoyaltyValidate;
+            cp->ismyvin = IsGenericTokenRoyaltyInput;
+            ismixed = true;
+            break;
+
+        case EVAL_TOKENDATA:
+            cp->validate = TokenDataValidate;
+            cp->ismyvin = IsTokenDataInput;
             ismixed = true;
             break;
 
