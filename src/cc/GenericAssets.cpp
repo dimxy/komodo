@@ -27,22 +27,79 @@
 
 // some resusable helpers:
 
+// checks if evalCode and anon can only be spent together 
+// (anon is usually an anonimyzed secp256k1 condition and evalCode can be EVAL_TOKENSV2)
+int IsMandatoryConditionPair(CC *cond, uint8_t evalCode, CC *anon)
+{
+    if (!cc_isAnon(anon)) return false;
+    if (cc_typeId(cond) == CC_Threshold)
+    {
+        int countEval = 0;
+        int countAnon = 0;
+        for (int i = 0; i < cond->size;i++)  {
+            if (cc_typeId(cond->subconditions[i]) == CC_Eval && cond->subconditions[i]->code[0] == evalCode)
+                countEval ++;
+            if (cc_isAnon(cond->subconditions[i]) && memcmp(cond->subconditions[i]->fingerprint, anon->fingerprint, sizeof(cond->subconditions[i]->fingerprint)) == 0 &&
+                                                     cc_typeId(cond->subconditions[i]) == cc_typeId(anon) &&
+                                                     cond->subconditions[i]->subtypes == anon->subtypes &&
+                                                     cond->subconditions[i]->cost == anon->cost)
+                countAnon ++;
+        }
+        if (countEval > 0 && countAnon > 0) {
+            // must not allow MofN to prevent spending either eval or anon
+            if (cond->threshold == cond->size)
+                return 1;
+            else
+                return -1;
+        }
+
+        for (int i = 0; i < cond->size;i++)  {
+            if (cc_typeId(cond->subconditions[i]) == CC_Threshold)     {
+                int rc = IsMandatoryConditionPair(cond->subconditions[i], evalCode, anon);
+                if (rc != 0) return rc;  // 0 is to continue search
+            }
+        }
+        return 0;
+    }
+    return -1;  // root cond must be a threshold
+}
+
+
 // helper to check if a vout is a valid token with the tokenid
 static CAmount IsMyTokensvout(struct CCcontract_info *cpTokens, Eval* eval, const CTransaction &tx, int32_t nVout, uint256 tokenid, const CPubKey &mypk)
 {
-    char myTokenAddr[KOMODO_ADDRESS_BUFSIZE];
+    //char myTokenAddr[KOMODO_ADDRESS_BUFSIZE];
     // make token vout and get address
     // note we do not need to pass token eval param as it is not used when mixed subver is 1
     const int mixedSubver = 1;
-    CCwrapper cc(MakeTokensv2CCcond1(EVAL_TOKENSV2, mypk));
-    std::cerr << __func__ << " getting script for mypk=" <<  HexStr(mypk) << " vout=" << nVout << std::endl;
-    Getscriptaddress(myTokenAddr, CCPubKey(cc.get(), mixedSubver)); 
+    //CCwrapper cc(MakeTokensv2CCcond1(EVAL_TOKENSV2, mypk));
+    CCwrapper ccSig(CCNewSecp256k1(mypk));
+    CCwrapper ccSigAnon( cc_anon(ccSig.get()) );
+    //std::cerr << __func__ << " getting script for mypk=" <<  HexStr(mypk) << " vout=" << nVout << std::endl;
+    //Getscriptaddress(myTokenAddr, CCPubKey(cc.get(), mixedSubver)); 
     if (IsTokensvout<TokensV2>(cpTokens, eval, tx, nVout, tokenid) > 0)  {
-        std::cerr << __func__ << " IsTokensvout okay for mypk" << " vout=" << nVout << std::endl;
-        char voutaddr[KOMODO_ADDRESS_BUFSIZE];
-        Getscriptaddress(voutaddr, tx.vout[nVout].scriptPubKey);
-        if (strcmp(myTokenAddr, voutaddr) == 0)  
+        CScript ccSubScript = CScript();
+        std::vector<std::vector<unsigned char>> vParams;
+        if (!tx.vout[nVout].scriptPubKey.IsPayToCryptoCondition(&ccSubScript, vParams)) return -1;
+        
+        opcodetype pushOpcode;
+        if (!tx.vout[nVout].scriptPubKey.MayAcceptCryptoCondition(pushOpcode)) return -1; 
+        std::vector<uint8_t> ccmixed; //, dummy;
+        opcodetype opcodeNone; //, opcodeCC;
+        CScript::const_iterator pc = ccSubScript.begin();
+        ccSubScript.GetOp(pc, opcodeNone, ccmixed);
+        //ccSubScript.GetOp(pc, opcodeCC, dummy);
+        CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixed[1], ccmixed.size()-1);
+        if (!cond) return -1;
+        int rc = IsMandatoryConditionPair(cond, EVAL_TOKENSV2, ccSigAnon.get());
+        if (rc == 1)
             return tx.vout[nVout].nValue;
+        return (CAmount)rc;
+
+        //char voutaddr[KOMODO_ADDRESS_BUFSIZE];
+        //Getscriptaddress(voutaddr, tx.vout[nVout].scriptPubKey);
+        //if (strcmp(myTokenAddr, voutaddr) == 0)  
+        //    return tx.vout[nVout].nValue;
     }
     return 0;
 }
@@ -75,7 +132,7 @@ IS_MY_CC_VOUT_RC IsGenericTokenAskVout(const CTxOut &vout, AskParamsTuple &askPa
         CPubKey sellerpk;
         uint256 tokenidAskRev;
         std::set<vuint8_t> vvTokensParams;
-        if (vvAskParams.size() != 1) { strError = "generic ask vout must have only one eval param";  return CC_VOUT_ERROR; }
+        if (vvAskParams.size() != 1) { strError = "ask vout must have only one eval param";  return CC_VOUT_ERROR; }
 
         if (!E_UNMARSHAL(*(vvAskParams.begin()), ss >> unitPrice >> sellerpk >> tokenidAskRev;)) { strError = "can't parse ask eval param in vout";  return CC_VOUT_ERROR; }
         if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_TOKENSV2, &vvTokensParams))  
@@ -84,7 +141,7 @@ IS_MY_CC_VOUT_RC IsGenericTokenAskVout(const CTxOut &vout, AskParamsTuple &askPa
             uint8_t ver;
             uint256 tokenidRev;
 
-            if (vvTokensParams.size() != 1) { strError = "generic tokens vout must have only one eval param";  return CC_VOUT_ERROR; }
+            if (vvTokensParams.size() != 1) { strError = "tokens vout must have only one eval param";  return CC_VOUT_ERROR; }
             if (!E_UNMARSHAL(*(vvTokensParams.begin()), ss >> funcId >> ver >> tokenidRev;)) { strError = "can't parse tokens eval param in vout";  return CC_VOUT_ERROR; }
             if (tokenidAskRev == tokenidRev)  {
                 askParamsDecoded = std::make_tuple(unitPrice, sellerpk, revuint256(tokenidRev));
@@ -112,7 +169,7 @@ static bool GenericAskValidateVin(struct CCcontract_info *cp, Eval* eval, const 
     if (!cpTokens->ismyvin(tx.vin[nVin].scriptSig)) { strError = "ask vin must be also a token vin";  return false; }
 
     AskParamsTuple askParamsPrev;
-    if (IsGenericTokenAskVout(prevOut, askParamsPrev, strError) == CC_VOUT_ERROR) { strError.empty() ? "prev out not an ask eval" : strError; return false; }
+    if (IsGenericTokenAskVout(prevOut, askParamsPrev, strError) == CC_VOUT_ERROR) { strError.empty() ? "prev vout not an ask eval" : strError; return false; }
     
     CAmount pricePrev = std::get<0>(askParamsPrev);
     CPubKey sellerpkPrev = std::get<1>(askParamsPrev);
@@ -150,7 +207,7 @@ static bool GenericAskValidateVin(struct CCcontract_info *cp, Eval* eval, const 
     CAmount tokensNextAsk = 0LL;  // 0 mean fully filled, if nCount == 0
     if (nCount > 0)  {  // ask partially filled
         if (nCount > 1) { strError = "must be only one ask vout for same tokenid";  return false; }
-        if (pricePrev != priceNext) { strError = "ask price can't change";  return false; }
+        //if (pricePrev != priceNext) { strError = "ask price can't change";  return false; } - it can if auction
         tokensNextAsk = tx.vout[nAskVout].nValue;
         // in this eval sellerpkNext can change (if auction)
     }
@@ -228,7 +285,7 @@ IS_MY_CC_VOUT_RC IsGenericTokenBidVout(const CTxOut &vout, BidParamsTuple &bidPa
         CPubKey buyerpk;
         uint256 tokenidRev;
 
-        if (vvBidParams.size() != 1) { strError = "generic bid vout must have only one eval param";  return CC_VOUT_ERROR; }
+        if (vvBidParams.size() != 1) { strError = "bid vout must have only one eval param";  return CC_VOUT_ERROR; }
         if (!E_UNMARSHAL(*(vvBidParams.begin()), ss >> unitPrice >> buyerpk >> tokenidRev;)) { strError = "can't parse bid eval param in vout";  return CC_VOUT_ERROR; }
         bidParamsDecoded = std::make_tuple(unitPrice, buyerpk, revuint256(tokenidRev));
         return CC_VOUT_VALID;
@@ -286,7 +343,7 @@ static bool GenericBidValidateVin(struct CCcontract_info *cp, Eval* eval, const 
     CAmount nextBidAmount = 0LL;  // 0 mean fully filled, if nCount == 0
     if (nCount > 0)  {  // bid partially filled
         if (nCount > 1) { strError = "must be only one bid vout for same tokenid";  return false; }
-        if (pricePrev != priceNext) { strError = "bid price can't change";  return false; }
+        //if (pricePrev != priceNext) { strError = "bid price can't change";  return false; } - it can if auction
         nextBidAmount = tx.vout[nBidVout].nValue;
         // in this eval buyerpkNext can change (if this is an auction)
 
@@ -295,7 +352,7 @@ static bool GenericBidValidateVin(struct CCcontract_info *cp, Eval* eval, const 
         eval->evalContext->AddEvalNormalAmount(EVAL_GENERICTOKENBID, myaddr, nextBidAmount);  // store used normal amount
     }
     if (prevOut.nValue > nextBidAmount)  { // if 
-        if (tokensPaid * pricePrev < prevOut.nValue - nextBidAmount) { strError = "can't find sufficient buyer paid tokens";  return false; }
+        if (tokensPaid * pricePrev < prevOut.nValue - nextBidAmount) { strError = "can't find sufficient tokens paid to buyer";  return false; }
         std::cerr << __func__ << " buyer tokensPaid=" << tokensPaid << std::endl;
     }
     // note: if (prevOut.nValue == nextBidAmount) this means ask not filled at all, this is possible for auctions
@@ -360,16 +417,16 @@ IS_MY_CC_VOUT_RC IsGenericDEXVout(const CTxOut &vout, DEXParamsTuple &dexParamsD
         CPubKey pk;
         uint256 tokenidRev;
         if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENASK, &vvAskParams)) {
-            if (vvAskParams.size() != 1) { strError = "generic ask must have only one eval param";  return CC_VOUT_ERROR; }
+            if (vvAskParams.size() != 1) { strError = "ask vout must have only one eval param";  return CC_VOUT_ERROR; }
             if (!E_UNMARSHAL(*(vvAskParams.begin()), ss >> unitPrice >> pk >> tokenidRev;)) { strError = "can't parse ask param in vout";  return CC_VOUT_ERROR; }
         } else if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENBID, &vvBidParams))  {
-            if (vvBidParams.size() != 1) { strError = "generic bid must have only one eval param";  return CC_VOUT_ERROR; }
+            if (vvBidParams.size() != 1) { strError = "bid vout must have only one eval param";  return CC_VOUT_ERROR; }
             if (!E_UNMARSHAL(*(vvBidParams.begin()), ss >> unitPrice >> pk >> tokenidRev;)) { strError = "can't parse bid param in vout";  return CC_VOUT_ERROR; }
         } else { 
             strError = "no ask or bid eval code or param in vout";  
             return CC_VOUT_ERROR; 
         }
-        dexParamsDecoded = std::make_tuple(nExpiryHeight, pk, revuint256(tokenidRev));
+        dexParamsDecoded = std::make_tuple(nExpiryHeight, pk, revuint256(tokenidRev), unitPrice);
         return CC_VOUT_VALID;
     }
     return CC_VOUT_NOT_MINE;
@@ -395,6 +452,7 @@ static bool GenericDEXValidateVin(struct CCcontract_info *cp, Eval* eval, const 
     int32_t nExpiryHeight = std::get<0>(dexParamsPrev);
     CPubKey origpkPrev = std::get<1>(dexParamsPrev);
     uint256 tokenidPrev = std::get<2>(dexParamsPrev);
+    CAmount pricePrev = std::get<3>(dexParamsPrev);
 
     // find eval dex output:
     int32_t nDexVout = -1;
@@ -429,6 +487,7 @@ static bool GenericDEXValidateVin(struct CCcontract_info *cp, Eval* eval, const 
             uint256 tokenidNext = std::get<2>(dexParamsNext);
             if (tokenidNext == tokenidPrev)  {  // found next eval dex
                 origpkNext = std::get<1>(dexParamsNext);
+                priceNext = std::get<3>(dexParamsNext);
                 nDexVout = nVout; 
                 usedVouts.insert(nVout);
                 nCount ++;
@@ -453,6 +512,7 @@ static bool GenericDEXValidateVin(struct CCcontract_info *cp, Eval* eval, const 
     if (nCount > 0)  {  // dex not fully satisfied
         if (nCount > 1) { strError = "must be only one dex output for same tokenid"; return false; } 
         if (origpkNext != origpkPrev) { strError = "order creator pubkey can't change"; return false; }
+        if (pricePrev != priceNext) { strError = "order price can't change";  return false; }
         valueNext = tx.vout[nDexVout].nValue;
     }
     if (prevOut.nValue <= valueNext) { strError = "token dex order must be at least partially filled"; return false; }
@@ -497,33 +557,65 @@ bool GenericTokenDEXValidate(struct CCcontract_info *cp, Eval* eval,const CTrans
 // applied to either basic TokenAsk or TokenBid eval
 
 // checks if a royalty vout is valid and applied to ask or bid, returns 'valid', 'invalid' or 'not my vout' retcodes
-IS_MY_CC_VOUT_RC IsGenericRoyaltyVout(const CTxOut &vout, RoyaltyParamsTuple &royaltyParamsDecoded, std::string &strError)
+IS_MY_CC_VOUT_RC IsGenericRoyaltyVout(Eval *eval, const CTransaction &tx, int32_t nVout, RoyaltyParamsTuple &royaltyParamsDecoded, std::string &strError)
 {
     std::set<vuint8_t> vvRoyaltyParams;
-    if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams))  
+    if (tx.vout[nVout].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams))  
     {
-        if (vvRoyaltyParams.size() != 1) { strError = "generic royalty must have only one eval param";  return CC_VOUT_ERROR; }
+        if (vvRoyaltyParams.size() != 1) { strError = "royalty vout must have only one eval param";  return CC_VOUT_ERROR; }
         int32_t nRoyaltyFract;
         CPubKey royaltypk;
-        if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> nRoyaltyFract >> royaltypk;)) { strError = "can't parse royalty param in vout";  return CC_VOUT_ERROR; }
-        if (nRoyaltyFract <= 0LL || nRoyaltyFract >= 1000) { strError = "royalty fract invalid";  return CC_VOUT_ERROR; }
-        if (!royaltypk.IsValid()) { strError = "royalty pubkey invalid";  return CC_VOUT_ERROR; }
+        //uint256 tokenidRev;
 
-        std::set<vuint8_t>  vvAskParams, vvBidParams;
+        //if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> nRoyaltyFract >> royaltypk >> tokenidRev;)) { strError = "can't parse royalty param in vout";  return CC_VOUT_ERROR; }
+        //if (nRoyaltyFract <= 0LL || nRoyaltyFract >= TKNROYALTY_DIVISOR) { strError = "royalty fraction value invalid";  return CC_VOUT_ERROR; }
+        // (!royaltypk.IsValid()) { strError = "royalty pubkey invalid";  return CC_VOUT_ERROR; }
+
+        struct CCcontract_info *cpTokens, CTokens;
+        cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
+        uint256 tokenid;// = revuint256(tokenidRev);
+        CScript opret;
+        uint8_t funcid;
+        CAmount rc;
+        if ((rc = TokensV2::CheckTokensvout(cpTokens, eval, tx, nVout, opret, tokenid, funcid, strError)) != tx.vout[nVout].nValue ) { 
+            LOGSTREAMFN("genericassets", CCLOG_DEBUG1, stream << " CheckTokensvout returned rc=" << rc << " error=" << strError << " txid=" << tx.GetHash().GetHex() << " nVout=" << nVout << std::endl);
+            strError = "royalty token data invalid: " + strError; 
+            return rc == 0 ? CC_VOUT_NOT_MINE : CC_VOUT_ERROR; 
+        }
+
+        if (!IsTokenCreateFuncid(funcid))  {
+            CTransaction tokencreatetx;
+            uint256 hashBlock;
+            if (!myGetTransaction(tokenid, tokencreatetx, hashBlock)) { strError = "could not load token create tx"; return CC_VOUT_ERROR; }
+            int32_t v = 0;
+            for (; v < tokencreatetx.vout.size(); v++)  {
+                if (IsTokensvout<TokensV2>(cpTokens, eval, tokencreatetx, v, tokencreatetx.GetHash()) > 0LL)
+                    break;
+            }
+            if (v == tokencreatetx.vout.size()) { strError = "could not find token vouts in token create tx"; return CC_VOUT_ERROR; }
+            std::set<vuint8_t> vvRoyaltyParamsCreate;
+            if (!tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParamsCreate)) { strError = "could not find eval royalty in token create tx"; return CC_VOUT_ERROR; }
+            vvRoyaltyParams = vvRoyaltyParamsCreate;
+        }
+        if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> nRoyaltyFract >> royaltypk;)) { strError = "can't parse royalty param in vout";  return CC_VOUT_ERROR; }
+
+
+        /*std::set<vuint8_t>  vvAskParams, vvBidParams;
         CAmount unitPrice;
         CPubKey orderpk;
         uint256 tokenidRev;
         if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENASK, &vvAskParams)) {
-            if (vvAskParams.size() != 1) { strError = "generic ask must have only one eval param";  return CC_VOUT_ERROR; }
+            if (vvAskParams.size() != 1) { strError = "ask vout must have only one eval param";  return CC_VOUT_ERROR; }
             if (!E_UNMARSHAL(*(vvAskParams.begin()), ss >> unitPrice >> orderpk >> tokenidRev;)) { strError = "can't parse ask param in vout";  return CC_VOUT_ERROR; }
         } else if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENBID, &vvBidParams))  {
-            if (vvBidParams.size() != 1) { strError = "generic bid must have only one eval param";  return CC_VOUT_ERROR; }
+            if (vvBidParams.size() != 1) { strError = "bid vout must have only one eval param";  return CC_VOUT_ERROR; }
             if (!E_UNMARSHAL(*(vvBidParams.begin()), ss >> unitPrice >> orderpk >> tokenidRev;)) { strError = "can't parse bid param in vout";  return CC_VOUT_ERROR; }
         } else { 
             strError = "no ask or bid eval code or param in vout";  
             return CC_VOUT_ERROR; 
         }
-        royaltyParamsDecoded = std::make_tuple(nRoyaltyFract, royaltypk, tokenidRev, unitPrice);
+        royaltyParamsDecoded = std::make_tuple(nRoyaltyFract, royaltypk, tokenidRev, unitPrice);*/
+        royaltyParamsDecoded = std::make_tuple(nRoyaltyFract, royaltypk, tokenid);
         return CC_VOUT_VALID;
     }
     return CC_VOUT_NOT_MINE;
@@ -542,7 +634,7 @@ IS_MY_CC_VOUT_RC IsGenericRoyaltyPayVout(const CTxOut &vout, const CPubKey &roya
 }
 
 // validate royalty vin 
-static bool GenericRoyaltyValidateVin(struct CCcontract_info *cp, Eval* eval, const CTxOut &prevOut, int32_t nVin, const CTransaction &tx, std::set<int32_t> &usedVouts, std::string &strError)
+static bool GenericRoyaltyOrderValidateVin(struct CCcontract_info *cp, Eval* eval, const CTransaction &prevTx, int32_t nVoutPrev, int32_t nVin, const CTransaction &tx, std::set<int32_t> &usedVouts, std::string &strError)
 {
     struct CCcontract_info *cpTokens, CTokens;
     cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
@@ -553,20 +645,34 @@ static bool GenericRoyaltyValidateVin(struct CCcontract_info *cp, Eval* eval, co
     cpBid = CCinit(&CBid, EVAL_GENERICTOKENBID);
     bool isAsk = cpAsk->ismyvin(tx.vin[nVin].scriptSig);
     bool isBid = cpBid->ismyvin(tx.vin[nVin].scriptSig);
-    if (!isAsk && !isBid) { strError = "royalty vin must be also an ask or bid vin";  return false; }
+
+    if (!isAsk && !isBid) { strError = "royalty order vin must be also an ask or bid vin";  return false; }
     
     RoyaltyParamsTuple royaltyParamsPrev;
-    if (IsGenericRoyaltyVout(prevOut, royaltyParamsPrev, strError) == CC_VOUT_ERROR)  { strError.empty() ? "prev vout not an royalty eval" : strError; return false; }
+    if (IsGenericRoyaltyVout(eval, prevTx, nVoutPrev, royaltyParamsPrev, strError) == CC_VOUT_ERROR)  { strError.empty() ? "previous royalty eval vout invalid" : strError; return false; }
     
     int32_t nRoyaltyFractPrev = std::get<0>(royaltyParamsPrev);
     CPubKey royaltypkPrev = std::get<1>(royaltyParamsPrev);
     uint256 tokenidPrev = std::get<2>(royaltyParamsPrev);
-    CAmount unitPrice = std::get<3>(royaltyParamsPrev);
+    CAmount unitPrice = 0LL;
+    if (isAsk)  {
+        AskParamsTuple askParamsPrev;
+        std::string strError;
+        if (IsGenericTokenAskVout(prevTx.vout[nVoutPrev], askParamsPrev, strError) == CC_VOUT_VALID)  
+            unitPrice = std::get<0>(askParamsPrev);
+    }
+    if (isBid) {
+        BidParamsTuple bidParamsPrev;
+        std::string strError;
+        if (IsGenericTokenBidVout(prevTx.vout[nVoutPrev], bidParamsPrev, strError) == CC_VOUT_VALID) 
+            unitPrice = std::get<0>(bidParamsPrev);
+    }   
 
     // find eval dex output:
-    int32_t nRoyaltyVout = -1;
+    int32_t nOrderVout = -1;
     int32_t nCount = 0;
     CAmount royaltyCoins = 0LL;
+    CAmount royaltyTokens = 0LL;
     CAmount totalPkCoins = 0LL;
     CPubKey royaltypkNext;
     int32_t nRoyaltyFractNext = 0;
@@ -586,30 +692,34 @@ static bool GenericRoyaltyValidateVin(struct CCcontract_info *cp, Eval* eval, co
             continue;
         }
     
-
-        // find token dex vouts
+        // find royalty vouts
         RoyaltyParamsTuple royaltyParamsNext;
         IS_MY_CC_VOUT_RC rc;
-        if ((rc = IsGenericRoyaltyVout(tx.vout[nVout], royaltyParamsNext, strError)) == CC_VOUT_VALID)  {
+        if ((rc = IsGenericRoyaltyVout(eval, tx, nVout, royaltyParamsNext, strError)) == CC_VOUT_VALID)  {
             uint256 tokenidNext = std::get<2>(royaltyParamsNext);
             if (tokenidNext == tokenidPrev)  {  // found next eval royalty
                 royaltypkNext = std::get<1>(royaltyParamsNext);
-                nRoyaltyVout = nVout; 
+                if (royaltypkNext != royaltypkPrev) { strError = "royalty pubkey can't change"; return false; }
+                royaltyTokens += tx.vout[nVout].nValue;
                 usedVouts.insert(nVout);
-                nCount ++;
 
                 if (isAsk)  {
                     AskParamsTuple askParamsNext;
                     std::string strError;
                     if (IsGenericTokenAskVout(tx.vout[nVout], askParamsNext, strError) == CC_VOUT_VALID)  {
                         askTokensNext += tx.vout[nVout].nValue;
+                        nOrderVout = nVout; 
+                        nCount ++;
                     }
                 }
-                else {
+                if (isBid) {
                     BidParamsTuple bidParamsNext;
                     std::string strError;
-                    if (IsGenericTokenBidVout(tx.vout[nVout], bidParamsNext, strError) == CC_VOUT_VALID) 
-                        bidCoinsNext += tx.vout[nVout].nValue;            
+                    if (IsGenericTokenBidVout(tx.vout[nVout], bidParamsNext, strError) == CC_VOUT_VALID)  {
+                        bidCoinsNext += tx.vout[nVout].nValue;      
+                        nOrderVout = nVout;
+                        nCount ++;
+                    }
                 }    
             }
         }
@@ -617,18 +727,18 @@ static bool GenericRoyaltyValidateVin(struct CCcontract_info *cp, Eval* eval, co
             return false; 
         }
     }
-    CAmount valueNext = 0LL;
-    char myaddr[KOMODO_ADDRESS_BUFSIZE];
+    //CAmount valueNext = 0LL;
 
-    if (nCount != 1)  { strError = "must be one royalty output for the tokenid"; return false; } 
-    if (royaltypkNext != royaltypkPrev) { strError = "royalty pubkey can't change"; return false; }
-
-    //Getscriptaddress(myaddr, CScript() << vuint8_t(royaltypkPrev.begin(), royaltypkPrev.end()) << OP_CHECKSIG);
-    //CAmount otherEvalCoins = eval->evalContext->GetAllEvalNormalAmount(myaddr);
-    CAmount spentCoins = isAsk ? (prevOut.nValue - askTokensNext) * unitPrice : prevOut.nValue - bidCoinsNext;
-    CAmount royaltyExpected = spentCoins / 1000 * nRoyaltyFractPrev;
+    //if (isAsk || isBid)  {
+    //if (nCount > 1)  { strError = "must be one order output with royalty for the tokenid"; return false; } 
+    CAmount spentCoins = isAsk ? (prevTx.vout[nVoutPrev].nValue - askTokensNext) * unitPrice : prevTx.vout[nVoutPrev].nValue - bidCoinsNext;
+    CAmount royaltyExpected = spentCoins / TKNROYALTY_DIVISOR * nRoyaltyFractPrev;
     if (royaltyExpected > royaltyCoins) { strError = "insufficient royalty pay amount"; return false; } 
-    //eval->evalContext->AddEvalNormalAmount(EVAL_GENERICTOKENROYALTY, myaddr, royaltyCoins);  // store used normal amount
+    //}
+
+    // TODO: royalty pay mark them with tokenid to differentiate many of them 
+    //char myaddr[KOMODO_ADDRESS_BUFSIZE];
+    //eval->evalContext->AddEvalNormalAmount(EVAL_GENERICTOKENROYALTY, myaddr, royaltyCoins);  // do not store as this is a cc vout. 
     return true;
 }
 
@@ -637,8 +747,8 @@ static bool GenericRoyaltyValidateVouts(struct CCcontract_info *cp, Eval* eval, 
 {
     for (int32_t nVout = 0; nVout < tx.vout.size(); nVout ++)  {
         if (usedVouts.count(nVout)) continue;
-        RoyaltyParamsTuple royaltyParamsNext;
-        if (IsGenericRoyaltyVout(tx.vout[nVout], royaltyParamsNext, strError) == CC_VOUT_ERROR) { return false; }
+        RoyaltyParamsTuple royaltyParams;
+        if (IsGenericRoyaltyVout(eval, tx, nVout, royaltyParams, strError) == CC_VOUT_ERROR) { return false; }
         usedVouts.insert(nVout);
     }
     return true;
@@ -648,18 +758,55 @@ static bool GenericRoyaltyValidateVouts(struct CCcontract_info *cp, Eval* eval, 
 // token royalty validation entry function
 bool GenericTokenRoyaltyValidate(struct CCcontract_info *cp, Eval* eval,const CTransaction &tx, uint32_t nIn)
 {
+    if (eval->GetCurrentHeight() <= 292) return true;
+
     uint256 hashBlock;
     CTransaction vintx;
     std::set<int32_t> usedVouts; // already taken vouts
+    std::map<uint256, CAmount> tokenidInputs;
+    std::map<uint256, CAmount> tokenidOutputs;
+
+    struct CCcontract_info *cpAsk, CAsk;
+    cpAsk = CCinit(&CAsk, EVAL_GENERICTOKENASK);
+    struct CCcontract_info *cpBid, CBid;
+    cpBid = CCinit(&CBid, EVAL_GENERICTOKENBID);
 
     for (int32_t nVin = 0; nVin < tx.vin.size(); nVin ++)  
         if (cp->ismyvin(tx.vin[nVin].scriptSig))  {
             std::string strError;
             if (!eval->GetTxUnconfirmed(tx.vin[nVin].prevout.hash, vintx, hashBlock)) return eval->Error(std::string("could not load vin tx for vin ") + std::to_string(nVin));
-            if (!GenericRoyaltyValidateVin(cp, eval, vintx.vout[tx.vin[nVin].prevout.n], nVin, tx, usedVouts, strError)) return eval->Error(strError);
+
+            // get all input amount by tokenid:
+            RoyaltyParamsTuple royaltyParamsPrev;
+            if (IsGenericRoyaltyVout(eval, vintx, tx.vin[nVin].prevout.n, royaltyParamsPrev, strError) == CC_VOUT_VALID) { 
+                uint256 tokenidPrev = std::get<2>(royaltyParamsPrev);
+                tokenidInputs[tokenidPrev] = tokenidInputs[tokenidPrev] + vintx.vout[tx.vin[nVin].prevout.n].nValue;
+            }
+
+            bool isAsk = cpAsk->ismyvin(tx.vin[nVin].scriptSig);
+            bool isBid = cpBid->ismyvin(tx.vin[nVin].scriptSig);
+            if (isAsk || isBid)  {
+                if (!GenericRoyaltyOrderValidateVin(cp, eval, vintx, tx.vin[nVin].prevout.n, nVin, tx, usedVouts, strError)) return eval->Error(strError);
+            }
         }
 
-    // check new asks:
+    // get all output amounts by tokenid
+    for (int32_t nVout = 0; nVout < tx.vout.size(); nVout ++)  {
+        RoyaltyParamsTuple royaltyParamsNext;
+        std::string strError;
+        if (IsGenericRoyaltyVout(eval, tx, nVout, royaltyParamsNext, strError) == CC_VOUT_VALID) { 
+            uint256 tokenidNext = std::get<2>(royaltyParamsNext);
+            tokenidOutputs[tokenidNext] = tokenidOutputs[tokenidNext] + tx.vout[nVout].nValue;
+        }
+    }
+
+    // check all royalty vins have same token output amount for each tokenid
+    for (auto &m : tokenidInputs) {
+        std::cerr << __func__ << " tokenid=" << m.first.GetHex() << " inputs=" << m.second << " outputs=" << tokenidOutputs[m.first] << std::endl;
+        if (tokenidOutputs[m.first] != m.second) return eval->Error("royalty vins vouts mismatch for tokenid"); 
+    } 
+
+    // check new royalty vouts:
     std::string strError;
     if (!GenericRoyaltyValidateVouts(cp, eval, tx, usedVouts, strError))
         return eval->Error(strError);
@@ -668,25 +815,145 @@ bool GenericTokenRoyaltyValidate(struct CCcontract_info *cp, Eval* eval,const CT
 }
 
 
+// Token Auction eval: allows to conduct token ask/bid auctions when a order can be replaced with a new token price
+// applied to either basic TokenAsk or TokenBid eval
+
+// checks if a auction vout is valid and applied to ask or bid, returns 'valid', 'invalid' or 'not my vout' retcodes
+IS_MY_CC_VOUT_RC IsGenericAuctionVout(const CTxOut &vout, AuctionParamsTuple &auctionParamsDecoded, std::string &strError)
+{
+    std::set<vuint8_t> vvAuctionParams;
+    if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENAUCTION, &vvAuctionParams))  
+    {
+        if (vvAuctionParams.size() != 1) { strError = "auction vout must have only one eval param";  return CC_VOUT_ERROR; }
+        CAmount priceStep;
+        int32_t expiryHeight;
+        if (!E_UNMARSHAL(*(vvAuctionParams.begin()), ss >> priceStep >> expiryHeight;)) { strError = "can't parse auction param in vout";  return CC_VOUT_ERROR; }
+        if (priceStep <= 0LL) { strError = "price step invalid";  return CC_VOUT_ERROR; }
+
+        std::set<vuint8_t>  vvAskParams, vvBidParams;
+        CAmount unitPrice;
+        CPubKey orderpk;
+        uint256 tokenidRev;
+        if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENASK, &vvAskParams)) {
+            if (vvAskParams.size() != 1) { strError = "ask vout must have only one eval param";  return CC_VOUT_ERROR; }
+            if (!E_UNMARSHAL(*(vvAskParams.begin()), ss >> unitPrice >> orderpk >> tokenidRev;)) { strError = "can't parse ask param in vout";  return CC_VOUT_ERROR; }
+        } else if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENBID, &vvBidParams))  {
+            if (vvBidParams.size() != 1) { strError = "bid vout must have only one eval param";  return CC_VOUT_ERROR; }
+            if (!E_UNMARSHAL(*(vvBidParams.begin()), ss >> unitPrice >> orderpk >> tokenidRev;)) { strError = "can't parse bid param in vout";  return CC_VOUT_ERROR; }
+        } else { 
+            strError = "no ask or bid eval code or param in vout";  
+            return CC_VOUT_ERROR; 
+        }
+        auctionParamsDecoded = std::make_tuple(priceStep, expiryHeight, tokenidRev, unitPrice);
+        return CC_VOUT_VALID;
+    }
+    return CC_VOUT_NOT_MINE;
+}
+
+// validate auction vin 
+static bool GenericAuctionValidateVin(struct CCcontract_info *cp, Eval* eval, const CTxOut &prevOut, int32_t nVin, const CTransaction &tx, std::set<int32_t> &usedVouts, std::string &strError)
+{
+    struct CCcontract_info *cpTokens, CTokens;
+    cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
+
+    struct CCcontract_info *cpAsk, CAsk;
+    cpAsk = CCinit(&CAsk, EVAL_GENERICTOKENASK);
+    struct CCcontract_info *cpBid, CBid;
+    cpBid = CCinit(&CBid, EVAL_GENERICTOKENBID);
+    bool isAsk = cpAsk->ismyvin(tx.vin[nVin].scriptSig);
+    bool isBid = cpBid->ismyvin(tx.vin[nVin].scriptSig);
+    if (!isAsk && !isBid) { strError = "auction vin must be also an ask or bid vin";  return false; }
+    
+    AuctionParamsTuple auctionParamsPrev;
+    if (IsGenericAuctionVout(prevOut, auctionParamsPrev, strError) == CC_VOUT_ERROR)  { strError.empty() ? "prev vout not an auction eval" : strError; return false; }
+    
+    CAmount priceStepPrev = std::get<0>(auctionParamsPrev);
+    int32_t expiryHeightPrev = std::get<1>(auctionParamsPrev);
+    uint256 tokenidPrev = std::get<2>(auctionParamsPrev);
+    CAmount unitPricePrev = std::get<3>(auctionParamsPrev);
+
+
+    int32_t nAuctionVout = -1;
+    int32_t nCount = 0;
+    CAmount priceStepNext = 0LL;
+    int32_t expiryHeightNext = 0;
+    CAmount unitPriceNext = 0LL;
+
+    for (int32_t nVout = 0; nVout < tx.vout.size(); nVout ++)  {
+
+        if (usedVouts.count(nVout)) continue;
+    
+        // find next auction vout:
+        AuctionParamsTuple auctionParamsNext;
+        IS_MY_CC_VOUT_RC rc;
+        if ((rc = IsGenericAuctionVout(tx.vout[nVout], auctionParamsNext, strError)) == CC_VOUT_VALID)  {
+            uint256 tokenidNext = std::get<2>(auctionParamsNext);
+            if (tokenidNext == tokenidPrev)  {  // found next eval royalty
+                priceStepNext = std::get<0>(auctionParamsNext);
+                expiryHeightNext = std::get<1>(auctionParamsNext);
+                unitPriceNext = std::get<3>(auctionParamsNext);
+                nAuctionVout = nVout; 
+                usedVouts.insert(nVout);
+                nCount ++;  
+            }
+        }
+        else if (rc == CC_VOUT_ERROR) {
+            return false; 
+        }
+    }
+    CAmount valueNext = 0LL;
+    char myaddr[KOMODO_ADDRESS_BUFSIZE];
+
+    if (nCount > 0)  {
+        if (nCount != 1)  { strError = "must be one auction output for the tokenid"; return false; } 
+        if (priceStepNext != priceStepPrev) { strError = "price step can't change"; return false; } 
+        if (expiryHeightNext != expiryHeightPrev) { strError = "auction height can't change"; return false; } 
+        if (prevOut.nValue != tx.vout[nAuctionVout].nValue) { 
+            if (isAsk) { strError = "auction cannot be partially spent"; return false; }
+            if (isBid) {
+                // we allow some dust amount on eval bid output (less than price of 1 unit ):
+                /*if (tx.vout[nAuctionVout].nValue / unitPriceNext > 0)*/ { strError = "auction cannot be partially spent"; return false; }
+            }
+        } 
+        if (unitPriceNext != priceStepPrev + unitPricePrev) { strError = "invalid auction unit price in vout"; return false; } 
+    }
+    else {  // trying to spend auction
+        if (eval->GetCurrentHeight() < expiryHeightPrev) { strError = "auction is not finished yet"; return false; } 
+    }
+    return true;
+}
+
+// validate token royalty new vouts
+static bool GenericAuctionValidateVouts(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, std::set<int32_t> &usedVouts, std::string &strError)
+{
+    for (int32_t nVout = 0; nVout < tx.vout.size(); nVout ++)  {
+        if (usedVouts.count(nVout)) continue;
+        AuctionParamsTuple auctionParamsNext;
+        if (IsGenericAuctionVout(tx.vout[nVout], auctionParamsNext, strError) == CC_VOUT_ERROR) { return false; }
+        usedVouts.insert(nVout);
+    }
+    return true;
+}
+
+// generic token auction validation entry point 
 bool GenericTokenAuctionValidate(struct CCcontract_info *cp, Eval* eval,const CTransaction &tx, uint32_t nIn)
 {
-    /*uint256 hashBlock;
+    if (eval->GetCurrentHeight() <= 292) return true;
+    uint256 hashBlock;
     CTransaction vintx;
-    //bool hasMyVin = false;
     std::set<int32_t> usedVouts; // already taken vouts
 
     for (int32_t nVin = 0; nVin < tx.vin.size(); nVin ++)  
         if (cp->ismyvin(tx.vin[nVin].scriptSig))  {
             std::string strError;
             if (!eval->GetTxUnconfirmed(tx.vin[nVin].prevout.hash, vintx, hashBlock)) return eval->Error(std::string("could not load vin tx for vin ") + std::to_string(nVin));
-            if (!GenericAskValidateVin(cp, eval, vintx.vout[tx.vin[nVin].prevout.n], nVin, tx, usedVouts, strError)) return eval->Error(strError);
-            //hasMyVin = true;
+            if (!GenericAuctionValidateVin(cp, eval, vintx.vout[tx.vin[nVin].prevout.n], nVin, tx, usedVouts, strError)) return eval->Error(strError);
         }
 
-    // check new asks:
+    // check new auctions:
     std::string strError;
-    if (!GenericAskValidateVouts(cp, eval, tx, usedVouts, strError))
-        return eval->Error(strError);*/
+    if (!GenericAuctionValidateVouts(cp, eval, tx, usedVouts, strError))
+        return eval->Error(strError);
     
     return true;
 }
