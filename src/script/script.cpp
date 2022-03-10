@@ -533,11 +533,13 @@ bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode, std::set< std::vector<uint8_t
             if (pctx->pvvParams) {
                 if (cond->param && cond->paramLength)
                     pctx->pvvParams->insert( std::vector<uint8_t>(cond->param, cond->param + cond->paramLength) );
-                //else
-                //    pctx->pvvParam->clear();
+                else  {
+                    pctx->pvvParams->insert( std::vector<uint8_t>() );
+                    //std::cerr << "SpkHasEvalcodeCCV2 inserting empty param for eval=" << (int)pctx->evalCode << std::endl;
+                }
             }
         }
-        return 1;
+        return 1;  // continue
     };
     std::set< std::vector<uint8_t> > vvLocalParams;
     std::set< std::vector<uint8_t> > *pvvParams = pvvParamsIn ? pvvParamsIn : &vvLocalParams;

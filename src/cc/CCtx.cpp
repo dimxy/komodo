@@ -26,6 +26,7 @@ std::vector<CPubKey> NULL_pubkeys;
 //void NSPV_CCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &txids,char *coinaddr,bool ccflag);
 
 bool HasSecp256k1Cond(CC *cond);
+CC *MakeTokenV2TransferCC(uint256 tokenid, const std::vector<CPubKey> & pks);
 
 /* see description to function definition in CCinclude.h */
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey)
@@ -569,7 +570,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                                 CCwrapper anonCond = t.CCwrapped;
                                 //CCtoAnon(anonCond.get());
                                 if (!Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), mixedVer))) continue;
-                                std::cerr << __func__ << " vin=" << i << " CCPubKey(anonCond.get(), mixedVer)=" << CCPubKey(anonCond.get(), mixedVer).ToString() << " mixedVer=" << mixedVer << std::endl;
+                                //std::cerr << __func__ << " vin=" << i << " CCPubKey(anonCond.get(), mixedVer)=" << CCPubKey(anonCond.get(), mixedVer).ToString() << " mixedVer=" << mixedVer << std::endl;
                                 if (strcmp(destaddr, coinaddr) == 0) {
                                     if (IS_DONT_SIGN(t.CCpriv))
                                         privkey = nullptr;
@@ -591,7 +592,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                 }
                 if (privkey == nullptr) {
                     mtx.vin[i].scriptSig = CCSig(cond.get()); // no signing cond
-                    std::cerr << __func__ << " dont sign vin" << i << std::endl;
+                    //std::cerr << __func__ << " using 'dont sign' vin" << i << std::endl;
                 }
                 else if (!remote) // we have privkey in the wallet
                 {

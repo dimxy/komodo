@@ -117,7 +117,7 @@ CScript CCPubKey(const CC *cond, int subversion)
     else 
         len = cc_conditionBinary(cond, buf);
     CScript s = CScript() << std::vector<unsigned char>(buf, buf+len) << OP_CHECKCRYPTOCONDITION;
-    std::cerr << __func__ << " cc script1=" << s.ToString() << std::endl;
+    //std::cerr << __func__ << " cc script1=" << s.ToString() << std::endl;
 
     /*CC *cc = cc_readFulfillmentBinaryMixedMode(buf+1, len-1);
     int len1 = cc_fulfillmentBinaryMixedMode(cc, buf+1, sizeof(buf)-1) + 1;

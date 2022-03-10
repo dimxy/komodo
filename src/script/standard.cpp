@@ -277,7 +277,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                     uint160 hash160 = Hash160(ccSubScript);
                     vector<unsigned char> hashBytes(hash160.begin(), hash160.end());
                     vSolutionsRet.push_back(hashBytes);
-                    std::cerr << __func__ << " hash160=" << hash160.ToString() << " ccSubScript=" << ccSubScript.ToString() << std::endl;
+                    //std::cerr << __func__ << " hash160=" << hash160.ToString() << " ccSubScript=" << ccSubScript.ToString() << std::endl;
 
                     /* let's just removed this: komodo_is_vSolutionsFixActive work unreliable
                        and also we cannot lock cs_main here to correctly get current height
@@ -317,7 +317,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                     ccscriptv1 << condv1 << opcodeCC;
                     uint160 hash160 = Hash160(ccscriptv1);
                     vSolutionsRet.push_back(std::vector<uint8_t>(hash160.begin(), hash160.end()));
-                    std::cerr << __func__ << " hash160=" <<hash160.ToString() << " condv1=" << HexStr(condv1) << " opcodeCC=" << opcodeCC << " scriptv1=" << ccscriptv1.ToString() << std::endl;
+                    //std::cerr << __func__ << " hash160=" <<hash160.ToString() << " condv1=" << HexStr(condv1) << " opcodeCC=" << opcodeCC << " scriptv1=" << ccscriptv1.ToString() << std::endl;
                 }
                 return true;
             }

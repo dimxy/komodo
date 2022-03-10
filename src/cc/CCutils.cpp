@@ -171,6 +171,22 @@ CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey p
     return(vout);
 }
 
+CTxOut MakeCCvoutMixed(const CC *cond, CAmount nValue, uint8_t evalcode, uint8_t M, const std::vector<CPubKey> &vPubKeys, const vscript_t* pvData)
+{
+    CTxOut vout;
+    CCwrapper payoutCond(cond);
+    //if (!CCtoAnon(payoutCond.get())) return (vout);
+    vout = CTxOut(nValue, CCPubKey(payoutCond.get(), 1));
+
+    std::vector<vscript_t> vvData;
+    if (pvData)
+        vvData.push_back(*pvData);
+    COptCCParams ccp = COptCCParams(COptCCParams::VERSION_2, evalcode, M, vPubKeys.size(), vPubKeys, vvData);
+    vout.scriptPubKey << ccp.AsVector() << OP_DROP;
+    
+    return(vout);
+}
+
 CC* GetCryptoCondition(CScript const& scriptSig)
 {
     auto pc = scriptSig.begin();
