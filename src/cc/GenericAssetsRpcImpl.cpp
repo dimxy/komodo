@@ -680,7 +680,7 @@ UniValue AssetsV21CancelSell(const CPubKey &mypk, CAmount txfee, uint256 assetid
             // mtx.vout.push_back(CTxOut(ASSETS_MARKER_AMOUNT, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG));  // we dont need marker for cancelled orders
 
             // probe t spend eval ask/dex
-            CCwrapper wrCond1(MakeEvalAskCC(unit_price, origpk, assetid, royaltyFract, expiryHeight, priceStep, { FFIL_CANCEL_ASK }));
+            CCwrapper wrCond1(MakeEvalAskCC(unit_price, origpk, assetid, royaltyFract, expiryHeight, priceStep, { FFIL_CANCEL_ASK })); // spend with secp256
             CCAddVintxCond(cpAssets, wrCond1, CCwrapper::usemypriv);
 
             UniValue sigData = TokensV2::FinalizeCCTx(false, FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee, CScript());
@@ -853,7 +853,7 @@ UniValue AssetsV21FillBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 asset
                     mtx.vout.push_back(MakeCCvoutMixed(ccToken, tokensChange, EVAL_TOKENSV2, 1, { mypk }, &vdata));
                 }
                 
-                CCwrapper wrCond1(MakeEvalBidCC(unit_price, origpk, assetid, royaltyFract, expiryHeight, priceStep, { FFIL_FILL_BID }));  //probe to spend eval bid to bid
+                CCwrapper wrCond1(MakeEvalBidCC(unit_price, origpk, assetid, royaltyFract, expiryHeight, priceStep, { FFIL_FILL_BID }));  //probe to spend eval bid to next bid
                 CCAddVintxCond(cpTokens, wrCond1, CCwrapper::dontsign);
 
                 CCwrapper wrCond2( MakeTokenV2TransferCC(assetid, { mypk }) );  // spend simple tokens (may have other evals like royalty, so we need a probe)
@@ -1252,7 +1252,7 @@ UniValue AssetsV21ChangeSell(const CPubKey &mypk, CAmount txfee, uint256 assetid
             mtx.vout.push_back(CTxOut(vintx.vout[askvout].nValue, CCPubKey(nextAskCC.get(), 1)));
         
             CCwrapper wrCond1(MakeEvalAskCC(unit_price_prev, origpk, assetid, royaltyFract, expiryHeight, priceStep, { FFIL_FILL_ASK }));  // probe to spend eval ask to next eval ask
-            CCAddVintxCond(cpAssets, wrCond1, CCwrapper::usemypriv);
+            CCAddVintxCond(cpAssets, wrCond1, CCwrapper::dontsign);  // dontsign bcz spending without secp256 cond
 
             UniValue sigData = TokensV2::FinalizeCCTx(false, FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee, CScript());
             if (!ResultHasTx(sigData))
