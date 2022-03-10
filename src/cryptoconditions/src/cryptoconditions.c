@@ -274,7 +274,7 @@ int cc_verify(const struct CC *cond, const unsigned char *msg, size_t msgLength,
     unsigned char targetBinary[1000];
     //fprintf(stderr,"in cc_verify cond.%p msg.%p[%d] dohash.%d condbin.%p[%d]\n",cond,msg,(int32_t)msgLength,doHashMsg,condBin,(int32_t)condBinLength);
     const size_t binLength = cc_conditionBinary(cond, targetBinary);
-    printf("%s condBin=%s targetBinary=%s\n",  __func__, cc_hex_encode(condBin, condBinLength), cc_hex_encode(targetBinary, binLength));
+    //printf("%s condBin=%s targetBinary=%s\n",  __func__, cc_hex_encode(condBin, condBinLength), cc_hex_encode(targetBinary, binLength));
     if (0 != memcmp(condBin, targetBinary, binLength)) {
         fprintf(stderr,"cc_verify error A\n");
         return 0;
