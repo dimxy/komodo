@@ -31,7 +31,7 @@
 // (anon is usually an anonimyzed secp256k1 condition and evalCode can be EVAL_TOKENSV2)
 int IsMandatoryConditionPair(CC *cond, uint8_t evalCode, CC *anon)
 {
-    if (!cc_isAnon(anon)) return false;
+    if (!cc_isAnon(anon)) return -1;
     if (cc_typeId(cond) == CC_Threshold)
     {
         int countEval = 0;
@@ -59,7 +59,7 @@ int IsMandatoryConditionPair(CC *cond, uint8_t evalCode, CC *anon)
                 if (rc != 0) return rc;  // 0 is to continue search
             }
         }
-        return 0;
+        return 0;  // the cond pair was not found in this threshold
     }
     return -1;  // root cond must be a threshold
 }
