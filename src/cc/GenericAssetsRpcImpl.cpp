@@ -1024,7 +1024,7 @@ UniValue AssetsV21FillSell(const CPubKey &mypk, CAmount txfee, uint256 assetid, 
             //CCAddVintxCond(cpAssets, wrCond2, CCwrapper::usemypriv);  // spend with mypk
 
             CCwrapper wrCond1(MakeEvalAskCC(unit_price, origpk, assetid, royaltyFract, expiryHeight, priceStep, { FFIL_FILL_ASK }));  // probe to spend eval ask to next eval ask
-            CCAddVintxCond(cpAssets, wrCond1, CCwrapper::usemypriv);
+            CCAddVintxCond(cpAssets, wrCond1, CCwrapper::dontsign);
 
             UniValue sigData = TokensV2::FinalizeCCTx(false, FINALIZECCTX_NO_CHANGE_WHEN_DUST, cpAssets, mtx, mypk, txfee, CScript());
             if (!ResultHasTx(sigData))
