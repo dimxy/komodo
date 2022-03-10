@@ -525,7 +525,7 @@ CAmount TokensV2::CheckTokensvout(struct CCcontract_info *cp, Eval* eval, const 
     std::set<vscript_t> vvEvalParams;
     CScript dummy;	
     if (tx.vout[v].scriptPubKey.IsPayToCryptoCondition(&dummy, vvOpropParams) && 
-        tx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_TOKENSV2, &vvEvalParams))  // it's token output, check it
+        tx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_TOKENSV2, &vvEvalParams) && vvEvalParams.size() == 1 && !(*vvEvalParams.begin()).empty())  // it's token output, check it
     {        
         bool isLastVoutOpret;
         uint256 tokenIdOpret;
