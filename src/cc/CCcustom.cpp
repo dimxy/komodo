@@ -33,7 +33,7 @@
 #include "CCtokens.h"
 #include "CCImportGateway.h"
 #include "GenericAssets.h"
-#include "CCTokenData.h"
+//#include "CCTokenData.h"
 
 /*
  CCcustom has most of the functions that need to be extended to create a new CC contract.
@@ -266,11 +266,11 @@ uint8_t Assetsv2CCpriv[32] = { 0x46, 0x58, 0x3b, 0x18, 0xee, 0x16, 0x63, 0x51, 0
 #undef EVALCODE
 
 // TokenData validator 
-#define FUNCNAME IsTokenDataInput
+/*#define FUNCNAME IsTokenDataInput
 #define EVALCODE EVAL_TOKENDATA
 #include "CCcustom.inc"
 #undef FUNCNAME
-#undef EVALCODE
+#undef EVALCODE*/
 
 int32_t CClib_initcp(struct CCcontract_info *cp,uint8_t evalcode)
 {
@@ -466,11 +466,11 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
             ismixed = true;
             break;
 
-        case EVAL_TOKENDATA:
+/*        case EVAL_TOKENDATA:
             cp->validate = TokenDataValidate;
             cp->ismyvin = IsTokenDataInput;
             ismixed = true;
-            break;
+            break;*/
 
         default:
             if (CClib_initcp(cp, evalcode) < 0)
