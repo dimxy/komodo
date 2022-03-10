@@ -455,6 +455,11 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
             cp->ismyvin = IsGenericTokenDEXInput;
             ismixed = true;
             break;
+        case EVAL_GENERICTOKENAUCTION:
+            cp->validate = GenericTokenAuctionValidate;
+            cp->ismyvin = IsGenericTokenAuctionInput;
+            ismixed = true;
+            break;
         case EVAL_GENERICTOKENROYALTY:
             cp->validate = GenericTokenRoyaltyValidate;
             cp->ismyvin = IsGenericTokenRoyaltyInput;
