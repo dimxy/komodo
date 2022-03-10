@@ -28,7 +28,7 @@
 
 #include "../cc/CCinclude.h"
 #include "../cc/CCtokens.h"
-#include "../cc/CCTokenData.h"
+//#include "../cc/CCTokenData.h"
 #include "../cc/CCassets.h"
 
 #include "../cc/CCtokens_impl.h"
@@ -307,7 +307,7 @@ UniValue tokenv2allbalances(const UniValue& params, bool fHelp, const CPubKey& r
 
 
 template <class V>
-static UniValue tokencreate(const UniValue& params, const vuint8_t &vtokenData, bool fHelp, const CPubKey& remotepk)
+static UniValue tokencreate(const UniValue& params, const vuint8_t &vtokenData, const UniValue &evalData,  bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ);
     std::string name, description; 
@@ -341,7 +341,7 @@ static UniValue tokencreate(const UniValue& params, const vuint8_t &vtokenData, 
     }
 
     //hextx = CreateTokenLocal<V>(0, supply, name, description, vtokenData);
-    UniValue rcreate = CreateTokenExt<V>(remotepk.IsValid() ? remotepk : nullpk, txfee, supply, name, description, vtokenData, 0, false); 
+    UniValue rcreate = CreateTokenExt<V>(remotepk.IsValid() ? remotepk : nullpk, txfee, supply, name, description, vtokenData, 0, evalData, false); 
     RETURN_IF_ERROR(CCerror);
 
     if (remotepk.IsValid())
@@ -372,45 +372,51 @@ UniValue tokencreate(const UniValue& params, bool fHelp, const CPubKey& remotepk
         if (tokenData.empty())
             return MakeResultError("Token data incorrect");
     }
-    return tokencreate<TokensV1>(params, tokenData, fHelp, remotepk);
+    return tokencreate<TokensV1>(params, tokenData, NullUniValue, fHelp, remotepk);
 }
 UniValue tokenv2create(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
-if (fHelp || params.size() > 4 || params.size() < 2)
-        throw runtime_error("tokenv2create name supply [description] [tokens data]\n"
+if (fHelp || params.size() > 5 || params.size() < 2)
+        throw runtime_error("tokenv2create name supply [description] [token data][eval data]\n"
                             "create tokens version 2\n"
                             "  name - token name string\n"
                             "  supply - token supply in coins\n"
                             "  description - optional description\n"
                             "  tokens data - an optional token data param:\n"
                             "     - a hex string. If the first byte is non-null it is a evalcode which these tokens will be routed into to validation\n"
+                            "  eval data - optional data for additional evals to be added to tokens cryptocondition:\n"
                             "     - a json object { \"url\":<url-string>, \"id\":<token application id>, \"royalty\":<royalty 0..999>, \"arbitrary\":<arbitrary-data-hex> }\n"
         );
 
     vuint8_t tokenData;
+    UniValue evalData(UniValue::VARR);
+
     if (params.size() >= 4)    {
         // try to parse as hex
         tokenData = ParseHex(params[3].get_str());
-        if (tokenData.empty()) {
+        int i = 3;
+        if (!tokenData.empty())  // if could parse as hex, next is eval data. If we could not try this param as eval data
+            i ++;
+
+        if (i < params.size()) {
             // try to parse as json
             UniValue jsonParams;
             std::string sError;
 
-            if (params[3].getType() == UniValue::VOBJ)
-                jsonParams = params[3].get_array();
-            else if (params[3].getType() == UniValue::VSTR)  // json in quoted string '{...}'
-                jsonParams.read(params[3].get_str().c_str());
+            if (params[i].getType() == UniValue::VOBJ)
+                jsonParams = params[i].get_array();
+            else if (params[i].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+                jsonParams.read(params[i].get_str().c_str());
             if (jsonParams.getType() != UniValue::VOBJ)
-                throw runtime_error("parameter 4 must be a json object\n");   
+                throw runtime_error("parameter eval data must be a json object\n");   
 
-            tokenData = ParseTokenJson(jsonParams);
-            if (tokenData.empty())
-                throw runtime_error("token data incorrect");
-            if (!CheckTokenData(tokenData, sError))
-                throw runtime_error("token data incorrect: " + sError);
+            evalData = jsonParams;
+
+            i ++;
+            if (i < params.size()) throw runtime_error("unknown param: " + std::to_string(i+1));
         }
     }
-    return tokencreate<TokensV2>(params, tokenData, fHelp, remotepk);
+    return tokencreate<TokensV2>(params, tokenData, evalData, fHelp, remotepk);
 }
 
 template <class V>
