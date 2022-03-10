@@ -18,7 +18,9 @@
 // This code was moved to a separate source file to enable linking libcommon.so (with importcoin.cpp which depends on some token functions)
 
 #include "CCtokens.h"
+//#include "CCTokenData.h"
 #include "CCupgrades.h"
+#include "CCtokens_impl.h"
 
 // bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char> &vParam);
 
@@ -538,4 +540,70 @@ int TokensGetMixedVersion(Eval *eval, bool isMixed)
     }
     else
         return -1;
+}
+
+
+CC *MakeTokenCreateCC(const CPubKey & creatorpk, const std::string &name, const std::string &desc, const vuint8_t &vextraData, int32_t royaltyFract)
+{
+    uint8_t funcId = 'c', ver = 1;
+    CC *ccEvalTokens = CCNewEval(E_MARSHAL(ss << EVAL_TOKENSV2), E_MARSHAL(ss << funcId << ver << creatorpk << name << desc << vextraData));
+    CC *ccEvalRoyalty = nullptr;
+
+    /*int64_t royaltyFract64 = 0LL;
+    if (GetTokenDataAsInt64(vextraData, TKNPROP_ROYALTY, royaltyFract64) && royaltyFract64 > 0LL) {
+        int32_t royaltyFract = (int32_t)royaltyFract64;*/
+    if (royaltyFract > 0)
+        ccEvalRoyalty = CCNewEval(E_MARSHAL(ss << EVAL_GENERICTOKENROYALTY), E_MARSHAL(ss << royaltyFract << creatorpk));
+    
+    CC *ccSig = CCNewSecp256k1(creatorpk);
+
+    std::vector<CC*> evals;
+    evals.push_back(ccEvalTokens);
+    if (ccEvalRoyalty)
+        evals.push_back(ccEvalRoyalty);
+    evals.push_back(ccSig);
+    CC *ccThreshold = CCNewThreshold(evals.size(), evals);
+    return ccThreshold;
+}
+
+CC *MakeTokenV2TransferCC(uint256 tokenid, const std::vector<CPubKey> & pks)
+{
+    uint8_t funcId = 't', ver = 1;
+    uint256 tokenidRev = revuint256(tokenid);
+    CC *ccEvalTokens = CCNewEval(E_MARSHAL(ss << EVAL_TOKENSV2), E_MARSHAL(ss << funcId << ver << tokenidRev));
+    CC *ccEvalRoyalty = nullptr;
+
+    /*TokenDataTuple tokenData;
+    if (!GetTokenData<TokensV2>(NULL, tokenid, tokenData))  return nullptr;
+    vuint8_t vextraData = std::get<4>(tokenData); 
+    int64_t royaltyFract64 = 0LL;
+    if (GetTokenDataAsInt64(vextraData, TKNPROP_ROYALTY, royaltyFract64) && royaltyFract64 > 0LL) {
+        int32_t royaltyFract = (int32_t)royaltyFract64;*/
+    struct CCcontract_info *cpTokens, CTokens;
+    cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
+
+    CTransaction tokencreatetx;
+    uint256 hashBlock;
+    if (!myGetTransaction(tokenid, tokencreatetx, hashBlock)) { CCerror = "could not load token create tx"; return nullptr; }
+    int32_t v = 0;
+    for (; v < tokencreatetx.vout.size(); v++)  {
+        if (IsTokensvout<TokensV2>(cpTokens, nullptr, tokencreatetx, v, tokencreatetx.GetHash()) > 0LL)
+            break;
+    }
+    if (v == tokencreatetx.vout.size()) { CCerror = "could not find token vouts in token create tx"; return nullptr; }
+    bool hasRoyalty = tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY);
+
+    if (hasRoyalty)
+        ccEvalRoyalty = CCNewEval(E_MARSHAL(ss << EVAL_GENERICTOKENROYALTY)/*, E_MARSHAL(ss << funcId << royaltyFract << pk << tokenidRev)*/);
+    
+    std::vector<CC*> evals;
+    evals.push_back(ccEvalTokens);
+    if (ccEvalRoyalty)
+        evals.push_back(ccEvalRoyalty);
+    for (auto const &pk : pks)  {
+        CC *ccSig = CCNewSecp256k1(pk);
+        evals.push_back(ccSig);
+    }
+    CC *ccThreshold = CCNewThreshold(evals.size(), evals);
+    return ccThreshold;
 }

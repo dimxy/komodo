@@ -19,12 +19,18 @@
 // templates for either tokens or tokens2 functions' implementation
 
 #include "CCtokens.h"
+//#include "CCTokenData.h"
 #include "CCassets.h"
 #include "CCassetsCore_impl.h"
 #include "importcoin.h"
 #include "base58.h"
 
-bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char> &vParam);
+CTxOut MakeCCvoutMixed(const CC *cond, CAmount nValue, uint8_t evalcode, uint8_t M, const std::vector<CPubKey> &vPubKeys, const vscript_t* pvData);
+
+CC *MakeTokenCreateCC(const CPubKey & creatorpk, const std::string &name, const std::string &desc, const vuint8_t &vextraData, int32_t royaltyFract);
+CC *MakeTokenV2TransferCC(uint256 tokenid, const std::vector<CPubKey> & pks);
+
+//bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char> &vParam);
 
 template <class V>
 bool ParseTokenCreateTx(const CTransaction &tokenbaseTx, TokenDataTuple &tokenData)
@@ -236,7 +242,13 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 
     for (int ver = beginVer; ver <= endVer; ver ++) {
         char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-        GetTokensCCaddress(cp, tokenaddr, pk, ver);  
+        if (ver == 1)  {
+
+            CCwrapper ccToken( MakeTokenV2TransferCC(tokenid, { pk }) );
+            Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), ver));
+        }
+        else
+            GetTokensCCaddress(cp, tokenaddr, pk, ver);  
         std::cerr << __func__ << " tokenaddr=" << tokenaddr << std::endl;
         inputs += AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, maxinputs, useMempool);
         if (total > 0 && inputs >= total) break; // if total == 0 this just getting the balance
@@ -257,7 +269,7 @@ UniValue TokenBeginTransferTx(CMutableTransaction &mtx, struct CCcontract_info *
 		txfee = 10000;
 
     mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
-    CAmount normalInputs = AddNormalinputs(mtx, mypk, txfee, 3, isRemote);
+    CAmount normalInputs = AddNormalinputs(mtx, mypk, txfee, 0x1000, isRemote);
     if (normalInputs < 0)
 	{
         return MakeResultError("cannot find normal inputs");
@@ -430,12 +442,31 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
             else
                 GetOpReturnData(oprettmp, vOpdropData);
 
-            mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, total, M, destpubkeys, &vOpdropData, isEvalParamActive)); 
+
+            /*CTransaction tokencreatetx;
+            uint256 hashBlock;
+            if (!myGetTransaction(tokenid, tokencreatetx, hashBlock)) { CCerror = "cant load token create tx"; return NullUniValue; }
+            int32_t v = 0;
+            for (; v < tokencreatetx.vout.size(); v++)  {
+                if (IsTokensvout<TokensV2>(cp, NULL, tokencreatetx, v, tokencreatetx.GetHash()) > 0LL)
+                    break;
+            }
+            if (v == tokencreatetx.vout.size()) { CCerror = "could not find token vouts in token create tx"; return NullUniValue; }
+            bool hasRoyalty = tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY);*/
+
+            if (V::EvalCode() == EVAL_TOKENSV2 && isEvalParamActive)  {
+                CC *ccToken = MakeTokenV2TransferCC(tokenid, { mypk });
+                if (!ccToken) { CCerror = "cannot create token condition"; return NullUniValue; }
+                mtx.vout.push_back(MakeCCvoutMixed(ccToken, total, EVAL_TOKENSV2, 1, { mypk }, &vOpdropData));
+            }
+            else
+                mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, total, M, destpubkeys, &vOpdropData, isEvalParamActive)); 
 
             // add optional custom probe conds to non-usual sign vins
             for (const auto &p : probeconds)
                 CCAddVintxCond(cp, p.first, p.second);
             
+            bool bMultiSigChange = false;
             if (V::EvalCode() == EVAL_TOKENSV2) {
                 // if this is multisig - build and add multisig probes:
                 // find any token vin, load vin tx and extract M and pubkeys
@@ -455,13 +486,22 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                         std::cerr << __func__ << " ccparams.version=" << (int)ccparams.version << " ccparams.vKeys.size()=" << ccparams.vKeys.size() << std::endl;
                         if (ccparams.version != 0 && ccparams.vKeys.size() > 1)    {
                             vscript_t vOpdropDataChange;
+                            CCwrapper ccprobeMofN;
                             CScript oprettmp = V::EncodeTokenOpRet(tokenid, destpubkeys, {} );
                             GetOpReturnData(oprettmp, vOpdropDataChange);
-                            if (CCchange != 0) {
-                                mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, CCchange, ccparams.m, ccparams.vKeys, &vOpdropDataChange, isEvalParamActive));
-                                CCchange = 0; // change just added 
+                            if (CCchange != 0LL) {
+                                if (V::EvalCode() == EVAL_TOKENSV2 && isEvalParamActive)  {
+                                    CC *ccToken = MakeTokenV2TransferCC(tokenid, ccparams.vKeys);
+                                    ccprobeMofN.reset(cc_copy(ccToken));
+                                    if (!ccToken) { CCerror = "cannot create token condition"; return NullUniValue; }
+                                    mtx.vout.push_back(MakeCCvoutMixed(ccToken, CCchange, EVAL_TOKENSV2, ccparams.m, ccparams.vKeys, &vOpdropDataChange));
+                                }
+                                else  {
+                                    mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, CCchange, ccparams.m, ccparams.vKeys, &vOpdropDataChange, isEvalParamActive));
+                                    ccprobeMofN.reset( MakeTokensv2CCcondMofN(V::EvalCode(), 0, ccparams.m, ccparams.vKeys) );
+                                }
+                                bMultiSigChange = true; // change just added 
                             }
-                            CCwrapper ccprobeMofN( MakeTokensv2CCcondMofN(V::EvalCode(), 0, ccparams.m, ccparams.vKeys) );
                             CCAddVintxCond(cp, ccprobeMofN, CCwrapper::usemypriv); //add MofN probe to find vins and sign
                             break;
                         }
@@ -469,11 +509,19 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                 }
             }
 
-			if (CCchange != 0)  {
+			if (!bMultiSigChange && CCchange != 0LL)  {
                 vscript_t vdataChange;
                 CScript oprettmp = V::EncodeTokenOpRet(tokenid, destpubkeys, {} );
                 GetOpReturnData(oprettmp, vdataChange);
-				mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk, &vdataChange, isEvalParamActive));
+                if (V::EvalCode() == EVAL_TOKENSV2 && isEvalParamActive)  {
+                    CC *ccToken = MakeTokenV2TransferCC(tokenid, { mypk });
+                    CCwrapper probeCond(cc_copy(ccToken) );
+                    if (!ccToken) { CCerror = "cannot create token condition"; return NullUniValue; }
+                    mtx.vout.push_back(MakeCCvoutMixed(ccToken, CCchange, EVAL_TOKENSV2, 1, { mypk }, &vdataChange));
+                    CCAddVintxCond(cp, probeCond, CCwrapper::usemypriv); //add MofN probe to find vins and sign
+                }
+                else
+				    mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk, &vdataChange, isEvalParamActive));
             }
 
             // TODO maybe add also opret blobs form vintx
@@ -534,7 +582,7 @@ std::string TokenTransfer(CAmount txfee, uint256 tokenid, uint8_t M, const std::
 // returns token creation signed raw tx
 // params: txfee amount, token amount, token name and description, optional NFT data, optional eval code of a cc to validate NFT
 template <class V>
-UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData, uint8_t additionalMarkerEvalCode, bool useMempool)
+UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t vnonfungibleData, uint8_t additionalMarkerEvalCode, const UniValue &evalProps,  bool useMempool)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     struct CCcontract_info *cp, C;
@@ -585,8 +633,8 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
 
         vscript_t vdata;
         std::vector<vscript_t> vvextra;
-        if (!nonfungibleData.empty())
-            vvextra.push_back(nonfungibleData);
+        if (!vnonfungibleData.empty())
+            vvextra.push_back(vnonfungibleData);
         CScript opret;
         CScript oprettmp = V::EncodeTokenCreateOpRet(vscript_t(mypk.begin(), mypk.end()), name, description, vvextra);
         int32_t nextHeight = 0;
@@ -602,7 +650,26 @@ UniValue CreateTokenExt(const CPubKey &remotepk, CAmount txfee, CAmount tokensup
 
         // NOTE: we should prevent spending fake-tokens from this marker in IsTokensvout():
         mtx.vout.push_back(V::MakeCC1vout(V::EvalCode(), TOKENS_MARKER_VALUE, GetUnspendable(cp, NULL)));            // new marker to token cc addr, burnable and validated, vout pos now changed to 0 (from 1)
-		mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), tokensupply, mypk, &vdata, isEvalParamActive));
+
+
+        if (V::EvalCode() == EVAL_TOKENSV2 && isEvalParamActive)  { 
+
+            int32_t royaltyFract = 0;
+            if (evalProps.exists("royalty"))
+                royaltyFract = evalProps["royalty"].get_int();
+
+            /*{
+                int64_t i64val;
+                if (GetTokenDataAsInt64(vnonfungibleData, TKNPROP_ROYALTY, &i64val))
+                    royaltyValue = (int32_t)i64val;
+            }*/
+            CC *ccToken = MakeTokenCreateCC(mypk, name, description, vnonfungibleData, royaltyFract);
+            if (!ccToken) { CCerror = "cannot create token condition"; return NullUniValue; }
+		    //mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), , tokensupply, mypk, &vdata, isEvalParamActive));
+            mtx.vout.push_back(MakeCCvoutMixed(ccToken, tokensupply, EVAL_TOKENSV2, 1, {mypk}, &vnonfungibleData));
+        }
+        else
+		    mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), tokensupply, mypk, &vdata, false));
 
         if (additionalMarkerEvalCode > 0) 
         {
@@ -629,7 +696,7 @@ template <class V>
 std::string CreateTokenLocal(CAmount txfee, CAmount tokensupply, std::string name, std::string description, vscript_t nonfungibleData)
 {
     CPubKey nullpk = CPubKey();
-    UniValue sigData = CreateTokenExt<V>(nullpk, txfee, tokensupply, name, description, nonfungibleData, 0, false); 
+    UniValue sigData = CreateTokenExt<V>(nullpk, txfee, tokensupply, name, description, nonfungibleData, 0, NullUniValue, false); 
     return sigData[JSON_HEXTX].getValStr();
 }
 
@@ -1205,6 +1272,9 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
 	uint256 hashBlock; 
 	CAmount tokenoshis; 
     const char *funcname = __func__; 
+
+    if (eval->GetCurrentHeight() <= 292) return true;
+
 	
     std::map <uint256, CAmount> mapinputs, mapoutputs;
 
