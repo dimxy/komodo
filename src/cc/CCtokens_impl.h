@@ -1273,9 +1273,8 @@ bool TokensExactAmounts(bool goDeeper, struct CCcontract_info *cp, Eval* eval, c
 	CAmount tokenoshis; 
     const char *funcname = __func__; 
 
-    if (eval->GetCurrentHeight() <= 292) return true;
+    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY30") == 0 && eval->GetCurrentHeight() <= 292) return true;
 
-	
     std::map <uint256, CAmount> mapinputs, mapoutputs;
 
 	// this is just for log messages indentation for debugging recursive calls:

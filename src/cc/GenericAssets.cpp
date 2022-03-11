@@ -758,7 +758,7 @@ static bool GenericRoyaltyValidateVouts(struct CCcontract_info *cp, Eval* eval, 
 // token royalty validation entry function
 bool GenericTokenRoyaltyValidate(struct CCcontract_info *cp, Eval* eval,const CTransaction &tx, uint32_t nIn)
 {
-    if (eval->GetCurrentHeight() <= 292) return true;
+    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY30") == 0 && eval->GetCurrentHeight() <= 292) return true;
 
     uint256 hashBlock;
     CTransaction vintx;
@@ -938,7 +938,7 @@ static bool GenericAuctionValidateVouts(struct CCcontract_info *cp, Eval* eval, 
 // generic token auction validation entry point 
 bool GenericTokenAuctionValidate(struct CCcontract_info *cp, Eval* eval,const CTransaction &tx, uint32_t nIn)
 {
-    if (eval->GetCurrentHeight() <= 292) return true;
+    if (strcmp(ASSETCHAINS_SYMBOL, "DIMXY30") == 0 && eval->GetCurrentHeight() <= 292) return true;
     uint256 hashBlock;
     CTransaction vintx;
     std::set<int32_t> usedVouts; // already taken vouts
