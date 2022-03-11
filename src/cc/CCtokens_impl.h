@@ -454,9 +454,9 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
             bool hasRoyalty = tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY);*/
 
             if (V::EvalCode() == EVAL_TOKENSV2 && isEvalParamActive)  {
-                CC *ccToken = MakeTokenV2TransferCC(tokenid, { mypk });
+                CC *ccToken = MakeTokenV2TransferCC(tokenid, destpubkeys);
                 if (!ccToken) { CCerror = "cannot create token condition"; return NullUniValue; }
-                mtx.vout.push_back(MakeCCvoutMixed(ccToken, total, EVAL_TOKENSV2, 1, { mypk }, &vOpdropData));
+                mtx.vout.push_back(MakeCCvoutMixed(ccToken, total, EVAL_TOKENSV2, 1, destpubkeys, &vOpdropData));
             }
             else
                 mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, total, M, destpubkeys, &vOpdropData, isEvalParamActive)); 
