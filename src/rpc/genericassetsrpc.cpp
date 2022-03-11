@@ -77,7 +77,11 @@ UniValue assetsv21bidorder(const UniValue& params, bool fHelp, const CPubKey& re
 
     CCerror.clear();
     if (fHelp || params.size() < 3 || params.size() > 4)
-        throw std::runtime_error(std::string(__func__) + " numtokens tokenid price [expiry-height]\n");
+        throw std::runtime_error(std::string(__func__) + " numtokens tokenid price [expiry-height]\n"
+        "numtokens - number of tokens to buy\n"
+        "tokenid - tokeid of the token to buy\n"
+        "price - token price in coins\n"
+        "expiry-height - optional height of the bid expiration (4 weeks from the current height is default)");
     if (ensure_CCrequirements(EVAL_GENERICTOKENBID) < 0 || ensure_CCrequirements(EVAL_GENERICTOKENDEX) < 0 || ensure_CCrequirements(EVAL_TOKENSV2) < 0)
         throw std::runtime_error(CC_REQUIREMENTS_MSG);
 
@@ -121,7 +125,12 @@ UniValue assetsv21bidauction(const UniValue& params, bool fHelp, const CPubKey& 
 
     CCerror.clear();
     if (fHelp || params.size() != 5)
-        throw std::runtime_error(std::string(__func__) + " numtokens tokenid price step duration\n");
+        throw std::runtime_error(std::string(__func__) + " numtokens tokenid price step duration\n"
+        "numtokens - tokens number to buy\n"
+        "price - token price in coins\n"
+        "step - auction step in coins: any pubkey can improve the auction price for not less then price + step while the auction is not finished\n"
+        "duration - auction duration as a number of blocks\n");
+
     if (ensure_CCrequirements(EVAL_GENERICTOKENBID) < 0 || ensure_CCrequirements(EVAL_GENERICTOKENAUCTION) < 0 || ensure_CCrequirements(EVAL_TOKENSV2) < 0)
         throw std::runtime_error(CC_REQUIREMENTS_MSG);
 
@@ -191,9 +200,12 @@ UniValue assetsv21fillbid(const UniValue& params, bool fHelp, const CPubKey& rem
     CCerror.clear();
 
     if (fHelp || params.size() != 3 && params.size() != 4)
-        throw std::runtime_error(std::string(__func__) + " tokenid bidtxid fillamount [unit_price]\n"
-                                                    "fill bid: send 'fillamount' of tokens, receive coins for the price of the sent tokens\n"
-                                                    "unit_price - optional if order is filled for a better price (in coins)\n");
+        throw std::runtime_error(std::string(__func__) + " tokenid bidtxid fillunits [unit_price]\n"
+        "fill order or auction bid\n"
+        "tokenid - tokenid of the token in the bid\n"
+        "bidtxid - txid of the ask transaction\n"
+        "fillunits - for how many tokens to fill the bid. Note for auction all tokens in the bid must be filled\n"                                            
+        "unit_price - optional if the order is filled with a better price (in coins)\n");
     if (ensure_CCrequirements(EVAL_GENERICTOKENBID) < 0 || ensure_CCrequirements(EVAL_TOKENSV2) < 0)
         throw std::runtime_error(CC_REQUIREMENTS_MSG);
 
@@ -229,8 +241,10 @@ UniValue assetsv21changebid(const UniValue& params, bool fHelp, const CPubKey& r
 
     if (fHelp || params.size() != 3)
         throw std::runtime_error(std::string(__func__) + " tokenid bidtxid unit_price\n"
-                                                    "change auction price\n"
-                                                    "unit_price must not be less than auction step (in coins)\n");
+        "change bid auction price\n"
+        "tokenid - tokenid of the token in the bid\n"
+        "bidtxid - txid of the bid transaction\n"
+        "unit_price - new token price, it must be improved for not less than auction step (in coins)\n");
     if (ensure_CCrequirements(EVAL_GENERICTOKENBID) < 0 || ensure_CCrequirements(EVAL_GENERICTOKENAUCTION) < 0 || ensure_CCrequirements(EVAL_TOKENSV2) < 0)
         throw std::runtime_error(CC_REQUIREMENTS_MSG);
 
@@ -262,7 +276,12 @@ UniValue assetsv21askorder(const UniValue& params, bool fHelp, const CPubKey& re
 
     CCerror.clear();
     if (fHelp || params.size() < 3 || params.size() > 4)
-        throw std::runtime_error(std::string(__func__) + " numtokens tokenid price [expiry-height]\n");
+        throw std::runtime_error(std::string(__func__) + " numtokens tokenid price [expiry-height]\n"
+        "numtokens - number of tokens to sell\n"
+        "tokenid - tokeid of the token to sell\n"
+        "price - token price in coins\n"
+        "expiry-height - optional height of the ask expiration (4 weeks from the current height is default)");
+
     if (ensure_CCrequirements(EVAL_GENERICTOKENASK) < 0 || ensure_CCrequirements(EVAL_TOKENSV2) < 0)
         throw std::runtime_error(CC_REQUIREMENTS_MSG);
     
@@ -307,7 +326,12 @@ UniValue assetsv21askauction(const UniValue& params, bool fHelp, const CPubKey& 
 
     CCerror.clear();
     if (fHelp || params.size() != 5)
-        throw std::runtime_error(std::string(__func__) + " numtokens tokenid price step duration\n");
+        throw std::runtime_error(std::string(__func__) + " numtokens tokenid price step duration\n"
+        "numtokens - tokens number to sell\n"
+        "tokenid - tokenid of the token to sell\n"
+        "price - token price in coins\n"
+        "step - auction step in coins: any pubkey can improve the auction price for not less then price + step while the auction is not finished\n"
+        "duration - auction duration as a number of blocks\n");
     if (ensure_CCrequirements(EVAL_GENERICTOKENBID) < 0 || ensure_CCrequirements(EVAL_GENERICTOKENAUCTION) < 0 || ensure_CCrequirements(EVAL_TOKENSV2) < 0)
         throw std::runtime_error(CC_REQUIREMENTS_MSG);
 
@@ -374,7 +398,12 @@ UniValue assetsv21fillask(const UniValue& params, bool fHelp, const CPubKey& rem
     UniValue result(UniValue::VOBJ); 
 
     if (fHelp || params.size() != 3 && params.size() != 4)
-        throw std::runtime_error(std::string(__func__) + " tokenid asktxid fillunits [unitprice]\n");
+        throw std::runtime_error(std::string(__func__) + " tokenid asktxid fillunits [unitprice]\n"
+        "fill order or auction ask\n"
+        "tokenid - tokenid of the token in the ask\n"
+        "asktxid - txid of the ask transaction\n"
+        "fillunits - how many tokens to fill the ask. Note for auction all tokens in the ask must be filled\n"
+        "unit_price - optional if the order is filled with a better price (in coins)\n");
     if (ensure_CCrequirements(EVAL_GENERICTOKENASK) < 0 || ensure_CCrequirements(EVAL_TOKENSV2) < 0)
         throw std::runtime_error(CC_REQUIREMENTS_MSG);
 
@@ -407,9 +436,11 @@ UniValue assetsv21changeask(const UniValue& params, bool fHelp, const CPubKey& r
     CCerror.clear();
 
     if (fHelp || params.size() != 3)
-        throw std::runtime_error(std::string(__func__) + " tokenid bidtxid unit_price\n"
-                                                    "change auction price\n"
-                                                    "unit_price must not be less than auction step (in coins)\n");
+        throw std::runtime_error(std::string(__func__) + " tokenid asktxid unit_price\n"
+        "change ask auction price\n"
+        "tokenid - tokenid of the token in the ask\n"
+        "asktxid - txid of the ask transaction\n"
+        "unit_price - new token price, it must be improved for not less than auction step (in coins)\n");
     if (ensure_CCrequirements(EVAL_GENERICTOKENBID) < 0 || ensure_CCrequirements(EVAL_GENERICTOKENAUCTION) < 0 || ensure_CCrequirements(EVAL_TOKENSV2) < 0)
         throw std::runtime_error(CC_REQUIREMENTS_MSG);
 
@@ -418,18 +449,18 @@ UniValue assetsv21changeask(const UniValue& params, bool fHelp, const CPubKey& r
     CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
     
     uint256 tokenid = Parseuint256((char *)params[0].get_str().c_str());
-    uint256 bidtxid = Parseuint256((char *)params[1].get_str().c_str());
+    uint256 asktxid = Parseuint256((char *)params[1].get_str().c_str());
     CAmount newPrice = AmountFromValue(params[2]);		
     if (newPrice <= 0)
         return MakeResultError("unit_price must be positive");
           
-    if (tokenid.IsNull() || bidtxid.IsNull())
-        return MakeResultError("must provide tokenid and bidtxid");
+    if (tokenid.IsNull() || asktxid.IsNull())
+        return MakeResultError("must provide tokenid and asktxid");
     
     CPubKey mypk;
     SET_MYPK_OR_REMOTE(mypk, remotepk);
 
-    result = AssetsV21ChangeSell(mypk, 0, tokenid, bidtxid, newPrice);
+    result = AssetsV21ChangeSell(mypk, 0, tokenid, asktxid, newPrice);
     RETURN_IF_ERROR(CCerror);
     return result;
 }
