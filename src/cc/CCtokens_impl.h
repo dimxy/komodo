@@ -243,7 +243,6 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
     for (int ver = beginVer; ver <= endVer; ver ++) {
         char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
         if (ver == 1)  {
-
             CCwrapper ccToken( MakeTokenV2TransferCC(tokenid, { pk }) );
             Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), ver));
         }
@@ -570,7 +569,12 @@ std::string TokenTransfer(CAmount txfee, uint256 tokenid, uint8_t M, const std::
     else {
         for (int ver = 0; ver <= 1; ver ++) {
             char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-            GetTokensCCaddress(cp, tokenaddr, mypk, ver);
+            if (ver == 1)  {
+                CCwrapper ccToken( MakeTokenV2TransferCC(tokenid, { mypk }) );
+                Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), ver));
+            }
+            else
+                GetTokensCCaddress(cp, tokenaddr, mypk, ver);
             tokenaddrs.push_back(tokenaddr);
         }
     }
@@ -735,7 +739,7 @@ UniValue GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool)
         CAmount supply = 0LL;
         for (int i = 0; i < creationtx.vout.size(); i++)  {
             CAmount output;
-            if ((output = IsTokensvout<TokensV2>(cp, NULL, creationtx, i, creationtx.GetHash())) > 0)
+            if ((output = IsTokensvout<TokensV1>(cp, NULL, creationtx, i, creationtx.GetHash())) > 0)
                 supply += output;
         }
         if (supply == 0LL)  {
@@ -749,7 +753,12 @@ UniValue GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool)
     for (int ver = beginVer; ver <= endVer; ver ++)
     {
         char tokenaddr[KOMODO_ADDRESS_BUFSIZE]; 
-        GetTokensCCaddress(cp, tokenaddr, pk, ver); 
+        if (ver == 1)  {
+            CCwrapper ccToken( MakeTokenV2TransferCC(tokenid, { pk }) );
+            Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), ver));
+        }
+        else
+            GetTokensCCaddress(cp, tokenaddr, pk, ver); 
 	    CAmount input = AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, 0, 0, usemempool);
         total += input;
         result.push_back(Pair(std::string(tokenaddr), input));
