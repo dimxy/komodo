@@ -30,12 +30,13 @@ bool IsCryptoConditionsEnabled();
 // Prefix not enabled because no current use case, ambiguity on how to combine with secp256k1
 // RSA not enabled because no current use case, not implemented
 const int CCEnabledTypes = 1 << CC_Secp256k1 | \
+                           1 << CC_Secp256k1hash | \
                            1 << CC_Threshold | \
                            1 << CC_Eval | \
                            1 << CC_Preimage | \
                            1 << CC_Ed25519;
 
-const int CCSigningNodes = 1 << CC_Ed25519 | 1 << CC_Secp256k1;
+const int CCSigningNodes = 1 << CC_Ed25519 | 1 << CC_Secp256k1 | 1 << CC_Secp256k1hash;
 
 
 /*
@@ -57,6 +58,7 @@ CC* CCNewPreimage(std::vector<unsigned char> preimage);
 CC* CCNewEval(std::vector<unsigned char> code);
 CC* CCNewEval(std::vector<unsigned char> code, std::vector<unsigned char> param);
 CC* CCNewSecp256k1(CPubKey k);
+CC* CCNewSecp256k1Hash(CKeyID k);
 CC* CCNewThreshold(int t, std::vector<CC*> v);
 
 

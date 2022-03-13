@@ -25,8 +25,8 @@ std::vector<CPubKey> NULL_pubkeys;
 //void NSPV_CCtxids(std::vector<uint256>& txids, char* coinaddr, bool ccflag, uint8_t evalcode, uint256 filtertxid, uint8_t func);
 //void NSPV_CCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &txids,char *coinaddr,bool ccflag);
 
-bool HasSecp256k1Cond(CC *cond);
-CC *MakeTokenV2TransferCC(uint256 tokenid, const std::vector<CPubKey> & pks);
+//bool HasSecp256k1Cond(CC *cond);
+
 
 /* see description to function definition in CCinclude.h */
 bool SignTx(CMutableTransaction &mtx,int32_t vini,int64_t utxovalue,const CScript scriptPubKey)
@@ -454,7 +454,9 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
          mynftaddr[KOMODO_ADDRESS_BUFSIZE] = { '\0' },
          myccaddrv1[KOMODO_ADDRESS_BUFSIZE], 
          globaladdrv1[KOMODO_ADDRESS_BUFSIZE],
-         mynftaddrv1[KOMODO_ADDRESS_BUFSIZE] = { '\0' };
+         mynftaddrv1[KOMODO_ADDRESS_BUFSIZE] = { '\0' },
+         mytokenraddr[KOMODO_ADDRESS_BUFSIZE];
+
     uint8_t myprivkey[32] = {'\0'};
     //CC *cond = NULL, *probecond = NULL;
     UniValue sigData(UniValue::VARR), result(UniValue::VOBJ), partialConds(UniValue::VARR);
@@ -467,6 +469,13 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
     _GetCCaddress(myccaddrv1, cp->evalcode, mypk, 1);
     _GetCCaddress(globaladdrv1, cp->evalcode, globalpk, 1);
     GetTokensCCaddress(cp, mynftaddrv1, mypk, 1); // get token or nft probe mixed mode subver 1
+
+    // token addr for R address
+    char mynormaladdr[KOMODO_ADDRESS_BUFSIZE];
+    Getscriptaddress(mynormaladdr, CScript() << vuint8_t(mypk.begin(), mypk.end()) << OP_CHECKSIG); 
+    CTxDestination dest = DecodeDestination(mynormaladdr);  // get normal dest
+    CCwrapper ccTokenRaddr( MakeTokenV2TransferCCDest(zeroid, { dest }) );
+    Getscriptaddress(mytokenraddr, CCPubKey(ccTokenRaddr.get(), 1));
 
     n = mtx.vout.size();
     for (int i = 0; i < n; i++) {
@@ -561,6 +570,9 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                 } else if (strcmp(destaddr, mynftaddrv1) == 0) {
                     privkey = myprivkey;
                     cond.reset(MakeTokensv2CCcond1(cp->evalcode, mypk));
+                //} else if (strcmp(destaddr, mytokenraddr) == 0) {
+                //    privkey = myprivkey;
+                //    cond.reset(cc_copy(ccTokenRaddr.get()));
                 } else {
                     for (int mixedVer = 0; mixedVer <= 1 && cond.get() == nullptr; mixedVer ++)  {
                         // use vector of dest addresses and conds to probe vintxconds
@@ -597,7 +609,8 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                 else if (!remote) // we have privkey in the wallet
                 {
                     uint256 sighash = SignatureHash(CCSignedData(cond.get()), mtx, i, SIGHASH_ALL, utxovalues[i], consensusBranchId, &txdata);
-                    if (cc_signTreeSecp256k1Msg32(cond.get(), privkey, sighash.begin()) != 0) {
+                    if (cc_signTreeSecp256k1Msg32(cond.get(), privkey, sighash.begin()) != 0  ||
+                        cc_signTreeSecp256k1HashMsg32(cond.get(), privkey, sighash.begin()) != 0) {
                         std::string strcond;
                         cJSON *params = cc_conditionToJSON(cond.get());
                         if (params)  {
@@ -622,7 +635,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                             partialConds.push_back(elem);
                         }
                     } else {
-                        fprintf(stderr, "%s vini.%d has CC signing error: cc_signTreeSecp256k1Msg32 returned error, address.(%s) %s\n", __func__, i, destaddr, EncodeHexTx(mtx).c_str());
+                        fprintf(stderr, "%s vini.%d has CC signing error: both cc_signTreeSecp256k1Msg32 and cc_signTreeSecp256k1HashMsg32 returned error, address.(%s) %s\n", __func__, i, destaddr, EncodeHexTx(mtx).c_str());
                         memset(myprivkey, 0, sizeof(myprivkey));
                         return sigDataNull;
                     }

@@ -18,6 +18,7 @@
 #include <numeric>
 #include "univalue.h"
 #include "amount.h"
+#include "key_io.h"
 #include "rpc/server.h"
 #include "rpc/protocol.h"
 
@@ -428,7 +429,7 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
     CCerror.clear();
 
     if (fHelp || (params.size() != 3 && params.size() != 1))
-        throw runtime_error(name + " tokenid destpubkey amount\n" +
+        throw runtime_error(name + " tokenid destination amount\n" +
                             name + " '{ \"tokenid\":\"<tokenid>\", \"ccaddressMofN\":\"<address>\", \"destpubkeys\": [ \"<pk1>\", \"<pk2>\", ... ], \"M\": <value>, \"amount\": <amount> }'\n"
                             "tokenid - token creation id\n"
                             "ccaddressMofN - optional cc address of MofN utxos to spend, if not present spending is from mypk\n"
@@ -447,19 +448,24 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
     if (params.size() == 3)
     {
         uint256 tokenid = Parseuint256((char *)params[0].get_str().c_str());
-        if( tokenid == zeroid )    
+        if( tokenid.IsNull() )    
             return MakeResultError("invalid tokenid");
         
-        std::vector<CPubKey> pks;
-        vuint8_t vpubkey(ParseHex(params[1].get_str().c_str()));
-        if (vpubkey.size() != CPubKey::COMPRESSED_PUBLIC_KEY_SIZE) 
-            return MakeResultError("invalid destpubkey");    
-        pks.push_back(pubkey2pk(vpubkey));
+        std::vector<CTxDestination> dests;
+        CPubKey pk(ParseHex(params[1].get_str()));
+        if (pk.IsValid())
+            dests.push_back(pk);
+        else {
+            CTxDestination addr = DecodeDestination(params[1].get_str());
+            if (addr.which() != TX_PUBKEYHASH)
+                return MakeResultError("invalid destination pubkey or address");
+            dests.push_back(addr);
+        }
 
         CAmount amount = atoll(params[2].get_str().c_str()); 
         if( amount <= 0 )    
             return MakeResultError("amount must be positive");
-        hex = TokenTransfer<V>(0, tokenid, 1, pks, amount);
+        hex = TokenTransferDest<V>(0, tokenid, 1, dests, amount);
         RETURN_IF_ERROR(CCerror);
         if (!hex.empty())
             return MakeResultSuccess(hex);

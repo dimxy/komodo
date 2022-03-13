@@ -75,6 +75,14 @@ CC* CCNewSecp256k1(CPubKey k)
     return cond;
 }
 
+CC* CCNewSecp256k1Hash(CKeyID k)
+{
+    CC *cond = cc_new(CC_Secp256k1hash);
+    cond->publicKeyHash = (uint8_t*)calloc(1, k.size());
+    memcpy(cond->publicKeyHash, k.begin(), k.size());
+    cond->dontFulfill = 0;
+    return cond;
+}
 
 CC* CCNewEval(std::vector<unsigned char> code)
 {

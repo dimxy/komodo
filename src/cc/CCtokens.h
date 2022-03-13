@@ -462,4 +462,12 @@ uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey);
 
 int TokensGetMixedVersion(Eval * eval, bool isMixed);
 
+CTxOut MakeCCvoutMixed(const CC *cond, CAmount nValue, uint8_t evalcode, uint8_t M, const std::vector<CPubKey> &destpks, const vscript_t* pvData);
+CTxOut MakeCCvoutMixedDest(const CC *cond, CAmount nValue, uint8_t evalcode, uint8_t M, const std::vector<CTxDestination> &destinations, const vscript_t* pvData);
+
+CC *MakeTokenCreateCC(const CPubKey & creatorpk, const std::string &name, const std::string &desc, const vuint8_t &vextraData, int32_t royaltyFract);
+
+CC *MakeTokenV2TransferCC(uint256 tokenid, const std::vector<CPubKey> & pks);
+CC *MakeTokenV2TransferCCDest(uint256 tokenid, const std::vector<CTxDestination> & dests);
+
 #endif

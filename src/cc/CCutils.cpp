@@ -171,12 +171,17 @@ CTxOut MakeCC1of2voutMixed(uint8_t evalcode,CAmount nValue,CPubKey pk1,CPubKey p
     return(vout);
 }
 
-CTxOut MakeCCvoutMixed(const CC *cond, CAmount nValue, uint8_t evalcode, uint8_t M, const std::vector<CPubKey> &vPubKeys, const vscript_t* pvData)
+CTxOut MakeCCvoutMixedDest(const CC *cond, CAmount nValue, uint8_t evalcode, uint8_t M, const std::vector<CTxDestination> &destinations, const vscript_t* pvData)
 {
     CTxOut vout;
     CCwrapper payoutCond(cond);
     //if (!CCtoAnon(payoutCond.get())) return (vout);
     vout = CTxOut(nValue, CCPubKey(payoutCond.get(), 1));
+
+    std::vector<CPubKey> vPubKeys;
+    for (auto const &dest : destinations)
+        if (dest.which() == TX_PUBKEY)
+            vPubKeys.push_back(boost::get<CPubKey>(dest));
 
     std::vector<vscript_t> vvData;
     if (pvData)
@@ -185,6 +190,14 @@ CTxOut MakeCCvoutMixed(const CC *cond, CAmount nValue, uint8_t evalcode, uint8_t
     vout.scriptPubKey << ccp.AsVector() << OP_DROP;
     
     return(vout);
+}
+
+CTxOut MakeCCvoutMixed(const CC *cond, CAmount nValue, uint8_t evalcode, uint8_t M, const std::vector<CPubKey> &destpks, const vscript_t* pvData)
+{
+    std::vector<CTxDestination> destinations;
+    for (auto const &pk : destpks)
+        destinations.push_back(pk);
+    return MakeCCvoutMixedDest(cond, nValue, evalcode, M, destinations, pvData);
 }
 
 CC* GetCryptoCondition(CScript const& scriptSig)
@@ -1639,7 +1652,7 @@ struct UpdateEvalCodeContext {
     return rc;
 }*/
 
-bool HasSecp256k1Cond(CC *cond)
+/*bool HasSecp256k1Cond(CC *cond)
 {
     auto findEval = [](CC *cond, struct CCVisitor _) {
         bool r = false;
@@ -1653,7 +1666,7 @@ bool HasSecp256k1Cond(CC *cond)
 
     CCVisitor visitor = { findEval, (uint8_t*)"", 0, (void*)nullptr };
     return !cc_visit(cond, visitor);
-}
+}*/
 
 const uint8_t CCwrapper::dontsign[32]  = { 0 };
 const uint8_t CCwrapper::usemypriv[32] = { 0xff };

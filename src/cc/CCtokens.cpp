@@ -1115,7 +1115,7 @@ CC *MakeTokenCreateCC(const CPubKey & creatorpk, const std::string &name, const 
     return ccThreshold;
 }
 
-CC *MakeTokenV2TransferCC(uint256 tokenid, const std::vector<CPubKey> & pks)
+CC *MakeTokenV2TransferCCDest(uint256 tokenid, const std::vector<CTxDestination> & dests)
 {
     uint8_t funcId = 't', ver = 1;
     uint256 tokenidRev = revuint256(tokenid);
@@ -1131,32 +1131,48 @@ CC *MakeTokenV2TransferCC(uint256 tokenid, const std::vector<CPubKey> & pks)
     struct CCcontract_info *cpTokens, CTokens;
     cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
 
-    CTransaction tokencreatetx;
-    uint256 hashBlock;
-    if (!myGetTransaction(tokenid, tokencreatetx, hashBlock)) { CCerror = "could not load token create tx"; return nullptr; }
-    int32_t v = 0;
-    for (; v < tokencreatetx.vout.size(); v++)  {
-        if (IsTokensvout<TokensV2>(cpTokens, nullptr, tokencreatetx, v, tokencreatetx.GetHash()) > 0LL)
-            break;
-    }
-    if (v == tokencreatetx.vout.size()) { CCerror = "could not find token vouts in token create tx"; return nullptr; }
-    bool hasRoyalty = tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY);
+    if (!tokenid.IsNull())  // allow null tokenid to create probe conds to spend tokens
+    {
+        CTransaction tokencreatetx;
+        uint256 hashBlock;
+        if (!myGetTransaction(tokenid, tokencreatetx, hashBlock)) { CCerror = "could not load token create tx"; return nullptr; }
+        int32_t v = 0;
+        for (; v < tokencreatetx.vout.size(); v++)  {
+            if (IsTokensvout<TokensV2>(cpTokens, nullptr, tokencreatetx, v, tokencreatetx.GetHash()) > 0LL)
+                break;
+        }
+        if (v == tokencreatetx.vout.size()) { CCerror = "could not find token vouts in token create tx"; return nullptr; }
+        bool hasRoyalty = tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY);
 
-    if (hasRoyalty)
-        ccEvalRoyalty = CCNewEval(E_MARSHAL(ss << EVAL_GENERICTOKENROYALTY)/*, E_MARSHAL(ss << funcId << royaltyFract << pk << tokenidRev)*/);
+        if (hasRoyalty)
+            ccEvalRoyalty = CCNewEval(E_MARSHAL(ss << EVAL_GENERICTOKENROYALTY)/*, E_MARSHAL(ss << funcId << royaltyFract << pk << tokenidRev)*/);
+    }
     
     std::vector<CC*> evals;
     evals.push_back(ccEvalTokens);
     if (ccEvalRoyalty)
         evals.push_back(ccEvalRoyalty);
-    for (auto const &pk : pks)  {
-        CC *ccSig = CCNewSecp256k1(pk);
+    for (auto const &dest : dests)  {
+        CC *ccSig;
+        if (dest.which() == TX_PUBKEY)
+            ccSig = CCNewSecp256k1(boost::get<CPubKey>(dest));
+        else if (dest.which() == TX_PUBKEYHASH)
+            ccSig = CCNewSecp256k1Hash(boost::get<CKeyID>(dest));
+        else 
+            return nullptr;
         evals.push_back(ccSig);
     }
     CC *ccThreshold = CCNewThreshold(evals.size(), evals);
     return ccThreshold;
 }
 
+CC *MakeTokenV2TransferCC(uint256 tokenid, const std::vector<CPubKey> & destpks)
+{
+    std::vector<CTxDestination> destinations;
+    for (auto const &pk : destpks)
+        destinations.push_back(pk);
+    return MakeTokenV2TransferCCDest(tokenid, destinations);
+}
 
 // get mixed mode version for height
 int TokensGetMixedVersion(Eval *eval, bool isMixed)

@@ -18,17 +18,13 @@
 
 // templates for either tokens or tokens2 functions' implementation
 
+#include "key_io.h"
 #include "CCtokens.h"
 //#include "CCTokenData.h"
 #include "CCassets.h"
 #include "CCassetsCore_impl.h"
 #include "importcoin.h"
 #include "base58.h"
-
-CTxOut MakeCCvoutMixed(const CC *cond, CAmount nValue, uint8_t evalcode, uint8_t M, const std::vector<CPubKey> &vPubKeys, const vscript_t* pvData);
-
-CC *MakeTokenCreateCC(const CPubKey & creatorpk, const std::string &name, const std::string &desc, const vuint8_t &vextraData, int32_t royaltyFract);
-CC *MakeTokenV2TransferCC(uint256 tokenid, const std::vector<CPubKey> & pks);
 
 //bool UpdateEvalParam(CC *cond, uint8_t evalCode, const std::vector<unsigned char> &vParam);
 
@@ -237,20 +233,40 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 {
     CAmount inputs = 0LL;
 
-    int beginVer = V::IsMixed() ? 0 : -1;
-    int endVer = V::IsMixed() ? 1 : -1;
+    if (V::IsMixed())
+    {
+        int beginVer = 0;
+        int endVer =  1;
 
-    for (int ver = beginVer; ver <= endVer; ver ++) {
-        char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-        if (ver == 1)  {
-            CCwrapper ccToken( MakeTokenV2TransferCC(tokenid, { pk }) );
-            Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), ver));
+        for (int ver = beginVer; ver <= endVer; ver ++) {
+            char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+            if (ver == 1)  {
+                CCwrapper ccToken( MakeTokenV2TransferCC(tokenid, { pk }) );
+                Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), ver));
+            }
+            else
+                GetTokensCCaddress(cp, tokenaddr, pk, ver);  
+            std::cerr << __func__ << " tokenaddr=" << tokenaddr << std::endl;
+            inputs += AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, maxinputs, useMempool);
+            if (total > 0 && inputs >= total) break; // if total == 0 this just getting the balance
         }
-        else
-            GetTokensCCaddress(cp, tokenaddr, pk, ver);  
-        std::cerr << __func__ << " tokenaddr=" << tokenaddr << std::endl;
+        // get from Raddress
+        if (total == 0 || inputs < total)  {
+            char normaladdr[KOMODO_ADDRESS_BUFSIZE];
+            char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+            Getscriptaddress(normaladdr, CScript() << vuint8_t(pk.begin(), pk.end()) << OP_CHECKSIG); 
+            CTxDestination dest = DecodeDestination(normaladdr);  // get normal dest
+            CCwrapper ccToken( MakeTokenV2TransferCCDest(tokenid, { dest }) );
+            Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), 1));
+            std::cerr << __func__ << " from Raddress tokenaddr=" << tokenaddr << std::endl;
+            inputs += AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, maxinputs, useMempool);
+        }
+    }
+    else
+    {
+        char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+        GetTokensCCaddress(cp, tokenaddr, pk, -1);  
         inputs += AddTokenCCInputs<V>(cp, mtx, tokenaddr, tokenid, total, maxinputs, useMempool);
-        if (total > 0 && inputs >= total) break; // if total == 0 this just getting the balance
     }
     return inputs;
 } 
@@ -373,7 +389,7 @@ UniValue TokenFinalizeTransferTx(CMutableTransaction &mtx, struct CCcontract_inf
 // total - token amount to transfer
 // returns: signed transfer tx in hex
 template <class V>
-UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const std::vector<std::string> &tokenaddrs, std::vector<std::pair<CCwrapper, uint8_t*>> probeconds, uint8_t M, std::vector<CPubKey> destpubkeys, CAmount total, bool useMempool)
+UniValue TokenTransferExtDest(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const std::vector<std::string> &tokenaddrs, std::vector<std::pair<CCwrapper, uint8_t*>> probeconds, uint8_t M, const std::vector<CTxDestination> &destinations, CAmount total, bool useMempool)
 {
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
     struct CCcontract_info *cp, C;
@@ -395,6 +411,12 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
         return  NullUniValue;
     }
 
+    std::vector<CPubKey> destpubkeys;
+    for (auto const &dest : destinations)
+        if (dest.which() == TX_PUBKEY)
+            destpubkeys.push_back(boost::get<CPubKey>(dest));
+
+
     // CAmount normalInputs = AddNormalinputs(mtx, mypk, txfee, 0x10000, isRemote);   // note: wallet scanning for inputs is slower than index scanning
     CAmount normalInputs = AddNormalinputsRemote(mtx, mypk, txfee, 0x10000, useMempool);
 
@@ -414,20 +436,20 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
 			if (CCinputs > total)
 				CCchange = (CCinputs - total);
 
-            if (destpubkeys.size() == 0) {
-                CCerror = "no dest pubkeys";
+            if (destinations.size() == 0) {
+                CCerror = "no destinations";
                 return NullUniValue;
             }
 
             if (V::EvalCode() == EVAL_TOKENS) {
-                if (destpubkeys.size() > 2) {
-                    CCerror = "no more than 2 dest pubkeys supported";
+                if (destinations.size() > 2) {
+                    CCerror = "no more than 2 destinations supported";
                     return NullUniValue;
                 }
             }
             if (V::EvalCode() == EVAL_TOKENSV2) {
-                if (destpubkeys.size() > 128) {
-                    CCerror = "no more than 128 dest pubkeys supported";
+                if (destinations.size() > 128) {
+                    CCerror = "no more than 128 destinations supported";
                     return NullUniValue;
                 }
             }
@@ -454,12 +476,13 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
             bool hasRoyalty = tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY);*/
 
             if (V::EvalCode() == EVAL_TOKENSV2 && isEvalParamActive)  {
-                CC *ccToken = MakeTokenV2TransferCC(tokenid, destpubkeys);
+                CC *ccToken = MakeTokenV2TransferCCDest(tokenid, destinations);
                 if (!ccToken) { CCerror = "cannot create token condition"; return NullUniValue; }
-                mtx.vout.push_back(MakeCCvoutMixed(ccToken, total, EVAL_TOKENSV2, 1, destpubkeys, &vOpdropData));
+                mtx.vout.push_back(MakeCCvoutMixedDest(ccToken, total, EVAL_TOKENSV2, 1, destinations, &vOpdropData));
             }
-            else
+            else {
                 mtx.vout.push_back(V::MakeTokensCCMofNvout(V::EvalCode(), 0, total, M, destpubkeys, &vOpdropData, isEvalParamActive)); 
+            }
 
             // add optional custom probe conds to non-usual sign vins
             for (const auto &p : probeconds)
@@ -514,13 +537,27 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
                 GetOpReturnData(oprettmp, vdataChange);
                 if (V::EvalCode() == EVAL_TOKENSV2 && isEvalParamActive)  {
                     CC *ccToken = MakeTokenV2TransferCC(tokenid, { mypk });
-                    CCwrapper probeCond(cc_copy(ccToken) );
                     if (!ccToken) { CCerror = "cannot create token condition"; return NullUniValue; }
                     mtx.vout.push_back(MakeCCvoutMixed(ccToken, CCchange, EVAL_TOKENSV2, 1, { mypk }, &vdataChange));
-                    CCAddVintxCond(cp, probeCond, CCwrapper::usemypriv); //add MofN probe to find vins and sign
                 }
                 else
 				    mtx.vout.push_back(V::MakeTokensCC1vout(V::EvalCode(), CCchange, mypk, &vdataChange, isEvalParamActive));
+            }
+
+            // add probes for 1of1 tokens
+            if (V::EvalCode() == EVAL_TOKENSV2 && isEvalParamActive)  
+            {
+                CCwrapper probeMypk(MakeTokenV2TransferCC(tokenid, { mypk }));
+                if (!probeMypk.get()) { CCerror = "cannot create token pk condition"; return NullUniValue; }
+                CCAddVintxCond(cp, probeMypk, CCwrapper::usemypriv); //add 1to1 mypk probe to find vins and sign
+
+                // get probe for raddr
+                char normaladdr[KOMODO_ADDRESS_BUFSIZE];
+                Getscriptaddress(normaladdr, CScript() << vuint8_t(mypk.begin(), mypk.end()) << OP_CHECKSIG); 
+                CTxDestination dest = DecodeDestination(normaladdr);  // get normal dest
+                CCwrapper probeMyAddr( MakeTokenV2TransferCCDest(tokenid, { dest }) );
+                if (!probeMyAddr.get()) { CCerror = "cannot create token addr condition"; return NullUniValue; }
+                CCAddVintxCond(cp, probeMyAddr, CCwrapper::usemypriv); //add 1to1 my addr probe to find vins and sign
             }
 
             // TODO maybe add also opret blobs form vintx
@@ -546,10 +583,19 @@ UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokeni
 	return  NullUniValue;
 }
 
+// old style call, convert pubkeys to destinations
+template <class V>
+UniValue TokenTransferExt(const CPubKey &remotepk, CAmount txfee, uint256 tokenid, const std::vector<std::string> &tokenaddrs, std::vector<std::pair<CCwrapper, uint8_t*>> probeconds, uint8_t M, const std::vector<CPubKey> &destpks, CAmount total, bool useMempool)
+{
+    std::vector<CTxDestination> destinations;
+    for (auto const &pk : destpks)
+        destinations.push_back(pk);
+    return TokenTransferExtDest<V>(remotepk, txfee, tokenid, tokenaddrs, probeconds,  M, destinations, total, useMempool);    
+}
+
 // transfer tokens from mypk to another pubkey
-// param additionalEvalCode2 allows transfer of dual-eval non-fungible tokens
 template<class V>
-std::string TokenTransfer(CAmount txfee, uint256 tokenid, uint8_t M, const std::vector<CPubKey> &destpubkeys, CAmount total)
+std::string TokenTransferDest(CAmount txfee, uint256 tokenid, uint8_t M, const std::vector<CTxDestination> &destinations, CAmount total)
 {
     CPubKey mypk = pubkey2pk(Mypubkey());
 
@@ -577,10 +623,29 @@ std::string TokenTransfer(CAmount txfee, uint256 tokenid, uint8_t M, const std::
                 GetTokensCCaddress(cp, tokenaddr, mypk, ver);
             tokenaddrs.push_back(tokenaddr);
         }
+        {
+            char normaladdr[KOMODO_ADDRESS_BUFSIZE];
+            char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+            Getscriptaddress(normaladdr, CScript() << vuint8_t(mypk.begin(), mypk.end()) << OP_CHECKSIG); 
+            CTxDestination dest = DecodeDestination(normaladdr);  // get normal dest
+            CCwrapper ccToken( MakeTokenV2TransferCCDest(tokenid, { dest }) );
+            Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), 1));
+            tokenaddrs.push_back(tokenaddr);
+        }
     }
 
-    UniValue sigData = TokenTransferExt<V>(CPubKey(), txfee, tokenid, tokenaddrs, {}, M, destpubkeys, total, true);
+    UniValue sigData = TokenTransferExtDest<V>(CPubKey(), txfee, tokenid, tokenaddrs, {}, M, destinations, total, true);
     return ResultGetTx(sigData);
+}
+
+// old style call, convert pubkeys to destinations
+template<class V>
+std::string TokenTransfer(CAmount txfee, uint256 tokenid, uint8_t M, const std::vector<CPubKey> &destpks, CAmount total)
+{
+    std::vector<CTxDestination> destinations;
+    for (auto const &pk : destpks)
+        destinations.push_back(pk);
+    return TokenTransferDest<V>(txfee, tokenid, M, destinations, total);
 }
 
 // returns token creation signed raw tx
@@ -746,9 +811,9 @@ UniValue GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool)
             return MakeResultError("not a tokenid (invalid tokenbase)");
         }
     }
+    /*
     int beginVer = V::IsMixed() ? 0 : -1;
     int endVer = V::IsMixed() ? 1 : -1;
-    UniValue result(UniValue::VOBJ); 
     CAmount total = 0LL;
     for (int ver = beginVer; ver <= endVer; ver ++)
     {
@@ -763,7 +828,9 @@ UniValue GetTokenBalance(CPubKey pk, uint256 tokenid, bool usemempool)
         total += input;
         result.push_back(Pair(std::string(tokenaddr), input));
 
-    }
+    }*/
+    CAmount total = AddTokenCCInputs<V>(cp, mtx, pk, tokenid, 0, 0, usemempool);
+    UniValue result(UniValue::VOBJ); 
     result.push_back(Pair("tokenid", tokenid.GetHex()));
     result.push_back(Pair("balance", total));
     return result;
