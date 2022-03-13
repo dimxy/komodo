@@ -18,6 +18,7 @@ libcryptoconditions_core_a_SOURCES = \
 	src/utils.c \
 	src/include/cJSON.c \
 	src/include/sha256.c \
+	src/include/ripemd160.c \
 	src/include/ed25519/src/keypair.c \
 	src/include/ed25519/src/seed.c \
 	src/include/ed25519/src/verify.c \
@@ -44,7 +45,9 @@ libcryptoconditions_core_a_SOURCES = \
 	src/asn/Ed25519FingerprintContents.c \
 	src/asn/EvalFulfillment.c \
 	src/asn/Secp256k1FingerprintContents.c \
+	src/asn/Secp256k1hashFingerprintContents.c \
 	src/asn/Secp256k1Fulfillment.c \
+	src/asn/Secp256k1hashFulfillment.c \
 	src/asn/INTEGER.c \
 	src/asn/NativeEnumerated.c \
 	src/asn/NativeInteger.c \

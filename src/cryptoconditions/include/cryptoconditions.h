@@ -37,6 +37,7 @@ enum CCTypeId {
     CC_Threshold = 2,
     CC_Ed25519 = 4,
     CC_Secp256k1 = 5,
+    CC_Secp256k1hash = 6,
     CC_Eval = 15
 };
 
@@ -55,7 +56,7 @@ typedef struct CC {
     struct CCType *type;
     union {
         // public key types
-        struct { uint8_t *publicKey, *signature; };
+        struct { uint8_t *publicKey, *signature; uint8_t *publicKeyHash; };
         // preimage
         struct { uint8_t *preimage; size_t preimageLength; };
         // threshold
@@ -95,7 +96,9 @@ int             cc_visit(CC *cond, struct CCVisitor visitor);
 int             cc_signTreeEd25519(CC *cond, const uint8_t *privateKey, const uint8_t *msg,
                         const size_t msgLength);
 int             cc_signTreeSecp256k1Msg32(CC *cond, const uint8_t *privateKey, const uint8_t *msg32);
+int             cc_signTreeSecp256k1HashMsg32(CC *cond, const unsigned char *privateKey, const unsigned char *msg32);
 int             cc_secp256k1VerifyTreeMsg32(const CC *cond, const uint8_t *msg32);
+int             cc_secp256k1HashVerifyTreeMsg32(const CC *cond, const unsigned char *msg32);
 size_t          cc_conditionBinary(const CC *cond, uint8_t *buf);
 size_t          cc_fulfillmentBinary(const CC *cond, uint8_t *buf, size_t bufLength);
 size_t          cc_fulfillmentBinaryMixedMode(const CC *cond, uint8_t *buf, size_t bufLength);

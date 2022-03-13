@@ -25,6 +25,7 @@
 #include "preimage.c"
 #include "ed25519.c"
 #include "secp256k1.c"
+#include "secp256k1hash.c"
 #include "anon.c"
 #include "eval.c"
 #include "json_rpc.c"
@@ -36,7 +37,8 @@ struct CCType *CCTypeRegistry[] = {
     NULL, /* &CC_rsaType */
     &CC_Ed25519Type,
     &CC_Secp256k1Type,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, /* 6-14 unused */
+    &CC_Secp256k1hashType,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, /* 7-14 unused */
     &CC_EvalType
 };
 
@@ -152,13 +154,13 @@ void asnCondition(const CC *cond, Condition_t *asn) {
     
     // Fixed previous implementation as it was treating every asn as thresholdSha256 type and it was memory leaking
     // because SimpleSha256Condition_t types do not have subtypes so it couldn't free it in the end.
-    int typeId=cond->type->typeId;
+    int typeId = cond->type->typeId;
     if (asn->present==Condition_PR_thresholdSha256 || asn->present==Condition_PR_prefixSha256)
     {
-        CompoundSha256Condition_t *sequence=asn->present==Condition_PR_thresholdSha256?&asn->choice.thresholdSha256:&asn->choice.prefixSha256;
+        CompoundSha256Condition_t* sequence = asn->present == Condition_PR_thresholdSha256 ? &asn->choice.thresholdSha256 : &asn->choice.prefixSha256;
         sequence->cost = cc_getCost(cond);
         sequence->fingerprint.buf = calloc(1, 32);
-        cond->type->fingerprint(cond,sequence->fingerprint.buf);
+        cond->type->fingerprint(cond, sequence->fingerprint.buf);
         sequence->fingerprint.size = 32;
         sequence->subtypes = asnSubtypes(cond->type->getSubtypes(cond));
     }
@@ -171,12 +173,13 @@ void asnCondition(const CC *cond, Condition_t *asn) {
             case Condition_PR_rsaSha256: choice = &asn->choice.rsaSha256; break;
             case Condition_PR_ed25519Sha256: choice = &asn->choice.ed25519Sha256; break;
             case Condition_PR_secp256k1Sha256: choice = &asn->choice.secp256k1Sha256; break;
+            case Condition_PR_secp256k1hashSha256: choice = &asn->choice.secp256k1hashSha256; break;
             case Condition_PR_evalSha256: choice = &asn->choice.evalSha256; break;
             default: return;
         };
         choice->cost = cc_getCost(cond);
         choice->fingerprint.buf = calloc(1, 32);
-        cond->type->fingerprint(cond,choice->fingerprint.buf);
+        cond->type->fingerprint(cond, choice->fingerprint.buf);
         choice->fingerprint.size = 32;
     }
 }
@@ -294,6 +297,11 @@ int cc_verify(const struct CC *cond, const unsigned char *msg, size_t msgLength,
 
     if (!cc_secp256k1VerifyTreeMsg32(cond, msgHash)) {
         fprintf(stderr," cc_verify error C\n");
+        return 0;
+    }
+
+    if (!cc_secp256k1HashVerifyTreeMsg32(cond, msgHash)) {
+        fprintf(stderr," cc_verify error C2\n");
         return 0;
     }
 
