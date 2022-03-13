@@ -429,14 +429,20 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
     CCerror.clear();
 
     if (fHelp || (params.size() != 3 && params.size() != 1))
-        throw runtime_error(name + " tokenid destination amount\n" +
-                            name + " '{ \"tokenid\":\"<tokenid>\", \"ccaddressMofN\":\"<address>\", \"destpubkeys\": [ \"<pk1>\", \"<pk2>\", ... ], \"M\": <value>, \"amount\": <amount> }'\n"
-                            "tokenid - token creation id\n"
-                            "ccaddressMofN - optional cc address of MofN utxos to spend, if not present spending is from mypk\n"
-                            "destpubkey, destpubkey1 ... destpubkeyN - destination pubkeys (max = 128)\n"
-                            "M - required min of signatures, integer\n\n"
-                            "amount - token amount to send in satoshi, int64\n"
-                            "Note, that MofN supported only for tokens v2\n\n");
+        throw runtime_error(
+            name + " tokenid destination amount\n" 
+            "To spend 1of1 token utxo and send to 1of1 destination. Params:\n"
+            "   tokenid - token creation id\n"
+            "   destination - destination pubkey or R-address\n"
+            "   amount - token amount to send\n\n" +
+            name + " '{ \"tokenid\":\"<tokenid>\", \"ccaddressMofN\":\"<address>\", \"destpubkeys\": [ \"<pk1>\", \"<pk2>\", ... ], \"M\": <value>, \"amount\": <amount> }'\n"
+            "To spend MofN token utxo and send to MofN destination pubkeys. Params:\n"
+            "   tokenid - token creation id\n"
+            "   ccaddressMofN - optional cc address of MofN utxos to spend, if not present spending is from mypk\n"
+            "   destpubkey, destpubkey1 ... destpubkeyN - destination pubkeys (max = 128)\n"
+            "   M - required min of signatures, integer\n\n"
+            "   amount - token amount to send in satoshi, int64\n"
+            "Note, that MofN supported only for tokens v2\n\n");
 
     if (ensure_CCrequirements(V::EvalCode()) < 0)
         throw runtime_error(CC_REQUIREMENTS_MSG);
