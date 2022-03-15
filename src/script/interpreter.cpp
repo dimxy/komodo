@@ -1388,7 +1388,7 @@ int TransactionSignatureChecker::CheckCryptoCondition(
 
     if (!IsSupportedCryptoCondition(cond)) { std::cerr << __func__ << " not supported condition" << std::endl; return 0; }
     // TODO make for cc version: 
-    if (!IsSignedCryptoCondition(cond)) return 0;
+    if (!IsSignedCryptoCondition(cond)) { std::cerr << __func__ << " not signed or disabled if not signed condition" << std::endl; return 0; }
     
     uint256 sighash;
     int nHashType = ffillBin.back();

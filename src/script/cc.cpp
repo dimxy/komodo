@@ -42,8 +42,10 @@ bool IsSupportedCryptoCondition(const CC *cond, int ccSubVersion)
 bool IsSignedCryptoCondition(const CC *cond, int ccSubVersion)
 {
     if (!cc_isFulfilled(cond)) return false;
+    if (ccSubVersion >= 1) return true; // enable not signed conds
+
     int CCSigningNodesVersioned = CCSigningNodes;
-    if (ccSubVersion >= 1) CCSigningNodesVersioned != CC_Secp256k1hash; // allow new secp hash cond
+    if (ccSubVersion >= 1) CCSigningNodesVersioned |= (1 << CC_Secp256k1hash); // allow new secp hash cond
     if (1 << cc_typeId(cond) & CCSigningNodesVersioned) return true;
     if (cc_typeId(cond) == CC_Threshold)
         for (int i=0; i<cond->size; i++)
