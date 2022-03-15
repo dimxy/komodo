@@ -600,7 +600,7 @@ public:
     const std::vector<unsigned char> GetCCV2SPK(int &subversion) const;
     bool SpkHasEvalcodeCCV2(uint8_t eval, std::set< std::vector<uint8_t> > *pvvParams = nullptr) const;
     bool IsCoinImport() const;
-    bool MayAcceptCryptoCondition(opcodetype &opcode) const;
+    bool MayAcceptCryptoCondition(int &ccSubVersion) const;
 
     // zHLTC
     bool IsRedeemScriptReveal(CScript scriptpubkey) const;

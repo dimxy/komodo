@@ -43,6 +43,8 @@ public:
 
     bool VerifySignature(const std::vector<unsigned char>& vchSig, const CPubKey& vchPubKey, const uint256& sighash) const;
     virtual int CheckEvalCondition(const CC *cond) const override;
+    virtual bool IsSupportedCryptoCondition(const CC *cond) const override;
+    virtual bool IsSignedCryptoCondition(const CC *cond) const override;
     int CheckCryptoConditionSpk(const std::vector<unsigned char> &condBin, ScriptError *serror) const;
 };
 

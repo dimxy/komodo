@@ -82,14 +82,14 @@ static CAmount IsMyTokensvout(struct CCcontract_info *cpTokens, Eval* eval, cons
         std::vector<std::vector<unsigned char>> vParams;
         if (!tx.vout[nVout].scriptPubKey.IsPayToCryptoCondition(&ccSubScript, vParams)) return -1;
         
-        opcodetype pushOpcode;
-        if (!tx.vout[nVout].scriptPubKey.MayAcceptCryptoCondition(pushOpcode)) return -1; 
-        std::vector<uint8_t> ccmixed; //, dummy;
+        int ccSubVersion;
+        if (!tx.vout[nVout].scriptPubKey.MayAcceptCryptoCondition(ccSubVersion)) return -1; 
+        std::vector<uint8_t> ccmixedData; //, dummy;
         opcodetype opcodeNone; //, opcodeCC;
         CScript::const_iterator pc = ccSubScript.begin();
-        ccSubScript.GetOp(pc, opcodeNone, ccmixed);
+        ccSubScript.GetOp(pc, opcodeNone, ccmixedData);
         //ccSubScript.GetOp(pc, opcodeCC, dummy);
-        CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixed[1], ccmixed.size()-1);
+        CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixedData[1], ccmixedData.size()-1);
         if (!cond) return -1;
         int rc = IsMandatoryConditionPair(cond, EVAL_TOKENSV2, ccSigAnon.get());
         if (rc == 1)

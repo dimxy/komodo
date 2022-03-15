@@ -178,6 +178,8 @@ public:
         const std::vector<unsigned char>& ffillBin,
         const CScript& scriptCode,
         uint32_t consensusBranchId) const override;
+    virtual bool IsSupportedCryptoCondition(const CC *cond) const;        
+    virtual bool IsSignedCryptoCondition(const CC *cond) const;        
     virtual int CheckEvalCondition(const CC *cond) const;
 };
 

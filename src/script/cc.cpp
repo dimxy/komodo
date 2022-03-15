@@ -23,26 +23,31 @@ bool IsCryptoConditionsEnabled()
 }
 
 
-bool IsSupportedCryptoCondition(const CC *cond)
+bool IsSupportedCryptoCondition(const CC *cond, int ccSubVersion)
 {
     int mask = cc_typeMask(cond);
-
-    if (mask & ~CCEnabledTypes) return false;
+    int CCEnabledTypesVersioned = CCEnabledTypes;
+    if (ccSubVersion >= 1) CCEnabledTypesVersioned |= (1 << CC_Secp256k1hash);
+    if (mask & ~CCEnabledTypesVersioned) return false;
 
     // Also require that the condition have at least one signable node
-    //if (!(mask & CCSigningNodes)) return false;  // TODO not clear how to enable this in a hardfork. Better have a version
+    int CCSigningNodesVersioned = CCSigningNodes;
+    if (ccSubVersion >= 1) CCSigningNodesVersioned = 0; // allow non signed conds
+    if (ccSubVersion < 1 && !(mask & CCSigningNodes)) return false;   // allow non signed conds for ver >= 1
 
     return true;
 }
 
 
-bool IsSignedCryptoCondition(const CC *cond)
+bool IsSignedCryptoCondition(const CC *cond, int ccSubVersion)
 {
     if (!cc_isFulfilled(cond)) return false;
-    if (1 << cc_typeId(cond) & CCSigningNodes) return true;
+    int CCSigningNodesVersioned = CCSigningNodes;
+    if (ccSubVersion >= 1) CCSigningNodesVersioned != CC_Secp256k1hash; // allow new secp hash cond
+    if (1 << cc_typeId(cond) & CCSigningNodesVersioned) return true;
     if (cc_typeId(cond) == CC_Threshold)
         for (int i=0; i<cond->size; i++)
-            if (IsSignedCryptoCondition(cond->subconditions[i])) return true;
+            if (IsSignedCryptoCondition(cond->subconditions[i], ccSubVersion)) return true;
     return false;
 }
 

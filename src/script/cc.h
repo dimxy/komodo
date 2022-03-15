@@ -30,25 +30,24 @@ bool IsCryptoConditionsEnabled();
 // Prefix not enabled because no current use case, ambiguity on how to combine with secp256k1
 // RSA not enabled because no current use case, not implemented
 const int CCEnabledTypes = 1 << CC_Secp256k1 | \
-                           1 << CC_Secp256k1hash | \
                            1 << CC_Threshold | \
                            1 << CC_Eval | \
                            1 << CC_Preimage | \
                            1 << CC_Ed25519;
 
-const int CCSigningNodes = 1 << CC_Ed25519 | 1 << CC_Secp256k1 | 1 << CC_Secp256k1hash;
+const int CCSigningNodes = 1 << CC_Ed25519 | 1 << CC_Secp256k1;
 
 
 /*
  * Check if the server can accept the condition based on it's structure / types
  */
-bool IsSupportedCryptoCondition(const CC *cond);
+bool IsSupportedCryptoCondition(const CC *cond, int ccSubVersion);
 
 
 /*
  * Check if crypto condition is signed. Can only accept signed conditions.
  */
-bool IsSignedCryptoCondition(const CC *cond);
+bool IsSignedCryptoCondition(const CC *cond, int ccSubVersion);
 
 
 /*

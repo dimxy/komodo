@@ -248,25 +248,19 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
         std::vector<std::vector<unsigned char>> vParams;
         if (scriptPubKey.IsPayToCryptoCondition(&ccSubScript, vParams))
         {
-            opcodetype pushOpcode;
-            if (scriptPubKey.MayAcceptCryptoCondition(pushOpcode))
+            int ccSubVersion;
+            if (scriptPubKey.MayAcceptCryptoCondition(ccSubVersion))
             {
                 typeRet = TX_CRYPTOCONDITION;
 
-                std::vector<uint8_t> ccmixed, dummy;
-                opcodetype opcodeNone, opcodeCC;
-                CScript::const_iterator pc = ccSubScript.begin();
-                ccSubScript.GetOp(pc, opcodeNone, ccmixed);
-                ccSubScript.GetOp(pc, opcodeCC, dummy);
-
                 // ccmixed can't be empty if MayAcceptCryptoCondition() is true
-                if (pushOpcode >= OP_PUSHDATA1 && ccmixed[0] == CC_MIXED_MODE_PREFIX) { 
+                /*if (pushOpcode >= OP_PUSHDATA1 && ccmixed[0] == CC_MIXED_MODE_PREFIX) { 
                     std::cerr << __func__ << " OP_PUSHDATA1+ not enabled for mixedmode subver 0 (but this may be just a try to decode)" << std::endl; 
                     return false; // large cc is not enabled for mixed mode subversion 0
-                }
+                }*/
 
                 //std::cerr << __func__ << " ccmixed[0]=" << (int)ccmixed[0]  << " CC_MIXED_MODE_V1_PREFIX=" << (int)CC_MIXED_MODE_V1_PREFIX << " (ccmixed[0] != CC_MIXED_MODE_V1_PREFIX)=" << (ccmixed[0] != CC_MIXED_MODE_V1_PREFIX) << std::endl;
-                if (ccmixed[0] != CC_MIXED_MODE_V1_PREFIX)  // if cc v1 or cc v2 subversion 0
+                if (ccSubVersion < 1)  // if cc v1 or cc v2 subversion 0
                 {
                     //vector<unsigned char> hashBytes; uint160 x; int32_t i; uint8_t hash20[20],*ptr;;
                     //memcpy(hash20,&x,20);
@@ -303,14 +297,18 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                     // for the new cc with eval params make vSolution in a different way:
                     // not just hash160 the cc subscript but first parse it and convert to condition binary v1 with no eval params 
                     // so same conditions with different eval params will have the same vSolution (meaning the cc indexing key)
-            
-                    uint8_t condbuf[1000];
+                    std::vector<uint8_t> ccmixedData, dummy;
+                    opcodetype opcodeNone, opcodeCC;
+                    CScript::const_iterator pc = ccSubScript.begin();
+                    ccSubScript.GetOp(pc, opcodeNone, ccmixedData);
+                    ccSubScript.GetOp(pc, opcodeCC, dummy);            
+                    uint8_t condbuf[10000];
                 
                     //std::vector<uint8_t> ccmixed(ccSubScript.begin() + 1, ccSubScript.end());
-                    CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixed[1], ccmixed.size()-1);
+                    CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixedData[1], ccmixedData.size()-1);
                     //CC* cond = cc_readFulfillmentBinary(&ccmixed[0], ccmixed.size());
                     if (!cond) return false;
-                    size_t ccsize = cc_conditionBinary(cond, condbuf);
+                    size_t ccsize = cc_conditionBinary(cond, condbuf);  // convert to old condition to make exclude eval params from fingerprint
                     cc_free(cond);
                     std::vector<uint8_t> condv1(condbuf, condbuf + ccsize);
                     CScript ccscriptv1;

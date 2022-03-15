@@ -21,6 +21,7 @@
 #include "serverchecker.h"
 #include "script/cc.h"
 #include "cc/eval.h"
+#include "cc/CCupgrades.h"
 
 #include "pubkey.h"
 #include "random.h"
@@ -121,6 +122,18 @@ int ServerTransactionSignatureChecker::CheckEvalCondition(const CC *cond) const
     //fprintf(stderr,"call RunCCeval from ServerTransactionSignatureChecker::CheckEvalCondition\n");
     return RunCCEval(cond, *txTo, nIn, nHeight, evalcodeChecker, evalContext);
 }
+
+bool ServerTransactionSignatureChecker::IsSupportedCryptoCondition(const CC *cond) const 
+{
+    int ccMixedSubVer = CCUpgrades::IsUpgradeActive(nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1) ? 1 : 0;
+    return ::IsSupportedCryptoCondition(cond, ccMixedSubVer); // current mixed mode subversion
+}        
+
+bool ServerTransactionSignatureChecker::IsSignedCryptoCondition(const CC *cond) const 
+{
+    int ccMixedSubVer = CCUpgrades::IsUpgradeActive(nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1) ? 1 : 0;
+    return ::IsSignedCryptoCondition(cond, ccMixedSubVer); // current mixed mode subversion
+}   
 
 // run cryptocondition validation code for cc scriptPubKey if its condition is in mixed mode (encoded as fulfillment with exposed evals)
 int ServerTransactionSignatureChecker::CheckCryptoConditionSpk(const std::vector<unsigned char> &condBin, ScriptError *serror) const

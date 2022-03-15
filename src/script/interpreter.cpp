@@ -1360,6 +1360,16 @@ bool TransactionSignatureChecker::CheckSig(
 
 CScript CCSignedData(const CC *cond);
 
+bool TransactionSignatureChecker::IsSupportedCryptoCondition(const CC *cond) const 
+{
+    return ::IsSupportedCryptoCondition(cond, -1); // for non-server call use old style cc
+}        
+
+bool TransactionSignatureChecker::IsSignedCryptoCondition(const CC *cond) const 
+{
+    return ::IsSignedCryptoCondition(cond, -1); // for non-server call use old style cc
+}   
+
 int TransactionSignatureChecker::CheckCryptoCondition(
         const std::vector<unsigned char>& condBin,
         const std::vector<unsigned char>& ffillBin,
@@ -1378,7 +1388,7 @@ int TransactionSignatureChecker::CheckCryptoCondition(
 
     if (!IsSupportedCryptoCondition(cond)) { std::cerr << __func__ << " not supported condition" << std::endl; return 0; }
     // TODO make for cc version: 
-    // if (!IsSignedCryptoCondition(cond)) return 0;
+    if (!IsSignedCryptoCondition(cond)) return 0;
     
     uint256 sighash;
     int nHashType = ffillBin.back();
