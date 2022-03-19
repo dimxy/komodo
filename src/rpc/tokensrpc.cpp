@@ -93,9 +93,36 @@ UniValue tokenv2indexkey(const UniValue& params, bool fHelp, const CPubKey& mypk
     if (!pk.IsValid())
         throw runtime_error("invalid pubkey\n");
 
-    char address[KOMODO_ADDRESS_BUFSIZE];
-    GetCCaddress(cp, address, pk, true);
-    return address;  
+    int beginVer = 0;
+    int endVer =  1;
+
+    UniValue result(UniValue::VARR);
+    for (int ver = beginVer; ver <= endVer; ver ++) {
+        char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+        if (ver == 1)  {
+            CCwrapper ccToken( MakeTokenV2TransferCC(uint256(), { pk }) );
+            Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), ver));
+        }
+        else
+            GetTokensCCaddress(cp, tokenaddr, pk, ver);  
+        result.push_back(tokenaddr);
+    }
+    // get from Raddress
+    {
+        char normaladdr[KOMODO_ADDRESS_BUFSIZE];
+        char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+        Getscriptaddress(normaladdr, CScript() << vuint8_t(pk.begin(), pk.end()) << OP_CHECKSIG); 
+        CTxDestination dest = DecodeDestination(normaladdr);  // get normal dest
+        CCwrapper ccToken( MakeTokenV2TransferCCDest(uint256(), { dest }) );
+        Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), 1));
+        //std::cerr << __func__ << " from Raddress tokenaddr=" << tokenaddr << std::endl;
+        result.push_back(tokenaddr);
+    }
+
+    //char address[KOMODO_ADDRESS_BUFSIZE];
+    //GetCCaddress(cp, address, pk, true);
+    //return address;  
+    return result;
 }
 
 UniValue assetsv2indexkey(const UniValue& params, bool fHelp, const CPubKey& mypk)
