@@ -309,6 +309,8 @@ libbitcoin_server_a_SOURCES = \
   cc/betprotocol.cpp \
   cc/GenericAssets.cpp \
   cc/GenericAssetsRpcImpl.cpp \
+  cc/GenericEvals.cpp \
+  cc/GenericEvalsRpcImpl.cpp \
   chain.cpp \
   checkpoints.cpp \
   fs.cpp \

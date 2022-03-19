@@ -1654,7 +1654,7 @@ struct UpdateEvalCodeContext {
 
 /*bool HasSecp256k1Cond(CC *cond)
 {
-    auto findEval = [](CC *cond, struct CCVisitor _) {
+    auto findSecp = [](CC *cond, struct CCVisitor _) {
         bool r = false;
 
         if (cc_typeId(cond) == CC_Secp256k1) {
@@ -1664,7 +1664,7 @@ struct UpdateEvalCodeContext {
         return r ? 0 : 1;
     };
 
-    CCVisitor visitor = { findEval, (uint8_t*)"", 0, (void*)nullptr };
+    CCVisitor visitor = { findSecp, (uint8_t*)"", 0, (void*)nullptr };
     return !cc_visit(cond, visitor);
 }*/
 

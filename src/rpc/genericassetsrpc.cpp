@@ -29,8 +29,13 @@
 #include "../cc/CCinclude.h"
 #include "../cc/CCtokens.h"
 #include "../cc/GenericAssets.h"
+#include "../cc/GenericEvals.h"
 
 #include "../cc/CCtokens_impl.h"
+
+void CCtoAnon1st(CC *cond);
+void SetIncludeParamInFingerprintOn(CC *cond);
+
 
 //using namespace std;
 
@@ -465,6 +470,158 @@ UniValue assetsv21changeask(const UniValue& params, bool fHelp, const CPubKey& r
     return result;
 }
 
+UniValue createccevaltx(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ); 
+
+    CCerror.clear();
+
+    if (fHelp || params.size() != 1)
+        throw std::runtime_error(std::string(__func__) + " 'json'\n"
+        "create and sign transaction with cc evals. The param is a json object with tx vin vout props:\n"
+        "'{ \"vins\": [...], \"vouts\": [...], \"vinccs\": [...] }'\n"
+        "'vins' - vin array in the format: '\"vins\":[{\"hash\": prev-tx-hash, \"n\": prev-utxo-n }, {...}]'\n"
+        "'vouts' - vout array in the format: '\"vouts\":[{\"nValue\": satoshis, \"Destination\": address-or-pubkey, \"cc\": condition-in-json }, {...}]'\n"
+        "'vinccs' - array of cc used for spending cc utxos, the format is: '\"vinccs\": [{ \"cc\": condition-in-json, \"sign\": true/false }, {..}]'\n\n");
+    if (ensure_CCrequirements(EVAL_GENERICMUSTPAYCC) < 0 || ensure_CCrequirements(EVAL_GENERICMUSTPAYPKH) < 0)
+        throw std::runtime_error(CC_REQUIREMENTS_MSG);
+
+    if (!remotepk.IsValid() && !EnsureWalletIsAvailable(false))
+        throw std::runtime_error("wallet is required");
+    CONDITIONAL_LOCK2(cs_main, pwalletMain->cs_wallet, !remotepk.IsValid());
+    
+    UniValue jsonParams(UniValue::VOBJ);
+    if (params[0].getType() == UniValue::VOBJ)
+        jsonParams = params[0].get_obj();
+    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[0].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VOBJ)
+        return MakeResultError("parameter must be an object\n");
+
+    CPubKey mypk;
+    SET_MYPK_OR_REMOTE(mypk, remotepk);
+
+    result = CreateCCEvalTx(mypk, 0, jsonParams);
+    RETURN_IF_ERROR(CCerror);
+    return result;
+}
+
+UniValue makeccevalparam(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ); 
+
+    CCerror.clear();
+
+    if (fHelp || params.size() != 1)
+        throw std::runtime_error(std::string(__func__) + " 'json'\n"
+        "serialise param array into btc script by supported types (int64_t, int32_t, string, uint8_t, hexarray, hexpubkey, hexhashreversed).\n"
+        "The result is returned in hex Usage:\n"
+        "'[ \"int64_t\": value, \"string\":\"string-value\", ...]'\n");
+    
+    UniValue jsonParams(UniValue::VOBJ);
+    if (params[0].getType() == UniValue::VARR)
+        jsonParams = params[0].get_obj();
+    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[0].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VARR)
+        return MakeResultError("parameter must be an array");
+
+    CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
+    //if (!jsonParams.isArray()) return MakeResultError("parameter must be a json array");
+    for(int i = 0; i < jsonParams.size(); i ++)  {
+        UniValue o = jsonParams[i];
+        if (!o.isObject() || o.getKeys().size() != 1) return MakeResultError("array elems must be key:value objects");
+        std::string type = o.getKeys()[0];
+        if (type == "int64_t")  {
+            int64_t v = o["int64_t"].get_int64();
+            ss << v;
+        }
+        else if (type == "int32_t")  {
+            int32_t v = o["int32_t"].get_int();
+            ss << v;
+        }
+        else if (type == "uint8_t")  {
+            uint8_t v = (uint8_t)o["uint8_t"].get_int();
+            ss << v;
+        }
+        else if (type == "hexarray")  {
+            vuint8_t v = ParseHex(o["hexarray"].get_str());
+            ss << v;
+        }
+        else if (type == "hexpubkey")  {
+            CPubKey v = ParseHex(o["hexpubkey"].get_str());
+            if (!v.IsValid()) return MakeResultError("pubkey invalid");
+            ss << v;
+        }
+        else if (type == "hexhashreversed")  {
+            uint256 v = Parseuint256(o["hexhashreversed"].get_str().c_str());
+            ss << revuint256(v);
+        }
+        else 
+            return MakeResultError("unsupported type");
+    }
+    result = HexStr(ss.begin(), ss.end());
+    return result;
+}
+
+typedef struct _CCEvalWalk {
+    VerifyEval verify;
+    void *context;
+} CCEvalWalk;
+
+UniValue makemustpayccparam(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ); 
+
+    CCerror.clear();
+
+    if (fHelp || params.size() != 2)
+        throw std::runtime_error(std::string(__func__) + "amount 'ccjson'\n"
+        "amount is must-pay-cc amount to pay in satoshis"
+        "The json param is a cc. This rpc parses it and converts to an anonymous condition.\n"
+        "The result is a serialised mixed mode condition in hex\n");
+    
+    CAmount amount = atoll(params[0].get_str().c_str());
+    UniValue jsonParams(UniValue::VOBJ);
+    if (params[1].getType() == UniValue::VOBJ)
+        jsonParams = params[1].get_obj();
+    else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[1].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VOBJ)
+        return MakeResultError("json parameter must be an object");
+
+    std::string ccstr = jsonParams.write();
+    std::cerr << __func__ << " ccstr=" << ccstr << std::endl;
+    char ccerr[128];
+    CCwrapper cond( cc_conditionFromJSONString(ccstr.c_str(), ccerr) );
+    if (!cond.get()) return MakeResultError(strprintf("could not parse json condition: %s", ccerr));
+
+    // set Include Param In FingerPrint ON:
+    SetIncludeParamInFingerprintOn(cond.get());
+
+    /*if (cc_typeId(cond) == CC_Threshold) {
+        for (int i = 0; i < cond->size; i++) {
+            CCwrapper tmp(cond->subconditions[i]); //tmp will free cond->subconditions[i]
+            cond->subconditions[i] = cc_anon(tmp.get());
+        }
+    }
+    else {
+        CCwrapper tmp(cond);
+        cond = cc_anon(tmp.get());
+    }*/
+    //CCtoAnon1st(cond);
+    //CCwrapper anon( cc_anon(cond.get()) );
+    uint8_t buf[10000];
+    uint8_t paramType = 1;
+    uint8_t paramVer = 1;
+    uint8_t anonType = (uint8_t)cc_typeId(cond.get());
+    uint8_t anonSize = (uint8_t)(cc_typeId(cond.get()) == CC_Threshold ? (cond.get())->size : 0);
+    uint8_t anonThreshold = (uint8_t)(cc_typeId(cond.get()) == CC_Threshold ? (cond.get())->threshold : 0);
+    size_t len = cc_conditionBinary(cond.get(), buf);
+    return HexStr(E_MARSHAL(ss << amount << paramType << paramVer << anonType << anonSize << anonThreshold << vuint8_t(buf, buf+len)));
+}
+
+
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
@@ -480,7 +637,11 @@ static const CRPCCommand commands[] =
 	{ "assetsv21",       "assetsv21changeask",    &assetsv21changeask,      true },
 	{ "assetsv21",       "assetsv21changebid",    &assetsv21changebid,      true },	
 	{ "assetsv21",       "assetsv21orders",    &assetsv21orders,      true },	
-	{ "assetsv21",       "assetsv21auctions",    &assetsv21auctions,      true },	
+	{ "assetsv21",       "assetsv21auctions",    &assetsv21auctions,      true },
+	{ "genericevals",    "createccevaltx",    &createccevaltx,      true },
+	{ "genericevals",    "makeccevalparam",    &makeccevalparam,      true },
+    { "genericevals",    "makemustpayccparam",    &makemustpayccparam,      true },	
+
 };
 
 void RegisterAssetsV21RPCCommands(CRPCTable &tableRPC)

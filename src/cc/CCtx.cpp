@@ -551,6 +551,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                         fprintf(stderr, "%s NSPV signing error for vini.%d\n", __func__, i);
                 }
             } else {
+                //std::cerr << __func__ << " getting destaddr:" << std::endl;
                 Getscriptaddress(destaddr, vintx.vout[utxovout].scriptPubKey);
                 if (strcmp(destaddr, globaladdr) == 0) {
                     privkey = cp->CCpriv;
@@ -581,8 +582,9 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
                             if (t.CCwrapped.get() != NULL) {
                                 CCwrapper anonCond = t.CCwrapped;
                                 //CCtoAnon(anonCond.get());
+                                //std::cerr << __func__ << " getting coinaddr mixedVer=" << mixedVer << std::endl;
                                 if (!Getscriptaddress(coinaddr, CCPubKey(anonCond.get(), mixedVer))) continue;
-                                //std::cerr << __func__ << " vin=" << i << " CCPubKey(anonCond.get(), mixedVer)=" << CCPubKey(anonCond.get(), mixedVer).ToString() << " mixedVer=" << mixedVer << std::endl;
+                                //std::cerr << __func__ << " vin=" << i << " CCPubKey(anonCond.get(), mixedVer)=" << CCPubKey(anonCond.get(), mixedVer).ToString() << " mixedVer=" << mixedVer << " destaddr=" << destaddr << " coinaddr=" << coinaddr << std::endl;
                                 if (strcmp(destaddr, coinaddr) == 0) {
                                     if (IS_DONT_SIGN(t.CCpriv))
                                         privkey = nullptr;

@@ -304,7 +304,9 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                     ccSubScript.GetOp(pc, opcodeCC, dummy);            
                     uint8_t condbuf[10000];
                 
+                    if (ccmixedData.size() < 1) return false;
                     //std::vector<uint8_t> ccmixed(ccSubScript.begin() + 1, ccSubScript.end());
+                    //std::cerr << __func__ << " ccmixedData=" << HexStr(ccmixedData) << std::endl;
                     CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixedData[1], ccmixedData.size()-1);
                     //CC* cond = cc_readFulfillmentBinary(&ccmixed[0], ccmixed.size());
                     if (!cond) return false;

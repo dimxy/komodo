@@ -33,6 +33,8 @@
 #include "CCtokens.h"
 #include "CCImportGateway.h"
 #include "GenericAssets.h"
+#include "GenericEvals.h"
+
 //#include "CCTokenData.h"
 
 /*
@@ -265,6 +267,14 @@ uint8_t Assetsv2CCpriv[32] = { 0x46, 0x58, 0x3b, 0x18, 0xee, 0x16, 0x63, 0x51, 0
 #undef FUNCNAME
 #undef EVALCODE
 
+// Generic MustPayCC 
+#define FUNCNAME IsGenericMustPayCCInput
+#define EVALCODE EVAL_GENERICMUSTPAYCC
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
+
+
 // TokenData validator 
 /*#define FUNCNAME IsTokenDataInput
 #define EVALCODE EVAL_TOKENDATA
@@ -463,6 +473,12 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
         case EVAL_GENERICTOKENROYALTY:
             cp->validate = GenericTokenRoyaltyValidate;
             cp->ismyvin = IsGenericTokenRoyaltyInput;
+            ismixed = true;
+            break;
+
+        case EVAL_GENERICMUSTPAYCC:
+            cp->validate = MustPayCCValidate;
+            cp->ismyvin = IsGenericMustPayCCInput;
             ismixed = true;
             break;
 
