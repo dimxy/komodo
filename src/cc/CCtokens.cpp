@@ -1190,3 +1190,25 @@ int TokensGetMixedVersion(Eval *eval, bool isMixed)
     else
         return -1;
 }
+
+bool TokensGetRoyalty(uint256 tokenid, int32_t &royaltyFractOut, CPubKey &royaltyPkOut)
+{
+    struct CCcontract_info *cpTokens, CTokens;
+    cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
+    CTransaction tokencreatetx;
+    uint256 hashBlock;
+    if (!myGetTransaction(tokenid, tokencreatetx, hashBlock)) { CCerror = "could not load token create tx"; return false; }
+    int32_t v = 0;
+    for (; v < tokencreatetx.vout.size(); v++)  {
+        if (IsTokensvout<TokensV2>(cpTokens, nullptr, tokencreatetx, v, tokencreatetx.GetHash()) > 0LL)
+            break;
+    }
+    if (v == tokencreatetx.vout.size()) { CCerror = "could not find token vouts in token create tx"; return false; }
+    std::set<vuint8_t> vvRoyaltyParams;
+    vuint8_t vpubkey;
+
+    if (!tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams)) { CCerror = "could not find eval royalty in token create tx"; return false; }
+    if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> royaltyFractOut >> vpubkey)) { CCerror = "can't parse royalty param in vout";  return false; }
+    royaltyPkOut = vpubkey;
+    return true;
+}

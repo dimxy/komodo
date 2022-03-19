@@ -29,11 +29,14 @@ typedef std::tuple<int32_t, CPubKey, uint256> RoyaltyParamsTuple;  // royalty fr
 typedef std::tuple<CAmount, int32_t, uint256, CAmount> AuctionParamsTuple;  // price step, ex[iry height, tokenid, unit price
 
 
-enum IS_MY_CC_VOUT_RC {
+#if !defined (HAVE_MY_CC_VOUT_RC)
+#define HAVE_MY_CC_VOUT_RC
+enum MY_CC_VOUT_RC {
     CC_VOUT_ERROR      = -1,
     CC_VOUT_NOT_MINE   = 0,
     CC_VOUT_VALID      = 1
 };
+#endif
 
 // validation entry functions:
 bool GenericTokenAskValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
@@ -43,9 +46,9 @@ bool GenericTokenRoyaltyValidate(struct CCcontract_info *cp, Eval* eval, const C
 bool GenericTokenAuctionValidate(struct CCcontract_info *cp, Eval* eval, const CTransaction &tx, uint32_t nIn);
 
 // is my vout functions:
-IS_MY_CC_VOUT_RC IsGenericTokenAskVout(const CTxOut &vout, AskParamsTuple &askParamsDecoded, std::string &strError);
-IS_MY_CC_VOUT_RC IsGenericTokenBidVout(const CTxOut &vout, BidParamsTuple &bidParamsDecoded, std::string &strError);
-IS_MY_CC_VOUT_RC IsGenericAuctionVout(const CTxOut &vout, AuctionParamsTuple &auctionParamsDecoded, std::string &strError);
+MY_CC_VOUT_RC IsGenericTokenAskVout(const CTxOut &vout, AskParamsTuple &askParamsDecoded, std::string &strError);
+MY_CC_VOUT_RC IsGenericTokenBidVout(const CTxOut &vout, BidParamsTuple &bidParamsDecoded, std::string &strError);
+MY_CC_VOUT_RC IsGenericAuctionVout(const CTxOut &vout, AuctionParamsTuple &auctionParamsDecoded, std::string &strError);
 
 // rpc implementations:
 UniValue AssetsV21CreateSell(const CPubKey &mypk, CAmount txfee, CAmount numtokens, uint256 assetid, CAmount askamount, int32_t expiryHeight, CAmount priceStep);

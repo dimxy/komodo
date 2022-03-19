@@ -46,7 +46,10 @@ CC *MakeEvalAskCC(CAmount unitPrice, const CPubKey &sellerpk, uint256 tokenid, i
     cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
 
     if (!tokenid.IsNull())  {
-        CTransaction tokencreatetx;
+        int32_t royaltyFract = 0;
+        CPubKey ownerpubkey;
+        hasRoyalty = TokensGetRoyalty(tokenid, royaltyFract, ownerpubkey);
+        /*CTransaction tokencreatetx;
         uint256 hashBlock;
         if (!myGetTransaction(tokenid, tokencreatetx, hashBlock)) { CCerror = "could not load token create tx"; return nullptr; }
         int32_t v = 0;
@@ -55,7 +58,7 @@ CC *MakeEvalAskCC(CAmount unitPrice, const CPubKey &sellerpk, uint256 tokenid, i
                 break;
         }
         if (v == tokencreatetx.vout.size()) { CCerror = "could not find token vouts in token create tx"; return nullptr; }
-        hasRoyalty = tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY);
+        hasRoyalty = tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY);*/
     }
     else
         hasRoyalty = (bool)royalty;
@@ -330,8 +333,9 @@ UniValue AssetsV21CreateBuyOffer(const CPubKey &mypk, CAmount txfee, CAmount bid
             royaltyFract = TKNROYALTY_DIVISOR-1; // royalty upper limit
     }*/
     int32_t royaltyFract = 0;
-    vuint8_t ownerpubkey;
-    {
+    CPubKey ownerpubkey;
+    if (!TokensGetRoyalty(assetid, royaltyFract, ownerpubkey)) return "";
+    /*{
         struct CCcontract_info *cpTokens, CTokens;
         cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
         CTransaction tokencreatetx;
@@ -346,7 +350,7 @@ UniValue AssetsV21CreateBuyOffer(const CPubKey &mypk, CAmount txfee, CAmount bid
         std::set<vuint8_t> vvRoyaltyParams;
         if (!tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams)) { CCerror = "could not find eval royalty in token create tx"; return ""; }
         if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> royaltyFract >> ownerpubkey)) { CCerror = "can't parse royalty param in vout";  return ""; }
-    }
+    }*/
     cpAssets = CCinit(&C, EVAL_GENERICTOKENASK);   // NOTE: assets here!
     if (txfee == 0)
         txfee = 10000;
@@ -392,8 +396,9 @@ UniValue AssetsV21CreateSell(const CPubKey &mypk, CAmount txfee, CAmount numtoke
             royaltyFract = TKNROYALTY_DIVISOR-1; // royalty upper limit
     }*/
     int32_t royaltyFract = 0;
-    vuint8_t ownerpubkey;
-    {
+    CPubKey ownerpubkey;
+    if (!TokensGetRoyalty(assetid, royaltyFract, ownerpubkey)) return "";
+    /*{
         struct CCcontract_info *cpTokens, CTokens;
         cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
         CTransaction tokencreatetx;
@@ -408,7 +413,7 @@ UniValue AssetsV21CreateSell(const CPubKey &mypk, CAmount txfee, CAmount numtoke
         std::set<vuint8_t> vvRoyaltyParams;
         if (!tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams)) { CCerror = "could not find eval royalty in token create tx"; return ""; }
         if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> royaltyFract >> ownerpubkey)) { CCerror = "can't parse royalty param in vout";  return ""; }
-    }
+    }*/
     cpAssets = CCinit(&assetsC, EVAL_GENERICTOKENASK);  // NOTE: for signing
    
     if (txfee == 0)
@@ -490,7 +495,7 @@ UniValue AssetsV21CancelBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 ass
             for (int32_t i = 0; i < vintx.vout.size(); i ++)  
             {
                 std::string strError;
-                IS_MY_CC_VOUT_RC rc;
+                MY_CC_VOUT_RC rc;
                 if ((rc = IsGenericTokenBidVout(vintx.vout[i], bidParamsPrev, strError)) == CC_VOUT_VALID)    {
                     bidvout = i;
                     break;
@@ -523,8 +528,9 @@ UniValue AssetsV21CancelBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 ass
                     royaltyFract = TKNROYALTY_DIVISOR-1; // royalty upper limit
             }*/
             int32_t royaltyFract = 0;
-            vuint8_t ownerpubkey;
-            {
+            CPubKey ownerpubkey;
+            if (!TokensGetRoyalty(assetid, royaltyFract, ownerpubkey)) return "";
+            /*{
                 struct CCcontract_info *cpTokens, CTokens;
                 cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
                 CTransaction tokencreatetx;
@@ -539,7 +545,7 @@ UniValue AssetsV21CancelBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 ass
                 std::set<vuint8_t> vvRoyaltyParams;
                 if (!tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams)) { CCerror = "could not find eval royalty in token create tx"; return ""; }
                 if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> royaltyFract >> ownerpubkey)) { CCerror = "can't parse royalty param in vout";  return ""; }
-            }
+            }*/
 
             CAmount bidamount = vintx.vout[bidvout].nValue;
             if (bidamount == 0) { CCerror = "bid is empty"; return ""; }
@@ -608,7 +614,7 @@ UniValue AssetsV21CancelSell(const CPubKey &mypk, CAmount txfee, uint256 assetid
             for (int32_t i = 0; i < vintx.vout.size(); i ++)  
             {
                 std::string strError;
-                IS_MY_CC_VOUT_RC rc;
+                MY_CC_VOUT_RC rc;
                 if ((rc = IsGenericTokenAskVout(vintx.vout[i], askParamsPrev, strError)) == CC_VOUT_VALID)    {
                     askvout = i;
                     break;
@@ -641,8 +647,9 @@ UniValue AssetsV21CancelSell(const CPubKey &mypk, CAmount txfee, uint256 assetid
                     royaltyFract = TKNROYALTY_DIVISOR-1; // royalty upper limit
             }*/
             int32_t royaltyFract = 0;
-            vuint8_t ownerpubkey;
-            {
+            CPubKey ownerpubkey;
+            if (!TokensGetRoyalty(assetid, royaltyFract, ownerpubkey)) return "";
+            /*{
                 struct CCcontract_info *cpTokens, CTokens;
                 cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
                 CTransaction tokencreatetx;
@@ -657,7 +664,7 @@ UniValue AssetsV21CancelSell(const CPubKey &mypk, CAmount txfee, uint256 assetid
                 std::set<vuint8_t> vvRoyaltyParams;
                 if (!tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams)) { CCerror = "could not find eval royalty in token create tx"; return ""; }
                 if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> royaltyFract >> ownerpubkey)) { CCerror = "can't parse royalty param in vout";  return ""; }
-            }
+            }*/
     
             if (assetid != tokenidPrev)  { CCerror = "invalid tokenid"; return ""; }
             if (askamount == 0LL) { CCerror = "ask is empty"; return ""; }
@@ -724,8 +731,9 @@ UniValue AssetsV21FillBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 asset
             royaltyFract = TKNROYALTY_DIVISOR-1; // royalty upper limit
     }*/
     int32_t royaltyFract = 0;
-    vuint8_t ownerpubkey;
-    {
+    CPubKey ownerpubkey;
+    if (!TokensGetRoyalty(assetid, royaltyFract, ownerpubkey)) return "";
+    /*{
         struct CCcontract_info *cpTokens, CTokens;
         cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
         CTransaction tokencreatetx;
@@ -740,7 +748,7 @@ UniValue AssetsV21FillBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 asset
         std::set<vuint8_t> vvRoyaltyParams;
         if (!tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams)) { CCerror = "could not find eval royalty in token create tx"; return ""; }
         if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> royaltyFract >> ownerpubkey)) { CCerror = "can't parse royalty param in vout";  return ""; }
-    }
+    }*/
     
 	if (txfee == 0)
         txfee = 10000;
@@ -760,7 +768,7 @@ UniValue AssetsV21FillBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 asset
             for (int32_t i = 0; i < vintx.vout.size(); i ++)  
             {
                 std::string strError;
-                IS_MY_CC_VOUT_RC rc;
+                MY_CC_VOUT_RC rc;
                 if ((rc = IsGenericTokenBidVout(vintx.vout[i], bidParamsPrev, strError)) == CC_VOUT_VALID)    {
                     bidvout = i;
                     break;
@@ -900,8 +908,9 @@ UniValue AssetsV21FillSell(const CPubKey &mypk, CAmount txfee, uint256 assetid, 
             royaltyFract = TKNROYALTY_DIVISOR-1; // royalty upper limit
     }*/
     int32_t royaltyFract = 0;
-    vuint8_t ownerpubkey;
-    {
+    CPubKey ownerpubkey;
+    if (!TokensGetRoyalty(assetid, royaltyFract, ownerpubkey)) return "";
+    /*{
         struct CCcontract_info *cpTokens, CTokens;
         cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
         CTransaction tokencreatetx;
@@ -917,7 +926,7 @@ UniValue AssetsV21FillSell(const CPubKey &mypk, CAmount txfee, uint256 assetid, 
 
         if (!tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams)) { CCerror = "could not find eval royalty in token create tx"; return ""; }
         if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> royaltyFract >> ownerpubkey)) { CCerror = "can't parse royalty param in vout";  return ""; }
-    }
+    }*/
     
     cpAssets = CCinit(&assetsC, EVAL_GENERICTOKENASK);
 
@@ -931,7 +940,7 @@ UniValue AssetsV21FillSell(const CPubKey &mypk, CAmount txfee, uint256 assetid, 
         for (int32_t i = 0; i < vintx.vout.size(); i ++)  
         {
             std::string strError;
-            IS_MY_CC_VOUT_RC rc;
+            MY_CC_VOUT_RC rc;
             if ((rc = IsGenericTokenAskVout(vintx.vout[i], askParamsPrev, strError)) == CC_VOUT_VALID)    {
                 askvout = i;
                 break;
@@ -980,7 +989,7 @@ UniValue AssetsV21FillSell(const CPubKey &mypk, CAmount txfee, uint256 assetid, 
             // cc vin should be after normal vin
             mtx.vin.push_back(CTxIn(asktxid, askvout, CScript()));
             
-            if (!SetAskFillamounts(unit_price, fillunits, orig_assetoshis, paid_nValue)) { /*CCerror = "incorrect units or price"; return ""; */ } //TODO enable return
+            if (!SetAskFillamounts(unit_price, fillunits, orig_assetoshis, paid_nValue)) { /*CCerror = "incorrect units or price"; return ""; */ } //TODO enable return back
     
             if (paid_nValue == 0) { CCerror = "ask totally filled"; return ""; }
 
@@ -1062,8 +1071,9 @@ UniValue AssetsV21ChangeBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 ass
             royaltyFract = TKNROYALTY_DIVISOR-1; // royalty upper limit
     }*/
     int32_t royaltyFract = 0;
-    vuint8_t ownerpubkey;
-    {
+    CPubKey ownerpubkey;
+    if (!TokensGetRoyalty(assetid, royaltyFract, ownerpubkey)) return "";
+    /*{
         struct CCcontract_info *cpTokens, CTokens;
         cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
         CTransaction tokencreatetx;
@@ -1079,7 +1089,7 @@ UniValue AssetsV21ChangeBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 ass
 
         if (!tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams)) { CCerror = "could not find eval royalty in token create tx"; return ""; }
         if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> royaltyFract >> ownerpubkey)) { CCerror = "can't parse royalty param in vout";  return ""; }
-    }
+    }*/
 
     
 	if (txfee == 0)
@@ -1100,7 +1110,7 @@ UniValue AssetsV21ChangeBuyOffer(const CPubKey &mypk, CAmount txfee, uint256 ass
             for (int32_t i = 0; i < vintx.vout.size(); i ++)  
             {
                 std::string strError;
-                IS_MY_CC_VOUT_RC rc;
+                MY_CC_VOUT_RC rc;
                 if ((rc = IsGenericTokenBidVout(vintx.vout[i], bidParamsPrev, strError)) == CC_VOUT_VALID)    {
                     bidvout = i;
                     break;
@@ -1175,8 +1185,9 @@ UniValue AssetsV21ChangeSell(const CPubKey &mypk, CAmount txfee, uint256 assetid
             royaltyFract = TKNROYALTY_DIVISOR-1; // royalty upper limit
     }*/
     int32_t royaltyFract = 0;
-    vuint8_t ownerpubkey;
-    {
+    CPubKey ownerpubkey;
+    if (!TokensGetRoyalty(assetid, royaltyFract, ownerpubkey)) return "";
+    /*{
         struct CCcontract_info *cpTokens, CTokens;
         cpTokens = CCinit(&CTokens, EVAL_TOKENSV2);
         CTransaction tokencreatetx;
@@ -1191,7 +1202,7 @@ UniValue AssetsV21ChangeSell(const CPubKey &mypk, CAmount txfee, uint256 assetid
         std::set<vuint8_t> vvRoyaltyParams;
         if (!tokencreatetx.vout[v].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams)) { CCerror = "could not find eval royalty in token create tx"; return ""; }
         if (!E_UNMARSHAL(*(vvRoyaltyParams.begin()), ss >> royaltyFract >> ownerpubkey)) { CCerror = "can't parse royalty param in vout";  return ""; }
-    }
+    }*/
     
     cpAssets = CCinit(&assetsC, EVAL_GENERICTOKENASK);
 
@@ -1205,7 +1216,7 @@ UniValue AssetsV21ChangeSell(const CPubKey &mypk, CAmount txfee, uint256 assetid
         for (int32_t i = 0; i < vintx.vout.size(); i ++)  
         {
             std::string strError;
-            IS_MY_CC_VOUT_RC rc;
+            MY_CC_VOUT_RC rc;
             if ((rc = IsGenericTokenAskVout(vintx.vout[i], askParamsPrev, strError)) == CC_VOUT_VALID)    {
                 askvout = i;
                 break;

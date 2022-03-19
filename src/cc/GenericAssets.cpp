@@ -78,17 +78,18 @@ static CAmount IsMyTokensvout(struct CCcontract_info *cpTokens, Eval* eval, cons
     //std::cerr << __func__ << " getting script for mypk=" <<  HexStr(mypk) << " vout=" << nVout << std::endl;
     //Getscriptaddress(myTokenAddr, CCPubKey(cc.get(), mixedSubver)); 
     if (IsTokensvout<TokensV2>(cpTokens, eval, tx, nVout, tokenid) > 0)  {
-        CScript ccSubScript = CScript();
+        CScript ccSubScript;
         std::vector<std::vector<unsigned char>> vParams;
         if (!tx.vout[nVout].scriptPubKey.IsPayToCryptoCondition(&ccSubScript, vParams)) return -1;
         
-        int ccSubVersion;
-        if (!tx.vout[nVout].scriptPubKey.MayAcceptCryptoCondition(ccSubVersion)) return -1; 
+        //int ccSubVersion;
+        //if (!tx.vout[nVout].scriptPubKey.MayAcceptCryptoCondition(ccSubVersion)) return -1; 
         std::vector<uint8_t> ccmixedData; //, dummy;
         opcodetype opcodeNone; //, opcodeCC;
         CScript::const_iterator pc = ccSubScript.begin();
         ccSubScript.GetOp(pc, opcodeNone, ccmixedData);
         //ccSubScript.GetOp(pc, opcodeCC, dummy);
+        if (ccmixedData.size() < 1) return -1;
         CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixedData[1], ccmixedData.size()-1);
         if (!cond) return -1;
         int rc = IsMandatoryConditionPair(cond, EVAL_TOKENSV2, ccSigAnon.get());
@@ -123,7 +124,7 @@ static CAmount IsMyNormalvout(const CTransaction &tx, int32_t nVout, const CPubK
 // or recreate the same eval on the output without spending at all (possibly with another sellerpk, to allow auctions) 
 
 // checks if a token ask vout is valid, returns 'valid', 'invalid' or 'not my vout' retcodes
-IS_MY_CC_VOUT_RC IsGenericTokenAskVout(const CTxOut &vout, AskParamsTuple &askParamsDecoded, std::string &strError)
+MY_CC_VOUT_RC IsGenericTokenAskVout(const CTxOut &vout, AskParamsTuple &askParamsDecoded, std::string &strError)
 {
     std::set<vuint8_t> vvAskParams;
     if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENASK, &vvAskParams))  
@@ -190,7 +191,7 @@ static bool GenericAskValidateVin(struct CCcontract_info *cp, Eval* eval, const 
         //}
 
         AskParamsTuple askParamsNext;
-        IS_MY_CC_VOUT_RC rc;
+        MY_CC_VOUT_RC rc;
         if ((rc = IsGenericTokenAskVout(tx.vout[nVout], askParamsNext, strError)) == CC_VOUT_VALID)  {
             uint256 tokenidNext = std::get<2>(askParamsNext);
             if (tokenidNext == tokenidPrev)  {  // found next eval ask
@@ -276,7 +277,7 @@ bool GenericTokenAskValidate(struct CCcontract_info *cp, Eval* eval,const CTrans
 // or just recreate the same eval on the output without spending at all (possibly with another buyerpk, to allow auctions) 
 
 // checks if a token bid vout is valid, returns 'valid', 'invalid' or 'not my vout' retcodes
-IS_MY_CC_VOUT_RC IsGenericTokenBidVout(const CTxOut &vout, BidParamsTuple &bidParamsDecoded, std::string &strError)
+MY_CC_VOUT_RC IsGenericTokenBidVout(const CTxOut &vout, BidParamsTuple &bidParamsDecoded, std::string &strError)
 {
     std::set<vuint8_t> vvBidParams;
     if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENBID, &vvBidParams))  
@@ -323,7 +324,7 @@ static bool GenericBidValidateVin(struct CCcontract_info *cp, Eval* eval, const 
         }
 
         BidParamsTuple bidParamsNext;
-        IS_MY_CC_VOUT_RC rc;
+        MY_CC_VOUT_RC rc;
         if ((rc = IsGenericTokenBidVout(tx.vout[nVout], bidParamsNext, strError)) == CC_VOUT_VALID)  {
             uint256 tokenidNext = std::get<2>(bidParamsNext);
             if (tokenidNext == tokenidPrev)  {  // found next eval bid
@@ -403,7 +404,7 @@ bool GenericTokenBidValidate(struct CCcontract_info *cp, Eval* eval,const CTrans
 // also provides order expiration (no fill orders after expiration and expired orders can only be cancelled)
 
 // checks if a dex vout is valid and applied to ask or bid, returns 'valid', 'invalid' or 'not my vout' retcodes
-IS_MY_CC_VOUT_RC IsGenericDEXVout(const CTxOut &vout, DEXParamsTuple &dexParamsDecoded, std::string &strError)
+MY_CC_VOUT_RC IsGenericDEXVout(const CTxOut &vout, DEXParamsTuple &dexParamsDecoded, std::string &strError)
 {
     std::set<vuint8_t> vvDEXParams;
     if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENDEX, &vvDEXParams))  
@@ -482,7 +483,7 @@ static bool GenericDEXValidateVin(struct CCcontract_info *cp, Eval* eval, const 
 
         // find token dex vouts
         DEXParamsTuple dexParamsNext;
-        IS_MY_CC_VOUT_RC rc;
+        MY_CC_VOUT_RC rc;
         if ((rc = IsGenericDEXVout(tx.vout[nVout], dexParamsNext, strError)) == CC_VOUT_VALID)  {
             uint256 tokenidNext = std::get<2>(dexParamsNext);
             if (tokenidNext == tokenidPrev)  {  // found next eval dex
@@ -557,7 +558,7 @@ bool GenericTokenDEXValidate(struct CCcontract_info *cp, Eval* eval,const CTrans
 // applied to either basic TokenAsk or TokenBid eval
 
 // checks if a royalty vout is valid and applied to ask or bid, returns 'valid', 'invalid' or 'not my vout' retcodes
-IS_MY_CC_VOUT_RC IsGenericRoyaltyVout(Eval *eval, const CTransaction &tx, int32_t nVout, RoyaltyParamsTuple &royaltyParamsDecoded, std::string &strError)
+MY_CC_VOUT_RC IsGenericRoyaltyVout(Eval *eval, const CTransaction &tx, int32_t nVout, RoyaltyParamsTuple &royaltyParamsDecoded, std::string &strError)
 {
     std::set<vuint8_t> vvRoyaltyParams;
     if (tx.vout[nVout].scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENROYALTY, &vvRoyaltyParams))  
@@ -622,7 +623,7 @@ IS_MY_CC_VOUT_RC IsGenericRoyaltyVout(Eval *eval, const CTransaction &tx, int32_
 }
 
 // checks if a royalty pay vout is a EVAL_GENERICTOKENROYALTY plus secp256k1 cc
-IS_MY_CC_VOUT_RC IsGenericRoyaltyPayVout(const CTxOut &vout, const CPubKey &royaltypk)
+MY_CC_VOUT_RC IsGenericRoyaltyPayVout(const CTxOut &vout, const CPubKey &royaltypk)
 {
     char voutaddr[KOMODO_ADDRESS_BUFSIZE];
     char checkaddr[KOMODO_ADDRESS_BUFSIZE];
@@ -694,7 +695,7 @@ static bool GenericRoyaltyOrderValidateVin(struct CCcontract_info *cp, Eval* eva
     
         // find royalty vouts
         RoyaltyParamsTuple royaltyParamsNext;
-        IS_MY_CC_VOUT_RC rc;
+        MY_CC_VOUT_RC rc;
         if ((rc = IsGenericRoyaltyVout(eval, tx, nVout, royaltyParamsNext, strError)) == CC_VOUT_VALID)  {
             uint256 tokenidNext = std::get<2>(royaltyParamsNext);
             if (tokenidNext == tokenidPrev)  {  // found next eval royalty
@@ -819,7 +820,7 @@ bool GenericTokenRoyaltyValidate(struct CCcontract_info *cp, Eval* eval,const CT
 // applied to either basic TokenAsk or TokenBid eval
 
 // checks if a auction vout is valid and applied to ask or bid, returns 'valid', 'invalid' or 'not my vout' retcodes
-IS_MY_CC_VOUT_RC IsGenericAuctionVout(const CTxOut &vout, AuctionParamsTuple &auctionParamsDecoded, std::string &strError)
+MY_CC_VOUT_RC IsGenericAuctionVout(const CTxOut &vout, AuctionParamsTuple &auctionParamsDecoded, std::string &strError)
 {
     std::set<vuint8_t> vvAuctionParams;
     if (vout.scriptPubKey.SpkHasEvalcodeCCV2(EVAL_GENERICTOKENAUCTION, &vvAuctionParams))  
@@ -885,7 +886,7 @@ static bool GenericAuctionValidateVin(struct CCcontract_info *cp, Eval* eval, co
     
         // find next auction vout:
         AuctionParamsTuple auctionParamsNext;
-        IS_MY_CC_VOUT_RC rc;
+        MY_CC_VOUT_RC rc;
         if ((rc = IsGenericAuctionVout(tx.vout[nVout], auctionParamsNext, strError)) == CC_VOUT_VALID)  {
             uint256 tokenidNext = std::get<2>(auctionParamsNext);
             if (tokenidNext == tokenidPrev)  {  // found next eval royalty

@@ -469,5 +469,6 @@ CC *MakeTokenCreateCC(const CPubKey & creatorpk, const std::string &name, const 
 
 CC *MakeTokenV2TransferCC(uint256 tokenid, const std::vector<CPubKey> & pks);
 CC *MakeTokenV2TransferCCDest(uint256 tokenid, const std::vector<CTxDestination> & dests);
+bool TokensGetRoyalty(uint256 tokenid, int32_t &royaltyFractOut, CPubKey &royaltyPkOut);
 
 #endif
