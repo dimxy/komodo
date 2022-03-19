@@ -49,7 +49,15 @@ static void evalFingerprint(const CC *cond, uint8_t *out) {
     OCTET_STRING_fromBuf(&fp->param, cond->param, cond->paramLength);
     hashFingerprintContents(&asn_DEF_EvalFingerprintContents, fp, out);
     */
-   sha256(cond->code, cond->codeLength, out);
+   if (!cond->includeParamInFP)
+        sha256(cond->code, cond->codeLength, out);
+   else {
+       uint8_t *msg = malloc(cond->codeLength + cond->paramLength);
+       memcpy(msg, cond->code, cond->codeLength);
+       memcpy(msg + cond->codeLength, cond->param, cond->paramLength);
+       sha256(msg, cond->codeLength+cond->paramLength, out);
+       free(msg);
+   }
 }
 
 
@@ -84,7 +92,7 @@ static CC *evalFromJSON(const cJSON *params, char *err) {
     } */
 
 
-    if (!jsonGetBase64(params, "code", err, &code, &codeLength)) {
+    if (!jsonGetBase64(params, "code", err, &code, &codeLength) && !jsonGetHex(params, "codehex", err, &code, &codeLength) ) {
         return NULL;
     }
     unsigned char *param = NULL;
@@ -95,6 +103,9 @@ static CC *evalFromJSON(const cJSON *params, char *err) {
         return NULL;
     }
 
+    int includeParamInFP = 0;
+    cJSON *obj = cJSON_GetObjectItem(params, "includeParamInFP");
+    if (obj) includeParamInFP = !!obj->valueint;
 
     CC *cond = cc_new(CC_Eval);
     cond->code = code;
@@ -106,6 +117,7 @@ static CC *evalFromJSON(const cJSON *params, char *err) {
         //printf("%s cond->param=%s\n", __func__, hex);
         //free(hex);
     }
+    cond->includeParamInFP = includeParamInFP;
     return cond;
 }
 
@@ -113,9 +125,13 @@ static CC *evalFromJSON(const cJSON *params, char *err) {
 static void evalToJSON(const CC *cond, cJSON *code) {
 
     // add code
-    unsigned char *b64 = base64_encode(cond->code, cond->codeLength);
-    cJSON_AddItemToObject(code, "code", cJSON_CreateString(b64));
-    free(b64);
+    //unsigned char *b64 = base64_encode(cond->code, cond->codeLength);
+    //cJSON_AddItemToObject(code, "code", cJSON_CreateString(b64));
+    //free(b64);
+
+    unsigned char *codehex = cc_hex_encode(cond->code, cond->codeLength);
+    cJSON_AddItemToObject(code, "codehex", cJSON_CreateString(codehex));
+    free(codehex);
 
     if (cond->param) {
         unsigned char *hex = cc_hex_encode(cond->param, cond->paramLength);

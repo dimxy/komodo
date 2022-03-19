@@ -151,6 +151,7 @@ bool IsRemoteRPCCall()
 bool CCtoAnon(const CC* cond)
 {
     return true;
+    /*
     for (int i = 0; i < cond->size; i++)
         if (cc_typeId(cond->subconditions[i]) == CC_Threshold) {
             CCwrapper tmp(cond->subconditions[i]);
@@ -158,6 +159,7 @@ bool CCtoAnon(const CC* cond)
             return (true);
         }
     return (false); 
+    */
 }
 
 /*bool CCtoAnon2(const CC* cond)
@@ -170,3 +172,36 @@ bool CCtoAnon(const CC* cond)
         }
     return (false); 
 }*/
+
+void CCtoAnon1st(CC *cond)
+{
+    if (cc_typeId(cond) == CC_Threshold) {
+        for (int i = 0; i < cond->size; i++) {
+            if (i > 0 || cc_typeId(cond->subconditions[i]) != CC_Preimage)   {  // skip special mixed mode subcond
+                CC *t = cond->subconditions[i]; //tmp will free cond->subconditions[i]
+                cond->subconditions[i] = cc_anon(t);
+                cc_free(t);
+            }
+        }
+    }
+    else {
+        //CCwrapper tmp(cond);
+        //cond = cc_anon(tmp.get());
+    }
+}
+
+void SetIncludeParamInFingerprintOn(CC *cond)
+{
+    // set Include Param In FingerPrint ON:
+    auto walkEval = [](CC *cond, struct CCVisitor _) {
+        bool r = false;
+
+        if (cc_typeId(cond) == CC_Eval) {
+            cond->includeParamInFP = 1;
+        }
+        // false for a match, true for continue
+        return r ? 0 : 1;
+    };
+    CCVisitor visitor = { walkEval, (uint8_t*)"", 0, (void*)nullptr };
+    cc_visit(cond, visitor);
+}
