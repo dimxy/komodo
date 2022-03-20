@@ -59,7 +59,7 @@ static CC* anonFromJSON(const cJSON *params, char *err) {
     size_t len;
     cJSON *fingerprint_item = cJSON_GetObjectItem(params, "fingerprint");
     if (!cJSON_IsString(fingerprint_item)) {
-        strcpy(err, "fingerprint must be a number");
+        strcpy(err, "fingerprint must be a string");
         return NULL;
     }
     unsigned char *fing = base64_decode(fingerprint_item->valuestring, &len);
@@ -78,10 +78,20 @@ static CC* anonFromJSON(const cJSON *params, char *err) {
         strcpy(err, "subtypes must be a number");
         return NULL;
     }
+    CCType *realType = NULL;
+    cJSON *asnType_item = cJSON_GetObjectItem(params, "asnType");
+    if (asnType_item)  {
+        if (!cJSON_IsNumber(asnType_item)) {
+            strcpy(err, "asnType must be a number");
+            return NULL;
+        }
+        realType = getTypeByAsnEnum(asnType_item->valueint);
+    }
     CC* cond=cc_new(CC_Anon);
     memcpy(cond->fingerprint,fing,len);
     cond->cost = (long) cost_item->valuedouble;
     cond->subtypes = subtypes_item->valueint;
+    cond->conditionType = realType;
     return cond;
 }
 
@@ -91,6 +101,7 @@ static void anonToJSON(const CC *cond, cJSON *params) {
     free(b64);
     cJSON_AddItemToObject(params, "cost", cJSON_CreateNumber(cond->cost));
     cJSON_AddItemToObject(params, "subtypes", cJSON_CreateNumber(cond->subtypes));
+    cJSON_AddItemToObject(params, "asnType", cJSON_CreateNumber((int)cond->conditionType->asnType));
 }
 
 

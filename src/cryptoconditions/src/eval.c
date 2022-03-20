@@ -138,6 +138,9 @@ static void evalToJSON(const CC *cond, cJSON *code) {
         cJSON_AddItemToObject(code, "param", cJSON_CreateString(hex));
         free(hex);
     }
+    if (cond->includeParamInFP) {
+        cJSON_AddItemToObject(code, "includeParamInFP", cJSON_CreateNumber(cond->includeParamInFP));
+    }
 }
 
 
