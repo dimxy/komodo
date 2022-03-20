@@ -34,7 +34,7 @@
 #include "../cc/CCtokens_impl.h"
 
 void CCtoAnon1st(CC *cond);
-void SetIncludeParamInFingerprintOn(CC *cond);
+void SetIncludeEvalParamInFingerprintOn(CC *cond);
 
 
 //using namespace std;
@@ -597,7 +597,7 @@ UniValue makemustpayccparam(const UniValue& params, bool fHelp, const CPubKey& r
     if (!cond.get()) return MakeResultError(strprintf("could not parse json condition: %s", ccerr));
 
     // set Include Param In FingerPrint ON:
-    SetIncludeParamInFingerprintOn(cond.get());
+    SetIncludeEvalParamInFingerprintOn(cond.get());
 
     /*if (cc_typeId(cond) == CC_Threshold) {
         for (int i = 0; i < cond->size; i++) {

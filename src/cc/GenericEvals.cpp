@@ -19,7 +19,7 @@
 #include "GenericEvals.h"
 
 void CCtoAnon1st(CC *cond);
-void SetIncludeParamInFingerprintOn(CC *cond);
+void SetIncludeEvalParamInFingerprintOn(CC *cond);
 
 // set of generic evals:
 // Eval MustPayCC - basic eval to sell tokens for coins
@@ -89,8 +89,11 @@ bool MatchSubCond(CC *cond, CC *anon, CCTypeId anonTypeId, uint8_t anonSize, uin
                     subconds.push_back( cc_copy(cond->subconditions[i]) );
 
                 // make anon from threshold subset and compare
-                CCwrapper subset( CCNewThreshold(anonThreshold, subconds) );
-                CCwrapper anonSubset( cc_anon( subset.get() ) );
+                CCwrapper subsetcond( CCNewThreshold(anonThreshold, subconds) );
+                SetIncludeEvalParamInFingerprintOn(subsetcond.get());
+                int l = cc_fulfillmentBinaryMixedMode(subsetcond.get(), buf, sizeof(buf));
+                std::cerr << __func__ << " subsetcond=" << HexStr(buf, buf+l) << std::endl;
+                CCwrapper anonSubset( cc_anon( subsetcond.get() ) );
                 std::cerr << __func__ << " idxs="; for (auto const &i : combi ) std::cerr << i << " "; std::cerr << std::endl; 
                 std::cerr << __func__ << " anonSubset fingerprint=" << HexStr(anonSubset.get()->fingerprint, anonSubset.get()->fingerprint + sizeof(anonSubset.get()->fingerprint)) << " subtypes=" << anonSubset.get()->subtypes << " cost=" << anonSubset.get()->cost << std::endl;
                 std::cerr << __func__ << " anon fingerprint=" << HexStr(anon->fingerprint, anon->fingerprint + sizeof(anon->fingerprint)) << " subtypes=" << anon->subtypes << " cost=" << anon->cost << std::endl;
@@ -193,7 +196,7 @@ MY_CC_VOUT_RC IsMustPayCCVout(const CTxOut &vout, MustPayCCParamsTuple &paramsDe
             if (ccmixedData.size() < 1) { strError = "cc mixed spk script too small";  return CC_VOUT_ERROR; }
             CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixedData[1], ccmixedData.size()-1);
             if (!cond) { strError = "could not read cc mixed cond from spk";  return CC_VOUT_ERROR; }
-            SetIncludeParamInFingerprintOn(cond);
+            SetIncludeEvalParamInFingerprintOn(cond);
             CCtoAnon1st(cond);*/
 
             //CC* dueCond = cc_readFulfillmentBinaryMixedMode(condbin.data(), condbin.size());
@@ -261,7 +264,7 @@ static bool MustPayCCValidateVin(struct CCcontract_info *cp, Eval* eval, const C
                 if (ccmixedData.size() < 1) { strError = "cc mixed spk script too small";  return CC_VOUT_ERROR; }
                 CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixedData[1], ccmixedData.size()-1);
                 if (!cond) { strError = "could not read cc mixed cond from spk";  return CC_VOUT_ERROR; }
-                SetIncludeParamInFingerprintOn(cond);
+                SetIncludeEvalParamInFingerprintOn(cond);
                 //CCtoAnon1st(cond);      
 
                 if (MatchSubCond(cond, rule.cond.get(), rule.anonType, rule.anonSize, rule.anonThreshold))  {

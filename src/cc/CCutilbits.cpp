@@ -190,17 +190,16 @@ void CCtoAnon1st(CC *cond)
     }
 }
 
-void SetIncludeParamInFingerprintOn(CC *cond)
+void SetIncludeEvalParamInFingerprintOn(CC *cond)
 {
     // set Include Param In FingerPrint ON:
     auto walkEval = [](CC *cond, struct CCVisitor _) {
-        bool r = false;
 
         if (cc_typeId(cond) == CC_Eval) {
             cond->includeParamInFP = 1;
         }
         // false for a match, true for continue
-        return r ? 0 : 1;
+        return 1;
     };
     CCVisitor visitor = { walkEval, (uint8_t*)"", 0, (void*)nullptr };
     cc_visit(cond, visitor);
