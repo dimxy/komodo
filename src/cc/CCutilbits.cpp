@@ -17,6 +17,7 @@
  CCutilbits.cpp has very low level functions that are universally useful for all contracts and have low dependency from other sources
  */
 
+#include <stdarg.h>
 #include "CCinclude.h"
 #include "komodo_structs.h"
 

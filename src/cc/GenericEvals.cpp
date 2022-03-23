@@ -17,6 +17,8 @@
 #include "CCtokens.h"
 //#include "CCtokens_impl.h"
 #include "GenericEvals.h"
+#include "CCscript.h"
+
 
 void CCtoAnon1st(CC *cond);
 void SetIncludeEvalParamInFingerprintOn(CC *cond);
@@ -144,8 +146,9 @@ MY_CC_VOUT_RC IsMustPayCCVout(const CTxOut &vout, MustPayCCParamsTuple &paramsDe
     {
         if (vvParams.size() != 1) { strError = "must pay cc vout must have only one eval param";  return CC_VOUT_ERROR; }
 
-        CAmount dueAmount;
-        uint8_t paramVer;;
+        //CAmount dueAmount;
+        CScript scriptAmount;
+        uint8_t paramVer;
         uint8_t anonType;
         uint8_t anonSize;
         uint8_t anonThreshold;
@@ -178,10 +181,13 @@ MY_CC_VOUT_RC IsMustPayCCVout(const CTxOut &vout, MustPayCCParamsTuple &paramsDe
 
         if (!E_UNMARSHAL(*(vvParams.begin()), 
             uint8_t p;
-            ss >> dueAmount >> p >> paramVer; 
+            vuint8_t vscript;
+            ss >> p >> paramVer >> vscript; 
             paramType = (MUST_PAY_CC_TYPES)p;
-            if (paramType == PAY_TO_CC)  
+            scriptAmount = CScript(vscript.begin(), vscript.end());
+            if (paramType == PAY_TO_CC)  {
                 ss >> anonType >> anonSize >> anonThreshold >> condbin;
+            }
         )) { strError = "can't parse must-pay-cc eval param in vout";  return CC_VOUT_ERROR; }
 
         if (paramType == PAY_TO_CC) {
@@ -213,7 +219,21 @@ MY_CC_VOUT_RC IsMustPayCCVout(const CTxOut &vout, MustPayCCParamsTuple &paramsDe
             /*bool result = MatchSubCond(cond, dueCond);
             cc_free(cond);
             cc_free(dueCond);*/
-            paramsDecoded = std::make_tuple(dueAmount, rule);
+
+            // try to exec the script to check if it is valid
+            CAmount dueAmount;
+            ScriptError err;
+            CTransaction dummytx;
+            TransactionSignatureChecker checker(&dummytx, 0, 0);
+            vuint8_t extVar0 = CScriptNum::serialize(COIN); // load var_external_0 with vin amount
+            CCSCRIPT::CCInterpret(scriptAmount, checker, { extVar0 }, dueAmount, &err);  // execute script 
+            if (err != SCRIPT_ERR_OK)   {
+                std::cerr << __func__ << " CCInterpret returned error: " << (int)err << " " << ScriptErrorString(err) << std::endl;
+                strError = strprintf("invalid amount script %s", ScriptErrorString(err));
+                return CC_VOUT_ERROR; 
+            }
+
+            paramsDecoded = std::make_tuple(scriptAmount, rule);
             return CC_VOUT_VALID;
         }
 
@@ -237,7 +257,8 @@ static bool MustPayCCValidateVin(struct CCcontract_info *cp, Eval* eval, const C
 
     MustPayCCParamsTuple paramsPrev;
     if (IsMustPayCCVout(prevOut, paramsPrev, strError) != CC_VOUT_VALID) { strError.empty() ? "prev vout not valid must-pay-cc eval" : strError; return false; }
-    CAmount dueAmount = std::get<0>(paramsPrev);
+    //CAmount dueAmount = std::get<0>(paramsPrev);
+    CScript scriptAmount = std::get<0>(paramsPrev);
     MustPayCCRuleType rule = std::get<1>(paramsPrev);
 
     //CAmount pricePrev = std::get<0>(paramsPrev);
@@ -289,7 +310,15 @@ static bool MustPayCCValidateVin(struct CCcontract_info *cp, Eval* eval, const C
     }
  
     //if (nCount != 1) { strError = "must-pay-cc must be exactly one checked vout";  return false; }
-    if (payToCCAmount < dueAmount) { strError = "must-pay-cc insufficient amount paid";  return false; }
+    CAmount dueAmount;
+    ScriptError err;
+    CTransaction dummytx;
+    TransactionSignatureChecker checker(&dummytx, 0, 0);
+    vuint8_t extVar0 = CScriptNum::serialize(prevOut.nValue); // load var_external_0 with vin amount
+    CCSCRIPT::CCInterpret(scriptAmount, checker, { extVar0 }, dueAmount, &err);  // execute script to get dueAmount
+    if (err != SCRIPT_ERR_OK)   
+        std::cerr << __func__ << " CCInterpret returned error: " << (int)err << " " << ScriptErrorString(err) << std::endl;
+    if (payToCCAmount < dueAmount) { strError = "must-pay-cc insufficient cc amount paid";  return false; }
     return true;
 }
 
@@ -308,6 +337,8 @@ static bool MustPayCCValidateVouts(struct CCcontract_info *cp, Eval* eval, const
 // eval tx validation entry function
 bool MustPayCCValidate(struct CCcontract_info *cp, Eval* eval,const CTransaction &tx, uint32_t nIn)
 {
+    if (strcmp(ASSETCHAINS_SYMBOL, "EASSETS01") == 0 && eval->GetCurrentHeight() <= 392) return true; // skip old code
+
     uint256 hashBlock;
     CTransaction vintx;
     std::set<int32_t> usedVouts; // already taken vouts

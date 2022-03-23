@@ -50,7 +50,7 @@ typedef struct MustPayCCRule {
 } MustPayCCRuleType;
 
 // eval data containers:
-typedef std::tuple<CAmount, MustPayCCRuleType> MustPayCCParamsTuple; // amount and decode eval param
+typedef std::tuple<CScript, MustPayCCRuleType> MustPayCCParamsTuple; // script to calculate the amount and spending rules (condition)
 
 
 // validation entry functions:
