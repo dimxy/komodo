@@ -30,6 +30,7 @@
 #include "../cc/CCtokens.h"
 #include "../cc/GenericAssets.h"
 #include "../cc/GenericEvals.h"
+#include "../cc/CCscript.h"
 
 #include "../cc/CCtokens_impl.h"
 
@@ -576,12 +577,14 @@ UniValue makemustpayccparam(const UniValue& params, bool fHelp, const CPubKey& r
     CCerror.clear();
 
     if (fHelp || params.size() != 2)
-        throw std::runtime_error(std::string(__func__) + "amount 'ccjson'\n"
-        "amount is must-pay-cc amount to pay in satoshis"
+        throw std::runtime_error(std::string(__func__) + " script-hex 'ccjson'\n"
+        "script-hex is a cc script to return must-pay-cc output amount"
         "The json param is a cc. This rpc parses it and converts to an anonymous condition.\n"
         "The result is a serialised mixed mode condition in hex\n");
     
-    CAmount amount = atoll(params[0].get_str().c_str());
+    //CAmount amount = atoll(params[0].get_str().c_str());
+    vuint8_t vscript = ParseHex(params[0].get_str());
+    //CScript cccscript(vscript.begin(), vscript.end());
     UniValue jsonParams(UniValue::VOBJ);
     if (params[1].getType() == UniValue::VOBJ)
         jsonParams = params[1].get_obj();
@@ -618,8 +621,101 @@ UniValue makemustpayccparam(const UniValue& params, bool fHelp, const CPubKey& r
     uint8_t anonSize = (uint8_t)(cc_typeId(cond.get()) == CC_Threshold ? (cond.get())->size : 0);
     uint8_t anonThreshold = (uint8_t)(cc_typeId(cond.get()) == CC_Threshold ? (cond.get())->threshold : 0);
     size_t len = cc_conditionBinary(cond.get(), buf);
-    return HexStr(E_MARSHAL(ss << amount << paramType << paramVer << anonType << anonSize << anonThreshold << vuint8_t(buf, buf+len)));
+    return HexStr(E_MARSHAL(ss << paramType << paramVer << vscript << anonType << anonSize << anonThreshold << vuint8_t(buf, buf+len)));
 }
+
+UniValue makeccscript(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ); 
+
+    CCerror.clear();
+
+    if (fHelp || params.size() != 1)
+        throw std::runtime_error(std::string(__func__) + " 'json'\n"
+        "parses json with cc eval expression and returns a resulting btc-like script with extensions\n"
+        "json structure:\n"
+        "{\"vars\":[val0,val1,..,val5], \n"
+        "\"expr\":\"<expr>\"}\n"
+        "Available operations: +,-,/,*,!,<,>,<=,>=,()\n"
+        "Keywords: VAR_0,...,VAR_5, EXT_0,...,EXT_5\n"
+        "Also constants are enabled as operands\n"
+        "Vars must be either integer amount or hex encoded data, no more than 5 elements\n"
+        "Please note that a variable EXT_0 is preloaded with cc vin amount\n"
+        "Example:\n"
+        "Script to ensure that the cc output amount is decremented by a unit price of 5500 satoshi.\n"
+        "Let's load unit price into VAR_0 and use it in the expression together with EXT_0 var which is preloaded with vin amount:\n"
+        "the script: '{\"vars\":[ 5500 ], \"expr\":\"EXT_0 - VAR_0\"}'\n");
+    
+    UniValue jsonParams(UniValue::VOBJ);
+    if (params[0].getType() == UniValue::VOBJ)
+        jsonParams = params[0].get_obj();
+    else if (params[0].getType() == UniValue::VSTR)  // json in quoted string '{...}'
+        jsonParams.read(params[0].get_str().c_str());
+    if (jsonParams.getType() != UniValue::VOBJ)
+        return MakeResultError("json parameter must be an object");
+
+    CScript script;
+    UniValue uVars = jsonParams["vars"];
+    if (!uVars.empty()) {
+        if (!uVars.isArray()) return MakeResultError("vars must be an array");
+        if (uVars.size() >= 5) return MakeResultError("too many vars");
+        // push internal vars:
+        for(int i = 0; i < uVars.size(); i ++) {
+            UniValue v = uVars[i];
+            if (v.isNum()) 
+                script << CScriptNum(v.get_int64()) << OP_LOAD_VAR;
+            if (v.isStr()) {
+                vuint8_t vval = ParseHex(v.get_str());
+                if (v.empty() && !v.get_str().empty()) return MakeResultError("could not parse hex value");
+                script << vval << OP_LOAD_VAR;
+            }
+        }
+    }
+    UniValue uExpr = jsonParams["expr"];
+    if (!uExpr.isStr()) return MakeResultError("expr must be a string");
+    std::string sExpr = uExpr.get_str();
+    CCSCRIPT::SCR_CTX ctx;
+    std::pair<CScript, CCSCRIPT::SCR_TYPE> parsed;
+    try {
+        std::string::iterator p = sExpr.begin();
+        parsed = CCSCRIPT::CCParseExpr(&ctx, p, sExpr.end());
+    }
+    catch(std::runtime_error &ex) {
+        return MakeResultError(strprintf("could not parse expression: %s", ex.what()));
+    }
+    script += parsed.first;
+
+    return  HexStr(script) + " (" + script.ToString() + ")";
+}
+
+UniValue testccscript(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ); 
+
+    CCerror.clear();
+
+    if (fHelp || params.size() != 1)
+        throw std::runtime_error(std::string(__func__) + " script-hex\n"
+        "tests cc script\n");
+    
+    
+    vuint8_t vscript = ParseHex(params[0].get_str());
+    CScript script(vscript.begin(), vscript.end());
+
+    CAmount resAmount = -1;
+    ScriptError err;
+    CTransaction dummytx;
+    TransactionSignatureChecker checker(&dummytx, 0, 0);
+    CCSCRIPT::CCInterpret(script, checker, {}, resAmount, &err);
+    if (err != SCRIPT_ERR_OK)   
+        std::cerr << __func__ << " CCInterpret returned error: " << (int)err << " " << ScriptErrorString(err) << std::endl;
+    else 
+        std::cerr << __func__ << " resAmount=" << resAmount <<std::endl;
+
+    result.pushKV("ResultAmount", resAmount);
+    return result;
+}
+
 
 
 static const CRPCCommand commands[] =
@@ -641,7 +737,8 @@ static const CRPCCommand commands[] =
 	{ "genericevals",    "createccevaltx",    &createccevaltx,      true },
 	{ "genericevals",    "makeccevalparam",    &makeccevalparam,      true },
     { "genericevals",    "makemustpayccparam",    &makemustpayccparam,      true },	
-
+    { "genericevals",    "makeccscript",    &makeccscript,      true },	
+    { "genericevals",    "testccscript",    &testccscript,      true },	
 };
 
 void RegisterAssetsV21RPCCommands(CRPCTable &tableRPC)
