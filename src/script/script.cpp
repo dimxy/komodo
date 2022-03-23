@@ -175,6 +175,18 @@ const char* GetOpName(opcodetype opcode)
 
     case OP_INVALIDOPCODE          : return "OP_INVALIDOPCODE";
 
+    case OP_PUSH_INTERNAL_VAR_0 : return "OP_PUSH_INTERNAL_VAR_0";
+    case OP_PUSH_INTERNAL_VAR_1 : return "OP_PUSH_INTERNAL_VAR_1";
+    case OP_PUSH_INTERNAL_VAR_2 : return "OP_PUSH_INTERNAL_VAR_2";
+    case OP_PUSH_INTERNAL_VAR_3 : return "OP_PUSH_INTERNAL_VAR_3";
+    case OP_PUSH_INTERNAL_VAR_4 : return "OP_PUSH_INTERNAL_VAR_4";
+    case OP_PUSH_EXTERNAL_VAR_0 : return "OP_PUSH_EXTERNAL_VAR_0";
+    case OP_PUSH_EXTERNAL_VAR_1 : return "OP_PUSH_EXTERNAL_VAR_1";
+    case OP_PUSH_EXTERNAL_VAR_2 : return "OP_PUSH_EXTERNAL_VAR_2";
+    case OP_PUSH_EXTERNAL_VAR_3 : return "OP_PUSH_EXTERNAL_VAR_3";
+    case OP_PUSH_EXTERNAL_VAR_4 : return "OP_PUSH_EXTERNAL_VAR_4";
+    case OP_LOAD_VAR            : return "OP_LOAD_VAR";
+
     default:
         return "OP_UNKNOWN";
     }

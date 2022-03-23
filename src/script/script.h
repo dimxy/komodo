@@ -194,6 +194,19 @@ enum opcodetype
     OP_NOP9 = 0xb8,
     OP_NOP10 = 0xb9,
 
+    // cc script extensions
+    OP_PUSH_INTERNAL_VAR_0 = 0xd0,
+    OP_PUSH_INTERNAL_VAR_1 = 0xd1,
+    OP_PUSH_INTERNAL_VAR_2 = 0xd2,
+    OP_PUSH_INTERNAL_VAR_3 = 0xd3,
+    OP_PUSH_INTERNAL_VAR_4 = 0xd4,
+    OP_PUSH_EXTERNAL_VAR_0 = 0xe0,
+    OP_PUSH_EXTERNAL_VAR_1 = 0xe1,
+    OP_PUSH_EXTERNAL_VAR_2 = 0xe2,
+    OP_PUSH_EXTERNAL_VAR_3 = 0xe3,
+    OP_PUSH_EXTERNAL_VAR_4 = 0xe4,
+    OP_LOAD_VAR = 0xee,
+
     // template matching params
     OP_SMALLDATA = 0xf9,
     OP_CRYPTOCONDITION = 0xfc,
@@ -311,6 +324,12 @@ public:
             return std::numeric_limits<int>::max();
         else if (m_value < std::numeric_limits<int>::min())
             return std::numeric_limits<int>::min();
+        return m_value;
+    }
+
+    // cc script extension:
+    int64_t getint64() const
+    {
         return m_value;
     }
 

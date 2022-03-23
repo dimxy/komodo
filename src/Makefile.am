@@ -356,6 +356,7 @@ libbitcoin_server_a_SOURCES = \
   txmempool.cpp \
   validationinterface.cpp \
   cc/CCupgrades.cpp \
+  cc/CCscript.cpp \
   nSPV/nspv_fullnode.cpp \
   nSPV/nspv_fullnode_basic.cpp \
   nSPV/nspv_fullnode_cc.cpp \
