@@ -6,10 +6,18 @@ CFLAGS = -g -O0
 
 include_HEADERS = include/cryptoconditions.h
 
+# AM_LDFLAGS= @LDFLAGS@\
+# AM_LDFLAGS=  -Xlinker -rpath -Xlinker "/Users/dimxy/repo/komodo/src/cryptoconditions/src/include/secp256k1/.libs"\
+#             -Xlinker -install_name -Xlinker "/Users/dimxy/repo/komodo/src/cryptoconditions/src/include/secp256k1/.libs/libsecp256k1.0.dylib"
+
 # Have a separate build target for cryptoconditions that does not contain secp256k1
 
 libcryptoconditionstest_la_SOURCES = include/cryptoconditions.h
-libcryptoconditionstest_la_LIBADD = $(CRYPTOCONDITIONS_CORE) $(LIBSECP256K1)
+# libcryptoconditionstest_la_LIBADD = $(CRYPTOCONDITIONS_CORE) $(LIBSECP256K1)
+libcryptoconditionstest_la_LIBADD = $(CRYPTOCONDITIONS_CORE) src/include/secp256k1/.libs/libsecp256k1.a
+libcryptoconditionstest_la_LDFLAGS = -lgmp
+#  -Xlinker -rpath -Xlinker "src/include/secp256k1/.libs"
+# "-Wl,-rpath,src/include/secp256k1/.libs"
 
 AM_CFLAGS = -I$(top_srcdir)/src/asn -I$(top_srcdir)/include -I$(top_srcdir)/src/include \
 			-Wall -Wno-pointer-sign -Wno-discarded-qualifiers
