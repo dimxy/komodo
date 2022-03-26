@@ -1,19 +1,27 @@
-noinst_LIBRARIES=libcryptoconditions_core.a
+lib_LTLIBRARIES=libcryptoconditionstest.la
+noinst_LTLIBRARIES=$(CRYPTOCONDITIONS_CORE)
 SUBDIRS = src/include/secp256k1
 
 CFLAGS = -g -O0
-# CPPFLAGS = -DEMIT_ASN_DEBUG=1
 
 include_HEADERS = include/cryptoconditions.h
 
 # Have a separate build target for cryptoconditions that does not contain secp256k1
 
+libcryptoconditionstest_la_SOURCES = include/cryptoconditions.h
+libcryptoconditionstest_la_LIBADD = $(CRYPTOCONDITIONS_CORE) $(LIBSECP256K1)
+
+AM_CFLAGS = -I$(top_srcdir)/src/asn -I$(top_srcdir)/include -I$(top_srcdir)/src/include \
+			-Wall -Wno-pointer-sign -Wno-discarded-qualifiers
+
 LIBSECP256K1=src/include/secp256k1/libsecp256k1.la
 
 $(LIBSECP256K1): $(wildcard src/secp256k1/*)
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) -march:x86-64 -g -O0
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
-libcryptoconditions_core_a_SOURCES = \
+CRYPTOCONDITIONS_CORE=libcryptoconditions_core.la
+
+libcryptoconditions_core_la_SOURCES = \
 	src/cryptoconditions.c \
 	src/utils.c \
 	src/include/cJSON.c \
@@ -76,7 +84,8 @@ libcryptoconditions_core_a_CPPFLAGS=-I. -I./src/include -I./src/asn
 test:
 	bash -c '[ -d .env ] || virtualenv .env -p python3'
 	.env/bin/pip install pytest
-	gdb -batch -ex run -ex bt --args .env/bin/python -m pytest -s -x -v 2>&1 | grep -v ^"No stack."$
+#	gdb -batch -ex run -ex bt --args .env/bin/python -m pytest -s -x -v 2>&1 | grep -v ^"No stack."$
+	lldb -- .env/bin/python -m pytest -s -x -v 2>&1 | grep -v ^"No stack."$
 
 test-debug-interactive:
 	gdb -ex run --args python3 -m pytest -s -x -v

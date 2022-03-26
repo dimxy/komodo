@@ -9,15 +9,12 @@ import argparse
 from ctypes import *
 
 
-so = cdll.LoadLibrary('.libs/libcryptoconditions.so')
-so.jsonRPC.restype = c_char_p
+so = cdll.LoadLibrary('.libs/libcryptoconditionstest.dylib')
+so.cc_jsonRPC.restype = c_char_p
 
 
 def jsonRPC(method, params, load=True):
-    out = so.cc_jsonRPC(json.dumps({
-        'method': method,
-        'params': params,
-    }))
+    out = so.cc_jsonRPC(json.dumps({'method': method,'params': params}).encode('ascii'))
     return json.loads(out) if load else out
 
 
@@ -58,5 +55,6 @@ def get_parser():
 
 
 if __name__ == '__main__':
+
     args = get_parser().parse_args()
     print(jsonRPC(args.method, args.request, load=False))
