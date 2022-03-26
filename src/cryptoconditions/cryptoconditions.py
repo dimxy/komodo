@@ -6,10 +6,19 @@ import ctypes
 import base64
 import os.path
 import argparse
+import platform
 from ctypes import *
 
+# get the so lib filename
+# print('platform', platform.uname()[0])
+if platform.uname()[0] == "Windows":
+    name = "libcryptoconditionstest.dll"
+elif platform.uname()[0] == "Darwin":
+    name = "libcryptoconditionstest.dylib"
+else:
+    name = "libcryptoconditionstest.so"
 
-so = cdll.LoadLibrary('.libs/libcryptoconditionstest.dylib')
+so = cdll.LoadLibrary('.libs/'+name)
 so.cc_jsonRPC.restype = c_char_p
 
 

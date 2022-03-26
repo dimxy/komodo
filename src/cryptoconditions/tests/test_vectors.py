@@ -4,6 +4,7 @@ import base64
 from pyparsing import empty
 import pytest
 import os.path
+import platform
 from ctypes import *
 
 
@@ -94,6 +95,7 @@ def test_json_condition_json_parse(vectors_file):
     err = ctypes.create_string_buffer(100)
     cc = so.cc_conditionFromJSONString(json.dumps(vectors['json']).encode('ascii'), err)
     assert cc != 0
+    # we cant do this for returned
     # out_ptr = so.cc_conditionToJSONString(cc)
     #out = ctypes.cast(out_ptr, c_char_p).value.decode('ascii')
     #out = c_char_p(out_ptr) # .value
@@ -141,7 +143,16 @@ def _read_vectors(name):
         return json.load(open(path))
     raise IOError("Vectors file not found: %s.json" % name)
 
-so = cdll.LoadLibrary('.libs/libcryptoconditionstest.dylib')
+
+# get the so lib filename
+if platform.uname()[0] == "Windows":
+    name = "libcryptoconditionstest.dll"
+elif platform.uname()[0] == "Darwin":
+    name = "libcryptoconditionstest.dylib"
+else:
+    name = "libcryptoconditionstest.so"
+
+so = cdll.LoadLibrary('.libs/'+name)
 so.cc_jsonRPC.restype = c_char_p
 
 
