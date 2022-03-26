@@ -14,5 +14,5 @@ def test_decode_mixed_mode():
         "fulfillment": ffill
     })
 
-    assert r == {'type': 'threshold-sha-256', 'threshold': 2, 'subfulfillments': [{'type': 'eval-sha-256', 'code': '6w'}, {'type': '(anon)', 'fingerprint': 'H1_e5cdrPtg9bGg-3tWZneU81QDTEdWpkI29RqJNAqg', 'cost': 132096, 'subtypes': 32}]}
+    assert r == {'type': 'threshold-sha-256', 'threshold': 2, 'subfulfillments': [{'type': 'eval-sha-256', 'codehex': 'EB'}, {'type': '(anon)', 'fingerprint': 'H1_e5cdrPtg9bGg-3tWZneU81QDTEdWpkI29RqJNAqg', 'asnType': 3, 'cost': 132096, 'subtypes': 32}]}
 

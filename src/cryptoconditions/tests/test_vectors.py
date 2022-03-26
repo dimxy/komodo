@@ -154,7 +154,9 @@ else:
 
 so = cdll.LoadLibrary('.libs/'+name)
 so.cc_jsonRPC.restype = c_char_p
-
+so.cc_readFulfillmentBinary.restype = ctypes.c_void_p
+so.cc_fulfillmentBinary.restype = ctypes.c_ulong
+so.cc_fulfillmentBinary.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_ulong]
 
 
 def jsonRPC(method, params):
