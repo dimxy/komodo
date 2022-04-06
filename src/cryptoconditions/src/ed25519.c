@@ -123,6 +123,11 @@ static CC *ed25519FromJSON(const cJSON *params, char *err) {
     CC *cond = cc_new(CC_Ed25519);
     cond->publicKey = pk;
     cond->signature = sig;
+    
+    int dontFulfill = 0;
+    cJSON *obj = cJSON_GetObjectItem(params, "dontFulfill");
+    if (obj) cond->dontFulfill = !!obj->valueint;    
+
     return cond;
 }
 

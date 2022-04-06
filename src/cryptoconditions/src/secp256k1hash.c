@@ -299,6 +299,9 @@ static CC *secp256k1hashFromJSON(const cJSON *params, char *err) {
     if (!cond) {
         strcpy(err, "invalid secp256k1hash data");
     }
+    int dontFulfill = 0;
+    cJSON *obj = cJSON_GetObjectItem(params, "dontFulfill");
+    if (obj) cond->dontFulfill = !!obj->valueint;    
 END:
     if (pkhash) free(pkhash);
     if (pk) free(pk);

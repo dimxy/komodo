@@ -104,8 +104,8 @@ static CC *evalFromJSON(const cJSON *params, char *err) {
     }
 
     int includeParamInFP = 0;
-    cJSON *obj = cJSON_GetObjectItem(params, "includeParamInFP");
-    if (obj) includeParamInFP = !!obj->valueint;
+    cJSON *objfp = cJSON_GetObjectItem(params, "includeParamInFP");
+    if (objfp) includeParamInFP = !!objfp->valueint;
 
     CC *cond = cc_new(CC_Eval);
     cond->code = code;
@@ -118,6 +118,11 @@ static CC *evalFromJSON(const cJSON *params, char *err) {
         //free(hex);
     }
     cond->includeParamInFP = includeParamInFP;
+
+    int dontFulfill = 0;
+    cJSON *objdf = cJSON_GetObjectItem(params, "dontFulfill");
+    if (objdf) cond->dontFulfill = !!objdf->valueint;    
+
     return cond;
 }
 

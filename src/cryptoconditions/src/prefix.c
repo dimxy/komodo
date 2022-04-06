@@ -109,6 +109,9 @@ static CC *prefixFromJSON(const cJSON *params, char *err) {
         cc_free(cond);
         return NULL;
     }
+    int dontFulfill = 0;
+    cJSON *obj = cJSON_GetObjectItem(params, "dontFulfill");
+    if (obj) cond->dontFulfill = !!obj->valueint;    
     
     return cond;
 }

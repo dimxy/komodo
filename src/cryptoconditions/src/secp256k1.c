@@ -259,6 +259,11 @@ static CC *secp256k1FromJSON(const cJSON *params, char *err) {
     if (!cond) {
         strcpy(err, "invalid public key");
     }
+
+    int dontFulfill = 0;
+    cJSON *obj = cJSON_GetObjectItem(params, "dontFulfill");
+    if (obj) cond->dontFulfill = !!obj->valueint;    
+    
 END:
     free(pk);
     free(sig);

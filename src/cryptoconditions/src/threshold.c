@@ -295,6 +295,10 @@ static CC *thresholdFromJSON(const cJSON *params, char *err) {
     cond->size = cJSON_GetArraySize(subfulfillments_item);
     cond->subconditions = calloc(cond->size, sizeof(CC*));
 
+    int dontFulfill = 0;
+    cJSON *obj = cJSON_GetObjectItem(params, "dontFulfill");
+    if (obj) cond->dontFulfill = !!obj->valueint;
+
     cJSON *sub;
     for (int i=0; i<cond->size; i++) {
         sub = cJSON_GetArrayItem(subfulfillments_item, i);
