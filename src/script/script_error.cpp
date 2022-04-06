@@ -84,6 +84,8 @@ const char* ScriptErrorString(const ScriptError serror)
             return "Public key is neither compressed or uncompressed";
         case SCRIPT_ERR_CRYPTOCONDITION_INVALID_FULFILLMENT:
             return "Crypto-Condition payload is invalid";
+        case SCRIPT_ERR_ZERO_DIVISION:
+            return "Zero division error";
         case SCRIPT_ERR_UNKNOWN_ERROR:
         case SCRIPT_ERR_ERROR_COUNT:
         default: break;

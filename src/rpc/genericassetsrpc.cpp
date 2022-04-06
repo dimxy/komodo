@@ -475,8 +475,6 @@ UniValue createccevaltx(const UniValue& params, bool fHelp, const CPubKey& remot
 {
     UniValue result(UniValue::VOBJ); 
 
-    CCerror.clear();
-
     if (fHelp || params.size() != 1)
         throw std::runtime_error(std::string(__func__) + " 'json'\n"
         "create and sign transaction with cc evals. The param is a json object with tx vin vout props:\n"
@@ -574,33 +572,52 @@ UniValue makemustpayccparam(const UniValue& params, bool fHelp, const CPubKey& r
 {
     UniValue result(UniValue::VOBJ); 
 
-    CCerror.clear();
-
-    if (fHelp || params.size() != 2)
-        throw std::runtime_error(std::string(__func__) + " script-hex 'ccjson'\n"
-        "script-hex is a cc script to return must-pay-cc output amount"
-        "The json param is a cc. This rpc parses it and converts to an anonymous condition.\n"
-        "The result is a serialised mixed mode condition in hex\n");
+    if (fHelp || params.size() != 5)
+        throw std::runtime_error(std::string(__func__) + " eval-id load-script-hex amount-script-hex 'ccjson' dont-check-sig\n"
+        "eval-id - unique eval id (1 byte) for several must-pay-pkh evals in one output"
+        "load-script-hex is a cc script to preload some variabled used in the script and also accessible in script of other evals"
+        "amount-script-hex is a cc script to return must-pay-cc output amount"
+        "The ccjson param is a condition to be used as a rule to match the required destination outputs in the spending tx.\n"
+        "The result is a serialised eval param in hex\n");
     
     //CAmount amount = atoll(params[0].get_str().c_str());
-    vuint8_t vscript = ParseHex(params[0].get_str());
+    int evalid = atoi(params[0].get_str().c_str());
+    if (evalid < 0 || evalid > 0xff) 
+        return MakeResultError("eval id must be one byte size");
+    vuint8_t vloadScript = ParseHex(params[1].get_str());
+    vuint8_t vamountScript = ParseHex(params[2].get_str());
     //CScript cccscript(vscript.begin(), vscript.end());
-    UniValue jsonParams(UniValue::VOBJ);
-    if (params[1].getType() == UniValue::VOBJ)
-        jsonParams = params[1].get_obj();
-    else if (params[1].getType() == UniValue::VSTR)  // json in quoted string '{...}'
-        jsonParams.read(params[1].get_str().c_str());
-    if (jsonParams.getType() != UniValue::VOBJ)
-        return MakeResultError("json parameter must be an object");
 
-    std::string ccstr = jsonParams.write();
-    std::cerr << __func__ << " ccstr=" << ccstr << std::endl;
-    char ccerr[128];
-    CCwrapper cond( cc_conditionFromJSONString(ccstr.c_str(), ccerr) );
-    if (!cond.get()) return MakeResultError(strprintf("could not parse json condition: %s", ccerr));
+    bool isSelf = false;
+    CCwrapper cond;
+    UniValue ccParam = params[3];
+    std::cerr << __func__ << " ccParam=" << ccParam.write() << std::endl;
+    if (ccParam.isStr() && ccParam.get_str() == "self")
+        isSelf = true;
+    else {
+        UniValue jsonParams(UniValue::VOBJ);
+        if (ccParam.isObject())
+            jsonParams = ccParam.get_obj();
+        else if (ccParam.isStr())  { // json in quoted string '{...}'
+            jsonParams.read(ccParam.get_str().c_str());
+        }    
+        if (jsonParams.getType() != UniValue::VOBJ)
+            return MakeResultError("json parameter must be an object");
 
-    // set Include Param In FingerPrint ON:
-    SetIncludeEvalParamInFingerprintOn(cond.get());
+        std::string ccstr = jsonParams.write();
+        std::cerr << __func__ << " ccstr=" << ccstr << std::endl;
+        char ccerr[128];
+        cond.reset( cc_conditionFromJSONString(ccstr.c_str(), ccerr) );
+        if (!cond.get()) return MakeResultError(strprintf("could not parse json condition: %s", ccerr));
+        // set Include Param In FingerPrint ON:
+        SetIncludeEvalParamInFingerprintOn(cond.get());
+    }
+
+
+    int dontCheckSigs = 0;
+    if (params.size() >= 5)
+        dontCheckSigs = atoi(params[4].get_str().c_str());
+
 
     /*if (cc_typeId(cond) == CC_Threshold) {
         for (int i = 0; i < cond->size; i++) {
@@ -614,37 +631,87 @@ UniValue makemustpayccparam(const UniValue& params, bool fHelp, const CPubKey& r
     }*/
     //CCtoAnon1st(cond);
     //CCwrapper anon( cc_anon(cond.get()) );
+
     uint8_t buf[10000];
-    uint8_t paramType = 1;
-    uint8_t paramVer = 1;
-    uint8_t anonType = (uint8_t)cc_typeId(cond.get());
-    uint8_t anonSize = (uint8_t)(cc_typeId(cond.get()) == CC_Threshold ? (cond.get())->size : 0);
-    uint8_t anonThreshold = (uint8_t)(cc_typeId(cond.get()) == CC_Threshold ? (cond.get())->threshold : 0);
-    size_t len = cc_conditionBinary(cond.get(), buf);
-    return HexStr(E_MARSHAL(ss << paramType << paramVer << vscript << anonType << anonSize << anonThreshold << vuint8_t(buf, buf+len)));
+    MustPayCommon common;
+    uint8_t commonType = MUST_PAY_SCRIPT;
+    common.loadScript = CScript(vloadScript.begin(), vloadScript.end());
+    common.amountScript = CScript(vamountScript.begin(), vamountScript.end());
+
+    if (!isSelf)
+    {
+        MustPayCond mustPayCond;
+        uint8_t mustPayType = MUST_PAY_CC;
+        //uint8_t paramVer = 1;
+        mustPayCond.subCCEnc.cctype = cc_typeId(cond.get());
+        mustPayCond.subCCEnc.thresholdSize = (uint8_t)(cc_typeId(cond.get()) == CC_Threshold ? (cond.get())->size : 0);
+        mustPayCond.subCCEnc.threshold = (uint8_t)(cc_typeId(cond.get()) == CC_Threshold ? (cond.get())->threshold : 0);
+        //size_t len = cc_conditionBinary(cond.get(), buf);
+        size_t len = cc_fulfillmentBinaryMixedMode(cond.get(), buf, sizeof(buf));
+        mustPayCond.subCCEnc.condbin = vuint8_t(buf, buf+len);
+        mustPayCond.subCCEnc.noSigCheck = !!dontCheckSigs;
+        return HexStr(E_MARSHAL(ss << (uint8_t)evalid << commonType << common << mustPayType << mustPayCond));
+    }
+    else
+    {
+        uint8_t mustPayType = MUST_PAY_CC_SELF;
+        return HexStr(E_MARSHAL(ss << (uint8_t)evalid << commonType << common << mustPayType));
+    }
 }
+
+UniValue makemustpaypkhparam(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    UniValue result(UniValue::VOBJ); 
+
+    if (fHelp || params.size() != 4)
+        throw std::runtime_error(std::string(__func__) + " eval-id load-script-hex amount-script-hex dest\n"
+        "eval-id - unique eval id (1 byte) for several must-pay-pkh evals in one output"
+        "load-script-hex is a cc script to preload some variabled used in the script and also accessible in script of other evals"
+        "amount-script-hex is a cc script to return must-pay-cc output amount"
+
+        "The dest param is dest address.\n"
+        "The result is a eval param to be added to a eval condition in hex\n");
+    
+    //CAmount amount = atoll(params[0].get_str().c_str());
+    int evalid = atoi(params[0].get_str().c_str());
+    if (evalid < 0 || evalid > 0xff) 
+        return MakeResultError("eval id must be one byte size");
+    vuint8_t vloadScript = ParseHex(params[1].get_str());
+    vuint8_t vamountScript = ParseHex(params[2].get_str());
+
+
+    CTxDestination dest = DecodeDestination(params[3].get_str());
+
+    MustPayCommon common;
+    uint8_t commonType = MUST_PAY_SCRIPT;
+    common.loadScript = CScript(vloadScript.begin(), vloadScript.end());
+    common.amountScript = CScript(vamountScript.begin(), vamountScript.end());
+
+    uint8_t mustPayType = MUST_PAY_PKH;
+    return HexStr(E_MARSHAL(ss << (uint8_t)evalid << commonType << common << mustPayType << boost::get<CKeyID>(dest)));
+}
+
 
 UniValue makeccscript(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ); 
 
-    CCerror.clear();
-
     if (fHelp || params.size() != 1)
         throw std::runtime_error(std::string(__func__) + " 'json'\n"
-        "parses json with cc eval expression and returns a resulting btc-like script with extensions\n"
+        "parses json containing a list of variables accesible in the script and a cc eval expression and returns two btc-like load-variables and amount-calculation scripts\n"
         "json structure:\n"
-        "{\"vars\":[val0,val1,..,val5], \n"
+        "{\"vars\":[ {\"VAR<id>\":<value>}], \n"
         "\"expr\":\"<expr>\"}\n"
         "Available operations: +,-,/,*,!,<,>,<=,>=,()\n"
-        "Keywords: VAR_0,...,VAR_5, EXT_0,...,EXT_5\n"
-        "Also constants are enabled as operands\n"
-        "Vars must be either integer amount or hex encoded data, no more than 5 elements\n"
-        "Please note that a variable EXT_0 is preloaded with cc vin amount\n"
+        "User defined variables in format: VAR<id>\n"
+        "Variables must be either integer amount or hex encoded data\n"
+        "VINAMOUT - preloaded value with input amount. \n"
+        "VOUTAMOUT - preloaded value with output amount. \n"
+        "Numeric constants are enabled as operands\n"
         "Example:\n"
-        "Script to ensure that the cc output amount is decremented by a unit price of 5500 satoshi.\n"
-        "Let's load unit price into VAR_0 and use it in the expression together with EXT_0 var which is preloaded with vin amount:\n"
-        "the script: '{\"vars\":[ 5500 ], \"expr\":\"EXT_0 - VAR_0\"}'\n");
+        "Script to ensure that the cc output amount is divided by a unit price of 5500 satoshi.\n"
+        "Let's load unit price into VAR101 and use it in the expression together with VINAMOUNT var which is preloaded with vin amount:\n"
+        "the script: '{\"vars\":[ {\"VAR101\": 5500}, {\"VAR102\": \"VINAMOUNT\"}  ], \"expr\":\"VAR102 / VAR101\"}'\n");
     
     UniValue jsonParams(UniValue::VOBJ);
     if (params[0].getType() == UniValue::VOBJ)
@@ -654,21 +721,39 @@ UniValue makeccscript(const UniValue& params, bool fHelp, const CPubKey& remotep
     if (jsonParams.getType() != UniValue::VOBJ)
         return MakeResultError("json parameter must be an object");
 
-    CScript script;
+    CScript loadScript;
     UniValue uVars = jsonParams["vars"];
     if (!uVars.empty()) {
         if (!uVars.isArray()) return MakeResultError("vars must be an array");
-        if (uVars.size() >= 5) return MakeResultError("too many vars");
+        //if (uVars.size() >= 5) return MakeResultError("too many vars");
         // push internal vars:
-        for(int i = 0; i < uVars.size(); i ++) {
-            UniValue v = uVars[i];
-            if (v.isNum()) 
-                script << CScriptNum(v.get_int64()) << OP_LOAD_VAR;
-            if (v.isStr()) {
-                vuint8_t vval = ParseHex(v.get_str());
-                if (v.empty() && !v.get_str().empty()) return MakeResultError("could not parse hex value");
-                script << vval << OP_LOAD_VAR;
-            }
+        for(int i = 0; i < uVars.size(); i ++) 
+        {
+            if (!uVars[i].isObject()) return MakeResultError("\"vars\" array must contain objects");
+            if (uVars[i].getKeys().size() != 1) return MakeResultError("invalid \"vars\" key-value element");
+            UniValue k = uVars[i].getKeys()[0];
+            UniValue v = uVars[i].getValues()[0];
+            if (!k.isStr()) return MakeResultError("invalid variable name");
+            if (k.get_str().substr(0, 3) == "VAR")  {
+                int32_t id = atoi(k.get_str().substr(3).c_str());
+                if (id <= 0) return MakeResultError("invalid var id");
+                if (v.isNum())
+                    loadScript << CScriptNum(id) << CScriptNum(v.get_int64()) << OP_LOAD_VAR;
+                else if (v.isStr()) {
+                    if (v.get_str() == "VINAMOUNT")
+                        loadScript << CScriptNum(id) << OP_LOAD_INPUT_AMOUNT;
+                    else if (v.get_str() == "VOUTAMOUNT")
+                        loadScript << CScriptNum(id) << OP_LOAD_OUTPUT_AMOUNT_BY_DEST;
+                    else {
+                        vuint8_t vval = ParseHex(v.get_str());
+                        if (v.empty() && !v.get_str().empty()) return MakeResultError("could not parse hex value");
+                        loadScript << CScriptNum(id) << vval << OP_LOAD_VAR;
+                    }
+                } else 
+                    return MakeResultError("invalid var value type");
+            } 
+            else 
+                return MakeResultError("invalid var name");
         }
     }
     UniValue uExpr = jsonParams["expr"];
@@ -683,30 +768,55 @@ UniValue makeccscript(const UniValue& params, bool fHelp, const CPubKey& remotep
     catch(std::runtime_error &ex) {
         return MakeResultError(strprintf("could not parse expression: %s", ex.what()));
     }
-    script += parsed.first;
+    CScript amountScript = parsed.first;
 
-    return  HexStr(script) + " (" + script.ToString() + ")";
+    result.pushKV("LoadScript", HexStr(loadScript));
+    result.pushKV("LoadScriptDecoded", loadScript.ToString());
+    result.pushKV("AmountScript", HexStr(amountScript));
+    result.pushKV("AmountScriptDecoded", amountScript.ToString());
+    return  result;
 }
 
 UniValue testccscript(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VOBJ); 
 
-    CCerror.clear();
-
-    if (fHelp || params.size() != 1)
-        throw std::runtime_error(std::string(__func__) + " script-hex\n"
+    if (fHelp || params.size() != 3)
+        throw std::runtime_error(std::string(__func__) + " vin-amount load-script-hex amount-script-hex\n"
         "tests cc script\n");
     
-    
-    vuint8_t vscript = ParseHex(params[0].get_str());
-    CScript script(vscript.begin(), vscript.end());
+    CAmount vinAmount = atoll(params[0].get_str().c_str());
+    vuint8_t vloadScript = ParseHex(params[1].get_str());
+    vuint8_t vscript = ParseHex(params[2].get_str());
+    CScript amountScript(vscript.begin(), vscript.end());
+    CCSCRIPT::ExternalVarsType vars; // = { { (int)CCSCRIPT::VARID_VINAMOUNT, CScriptNum(vinAmount).getvch() } };
+
+    if (!E_UNMARSHAL(vloadScript,
+        while(!ss.eof())  {
+            vuint8_t vid;
+            vuint8_t value;
+            ss >> vid >> value;
+            bool fRequireMinimal = false;
+            int id = CScriptNum(vid, fRequireMinimal).getint();
+            /*if (CCSCRIPT::reservedVarIds.count(id) > 0)  {
+                std::cerr << __func__ << " reserved cc script var id used" << std::endl;
+                break; // makes error
+            }*/
+            std::cerr << __func__ << " id=" << id << " value=" << HexStr(value) << std::endl;
+            vars[id] = value;
+        }
+    )) 
+    {
+        throw std::runtime_error("could not unmarshal load cc script");
+        return false;
+    }
+
 
     CAmount resAmount = -1;
     ScriptError err;
     CTransaction dummytx;
     TransactionSignatureChecker checker(&dummytx, 0, 0);
-    CCSCRIPT::CCInterpret(script, checker, {}, resAmount, &err);
+    CCSCRIPT::CCInterpret(amountScript, checker, vars, resAmount, &err);
     if (err != SCRIPT_ERR_OK)   
         std::cerr << __func__ << " CCInterpret returned error: " << (int)err << " " << ScriptErrorString(err) << std::endl;
     else 
@@ -716,7 +826,115 @@ UniValue testccscript(const UniValue& params, bool fHelp, const CPubKey& remotep
     return result;
 }
 
+UniValue getccevalparam(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
 
+    if (fHelp || params.size() < 3 || params.size() > 4)
+        throw std::runtime_error(std::string(__func__) + " txid n-vout evalcode [id]\n"
+        "gets eval param for vout by evalcode (0x prefix allowed for base16) and id (for mustpaycc eval)\n");
+    
+    uint256 txid = Parseuint256(params[0].get_str().c_str());
+    int32_t nvout = atoi(params[1].get_str().c_str());
+    int32_t evalcode = strtol(params[2].get_str().c_str(), nullptr, 0);
+    int32_t id = 0;
+    if (params.size() >= 4) 
+        id = atoi(params[3].get_str().c_str());
+
+    CTransaction tx;
+    uint256 hashBlock;
+    if (!myGetTransaction(txid, tx, hashBlock)) throw std::runtime_error("could load tx");
+    if (nvout < 0 || nvout >= tx.vout.size()) throw std::runtime_error("invalid n-vout");
+    std::set<vuint8_t> vvParams;
+    if (!tx.vout[nvout].scriptPubKey.SpkHasEvalcodeCCV2((uint8_t)evalcode, &vvParams))  throw std::runtime_error("could not get eval params for this vout");
+    if (vvParams.size() == 0)  throw std::runtime_error("no eval params in this vout");
+    if (evalcode != EVAL_GENERICMUSTPAYCC)  
+        return HexStr(*vvParams.begin());
+    else {
+        auto f = std::find_if(vvParams.begin(), vvParams.end(), [=](const vuint8_t &v){ return v[0] == id; });
+        if (f != vvParams.end())
+            return HexStr(*f);
+        else 
+            throw std::runtime_error("eval param not found for this id");
+    }
+}
+
+UniValue parsecctokenevalparam(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+
+    if (fHelp || params.size() != 1)
+        throw std::runtime_error(std::string(__func__) + " token-param\n"
+        "returns token param parsed\n");
+    
+    vuint8_t tokenparam = ParseHex(params[0].get_str().c_str());
+    uint8_t funcid, ver;
+    uint256 tokenid;
+    if (!E_UNMARSHAL(tokenparam, ss >> funcid >> ver >> tokenid))   throw std::runtime_error("could not parse token param");
+    UniValue result(UniValue::VOBJ); 
+    result.pushKV("FuncId", std::string(1, (char)funcid));
+    result.pushKV("FormatVersion", (int)ver);
+    result.pushKV("TokenId", tokenid.GetHex());
+    return result;
+}
+
+UniValue parsemustpayccevalparam(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+
+    if (fHelp || params.size() != 1)
+        throw std::runtime_error(std::string(__func__) + " must-pay-cc-param\n"
+        "returns must-pay-cc eval param parsed\n");
+    
+    vuint8_t evalparam = ParseHex(params[0].get_str().c_str());
+    std::shared_ptr<CEvalContext> pctx( new CEvalContext() );
+    CMustPayCCTool tool( EVAL_GENERICMUSTPAYCC, CTxOut(), CTransaction(), pctx );
+    if (!tool.ParseEvalParam(evalparam)) throw std::runtime_error("could not parse eval param");
+
+    CCSCRIPT::ExternalVarsType vars;
+    if (!CCInterpretLoadScript(tool.common.loadScript, &tool, vars)) throw std::runtime_error("could not parse load script");
+    UniValue uvars(UniValue::VOBJ); 
+    bool fRequireMinimal = false;
+    for(auto const v : vars) {
+        uvars.pushKV("VAR"+std::to_string(v.first), CScriptNum(v.second, fRequireMinimal).getint64());
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("LoadScript", HexStr(tool.common.loadScript)); 
+    result.pushKV("LoadScriptDecoded", tool.common.loadScript.ToString()); 
+    result.pushKV("LoadScriptVars", uvars);
+    result.pushKV("AmountScript", HexStr(tool.common.amountScript)); 
+    result.pushKV("AmountScriptDecoded", tool.common.amountScript.ToString()); 
+    result.pushKV("IsSelf", (int)tool.ccrule.isSelf); 
+    result.pushKV("Condition", HexStr(tool.ccrule.subCCEnc.condbin)); 
+    return result;
+}
+
+UniValue parsemustpaypkhevalparam(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() != 1)
+        throw std::runtime_error(std::string(__func__) + " must-pay-pkh-param\n"
+        "returns must-pay-pkh eval param parsed\n");
+    
+    vuint8_t evalparam = ParseHex(params[0].get_str().c_str());
+    std::shared_ptr<CEvalContext> pctx( new CEvalContext() );
+    CMustPayPKHTool tool( EVAL_GENERICMUSTPAYPKH, CTxOut(), CTransaction(), pctx );
+    if (!tool.ParseEvalParam(evalparam)) throw std::runtime_error("could not parse eval param");
+
+    CCSCRIPT::ExternalVarsType vars;
+    if (!CCInterpretLoadScript(tool.common.loadScript, &tool, vars)) throw std::runtime_error("could not parse load script");
+    UniValue uvars(UniValue::VOBJ); 
+    bool fRequireMinimal = false;
+    for(auto const v : vars) {
+        uvars.pushKV("VAR"+std::to_string(v.first), CScriptNum(v.second, fRequireMinimal).getint64());
+    }
+
+    UniValue result(UniValue::VOBJ);
+    result.pushKV("LoadScript", HexStr(tool.common.loadScript)); 
+    result.pushKV("LoadScriptDecoded", tool.common.loadScript.ToString()); 
+    result.pushKV("LoadScriptVars", uvars);
+    result.pushKV("AmountScript", HexStr(tool.common.amountScript)); 
+    result.pushKV("AmountScriptDecoded", tool.common.amountScript.ToString()); 
+    result.pushKV("Destination", tool.normalrule.dest.ToString()); 
+    return result;
+}
 
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
@@ -737,8 +955,14 @@ static const CRPCCommand commands[] =
 	{ "genericevals",    "createccevaltx",    &createccevaltx,      true },
 	{ "genericevals",    "makeccevalparam",    &makeccevalparam,      true },
     { "genericevals",    "makemustpayccparam",    &makemustpayccparam,      true },	
+    { "genericevals",    "makemustpaypkhparam",    &makemustpaypkhparam,      true },	
     { "genericevals",    "makeccscript",    &makeccscript,      true },	
     { "genericevals",    "testccscript",    &testccscript,      true },	
+    { "genericevals",    "getccevalparam",    &getccevalparam,      true },	
+    { "genericevals",    "parsecctokenevalparam",    &parsecctokenevalparam,      true },	
+    { "genericevals",    "parsemustpayccevalparam",    &parsemustpayccevalparam,      true },	
+    { "genericevals",    "parsemustpaypkhevalparam",    &parsemustpaypkhevalparam,      true },	
+
 };
 
 void RegisterAssetsV21RPCCommands(CRPCTable &tableRPC)

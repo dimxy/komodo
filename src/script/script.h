@@ -205,7 +205,12 @@ enum opcodetype
     OP_PUSH_EXTERNAL_VAR_2 = 0xe2,
     OP_PUSH_EXTERNAL_VAR_3 = 0xe3,
     OP_PUSH_EXTERNAL_VAR_4 = 0xe4,
+    OP_LOAD_INPUT_AMOUNT = 0xeb,
+    OP_LOAD_OUTPUT_AMOUNT_BY_DEST = 0xec,
+    OP_LOAD_OUTPUT_AMOUNT_BY_N = 0xed,
     OP_LOAD_VAR = 0xee,
+    OP_PUSH_PRELOADED_VAR = 0xef,
+
 
     // template matching params
     OP_SMALLDATA = 0xf9,

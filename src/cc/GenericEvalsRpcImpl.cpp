@@ -37,19 +37,19 @@ UniValue CreateCCEvalTx(const CPubKey &mypk, CAmount txfee, const UniValue &txjs
     if (txfee == 0)
         txfee = 10000;
 
-    UniValue jvins = txjson["vins"];
+    UniValue jvins = txjson[std::string("vins")];
     if (!jvins.isArray()) { CCerror = "no or incorrect 'vins' array"; return NullUniValue; }
-    UniValue jvouts = txjson["vouts"];
+    UniValue jvouts = txjson[std::string("vouts")];
     if (!jvouts.isArray()) { CCerror = "no or incorrect 'vouts' array"; return NullUniValue; }
 
     for (int i = 0; i < jvins.size(); i ++)  {
-        uint256 vintxid = Parseuint256(jvins[i]["hash"].get_str().c_str());
+        uint256 vintxid = Parseuint256(jvins[i][std::string("hash")].get_str().c_str());
         //std::cerr << __func__ << " getting n" << std::endl;
-        int32_t vini = jvins[i]["n"].get_int();
+        int32_t vini = jvins[i][std::string("n")].get_int();
         //std::cerr << __func__ << " got n" << std::endl;
         uint256 hashBlock; 
 	    CTransaction vintx; 
-        if (!myGetTransaction(vintxid, vintx, hashBlock)) { CCerror = "could not load vin tx"; return NullUniValue; }
+        if (!myGetTransaction(vintxid, vintx, hashBlock)) { CCerror = "could not load vin tx:" + vintxid.GetHex(); return NullUniValue; }
         inputs += vintx.vout[vini].nValue;
 
         mtx.vin.push_back(CTxIn(vintxid, vini));
@@ -57,31 +57,43 @@ UniValue CreateCCEvalTx(const CPubKey &mypk, CAmount txfee, const UniValue &txjs
 
     for (int i = 0; i < jvouts.size(); i ++)  {
         UniValue uniAmount;  
-        if (!(uniAmount = jvouts[i]["nValue"]).empty())  { CCerror = "no nValue in vout"; return NullUniValue; }
+        if (!(uniAmount = jvouts[i][std::string("nValue")]).empty())  { CCerror = "no nValue in vout"; return NullUniValue; }
         //std::cerr << __func__ << " getting nValue " << uniAmount.write() << std::endl;
         CAmount nValue = uniAmount.get_int64();
         //std::cerr << __func__ << " got nValue" << std::endl;
-        bool hasPkh = false;
         UniValue uniDest;
-        if (!(uniDest = jvouts[i]["Destination"]).empty())  {
-            CTxDestination dest = DecodeDestination(uniDest.get_str().c_str());
+        UniValue uniCC;
+        bool hasPkh = false, hasCC = false;
+        
+        if (!(uniDest = jvouts[i][std::string("Destination")]).isNull())  {
+            CTxDestination dest = DecodeDestination(uniDest.get_str());
             //if (dest.which() != TX_PUBKEYHASH) { CCerror = "only address destinations supported"; return NullUniValue; }
             CScript script = GetScriptForDestination(dest);
             if (script.empty()) { CCerror = "could not get script for normal destination"; return NullUniValue; }
             mtx.vout.push_back(CTxOut(nValue, script));
             hasPkh = true;
         }
-        UniValue uniCC;
-        if (!(uniCC = jvouts[i]["cc"]).empty())  {
-            if (hasPkh)  { CCerror = "could not have both normal and cc destinations for one vout"; return NullUniValue; }
+        else if (!(uniCC = jvouts[i][std::string("cc")]).isNull())  {
             std::string ccstr = uniCC.write();
             char ccerr[128];
             CC *cond = cc_conditionFromJSONString(ccstr.c_str(), ccerr);
-            if (!cond)  { CCerror = strprintf("could parse cc: %s", ccerr); ; return NullUniValue; }
-            CScript script = CCPubKey(cond, 1); // use subver 1
+            if (!cond)  { CCerror = strprintf("could parse cc: %s", ccerr); return NullUniValue; }
+
+            CScript script;
+            if (!jvouts[i]["opdrop"].isNull()) {
+                script = CCPubKey(cond, -1);
+                script << ParseHex(jvouts[i]["opdrop"].get_str());
+            }
+            else
+                script = CCPubKey(cond, 1); // use subver 1
             if (script.empty()) { CCerror = "could not get script for cc"; return NullUniValue; }
             mtx.vout.push_back(CTxOut(nValue, script));
+            hasCC = true;
         }
+        else {
+            CCerror = strprintf("invalid destination type for vout %d", i); return NullUniValue;
+        }
+        if (hasPkh && hasCC)  { CCerror = "could not have both normal and cc destinations for one vout"; return NullUniValue; }
         outputs += mtx.vout[i].nValue;
     }
 
@@ -90,17 +102,17 @@ UniValue CreateCCEvalTx(const CPubKey &mypk, CAmount txfee, const UniValue &txjs
     }
 
     // parse probe conds: 
-    UniValue jvinccs = txjson["vinccs"];
+    UniValue jvinccs = txjson[std::string("vinccs")];
     if (!jvinccs.isArray()) { CCerror = "no or incorrect 'vinccs' array"; return NullUniValue; }
     for (int i = 0; i < jvinccs.size(); i ++)  {
         UniValue uniCC;
-        if (!(uniCC = jvinccs[i]["cc"]).empty())  {
+        if (!(uniCC = jvinccs[i][std::string("cc")]).isNull())  {
             std::string ccstr = uniCC.write();
             char ccerr[128];
             CCwrapper wrcond( cc_conditionFromJSONString(ccstr.c_str(), ccerr) );
             if (!wrcond.get())  { CCerror = strprintf("could parse vin cc: %s", ccerr); ; return NullUniValue; }
             //std::cerr << __func__ << " getting sign" << std::endl;
-            bool bSign = jvinccs[i]["sign"].get_bool();
+            bool bSign = jvinccs[i][std::string("sign")].get_bool();
             //std::cerr << __func__ << " got sign" << std::endl;
             CCAddVintxCond(cpEvals, wrcond, bSign ? CCwrapper::usemypriv : CCwrapper::dontsign);  // add a probe cond how to spend vintx cc utxo
         }
@@ -110,6 +122,4 @@ UniValue CreateCCEvalTx(const CPubKey &mypk, CAmount txfee, const UniValue &txjs
     if (!ResultHasTx(sigData))
         return MakeResultError("Could not finalize tx");
     return sigData;
-
-    return NullUniValue;
 }

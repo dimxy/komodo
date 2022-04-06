@@ -29,8 +29,8 @@ typedef std::tuple<int32_t, CPubKey, uint256> RoyaltyParamsTuple;  // royalty fr
 typedef std::tuple<CAmount, int32_t, uint256, CAmount> AuctionParamsTuple;  // price step, ex[iry height, tokenid, unit price
 
 
-#if !defined (HAVE_MY_CC_VOUT_RC)
-#define HAVE_MY_CC_VOUT_RC
+#if !defined (MY_CC_VOUT_RC_DEFINED)
+#define MY_CC_VOUT_RC_DEFINED
 enum MY_CC_VOUT_RC {
     CC_VOUT_ERROR      = -1,
     CC_VOUT_NOT_MINE   = 0,

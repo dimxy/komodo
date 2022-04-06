@@ -13,6 +13,7 @@
  *                                                                            *
  ******************************************************************************/
 
+#include "key_io.h"
 #include "CCinclude.h"
 #include "CCtokens.h"
 //#include "CCtokens_impl.h"
@@ -24,6 +25,8 @@
 // Eval TokenDEX - add conditions to basic evals to make 'token dex' 
 // Eval TokenAuction - add conditions to the basic evals to make 'auction'
 // Eval TokenRoyalty - add conditions to the basic evals to add royalty payouts 
+
+CC *ExtractFulfillmentV1(const CScript &ccSubScript, opcodetype &opcodeCC);
 
 // some resusable helpers:
 
@@ -82,15 +85,17 @@ static CAmount IsMyTokensvout(struct CCcontract_info *cpTokens, Eval* eval, cons
         std::vector<std::vector<unsigned char>> vParams;
         if (!tx.vout[nVout].scriptPubKey.IsPayToCryptoCondition(&ccSubScript, vParams)) return -1;
         
+        opcodetype opcodeCC;
         //int ccSubVersion;
         //if (!tx.vout[nVout].scriptPubKey.MayAcceptCryptoCondition(ccSubVersion)) return -1; 
-        std::vector<uint8_t> ccmixedData; //, dummy;
+        /*std::vector<uint8_t> ccmixedData; //, dummy;
         opcodetype opcodeNone; //, opcodeCC;
         CScript::const_iterator pc = ccSubScript.begin();
         ccSubScript.GetOp(pc, opcodeNone, ccmixedData);
         //ccSubScript.GetOp(pc, opcodeCC, dummy);
         if (ccmixedData.size() < 1) return -1;
-        CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixedData[1], ccmixedData.size()-1);
+        CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixedData[1], ccmixedData.size()-1);*/
+        CC *cond = ExtractFulfillmentV1(ccSubScript, opcodeCC);
         if (!cond) return -1;
         int rc = IsMandatoryConditionPair(cond, EVAL_TOKENSV2, ccSigAnon.get());
         if (rc == 1)
@@ -230,7 +235,7 @@ static bool GenericAskValidateVin(struct CCcontract_info *cp, Eval* eval, const 
         if (paidAmount < dueAmount) { strError = "can't find sufficient amount paid to seller";  return false; }
         std::cerr << __func__ << " normal paidAmount=" << paidAmount << std::endl;
 
-        eval->evalContext->AddEvalNormalAmount(EVAL_GENERICTOKENASK, selleraddr, dueAmount);  // store due normal amount
+        eval->evalContext->AddProcessedOutputAmount(EVAL_GENERICTOKENASK, DecodeDestination(selleraddr), dueAmount);  // store due normal amount
     }
     // note: if (prevOut.nValue == tokensNextAsk) this means ask not filled at all, this is possible for auctions
     return true;
@@ -350,7 +355,7 @@ static bool GenericBidValidateVin(struct CCcontract_info *cp, Eval* eval, const 
 
         char myaddr[KOMODO_ADDRESS_BUFSIZE];
         Getscriptaddress(myaddr, CScript() << vuint8_t(buyerpkNext.begin(), buyerpkNext.end()) << OP_CHECKSIG);
-        eval->evalContext->AddEvalNormalAmount(EVAL_GENERICTOKENBID, myaddr, nextBidAmount);  // store used normal amount
+        eval->evalContext->AddProcessedOutputAmount(EVAL_GENERICTOKENBID, DecodeDestination(myaddr), nextBidAmount);  // store used normal amount
     }
     if (prevOut.nValue > nextBidAmount)  { // if 
         if (tokensPaid * pricePrev < prevOut.nValue - nextBidAmount) { strError = "can't find sufficient tokens paid to buyer";  return false; }

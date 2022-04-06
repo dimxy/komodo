@@ -948,7 +948,7 @@ CAmount TotalPubkeyCCInputs(Eval *eval, const CTransaction &tx, const CPubKey &p
     return total;
 }
 
-bool ProcessCC(struct CCcontract_info* cp, Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction& ctx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
+bool ProcessCC(struct CCcontract_info* cp, Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction& ctx, unsigned int nIn)
 {
     int32_t height; 
     //int32_t from_mempool = 0;
@@ -978,8 +978,8 @@ bool ProcessCC(struct CCcontract_info* cp, Eval* eval, std::vector<uint8_t> para
     else if ((*cp->validate)(cp, eval, ctx, nIn) != 0) {
         //fprintf(stderr,"done CC %02x\n",cp->evalcode);
         //cp->prevtxid = txid;
-        if (evalcodeChecker.get() != NULL)
-            evalcodeChecker->MarkEvalCode(ctx.GetHash(), cp->evalcode);
+        if (eval->evalContext.get() != NULL)
+            eval->evalContext->MarkProcessed(cp->evalcode);
         return true;
     }
     //fprintf(stderr,"invalid CC %02x\n",cp->evalcode);
@@ -1021,7 +1021,7 @@ bool SubcallCCValidate(Eval* eval, uint8_t evalcode, const CTransaction& ctx, in
     }
 }
 
-bool CClib_Dispatch(const CC* cond, Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction& txTo, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
+bool CClib_Dispatch(const CC* cond, Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction& txTo, unsigned int nIn)
 {
     uint8_t evalcode;
     int32_t height, from_mempool;
@@ -1040,7 +1040,7 @@ bool CClib_Dispatch(const CC* cond, Eval* eval, std::vector<uint8_t> paramsNull,
         height &= ((1 << 30) - 1);
     }
     evalcode = cond->code[0];
-    if (evalcodeChecker.get() != NULL && evalcodeChecker->CheckEvalCode(txTo.GetHash(), evalcode) != 0)
+    if (eval->evalContext.get() != NULL && eval->evalContext->IsProcessed(evalcode))
         return true;
     if (evalcode >= EVAL_FIRSTUSER && evalcode <= EVAL_LASTUSER) {
         cp = &CCinfos[(int32_t)evalcode];
@@ -1054,8 +1054,8 @@ bool CClib_Dispatch(const CC* cond, Eval* eval, std::vector<uint8_t> paramsNull,
         if (paramsNull.size() != 0) // Don't expect params
             return eval->Invalid("Cannot have params");
         else if (CClib_validate(cp, height, eval, txTo, nIn) != 0) {
-            if (evalcodeChecker.get() != NULL)
-                evalcodeChecker->MarkEvalCode(txTo.GetHash(), evalcode);
+            if (eval->evalContext.get() != NULL)
+                eval->evalContext->MarkProcessed(evalcode);
             return (true);
         }
         return (false); //eval->Invalid("error in CClib_validate");
@@ -1670,3 +1670,22 @@ struct UpdateEvalCodeContext {
 
 const uint8_t CCwrapper::dontsign[32]  = { 0 };
 const uint8_t CCwrapper::usemypriv[32] = { 0xff };
+
+
+CC *ExtractFulfillmentV1(const CScript &ccSubScript, opcodetype &opcodeCC)
+{
+    std::vector<uint8_t> ccmixedData, dummy;
+    opcodetype opcodeNone;
+    CScript::const_iterator pc = ccSubScript.begin();
+    ccSubScript.GetOp(pc, opcodeNone, ccmixedData);
+    ccSubScript.GetOp(pc, opcodeCC, dummy);            
+    //uint8_t condbuf[10000];
+
+    if (ccmixedData.size() < 1) return nullptr;
+    int ccSubVersion = (ccmixedData[0] >= CC_MIXED_MODE_PREFIX ? (int)(ccmixedData[0] - CC_MIXED_MODE_PREFIX) : -1);
+    if (ccSubVersion < 1) return nullptr;
+    //std::vector<uint8_t> ccmixed(ccSubScript.begin() + 1, ccSubScript.end());
+    //std::cerr << __func__ << " ccmixedData=" << HexStr(ccmixedData) << std::endl;
+    CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixedData[1], ccmixedData.size()-1);
+    return cond;
+}

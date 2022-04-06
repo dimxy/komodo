@@ -60,7 +60,7 @@ enum SCR_TOKEN_ID {
     TOK_OP_MAX = TOK_NEGATE, 
 
     // keywords
-    TOK_INTERNAL_VAR_0 = 0x30,
+/*    TOK_INTERNAL_VAR_0 = 0x30,
     TOK_INTERNAL_VAR_1,
     TOK_INTERNAL_VAR_2,
     TOK_INTERNAL_VAR_3,
@@ -69,14 +69,16 @@ enum SCR_TOKEN_ID {
     TOK_EXTERNAL_VAR_1,
     TOK_EXTERNAL_VAR_2,
     TOK_EXTERNAL_VAR_3,
-    TOK_EXTERNAL_VAR_4,
-    //TOK_VIN_AMOUNT,
-    //TOK_VOUT_AMOUNT,
-    TOK_EMBEDDED_MIN = TOK_INTERNAL_VAR_0,
-    TOK_EMBEDDED_MAX = TOK_EXTERNAL_VAR_4,
+    TOK_EXTERNAL_VAR_4,*/
 
-    TOK_NUMBER = 0x50,
-    TOK_VUINT8_T,
+//    TOK_VIN_AMOUNT  = 0x4a,
+    TOK_VAR         = 0x4b,
+//    TOK_VOUT_AMOUNT = 0x4c,
+    TOK_EMBEDDED_MIN = TOK_VAR,
+    TOK_EMBEDDED_MAX = TOK_VAR,
+
+    TOK_NUMBER      = 0x50,
+    TOK_VUINT8_T    = 0x51,
     TOK_VALUE_MIN = TOK_NUMBER,
     TOK_VALUE_MAX = TOK_VUINT8_T,
 
@@ -105,7 +107,14 @@ struct SCR_CTX {
     SCR_TYPE type_in_stack_top;
 };
 
-bool CCInterpret(CScript &script, const BaseSignatureChecker& checker, const std::vector<valtype> &externalVars, int64_t &retValue, ScriptError* serror);
+enum VAR_IDS : int {
+//    VARID_VINAMOUNT = 0x10
+}; 
+
+typedef std::map< int, valtype > ExternalVarsType; 
+//const std::set<int> reservedVarIds = { VARID_VINAMOUNT };
+
+bool CCInterpret(CScript &script, const BaseSignatureChecker& checker, const ExternalVarsType &externalVars, int64_t &retValue, ScriptError* serror);
 std::pair<CScript, SCR_TYPE> CCParseExpr(SCR_CTX *ctx, std::string::iterator &p, std::string::iterator end);
 
 }; // namespace CCSCRIPT

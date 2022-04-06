@@ -185,7 +185,11 @@ const char* GetOpName(opcodetype opcode)
     case OP_PUSH_EXTERNAL_VAR_2 : return "OP_PUSH_EXTERNAL_VAR_2";
     case OP_PUSH_EXTERNAL_VAR_3 : return "OP_PUSH_EXTERNAL_VAR_3";
     case OP_PUSH_EXTERNAL_VAR_4 : return "OP_PUSH_EXTERNAL_VAR_4";
+    case OP_LOAD_INPUT_AMOUNT : return "OP_LOAD_INPUT_AMOUNT";
+    case OP_LOAD_OUTPUT_AMOUNT_BY_DEST : return "OP_LOAD_OUTPUT_AMOUNT_BY_DEST";
+    case OP_LOAD_OUTPUT_AMOUNT_BY_N : return "OP_LOAD_OUTPUT_AMOUNT_BY_N";
     case OP_LOAD_VAR            : return "OP_LOAD_VAR";
+    case OP_PUSH_PRELOADED_VAR  : return "OP_PUSH_PRELOADED_VAR";
 
     default:
         return "OP_UNKNOWN";
@@ -530,19 +534,8 @@ struct HasEvalCodeContext {
     std::set< std::vector<uint8_t> > *pvvParams;
 };
 
-bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode, std::set< std::vector<uint8_t> > *pvvParamsIn) const
+void CCGetEvalParams(uint8_t evalCode, CC *cond, std::set< std::vector<uint8_t> > *pvvParamsIn)
 {
-    int subversion;
-    std::vector<uint8_t> ccdata = this->GetCCV2SPK(subversion);
-
-    if (ccdata.empty())
-        return (false);
-    
-    CC* cond = cc_readFulfillmentBinaryMixedMode((uint8_t*)ccdata.data() + 1, ccdata.size() - 1); 
-    //* cond = cc_readFulfillmentBinary((uint8_t*)ccdata.data(), ccdata.size());
-    if (cond == nullptr)
-        return false;
-    
     VerifyEval eval = [](CC* cond, void* context) {
         struct HasEvalCodeContext *pctx = (struct HasEvalCodeContext*) context;
         if (pctx->evalCode == cond->code[0]) {
@@ -557,11 +550,28 @@ bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode, std::set< std::vector<uint8_t
         }
         return 1;  // continue
     };
-    std::set< std::vector<uint8_t> > vvLocalParams;
-    std::set< std::vector<uint8_t> > *pvvParams = pvvParamsIn ? pvvParamsIn : &vvLocalParams;
-    struct HasEvalCodeContext hasEvalCtx = { evalCode, pvvParams };
+
+    struct HasEvalCodeContext hasEvalCtx = { evalCode, pvvParamsIn };
 
     cc_verifyEval(cond, eval, &hasEvalCtx);
+}
+
+bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode, std::set< std::vector<uint8_t> > *pvvParamsIn) const
+{
+    int subversion;
+    std::vector<uint8_t> ccdata = this->GetCCV2SPK(subversion);
+
+    if (ccdata.empty())
+        return (false);
+    
+    CC* cond = cc_readFulfillmentBinaryMixedMode((uint8_t*)ccdata.data() + 1, ccdata.size() - 1); 
+    //* cond = cc_readFulfillmentBinary((uint8_t*)ccdata.data(), ccdata.size());
+    if (cond == nullptr)
+        return false;
+    
+    std::set< std::vector<uint8_t> > vvLocalParams;
+    std::set< std::vector<uint8_t> > *pvvParams = pvvParamsIn ? pvvParamsIn : &vvLocalParams;
+    CCGetEvalParams(evalCode, cond, pvvParams);
     cc_free(cond);
     return pvvParams->size() != 0;
 }

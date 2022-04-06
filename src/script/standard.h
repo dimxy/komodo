@@ -85,8 +85,10 @@ enum txnouttype
     TX_PUBKEY,
     TX_PUBKEYHASH,
     TX_SCRIPTHASH,
-    TX_MULTISIG,
     TX_CRYPTOCONDITION,
+    // ^^^ in CTxDestination order
+
+    TX_MULTISIG,
     TX_NULL_DATA,
 };
 

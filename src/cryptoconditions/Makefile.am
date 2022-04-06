@@ -76,14 +76,16 @@ libcryptoconditions_core_a_CPPFLAGS=-I. -I./src/include -I./src/asn
 test:
 	bash -c '[ -d .env ] || virtualenv .env -p python3'
 	.env/bin/pip install pytest
+
 	gdb -batch -ex run -ex bt --args .env/bin/python -m pytest -s -x -v 2>&1 | grep -v ^"No stack."$
 
 test-debug-interactive:
 	gdb -ex run --args python3 -m pytest -s -x -v
 
 asn:
-	cd src/asn; \
-		mv asn_system.h asn_system.bak; \
-		rm *.c *.h; \
-		asn1c CryptoConditions.asn; \
-		mv asn_system.bak asn_system.h
+#	run asn1c in a dedicated directory, use exactly the same asn1c version, when asn1c is done copy generated files manually into asn subdir 
+#	cd src/asn; \
+#		mv asn_system.h asn_system.bak; \
+#		rm *.c *.h; \
+#		asn1c CryptoConditions.asn; \
+#		mv asn_system.bak asn_system.h

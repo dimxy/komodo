@@ -75,6 +75,7 @@ typedef enum ScriptError_t
 
     /* cc script extension */
     SCRIPT_ERR_NON_EXISTENT_VAR,
+    SCRIPT_ERR_ZERO_DIVISION,
 
 } ScriptError;
 

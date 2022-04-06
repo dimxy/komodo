@@ -24,6 +24,11 @@
 #include "version.h"
 #include "consensus/validation.h"
 #include "primitives/transaction.h"
+#include "script/standard.h"
+
+#include "boost/thread/mutex.hpp"
+#include "boost/variant.hpp"
+
 
 #define KOMODO_FIRSTFUNGIBLEID 100
 
@@ -79,7 +84,6 @@ typedef uint8_t EvalCode;
 
 class AppVM;
 class NotarisationData;
-class CCheckCCEvalCodes;
 class CEvalContext;
 
 
@@ -97,7 +101,7 @@ public:
     /*
      * Test validity of a CC_Eval node
      */
-    virtual bool Dispatch(const CC *cond, const CTransaction &tx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
+    virtual bool Dispatch(const CC *cond, const CTransaction &tx, unsigned int nIn);
 
     /*
      * Dispute a payout using a VM
@@ -153,7 +157,7 @@ public:
 
 
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, int32_t nHeight, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker, std::shared_ptr<CEvalContext> evalContext);
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, int32_t nHeight, std::shared_ptr<CEvalContext> evalContext);
 
 
 /*
@@ -305,10 +309,119 @@ public:
 
 typedef std::pair<uint256,MerkleBranch> TxProof;
 
+class CSubCC {
+public:
+    CSubCC() : cctype((CCTypeId)0), thresholdSize(0), threshold(0), noSigCheck(0) {}
+    /*
+    CSubCC(const CC *condIn, CCTypeId anonTypeIn, uint8_t anonSizeIn, uint8_t anonThresholdIn) : cctype(anonTypeIn), thresholdSize(anonSizeIn), threshold(anonThresholdIn) {
+        if (cond) cc_free(cond);
+        cond = cc_copy((CC*)condIn);
+    }
+    ~CSubCC() { if(cond) cc_free(cond); }*/
+
+    std::vector<uint8_t> condbin;
+    CCTypeId cctype;
+    uint8_t thresholdSize;
+    uint8_t threshold;  
+    uint8_t noSigCheck; 
+
+    friend bool operator==(const CSubCC &a, const CSubCC &b) { 
+        return a.condbin == b.condbin && a.cctype == b.cctype && a.thresholdSize == b.thresholdSize && a.threshold == b.threshold && a.noSigCheck == b.noSigCheck; 
+    }
+    friend bool operator<(const CSubCC &a, const CSubCC &b) { 
+        if (a.condbin == b.condbin)  
+            if (a.cctype == b.cctype) 
+                if (a.thresholdSize == b.thresholdSize) 
+                    if (a.threshold == b.threshold)
+                        return a.noSigCheck < b.noSigCheck;
+                    else
+                        return a.threshold < b.threshold;
+                else
+                    return a.thresholdSize < b.thresholdSize;
+            else
+                return a.cctype < b.cctype;
+        else 
+            return a.condbin < b.condbin;
+    }
+};
+
+
+// Context to share information between evals during cc tx validation
+class CEvalContext  
+{
+private:
+    typedef boost::variant<CNoDestination, CPubKey, CKeyID, CScriptID, CCryptoConditionID, CSubCC> CTxDestinationForEval;
+    const int TX_SUBCC = 5;
+    typedef struct { int phase; int maxphase; }  PhaseType;
+
+public:
+    /*
+    void SetMaxPhase(uint8_t evalcode, int maxphaseIn)  {
+        PhaseType &ph = getPhase(evalcode);
+        ph.maxphase = maxphaseIn;
+    }
+
+    void SetNextPhase(uint8_t evalcode)  {
+        PhaseType &ph = getPhase(evalcode);
+        ph.phase ++;
+    }
+
+    bool IsMaxPhase(uint8_t evalcode)  {
+        PhaseType &ph = getPhase(evalcode);
+        return ph.phase > ph.maxphase;
+    }
+    */
+
+    // add output amount which is taken by an eval
+    void AddProcessedOutputAmount(uint8_t evalCode, const CTxDestination &dest, CAmount amount);
+    void AddProcessedOutputAmount(uint8_t evalCode, const CSubCC &dest, CAmount amount);
+    // get output amount for an address for a processed eval code
+    CAmount GetProcessedOutputAmount(uint8_t evalCode, const CTxDestination &dest);
+    CAmount GetProcessedOutputAmount(uint8_t evalCode, const CSubCC &dest);
+    // get total output amount for an address for all processed eval codes
+    //CAmount GetTotalOutputAmount(const CTxDestination &dest);
+    // get output amount for an address for transaction
+    CAmount GetTxOutputAmount(const CTransaction &tx, const CTxDestinationForEval &dest);
+
+    // mark eval code as already processed
+    void MarkProcessed(uint8_t evalCode)
+    {
+        boost::unique_lock<boost::mutex> lock(mutex_eval);
+        evalProcessed.insert(evalCode);
+    }
+
+    // returns if a evalcode is processed
+    bool IsProcessed(uint8_t evalCode)
+    {
+        boost::unique_lock<boost::mutex> lock(mutex_eval);
+        return evalProcessed.count(evalCode) != 0;
+    }
+
+
+private:
+    //! Mutex to protect evalPhases map
+    boost::mutex mutex_eval;
+    /*PhaseType &getPhase(uint8_t evalcode)  {
+        boost::unique_lock<boost::mutex> lock(mutex_eval);
+        auto found = evalPhases.find(evalcode);
+        if (found == evalPhases.end()) {
+            PhaseType ph0{ 0, 1 }; // default max phase is 0, phases are started with 0
+            evalPhases[evalcode] = ph0;
+        }
+        return evalPhases[evalcode];
+    }
+    std::map< uint8_t, PhaseType > evalPhases;*/
+    CTxDestinationForEval ConvertToDestForEval(const CTxDestination &dest);
+    CTxDestination ConvertToDest(const CTxDestinationForEval &destForEval);
+
+    std::set< uint8_t > evalProcessed;
+    std::map< uint8_t, std::map<CTxDestinationForEval, CAmount> > requiredAmounts; 
+};
+
 
 uint256 GetMerkleRoot(const std::vector<uint256>& vLeaves);
 struct CCcontract_info *CCinit(struct CCcontract_info *cp,uint8_t evalcode);
-bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction &tx, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
+bool ProcessCC(struct CCcontract_info *cp,Eval* eval, std::vector<uint8_t> paramsNull, const CTransaction &tx, unsigned int nIn);
 bool GetTxUnconfirmedOpt(Eval *eval, const uint256 &hash, CTransaction &txOut, uint256 &hashBlock);
 
 

@@ -217,6 +217,7 @@ static bool MatchMultisig(const CScript& script, unsigned int& required, std::ve
     return (it + 1 == script.end());
 }
 
+CC *ExtractFulfillmentV1(const CScript &ccSubScript, opcodetype &opcodeCC);
 
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet)
 {
@@ -294,25 +295,27 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
                 }
                 else
                 {
+                    uint8_t subCondbuf[10000];
+                    opcodetype opcodeCC;
                     // for the new cc with eval params make vSolution in a different way:
                     // not just hash160 the cc subscript but first parse it and convert to condition binary v1 with no eval params 
                     // so same conditions with different eval params will have the same vSolution (meaning the cc indexing key)
-                    std::vector<uint8_t> ccmixedData, dummy;
+                    /*std::vector<uint8_t> ccmixedData, dummy;
                     opcodetype opcodeNone, opcodeCC;
                     CScript::const_iterator pc = ccSubScript.begin();
                     ccSubScript.GetOp(pc, opcodeNone, ccmixedData);
                     ccSubScript.GetOp(pc, opcodeCC, dummy);            
-                    uint8_t condbuf[10000];
                 
                     if (ccmixedData.size() < 1) return false;
                     //std::vector<uint8_t> ccmixed(ccSubScript.begin() + 1, ccSubScript.end());
                     //std::cerr << __func__ << " ccmixedData=" << HexStr(ccmixedData) << std::endl;
                     CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixedData[1], ccmixedData.size()-1);
-                    //CC* cond = cc_readFulfillmentBinary(&ccmixed[0], ccmixed.size());
+                    //CC* cond = cc_readFulfillmentBinary(&ccmixed[0], ccmixed.size());*/
+                    CC* cond = ExtractFulfillmentV1(ccSubScript, opcodeCC);
                     if (!cond) return false;
-                    size_t ccsize = cc_conditionBinary(cond, condbuf);  // convert to old condition to make exclude eval params from fingerprint
+                    size_t ccsize = cc_conditionBinary(cond, subCondbuf);  // convert to old condition to make exclude eval params from fingerprint
                     cc_free(cond);
-                    std::vector<uint8_t> condv1(condbuf, condbuf + ccsize);
+                    std::vector<uint8_t> condv1(subCondbuf, subCondbuf + ccsize);
                     CScript ccscriptv1;
                     ccscriptv1 << condv1 << opcodeCC;
                     uint160 hash160 = Hash160(ccscriptv1);

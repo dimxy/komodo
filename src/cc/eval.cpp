@@ -27,19 +27,19 @@
 #include "core_io.h"
 #include "crosschain.h"
 
-bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker);
+bool CClib_Dispatch(const CC *cond,Eval *eval,std::vector<uint8_t> paramsNull,const CTransaction &txTo,unsigned int nIn);
 char *CClib_name();
 
 Eval* EVAL_TEST = 0;
 struct CCcontract_info CCinfos[0x100];
 extern pthread_mutex_t KOMODO_CC_mutex;
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, int32_t nHeight, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker, std::shared_ptr<CEvalContext> evalContext)
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, int32_t nHeight, std::shared_ptr<CEvalContext> evalContext)
 {
     EvalRef eval(nHeight);
     eval->evalContext = evalContext; // set context for use by cc validation
     pthread_mutex_lock(&KOMODO_CC_mutex);
-    bool out = eval->Dispatch(cond, tx, nIn, evalcodeChecker);
+    bool out = eval->Dispatch(cond, tx, nIn);
     pthread_mutex_unlock(&KOMODO_CC_mutex);
     if ( eval->state.IsValid() != out)
         fprintf(stderr,"out %d vs %d isValid\n",(int32_t)out,(int32_t)eval->state.IsValid());
@@ -72,16 +72,17 @@ bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, int32_t
 /*
  * Test the validity of an Eval node
  */
-bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
+bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn)
 {
     struct CCcontract_info *cp;
     if (cond->codeLength == 0)
         return Invalid("empty-eval");
 
     uint8_t ecode = cond->code[0];
-    if (evalcodeChecker.get()!=NULL && evalcodeChecker->CheckEvalCode(txTo.GetHash(),ecode)!=0) return true;  // eval code already has been validated
-    if ( ASSETCHAINS_CCDISABLES[ecode] != 0 )
-    {
+    if (this->evalContext.get() != NULL && this->evalContext->IsProcessed(ecode))
+        return true; // eval code already has been validated
+
+    if (ASSETCHAINS_CCDISABLES[ecode] != 0) {
         // check if a height activation has been set. 
         if ( mapHeightEvalActivate[ecode] == 0 || this->GetCurrentHeight() == 0 || mapHeightEvalActivate[ecode] > this->GetCurrentHeight() )
         {
@@ -91,16 +92,15 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,s
         }
     }
     std::vector<uint8_t> vparams(cond->code+1, cond->code+cond->codeLength);
-    if ( ecode >= EVAL_FIRSTUSER && ecode <= EVAL_LASTUSER )
-    {
-        if ( ASSETCHAINS_CCLIB.size() > 0 && ASSETCHAINS_CCLIB == CClib_name() )
-            return CClib_Dispatch(cond,this,vparams,txTo,nIn,evalcodeChecker);
-        else return Invalid("mismatched -ac_cclib vs CClib_name");
+    if (ecode >= EVAL_FIRSTUSER && ecode <= EVAL_LASTUSER) {
+        if (ASSETCHAINS_CCLIB.size() > 0 && ASSETCHAINS_CCLIB == CClib_name())
+            return CClib_Dispatch(cond, this, vparams, txTo, nIn);
+        else
+            return Invalid("mismatched -ac_cclib vs CClib_name");
     }
     cp = &CCinfos[(int32_t)ecode];
-    if ( cp->didinit == 0 )
-    {
-        CCinit(cp,ecode);
+    if (cp->didinit == 0) {
+        CCinit(cp, ecode);
         cp->didinit = 1;
     }
 
@@ -115,7 +115,7 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,s
             break;
 
         default:
-            return(ProcessCC(cp,this, vparams, txTo, nIn, evalcodeChecker));
+            return(ProcessCC(cp, this, vparams, txTo, nIn));
             break;
     }
     return Invalid("invalid-code, dont forget to add EVAL_NEWCC to Eval::Dispatch");
@@ -268,4 +268,120 @@ uint256 GetMerkleRoot(const std::vector<uint256>& vLeaves)
 bool GetTxUnconfirmedOpt(Eval *eval, const uint256 &hash, CTransaction &txOut, uint256 &hashBlock)
 {
    return eval ? eval->GetTxUnconfirmed(hash, txOut, hashBlock) : myGetTransaction(hash, txOut, hashBlock);
+}
+
+CEvalContext::CTxDestinationForEval CEvalContext::ConvertToDestForEval(const CTxDestination &dest)
+{
+    switch(dest.which()) {
+        case TX_NONSTANDARD: return boost::get<CNoDestination>(dest);
+        case TX_PUBKEY: return boost::get<CPubKey>(dest);
+        case TX_PUBKEYHASH: return boost::get<CKeyID>(dest);
+        case TX_SCRIPTHASH: return boost::get<CScriptID>(dest);
+        case TX_CRYPTOCONDITION: return boost::get<CCryptoConditionID>(dest);
+    }
+    return CNoDestination();
+}
+
+CTxDestination CEvalContext::ConvertToDest(const CTxDestinationForEval &dest)
+{
+    switch(dest.which()) {
+        case TX_NONSTANDARD: return boost::get<CNoDestination>(dest);
+        case TX_PUBKEY: return boost::get<CPubKey>(dest);
+        case TX_PUBKEYHASH: return boost::get<CKeyID>(dest);
+        case TX_SCRIPTHASH: return boost::get<CScriptID>(dest);
+        case TX_CRYPTOCONDITION: return boost::get<CCryptoConditionID>(dest);
+    }
+    return CNoDestination();
+}
+
+void CEvalContext::AddProcessedOutputAmount(uint8_t evalCode, const CTxDestination &dest, CAmount amount)
+{
+    auto e = requiredAmounts.find(evalCode);
+    if (e == requiredAmounts.end())  {
+        std::map<CTxDestinationForEval, CAmount> init{ { ConvertToDestForEval(dest), amount} };
+        requiredAmounts.emplace(evalCode, init);
+    }
+    else 
+    {
+        requiredAmounts[evalCode][ConvertToDestForEval(dest)] += amount;
+    }
+}
+
+void CEvalContext::AddProcessedOutputAmount(uint8_t evalCode, const CSubCC &dest, CAmount amount)
+{
+    auto e = requiredAmounts.find(evalCode);
+    if (e == requiredAmounts.end())  {
+        std::map<CTxDestinationForEval, CAmount> init{ { dest, amount } };
+        requiredAmounts.emplace(evalCode, init);
+    }
+    else 
+    {
+        requiredAmounts[evalCode][dest] += amount;
+    }
+}
+
+// get eval context amount for an address which is already taken by an eval
+CAmount CEvalContext::GetProcessedOutputAmount(uint8_t evalCode, const CTxDestination &dest)
+{
+    return requiredAmounts[evalCode][ConvertToDestForEval(dest)];
+}
+
+CAmount CEvalContext::GetProcessedOutputAmount(uint8_t evalCode, const CSubCC &dest)
+{
+    return requiredAmounts[evalCode][dest];
+}
+
+// get eval context output amount for an address which is already taken by all already validated evals
+/*CAmount CEvalContext::GetTotalOutputAmount(const CTxDestination &dest)
+{
+    CAmount totalForAddress = 0LL;
+    CTxDestinationForEval destForEval = ConvertToDestForEval(dest);
+    for(auto const & ieval : requiredAmounts)  {
+        auto i = ieval.second.find(destForEval);
+        if (i != ieval.second.end())
+            totalForAddress += i->second;
+    }
+    return totalForAddress;
+}*/
+
+CC *ExtractFulfillmentV1(const CScript &ccSubScript, opcodetype &opcodeCC);
+bool MatchSubCond(CC *cond, CC *subcond, CCTypeId anonTypeId, uint8_t thresholdSize, uint8_t threshold, bool noSigCheck);
+
+// get amount for tx outputs, for a destination (extended for cc anon subconds) 
+CAmount CEvalContext::GetTxOutputAmount(const CTransaction &tx, const CTxDestinationForEval &destForEval)
+{
+    CAmount totalForAddress = 0LL;
+    CSubCC subCondEnc;
+    CCwrapper subCond;
+    if (destForEval.which() == TX_SUBCC)  {                     
+        subCondEnc = boost::get<CSubCC>(destForEval);
+        //subCond.reset( cc_readConditionBinary(subCondEnc.condbin.data(), subCondEnc.condbin.size()) );
+        subCond.reset( cc_readFulfillmentBinaryMixedMode(subCondEnc.condbin.data(), subCondEnc.condbin.size()) );
+    }
+int i = 0;
+    const CTxDestination dest = ConvertToDest(destForEval);
+    for(auto const & vout : tx.vout)  {
+        if (destForEval.which() != TX_SUBCC)  {
+            CTxDestination txdest;
+            ExtractDestination(vout.scriptPubKey, txdest);
+            if (txdest == dest)
+                totalForAddress += vout.nValue;
+        }
+        else
+        {
+            CScript ccSubScript;
+            std::vector<std::vector<unsigned char>> vParams;
+            if (vout.scriptPubKey.IsPayToCryptoCondition(&ccSubScript, vParams)) {
+                opcodetype opcodeCC;
+                CCwrapper cond(ExtractFulfillmentV1(ccSubScript, opcodeCC));
+                if (cond.get() && subCond.get()) {
+                    std::cerr << __func__ << " calling MatchSubCond for vout=" << i << std::endl;
+                    if (MatchSubCond(cond.get(), subCond.get(), subCondEnc.cctype, subCondEnc.thresholdSize, subCondEnc.threshold, subCondEnc.noSigCheck))
+                        totalForAddress += vout.nValue;
+                }
+            }
+        }
+        i++;
+    }
+    return totalForAddress;
 }

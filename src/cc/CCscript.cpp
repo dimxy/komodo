@@ -1,4 +1,6 @@
 #include <iostream>
+#include <algorithm>
+
 /*#include <cctype>
 #include <vector>
 #include <string>
@@ -18,9 +20,10 @@ bool CastToBool(const valtype& vch);
 namespace CCSCRIPT {
 
 std::map<std::string, SCR_TOKEN_ID> embedded {
-    //{ "VIN_AMOUNT", TOK_VIN_AMOUNT },
-    //{ "VOUT_AMOUNT", TOK_VOUT_AMOUNT },
-    { "VAR_0", TOK_INTERNAL_VAR_0 },
+//    { "VINAMOUNT", TOK_VIN_AMOUNT },
+    { "VAR", TOK_VAR },
+//    { "VOUTAMOUNT", TOK_VOUT_AMOUNT },
+/*    { "VAR_0", TOK_INTERNAL_VAR_0 },
     { "VAR_1", TOK_INTERNAL_VAR_1 },
     { "VAR_2", TOK_INTERNAL_VAR_2 },
     { "VAR_3", TOK_INTERNAL_VAR_3 },
@@ -29,7 +32,7 @@ std::map<std::string, SCR_TOKEN_ID> embedded {
     { "EXT_1", TOK_EXTERNAL_VAR_1 },
     { "EXT_2", TOK_EXTERNAL_VAR_2 },
     { "EXT_3", TOK_EXTERNAL_VAR_3 },
-    { "EXT_4", TOK_EXTERNAL_VAR_4 },
+    { "EXT_4", TOK_EXTERNAL_VAR_4 },*/
 };
 
 std::map<SCR_TOKEN_ID, opcodetype> scr_opcodes_supported {
@@ -44,7 +47,7 @@ std::map<SCR_TOKEN_ID, opcodetype> scr_opcodes_supported {
     { TOK_GREATERTHAN, OP_GREATERTHAN },
     { TOK_GREATERTHANOREQUAL, OP_GREATERTHANOREQUAL },
     { TOK_NEGATE, OP_NEGATE },
-    { TOK_INTERNAL_VAR_0, OP_PUSH_INTERNAL_VAR_0 },
+/*    { TOK_INTERNAL_VAR_0, OP_PUSH_INTERNAL_VAR_0 },
     { TOK_INTERNAL_VAR_1, OP_PUSH_INTERNAL_VAR_1 },
     { TOK_INTERNAL_VAR_2, OP_PUSH_INTERNAL_VAR_2 },
     { TOK_INTERNAL_VAR_3, OP_PUSH_INTERNAL_VAR_3 },
@@ -53,21 +56,45 @@ std::map<SCR_TOKEN_ID, opcodetype> scr_opcodes_supported {
     { TOK_EXTERNAL_VAR_1, OP_PUSH_EXTERNAL_VAR_1 },
     { TOK_EXTERNAL_VAR_2, OP_PUSH_EXTERNAL_VAR_2 },
     { TOK_EXTERNAL_VAR_3, OP_PUSH_EXTERNAL_VAR_3 },
-    { TOK_EXTERNAL_VAR_4, OP_PUSH_EXTERNAL_VAR_4 },
-    //{ TOK_VIN_AMOUNT, OP_PUSH_VIN_AMOUNT },
+    { TOK_EXTERNAL_VAR_4, OP_PUSH_EXTERNAL_VAR_4 },*/
+//    { TOK_VIN_AMOUNT,    OP_PUSH_PRELOADED_VAR },
+    { TOK_VAR,           OP_PUSH_PRELOADED_VAR },
+//    { TOK_VOUT_AMOUNT,   OP_PUSH_PRELOADED_VAR },
     //{ TOK_VOUT_AMOUNT, OP_PUSH_VOUT_AMOUNT },
 };
 
-
-SCR_TOKEN scr_getembedded(const std::string &t)
+// get predefined script var
+// number at the end of the var have special meaning and used as vars' ids
+SCR_TOKEN scr_getembedded(std::string s)
 {
-    auto f = embedded.find(t);
-    return f != embedded.end() ? SCR_TOKEN(f->second) : SCR_TOKEN(NO_TOKEN);
+    // get 
+    std::string::iterator digbegpos = std::find_if(s.begin(), s.end(), [](char c){ return std::isdigit(c); });
+    int varid = 0;
+    if (digbegpos != s.end()) {
+        std::string::iterator digendpos = std::find_if(digbegpos, s.end(), [](char c){ return !std::isdigit(c); });
+        if (digendpos != s.end()) SCR_TOKEN(NO_TOKEN);
+        std::string sdig = std::string(digbegpos, digendpos);
+        varid = atoi(sdig.c_str());
+    }
+    std::string alphapart = std::string(s.begin(), digbegpos);
+    auto f = embedded.find(alphapart);
+    SCR_TOKEN tok = f != embedded.end() ? SCR_TOKEN(f->second) : SCR_TOKEN(NO_TOKEN);
+    if (tok.id == TOK_VAR) 
+        tok.nValue = varid;
+    /*else if (tok.id == TOK_VIN_AMOUNT)
+        tok.nValue = varid;
+    else if (tok.id == TOK_VOUT_AMOUNT)
+        tok.nValue = varid; */
+    else 
+        return SCR_TOKEN(NO_TOKEN);
+    if (!tok.nValue) return SCR_TOKEN(NO_TOKEN);
+    return tok;
 }
 
 static const std::string s_delims = " \t\n\r;,+-/*()";
 static bool scr_isdelim(int c) { return s_delims.find(c) != std::string::npos; }
-static bool scr_isembedded(const SCR_TOKEN &t) { return t.id >= TOK_EMBEDDED_MIN && t.id <= TOK_EMBEDDED_MAX; }
+//static bool scr_isembedded(const SCR_TOKEN &t) { return t.id >= TOK_EMBEDDED_MIN && t.id <= TOK_EMBEDDED_MAX; }
+static bool scr_ispushvar(const SCR_TOKEN &t) { return t.id >= TOK_EMBEDDED_MIN && t.id <= TOK_EMBEDDED_MAX; }
 static bool scr_isvalue(const SCR_TOKEN &t) { return t.id >= TOK_VALUE_MIN && t.id <= TOK_VALUE_MAX; }
 bool scr_isoper(const SCR_TOKEN &t) { return t.id >= TOK_OP_MIN && t.id <= TOK_OP_MAX; }
 static SCR_TYPE scr_opervaluetype(const SCR_TOKEN &t) { return scr_isoper(t) ? TYPE_NUMBER : TYPE_NONE; }
@@ -75,8 +102,8 @@ static SCR_TYPE scr_tokenvaluetype(const SCR_TOKEN &t) {
     if (t.id != NO_TOKEN)  {
         if (t.id == TOK_NUMBER)
             return TYPE_NUMBER;
-        if (scr_isembedded(t.id))
-            return TYPE_NUMBER;
+        if (scr_ispushvar(t.id))
+            return TYPE_NUMBER; // for now always number
     }
     return TYPE_NONE; 
 }
@@ -101,9 +128,9 @@ static void scr_pushtoken(CScript &script, const SCR_TOKEN &t)
     } else if (scr_isoper(t)) {
         opcodetype opcode = scr_getopcode(t);
         script << opcode;
-    } else if (scr_isembedded(t)) {
+    } else if (scr_ispushvar(t)) {
         opcodetype opcode = scr_getopcode(t);
-        script << opcode;
+        script << CScriptNum(t.nValue) << opcode;
     } else {
         throw std::runtime_error ("unknown token");
     }
@@ -168,7 +195,7 @@ static SCR_TOKEN next_token(std::string::iterator &p, std::string::iterator end)
     } else if (*p == ')') {
         p ++;
         return SCR_TOKEN(TOK_RIGHT_PARENTHESIS);
-    } else if (strchr("-", *p) && (p+1) < end && std::isdigit(*(p+1))) { // after - and + checked as operation check if this is a negative number
+    } else if (strchr("-", *p) && (p+1) < end && std::isdigit(*(p+1))) { // after '-' and '+' are checked as an 'operation' let's check if this is a negative number
         auto b = p;
         p ++;
         while(p < end && std::isdigit(*p)) p++;
@@ -194,7 +221,7 @@ std::pair<CScript, SCR_TYPE> CCParseExpr(SCR_CTX *ctxunused, std::string::iterat
             std::cerr << "right" << std::endl;
         }
 
-        if (scr_isembedded(tok) || scr_isvalue(tok))  
+        if (scr_ispushvar(tok) || scr_isvalue(tok))  
         {
             if (!ctx->token_op.isNull())  {
                 if (scr_isunary(ctx->token_op))  
@@ -354,7 +381,7 @@ bool static CheckMinimalPush(const valtype& data, opcodetype opcode) {
     return true;
 }
 
-bool CCInterpret(CScript &script, const BaseSignatureChecker& checker, const std::vector<valtype> &externalVars, int64_t &retValue, ScriptError* serror)
+bool CCInterpret(CScript &script, const BaseSignatureChecker& checker, const ExternalVarsType &externalVars, int64_t &retValue, ScriptError* serror)
 {
     std::vector<std::vector<unsigned char> > stack;
     static const int64_t bnZero(0);
@@ -883,6 +910,9 @@ bool CCInterpret(CScript &script, const BaseSignatureChecker& checker, const std
                         bn = bn1.getint64() * bn2.getint64();
                         break;
                     case OP_DIV:
+                        std::cerr << __func__ << " bn1=" << bn1.getint64() << " bn2=" << bn2.getint64() << std::endl;
+                        if (bn2.getint64() == 0LL) 
+                            return set_error(serror, SCRIPT_ERR_ZERO_DIVISION);
                         bn = bn2.getint64() ? bn1.getint64() / bn2.getint64() : 0LL;
                         break;
 
@@ -968,6 +998,7 @@ bool CCInterpret(CScript &script, const BaseSignatureChecker& checker, const std
                 }
                 break;
 
+                /*
                 case OP_PUSH_INTERNAL_VAR_0:
                 case OP_PUSH_INTERNAL_VAR_1:
                 case OP_PUSH_INTERNAL_VAR_2:
@@ -992,6 +1023,18 @@ bool CCInterpret(CScript &script, const BaseSignatureChecker& checker, const std
                     if (index >= externalVars.size())
                         return set_error(serror, SCRIPT_ERR_NON_EXISTENT_VAR);
                     stack.push_back(externalVars[index]);
+                }
+                break;*/
+
+                case OP_PUSH_PRELOADED_VAR:
+                {
+                    CScriptNum bnid(stacktop(-1), fRequireMinimal);
+                    int varid = bnid.getint();
+                    auto idit = externalVars.find(varid);
+                    if (idit == externalVars.end())
+                        return set_error(serror, SCRIPT_ERR_NON_EXISTENT_VAR);
+                    popstack(stack);
+                    stack.push_back(idit->second);
                 }
                 break;
 
@@ -1020,6 +1063,5 @@ INTERPRETER_DEFAULT:
     retValue = bn.getint64();
     return set_success(serror);
 }
-
 
 };  // namespace CCSCRIPT 
