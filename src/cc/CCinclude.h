@@ -78,6 +78,8 @@ Details.
 #include "rpc/server.h"
 
 #define CC_BURNPUBKEY "02deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddead" //!< 'dead' pubkey in hex for burning tokens (if tokens are sent to it, they become 'burned')
+#define CC_BURNPUBKEY2 "02deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaa" //!< valid 'dead' pubkey 
+
 /// \cond INTERNAL
 #define CC_MAXVINS 1024
 
