@@ -274,6 +274,12 @@ uint8_t Assetsv2CCpriv[32] = { 0x46, 0x58, 0x3b, 0x18, 0xee, 0x16, 0x63, 0x51, 0
 #undef FUNCNAME
 #undef EVALCODE
 
+// Generic MustPayPKH
+#define FUNCNAME IsGenericMustPayPKHInput
+#define EVALCODE EVAL_GENERICMUSTPAYPKH
+#include "CCcustom.inc"
+#undef FUNCNAME
+#undef EVALCODE
 
 // TokenData validator 
 /*#define FUNCNAME IsTokenDataInput
@@ -479,6 +485,12 @@ struct CCcontract_info *CCinit(struct CCcontract_info *cp, uint8_t evalcode)
         case EVAL_GENERICMUSTPAYCC:
             cp->validate = MustPayCCValidate;
             cp->ismyvin = IsGenericMustPayCCInput;
+            ismixed = true;
+            break;
+
+        case EVAL_GENERICMUSTPAYPKH:
+            cp->validate = MustPayPKHValidate;
+            cp->ismyvin = IsGenericMustPayPKHInput;
             ismixed = true;
             break;
 
