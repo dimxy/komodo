@@ -221,8 +221,6 @@ UniValue CreateCCEvalTx(const CPubKey &mypk, CAmount txfee, const UniValue &txjs
 // cc script evaluation:
 bool CCEvaluateScripts(Eval *eval, const CTransaction &tx, std::string &strError);
 bool CCInterpretLoadScript(const CScript &loadscript, const CEvalToolBase *evalTool, CCSCRIPT::ExternalVarsType &vars);
-bool MatchSubCond(CC *cond, CC *subcond, CCTypeId anonTypeId, uint8_t thresholdSize, uint8_t threshold, bool noSigCheck);
-void SetIncludeEvalParamInFingerprintOn(CC *cond);
 bool CCGetEvalParams(uint8_t evalCode, CC *cond, std::set< std::vector<uint8_t> > *pvvParamsIn);
 
 #endif // CCGENERIC_EVALS_H

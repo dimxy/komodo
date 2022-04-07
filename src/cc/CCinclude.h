@@ -1098,8 +1098,9 @@ bool IsBlockHashInActiveChain(uint256 hashBlock);
 bool SubcallCCValidate(Eval* eval, uint8_t evalcode, const CTransaction& ctx, int32_t nIn);
 
 CC *ExtractFulfillmentV1(const CScript &ccSubScript, opcodetype &opcodeCC);
-
 void CCtoAnon1st(CC *cond);
+void SetIncludeEvalParamInFingerprintOn(CC *cond);
+bool MatchSubCond(CC *cond, CC *subcond, CCTypeId anonTypeId, uint8_t thresholdSize, uint8_t threshold, bool noSigCheck);
 
 extern bool fUnspentCCIndex;  // if unspent cc index enabled
 
