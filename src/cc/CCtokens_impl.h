@@ -196,8 +196,9 @@ CAmount AddTokenCCInputs(struct CCcontract_info *cp, CMutableTransaction &mtx, c
 		}
     }; // auto add_token_vin
 
+ // fUnspentCCIndex temporarily not supported
     // fUnspentCCIndex supported only if version in token data >= 1
-    if (fUnspentCCIndex /*&& GetTokenOpReturnVersion<V>(NULL, tokenid) > 0 - assume user know which token used*/) 
+    if (false && fUnspentCCIndex /*&& GetTokenOpReturnVersion<V>(NULL, tokenid) > 0 - assume user know which token used*/) 
     {
         std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
 
@@ -890,7 +891,8 @@ UniValue GetAllTokenBalances(CPubKey pk, bool useMempool)
         char tokenaddr[KOMODO_ADDRESS_BUFSIZE]; 
         GetTokensCCaddress(cp, tokenaddr, pk, ver); 
 
-        if (fUnspentCCIndex)
+ // fUnspentCCIndex temporarily not supported
+        if (false && fUnspentCCIndex)
         {
             std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs;
 

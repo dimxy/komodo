@@ -1005,7 +1005,7 @@ UniValue TokenV2List(const UniValue &params)
     }
     else
     {
-        if (fUnspentCCIndex)
+        if (false && fUnspentCCIndex)  // temporarily not supported
         {
             std::vector<std::pair<CUnspentCCIndexKey, CUnspentCCIndexValue> > unspentOutputs0;
             SetCCunspentsCCIndex(unspentOutputs0, GetUnspendableCCaddrMixed(cp, 0).c_str(), zeroid);    // find by burnable validated cc addr marker
