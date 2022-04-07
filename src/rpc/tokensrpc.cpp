@@ -1129,6 +1129,50 @@ UniValue tokenv2addccinputs(const UniValue& params, bool fHelp, const CPubKey& r
     return result;
 }
 
+
+UniValue tokenv2getutxos(const UniValue& params, bool fHelp, const CPubKey& remotepk)
+{
+    if (fHelp || params.size() != 3)
+    {
+        string msg = __func__ + std::string(" tokenid pubkey amount\n") + 
+            "\nReturns token inputs for tokenid pubkey and amount\n"
+            "\nArguments:\n"
+            //"address which utxos are added from\n"
+            "amount (in satoshi) which will be added as normal inputs (equal or more)\n"
+            "Result: json object with created tx and added vin txns\n\n";
+        throw runtime_error(msg);
+    }
+
+    uint256 tokenid = Parseuint256(params[0].get_str().c_str());
+    CPubKey pk = pubkey2pk( ParseHex(params[1].get_str().c_str()) );
+    CAmount amount = atoll(params[2].get_str().c_str());
+    if (amount <= 0)
+        throw runtime_error("amount invalid");
+
+    CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
+    struct CCcontract_info *cp, C;
+    cp = CCinit(&C, EVAL_TOKENSV2);
+
+    CAmount added = AddTokenCCInputs<TokensV2>(cp, mtx, pk, tokenid, amount, CC_MAXVINS, false);
+
+    UniValue result (UniValue::VARR);
+
+    for (auto const &vin : mtx.vin)     {
+        CTransaction vintx;
+        uint256 hashBlock;
+        if (myGetTransaction(vin.prevout.hash, vintx, hashBlock))  {
+            UniValue elem(UniValue::VOBJ);
+            elem.pushKV("hash", vin.prevout.hash.GetHex());
+            elem.pushKV("n", (int)vin.prevout.n);
+            elem.pushKV("satoshis", vintx.vout[vin.prevout.n].nValue);
+            elem.pushKV("script", HexStr(vintx.vout[vin.prevout.n].scriptPubKey));
+            result.push_back(elem);
+        }
+    }
+    return result;
+}
+
+
 static const CRPCCommand commands[] =
 { //  category              name                actor (function)        okSafeMode
   //  -------------- ------------------------  -----------------------  ----------
@@ -1174,6 +1218,8 @@ static const CRPCCommand commands[] =
     { "tokens",       "tokenconvert", &tokenconvert, true },
     { "ccutils",       "addccv2signature", &addccv2signature, true },
     { "nspv",       "tokenv2addccinputs",      &tokenv2addccinputs,         true },
+    { "nspv",       "tokenv2getutxos",      &tokenv2getutxos,         true },
+
 };
 
 void RegisterTokensRPCCommands(CRPCTable &tableRPC)
