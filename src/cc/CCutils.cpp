@@ -875,7 +875,7 @@ CPubKey check_signing_pubkey(CScript scriptSig)
     auto findEval = [](CC *cond, struct CCVisitor _) {
         bool r = false;
 
-        if (cc_typeId(cond) == CC_Secp256k1) {
+        if (!cc_isAnon(cond) && cc_typeId(cond) == CC_Secp256k1) {
             *(CPubKey*)_.context=buf2pk(cond->publicKey);
             r = true;
         }
