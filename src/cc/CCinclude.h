@@ -1097,6 +1097,10 @@ bool IsBlockHashInActiveChain(uint256 hashBlock);
 /// subcalls an additional evalcode validator
 bool SubcallCCValidate(Eval* eval, uint8_t evalcode, const CTransaction& ctx, int32_t nIn);
 
+CC *ExtractFulfillmentV1(const CScript &ccSubScript, opcodetype &opcodeCC);
+
+void CCtoAnon1st(CC *cond);
+
 extern bool fUnspentCCIndex;  // if unspent cc index enabled
 
 /// @private forward decl

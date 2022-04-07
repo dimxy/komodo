@@ -344,8 +344,6 @@ CAmount CEvalContext::GetProcessedOutputAmount(uint8_t evalCode, const CSubCC &d
     return totalForAddress;
 }*/
 
-CC *ExtractFulfillmentV1(const CScript &ccSubScript, opcodetype &opcodeCC);
-bool MatchSubCond(CC *cond, CC *subcond, CCTypeId anonTypeId, uint8_t thresholdSize, uint8_t threshold, bool noSigCheck);
 
 // get amount for tx outputs, for a destination (extended for cc anon subconds) 
 CAmount CEvalContext::GetTxOutputAmount(const CTransaction &tx, const CTxDestinationForEval &destForEval)

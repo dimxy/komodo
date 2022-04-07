@@ -205,3 +205,21 @@ void SetIncludeEvalParamInFingerprintOn(CC *cond)
     CCVisitor visitor = { walkEval, (uint8_t*)"", 0, (void*)nullptr };
     cc_visit(cond, visitor);
 }
+
+CC *ExtractFulfillmentV1(const CScript &ccSubScript, opcodetype &opcodeCC)
+{
+    std::vector<uint8_t> ccmixedData, dummy;
+    opcodetype opcodeNone;
+    CScript::const_iterator pc = ccSubScript.begin();
+    ccSubScript.GetOp(pc, opcodeNone, ccmixedData);
+    ccSubScript.GetOp(pc, opcodeCC, dummy);            
+    //uint8_t condbuf[10000];
+
+    if (ccmixedData.size() < 1) return nullptr;
+    int ccSubVersion = (ccmixedData[0] >= CC_MIXED_MODE_PREFIX ? (int)(ccmixedData[0] - CC_MIXED_MODE_PREFIX) : -1);
+    if (ccSubVersion < 1) return nullptr;
+    //std::vector<uint8_t> ccmixed(ccSubScript.begin() + 1, ccSubScript.end());
+    //std::cerr << __func__ << " ccmixedData=" << HexStr(ccmixedData) << std::endl;
+    CC* cond = cc_readFulfillmentBinaryMixedMode(&ccmixedData[1], ccmixedData.size()-1);
+    return cond;
+}

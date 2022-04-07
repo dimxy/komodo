@@ -26,8 +26,6 @@
 // Eval TokenAuction - add conditions to the basic evals to make 'auction'
 // Eval TokenRoyalty - add conditions to the basic evals to add royalty payouts 
 
-CC *ExtractFulfillmentV1(const CScript &ccSubScript, opcodetype &opcodeCC);
-
 // some resusable helpers:
 
 // checks if evalCode and anon can only be spent together 

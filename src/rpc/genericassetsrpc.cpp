@@ -34,8 +34,6 @@
 
 #include "../cc/CCtokens_impl.h"
 
-void CCtoAnon1st(CC *cond);
-void SetIncludeEvalParamInFingerprintOn(CC *cond);
 
 
 //using namespace std;

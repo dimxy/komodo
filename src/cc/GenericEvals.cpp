@@ -19,11 +19,6 @@
 #include "GenericEvals.h"
 
 
-void CCtoAnon1st(CC *cond);
-void SetIncludeEvalParamInFingerprintOn(CC *cond);
-CC *ExtractFulfillmentV1(const CScript &ccSubScript, opcodetype &opcodeCC);
-bool CCGetEvalParams(uint8_t evalCode, CC *cond, std::set< std::vector<uint8_t> > *pvvParamsIn);
-
 // set of generic evals:
 // Eval MustPayCC - basic eval to sell tokens for coins
 
