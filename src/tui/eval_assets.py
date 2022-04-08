@@ -68,23 +68,26 @@ def call_assets_ask(config, numtokens, tokenid, tokenprice) :
     rpc = get_chain_rpc(config)
     getinfo = rpc.getinfo()
     mypk = getinfo['pubkey']
-    # use faucet rpc as a helper:
+    # use faucet rpc as a helper to obtain my normal address:
     faucetres = rpc.faucetaddress()
     myaddress = faucetres["myaddress"]
-
-    #evalparam = rpc.makeccscript()
 
     # token param with tokenid
     token_param = "{0}{1}{2}".format('t'.encode('utf-8').hex(), '\1'.encode('utf-8').hex(), tokenid)
 
-    # make mustpaycc for next ask
+    # make mustpaycc for next ask output
     ask_script = rpc.makeccscript(json.dumps({ "vars": [{"VAR10":tokenprice}, {"VAR20": "VINAMOUNT"}], "expr": "VAR20-VAR30/VAR10" }))
-    print('ask_script=', ask_script)
+    #print('ask_script=', ask_script)
+
+    # make mustpaycc eval param with the load and amount script and the 'self' rule condition 
+    # 'self' means that the destination output condition must be the same as the vin condition which is being spent
     mustpaycc_ask_param = rpc.makemustpayccparam('11', ask_script["LoadScript"], ask_script["AmountScript"], 'self', '1')
 
     # make mustpaycc for spent tokens
     token_script = rpc.makeccscript(json.dumps({ "vars": [{"VAR30":"VOUTAMOUNT"}], "expr": "VAR30" }))
-    print('token_script=', token_script)
+    # print('token_script=', token_script)
+
+    # condition where tokens from the ask to go
     next_token_cond = \
     {
         "type": "threshold-sha-256",
@@ -97,26 +100,26 @@ def call_assets_ask(config, numtokens, tokenid, tokenprice) :
             },
             {
                 "type": "secp256k1-sha-256",
-                "publicKey": "02deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaa" # any pubkey
+                "publicKey": "02deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaa" # dead pubkey means any pubkey
             }
         ]
     }
     mustpaycc_token_param = rpc.makemustpayccparam('12', token_script["LoadScript"], token_script["AmountScript"], json.dumps(next_token_cond), '1')
 
-    # make mustpaycc for paid coins for tokens
+    # make mustpaypkh scripts 
     normal_script = rpc.makeccscript(json.dumps({ "vars": [], "expr": "VAR30*VAR10" }))  # normal coins = spent-tokens * token-price
-    print('normal_script=', normal_script)
-    # normal pay param:
+    # print('normal_script=', normal_script)
+
+    # mustpaypkh eval param for paid normal coins for purchased tokens:
     mustpaypkh_normal_param = rpc.makemustpaypkhparam('13', normal_script["LoadScript"], normal_script["AmountScript"], myaddress)
 
-    # add inputs
+    # add normal and token inputs
     vins = []
     inputs = add_normal_utxos(rpc, vins, mypk, 10000) # txfee
     assert inputs >= 10000, 'insufficent normal inputs'
 
     ccinputs = add_token_utxos(rpc, vins, mypk, tokenid, numtokens)
     assert ccinputs >= numtokens, 'insufficient token inputs:' + str(ccinputs)
-
 
     vouts = []
     vouts.append( \
@@ -140,12 +143,12 @@ def call_assets_ask(config, numtokens, tokenid, tokenprice) :
                                 "codehex": "86",
                                 "param": mustpaycc_token_param
                             },
-                            { # mustpaycc paid coins:
+                            { # mustpaypkh paid coins:
                                 "type": "eval-sha-256",
                                 "codehex": "87",
                                 "param": mustpaypkh_normal_param
                             },
-                            {
+                            { # token eval
                                 "type": "eval-sha-256",
                                 "codehex": "f5",
                                 "param": token_param
@@ -156,12 +159,12 @@ def call_assets_ask(config, numtokens, tokenid, tokenprice) :
                         "type": "threshold-sha-256",
                         "threshold": 2,
                         "subfulfillments": [
-                            {
+                            { # token cond
                                 "type": "eval-sha-256",
                                 "codehex": "f5",
                                 "param": token_param
                             },
-                            {   
+                            { # signature cond
                                 "type": "secp256k1-sha-256",
                                 "publicKey": mypk
                             }
@@ -193,8 +196,8 @@ def call_assets_ask(config, numtokens, tokenid, tokenprice) :
                 }
             })
 
-    # probe cc for signing:
     vinccs = []
+    # add a fulfillment to spend tokens:
     vinccs.append(\
         {
             "cc": {
@@ -212,7 +215,7 @@ def call_assets_ask(config, numtokens, tokenid, tokenprice) :
                     }
                 ]
             },
-            "sign": True
+            "sign": True # sign as we spend a signature cond
         })
             
 
@@ -256,7 +259,7 @@ def call_assets_fill_ask(config, asktxid, tokenid, numtokens) :
 
     # add inputs
     vins = []
-    inputs = add_normal_utxos(rpc, vins, mypk, 10000 + normal_amount ) # txfee +normal pay for tokens
+    inputs = add_normal_utxos(rpc, vins, mypk, 10000 + normal_amount ) # txfee + normal coind paid for tokens
     assert inputs >= 10000 + normal_amount, 'insufficent normal inputs'
 
     vouts = []
@@ -313,18 +316,17 @@ def call_assets_fill_ask(config, asktxid, tokenid, numtokens) :
             }
         })
 
-    # add normal pay
+    # add output to pay normal amount:
     vouts.append( \
         {
             "nValue": normal_amount,
             "Destination": myaddress
         })
 
-    # probe cc for signing:
     vinccs = []
+    # add probe fulfillment to spend the previous ask:
     vinccs.append(\
         {
-            # ffil to spend previous ask:
             "cc":  {
                 "type": "threshold-sha-256",
                 "threshold": 1,
@@ -343,7 +345,7 @@ def call_assets_fill_ask(config, asktxid, tokenid, numtokens) :
                                 "codehex": "86",
                                 "param": mustpaycc_token_param
                             },
-                            { # mustpaycc paid coins:
+                            { # mustpaypkh paid coins:
                                 "type": "eval-sha-256",
                                 "codehex": "87",
                                 "param": mustpaypkh_normal_param
@@ -402,6 +404,7 @@ def call_assets_cancel_ask(config, asktxid, tokenid) :
     vintx = rpc.getrawtransaction(asktxid, 1)
     vin_amount = vintx['vout'][0]['valueSat']
 
+    # get eval params from the ask vin
     mustpaycc_ask_param = rpc.getccevalparam(asktxid, '0', '0x86', '11')
     mustpaycc_token_param = rpc.getccevalparam(asktxid, '0', '0x86', '12')
     mustpaypkh_normal_param = rpc.getccevalparam(asktxid, '0', '0x87', '13')
@@ -422,7 +425,7 @@ def call_assets_cancel_ask(config, asktxid, tokenid) :
 
     vouts = []
 
-    # add token spending
+    # add token spent from ask
     vouts.append( \
         {
             "nValue": vin_amount,
@@ -443,11 +446,10 @@ def call_assets_cancel_ask(config, asktxid, tokenid) :
             }
         })
 
-    # probe cc for signing:
     vinccs = []
+    # add probe fulfillment to spend previous ask:
     vinccs.append( \
         {
-            # ffil to spend previous ask:
             "cc":  {
                 "type": "threshold-sha-256",
                 "threshold": 1,
@@ -468,13 +470,13 @@ def call_assets_cancel_ask(config, asktxid, tokenid) :
                                 "param": mustpaycc_token_param,
                                 "dontFulfill": 1
                             },
-                            { # mustpaycc paid coins:
+                            { # mustpaypkh paid coins:
                                 "type": "eval-sha-256",
                                 "codehex": "87",
                                 "param": mustpaypkh_normal_param,
                                 "dontFulfill": 1
                             },
-                            {
+                            { # token eval
                                 "type": "eval-sha-256",
                                 "codehex": "f5",
                                 "param": token_param,
@@ -502,6 +504,7 @@ def call_assets_cancel_ask(config, asktxid, tokenid) :
             "sign": True  # need to sign secp256k1 cond
         })
             
+    # spend ask utxo
     vins.append({ "hash": asktxid, "n": 0 })
 
     tx_json = \
