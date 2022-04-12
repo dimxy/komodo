@@ -25,6 +25,7 @@ komodo_test_SOURCES = \
     test-komodo/test_pow.cpp \
     test-komodo/test_txid.cpp \
     test-komodo/test_coins.cpp \
+    test-komodo/test_nspv.cpp \
     main.cpp
 
 komodo_test_CPPFLAGS = $(komodod_CPPFLAGS)
