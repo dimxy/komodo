@@ -85,26 +85,50 @@ def wait_until_confirmed(rpc, txid) :
 
 def run_tokentags_tests(rpc1, rpc2, rpc3) :
 
-    for i in range(2) :
+    for i in range(1) :
 
         print('starting tokenv2create')
         tokentx = rpc1.tokenv2create('TESTTOK', '0.0001')
         # print('tokentx', tokentx)
         check_tx_result(tokentx)
         tokentxid = rpc1.sendrawtransaction(tokentx['hex'])
+
+        '''
+        print('starting tokenv2create')
+        tokentx2 = rpc1.tokenv2create('TESTTOK2', '0.0001')
+        check_tx_result(tokentx2)
+        tokentxid2 = rpc1.sendrawtransaction(tokentx2['hex'])
+        '''
+
         wait_until_confirmed(rpc1, tokentxid)
+        # wait_until_confirmed(rpc1, tokentxid2)
         print('token created', tokentxid)
+        # print('token 2 created', tokentxid2)
+
 
         print('starting tokentagcreate')
-        tagtx = rpc1.tokentagcreate(tokentxid, '10000', 'mytag', '6000', 'mydata')
+        # tagtx = rpc1.tokentagcreate(tokentxid, '10000', 'mytag', '6000', 'mydata', '0', tokentxid2)
+        # tagtx = rpc1.tokentagcreate(tokentxid, '9999', 'mytag', '6000', 'mydata', '0')
+        tagtx = rpc1.tokentagcreate(tokentxid, '10000', 'mytag', '6000', 'mydata', '0')
         # print('tagtx', tagtx)
         check_tx_result(tagtx)
         tagtxid = rpc1.sendrawtransaction(tagtx['hex'])
         wait_until_confirmed(rpc1, tagtxid)
         print('tokentag created', tagtxid)
 
+        '''
+        print('starting tokentagcreate 2')
+        tagtx2 = rpc1.tokentagcreate(tokentxid, '10000', 'mytag', '6000', 'mydata2', '0')
+        check_tx_result(tagtx2)
+        tagtxid2 = rpc1.sendrawtransaction(tagtx2['hex'])
+        wait_until_confirmed(rpc1, tagtxid2)
+        print('tokentag created', tagtxid2)
+        '''
+
         print('starting tokentagupdate 1')
-        updtx1 = rpc1.tokentagupdate(tagtxid, '9999', 'mydata2')
+        updtx1 = rpc1.tokentagupdate(tagtxid, '5001', 'mydata2')
+        # updtx1 = rpc1.tokentagupdate(tagtxid, '5001', 'mydata2', tagtxid2) # try spend a different tagtxid2
+        # updtx1 = rpc1.tokentagupdate(tokentxid, '5001', 'mydata2')
         # print('updtx1', updtx1)
         check_tx_result(updtx1)
         updtxid1 = rpc1.sendrawtransaction(updtx1['hex'])
@@ -112,7 +136,7 @@ def run_tokentags_tests(rpc1, rpc2, rpc3) :
         print('tokentagupdate 1 created', updtxid1)
 
         print('starting tokentagupdate 2')
-        updtx2 = rpc1.tokentagupdate(tagtxid, '9998',  'mydata3')
+        updtx2 = rpc1.tokentagupdate(tagtxid, '5001',  'mydata3')
         # print('updtx2', updtx2)
         check_tx_result(updtx2)
         updtxid2 = rpc1.sendrawtransaction(updtx2['hex'])
@@ -151,7 +175,7 @@ def run_agreements_tests(rpc1, rpc2, rpc3) :
         wait_until_confirmed(rpc2, agreementtxid)
         print('agreement offer created', agreementtxid)
 
-        rpc_accept = rpc1
+        rpc_accept = rpc2
         print('starting agreementaccept')
         accepttx = rpc_accept.agreementaccept(agreementtxid)
         # print('accepttx', accepttx)
