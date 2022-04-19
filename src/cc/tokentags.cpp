@@ -549,8 +549,10 @@ bool TokenTagsValidate(struct CCcontract_info *cp, Eval* eval, const CTransactio
 
 				// vout.1: tokens back to source address
 				tokenamount = tx.vout[1].nValue;
-				if (tokenamount < prevupdatesupply)
-					return eval->Invalid("vout.1 nValue is"+std::to_string(tokenamount)+", should be more than "+std::to_string(requiredupdatesupply)+"!");
+				if (tokenamount < prevupdatesupply) {
+					std::cerr << __func__ << " invalid tx=" << HexStr(E_MARSHAL(ss << tx)) << std::endl;
+					return eval->Invalid("vout.1 nValue is "+std::to_string(tokenamount)+", should be more than "+std::to_string(requiredupdatesupply)+"!");
+				}
 				else if (ConstrainVoutV2(tx.vout[1], 1, srctokenaddr, tokenamount, cpTokens->evalcode) == 0)
 					return eval->Invalid("vout.1 must be tokens back to source address!");
 				
@@ -771,7 +773,7 @@ static uint8_t FindLatestTagUpdate(uint256 tokentagid, struct CCcontract_info *c
 
 // Transaction constructor for tokentagcreate rpc.
 // Creates token tag transaction with 'c' function id.
-UniValue TokenTagCreate(const CPubKey& pk,uint64_t txfee,uint256 tokenid,int64_t tokensupply,int64_t updatesupply,uint8_t flags,std::string name,std::string data)
+UniValue TokenTagCreate(const CPubKey& pk,uint64_t txfee,uint256 tokenid,int64_t tokensupply,int64_t updatesupply,uint8_t flags,std::string name,std::string data, uint256 tokenid2)
 {
 	char str[67],*txidaddr;
 	CPubKey mypk,TokenTagspk,tagtxidpk;
@@ -780,6 +782,8 @@ UniValue TokenTagCreate(const CPubKey& pk,uint64_t txfee,uint256 tokenid,int64_t
 	uint8_t version,tokensversion,tokensevalcode;
 	UniValue rawtx(UniValue::VOBJ), result(UniValue::VOBJ);
 	
+	if (tokenid2.IsNull()) tokenid2 = tokenid;
+
 	CMutableTransaction mtx = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_nextheight());
 	struct CCcontract_info *cp,C,*cpTokens,CTokens;
 	cp = CCinit(&C,EVAL_TOKENTAGS);
@@ -788,49 +792,54 @@ UniValue TokenTagCreate(const CPubKey& pk,uint64_t txfee,uint256 tokenid,int64_t
 	mypk = pk.IsValid() ? pk : pubkey2pk(Mypubkey());
 
 	if (!(mypk.IsFullyValid()))
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Signing pubkey must be valid");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Signing pubkey must be valid");
 	
 	// Check if tokenid and its version is correct.
-	else if ((tokensversion = GetTokenDetails(tokenid,tokensevalcode,fullsupply)) == 0)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Token id invalid");
-	else if (tokensversion == 1)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Token id is version 1, which is not supported by this CC");
+	if ((tokensversion = GetTokenDetails(tokenid,tokensevalcode,fullsupply)) == 0) {
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Token id invalid");
+	}
+	else if (tokensversion == 1) {
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Token id is version 1, which is not supported by this CC");
+	}
 	
 	cpTokens = CCinit(&CTokens,tokensevalcode);
 
 	// Check full supply for tokenid.
-	if (tokensupply != fullsupply)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Specified token supply is not equal to found full supply for given token id");
+	if (tokensupply != fullsupply)  {
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Specified token supply is not equal to found full supply for given token id");
+	}
 	
 	// Flag checks - make sure there are no unused flags set.
-	else if (!CheckUnusedFlags(flags, 'c'))
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Can't set unused flag bits");
+	else if (!CheckUnusedFlags(flags, 'c'))  {
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Can't set unused flag bits");
+	}
 	
 	// Check specified update supply, which must be more than 50% of token supply unless TTF_ALLOWANYSUPPLY is set.
 	requiredupdatesupply = static_cast<int64_t>(tokensupply % 2 ? static_cast<double>(tokensupply) * 0.5 - 0.5 : static_cast<double>(tokensupply) * 0.5);
 	
-	if (!(flags & TTF_ALLOWANYSUPPLY) && updatesupply <= requiredupdatesupply)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Update supply must be at least "+std::to_string(requiredupdatesupply+1)+" tokens");
+	if (!(flags & TTF_ALLOWANYSUPPLY) && updatesupply <= requiredupdatesupply) {
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Update supply must be at least "+std::to_string(requiredupdatesupply+1)+" tokens");
+	}
 	else if (updatesupply > tokensupply)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Required update supply cannot be more than entire token supply");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Required update supply cannot be more than entire token supply");
 	
 	// Checking name and data.
 	else if (name.empty() || name.size() > TOKENTAGSCC_MAX_NAME_SIZE)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Token tag name cannot be empty and must be up to "+std::to_string(TOKENTAGSCC_MAX_NAME_SIZE)+" characters");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Token tag name cannot be empty and must be up to "+std::to_string(TOKENTAGSCC_MAX_NAME_SIZE)+" characters");
 	else if (data.empty() || data.size() > TOKENTAGSCC_MAX_DATA_SIZE)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Token tag data cannot be empty and must be up to "+std::to_string(TOKENTAGSCC_MAX_DATA_SIZE)+" characters");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Token tag data cannot be empty and must be up to "+std::to_string(TOKENTAGSCC_MAX_DATA_SIZE)+" characters");
 	
 	TokenTagspk = GetUnspendable(cp, NULL);
 	tagtxidpk = CCtxidaddr(txidaddr,tokenid);
 	
-	opret = EncodeTokenTagCreateOpRet(TOKENTAGSCC_VERSION,mypk,tokenid,tokensupply,updatesupply,flags,name,data);
+	opret = EncodeTokenTagCreateOpRet(TOKENTAGSCC_VERSION,mypk,tokenid2,tokensupply,updatesupply,flags,name,data);
 
-	if (AddTokenInputsToTag(cpTokens,mtx,mypk,tokenid,tokensupply,64,false) == tokensupply) // vin.0 to vin.m-1: tokens
+	if (AddTokenInputsToTag(cpTokens,mtx,mypk,tokenid,tokensupply,64,false) == tokensupply || true) // vin.0 to vin.m-1: tokens
 	{
         CCwrapper cond(MakeCCcond1(cpTokens->evalcode,mypk));
         CCAddVintxCond(cp,cond); 
 		
-        if (AddNormalinputs(mtx, mypk, txfee + CC_MARKER_VALUE, 5, pk.IsValid()) > 0) // vin.m to vin.n-1: normal input
+        if (AddNormalinputs(mtx, mypk, txfee + CC_MARKER_VALUE, 5, pk.IsValid()) > 0 || true) // vin.m to vin.n-1: normal input
         {
 			// vout.0: baton to global pubkey / tokenid-pubkey 1of2 CC address
 			mtx.vout.push_back(MakeCC1of2voutMixed(cp->evalcode, CC_MARKER_VALUE, TokenTagspk, tagtxidpk));
@@ -892,10 +901,10 @@ UniValue TokenTagCreate(const CPubKey& pk,uint64_t txfee,uint256 tokenid,int64_t
 
 // Transaction constructor for tokentagupdate rpc.
 // Creates token tag transaction with 'u' function id.
-UniValue TokenTagUpdate(const CPubKey& pk,uint64_t txfee,uint256 tokentagid,int64_t newupdatesupply,std::string data)
+UniValue TokenTagUpdate(const CPubKey& pk,uint64_t txfee,uint256 tokentagid,int64_t newupdatesupply,std::string data, uint256 anothertagid)
 {
 	char str[67],tagCCaddress[KOMODO_ADDRESS_BUFSIZE],*txidaddr;
-	CAmount tokeninputs;
+	CAmount tokeninputs = -1;
 	CPubKey mypk,TokenTagspk,tagtxidpk,creatorpub,refpub;
 	CTransaction tokentagtx,latesttx;
 	CScript opret;
@@ -913,43 +922,48 @@ UniValue TokenTagUpdate(const CPubKey& pk,uint64_t txfee,uint256 tokentagid,int6
 	mypk = pk.IsValid() ? pk : pubkey2pk(Mypubkey());
 
 	if (!(mypk.IsFullyValid()))
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Signing pubkey must be valid");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Signing pubkey must be valid");
 
 	// Find the specified token tag transaction, extract its data.
 	if (myGetTransactionCCV2(cp,tokentagid,tokentagtx,hashBlock) == 0 || tokentagtx.vout.size() == 0 ||
-	DecodeTokenTagCreateOpRet(tokentagtx.vout.back().scriptPubKey,version,creatorpub,tokenid,tokensupply,updatesupply,flags,name,refdata) != 'c')
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Specified token tag transaction not found or is invalid");
-	else if (hashBlock.IsNull())
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Specified token tag transaction is still in mempool");
-
+	DecodeTokenTagCreateOpRet(tokentagtx.vout.back().scriptPubKey,version,creatorpub,tokenid,tokensupply,updatesupply,flags,name,refdata) != 'c')  {
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Specified token tag transaction not found or is invalid");
+	}
+	else if (hashBlock.IsNull())  {
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Specified token tag transaction is still in mempool");
+	}
 	// TTF_TAGCREATORONLY is set to prevent any other pubkey apart from the original creator from making updates for the tag.
-	else if ((flags & TTF_TAGCREATORONLY) && mypk != creatorpub)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Tag update must be signed by original creator due to a setting in the tag requiring it");
-	
+	else if ((flags & TTF_TAGCREATORONLY) && mypk != creatorpub)  {
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Tag update must be signed by original creator due to a setting in the tag requiring it");
+	}
 	// TTF_CONSTREQS is set to prevent any other updatesupply from being specified compared to original updatesupply.
-	else if ((flags & TTF_CONSTREQS) && newupdatesupply != updatesupply)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "New required update supply for tag cannot be changed due to a setting in the tag");
-	
+	else if ((flags & TTF_CONSTREQS) && newupdatesupply != updatesupply) {
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "New required update supply for tag cannot be changed due to a setting in the tag");
+	}
 	// Check specified update supply, which must be more than 50% of token supply unless TTF_ALLOWANYSUPPLY is set.
 	requiredupdatesupply = static_cast<int64_t>(tokensupply % 2 ? static_cast<double>(tokensupply) * 0.5 - 0.5 : static_cast<double>(tokensupply) * 0.5);
-	if (!(flags & TTF_ALLOWANYSUPPLY) && newupdatesupply <= requiredupdatesupply)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "New update supply must be at least "+std::to_string(requiredupdatesupply+1)+" tokens");
-	else if (newupdatesupply > tokensupply)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "New required update supply cannot be more than entire token supply");
+	if (!(flags & TTF_ALLOWANYSUPPLY) && newupdatesupply <= requiredupdatesupply)  {
+		//CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "New update supply must be at least "+std::to_string(requiredupdatesupply+1)+" tokens");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "New update supply must be at least "+std::to_string(requiredupdatesupply+1)+" tokens");
+	}
+	else if (newupdatesupply > tokensupply)  {
+		//CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "New required update supply cannot be more than entire token supply");
+		LOGSTREAMFN("tokentagscc", CCLOG_INFO, stream << "New required update supply cannot be more than entire token supply");
+	}
 	
 	// Find latest tag update.
-	latestfuncid = FindLatestTagUpdate(tokentagid, cp, latesttxid);
+	latestfuncid = FindLatestTagUpdate( !anothertagid.IsNull() ? anothertagid : tokentagid, cp, latesttxid);
 	if (myGetTransactionCCV2(cp,latesttxid,latesttx,hashBlock) == 0 || latesttx.vout.size() == 0)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Couldn't find latest token tag update!");
-	else if (hashBlock.IsNull())
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Latest token tag update is still in mempool");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Couldn't find latest token tag update!");
+	else if (hashBlock.IsNull()) 
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Latest token tag update is still in mempool");
 	
 	// Get latest update supply.
 	switch (latestfuncid)
 	{
 		case 'c':
 			if (latesttxid != tokentagid)
-				CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Latest update txid and token tag creation id mismatch when latest update is 'c'");
+				LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Latest update txid and token tag creation id mismatch when latest update is 'c'");
 			prevupdatesupply = updatesupply;
 			break;
 		case 'u':
@@ -959,48 +973,56 @@ UniValue TokenTagUpdate(const CPubKey& pk,uint64_t txfee,uint256 tokentagid,int6
 			DecodeTokenTagEscrowOpRet(latesttx.vout.back().scriptPubKey,version,refpub,reftokentagid,refescrowtxid,prevupdatesupply,refdata);
 			break;
 		default:
-			CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Found incorrect funcid in latest token tag update!");
+			LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Found incorrect funcid in latest token tag update!");
 	}
 	
 	if (flags & TTF_AWAITNOTARIES && komodo_txnotarizedconfirmed(latesttxid) == 0)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Latest tag creation or update must be notarised due to having mandatory notarisation flag set");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Latest tag creation or update must be notarised due to having mandatory notarisation flag set");
 	
 	// Check if tokenid and its version is correct.
 	else if ((tokensversion = GetTokenDetails(tokenid,tokensevalcode,fullsupply)) == 0)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Token id in tag invalid");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Token id in tag invalid");
 	else if (tokensversion == 1)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Token id in tag is version 1, which is not supported by this CC");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Token id in tag is version 1, which is not supported by this CC");
 	
 	cpTokens = CCinit(&CTokens,tokensevalcode);
 
 	// Checking data.
 	if (data.empty() || data.size() > TOKENTAGSCC_MAX_DATA_SIZE)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Token tag data cannot be empty and must be up to "+std::to_string(TOKENTAGSCC_MAX_DATA_SIZE)+" characters");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Token tag data cannot be empty and must be up to "+std::to_string(TOKENTAGSCC_MAX_DATA_SIZE)+" characters");
 	
 	TokenTagspk = GetUnspendable(cp, NULL);
 	tagtxidpk = CCtxidaddr(txidaddr,tokenid);
 	GetCCaddress1of2(cp, tagCCaddress, TokenTagspk, tagtxidpk, true);
 	
 	opret = EncodeTokenTagUpdateOpRet(tokenid,TOKENTAGSCC_VERSION,mypk,tokentagid,newupdatesupply,data);
+	//opret = EncodeTokenTagCreateOpRet(TOKENTAGSCC_VERSION,mypk,tokenid,tokensupply,newupdatesupply,flags,"name",data);
 
 	// vin.0: CC input from create or update vout.0
 	mtx.vin.push_back(CTxIn(latesttxid,0,CScript()));
-	CCaddr1of2set(cp,TokenTagspk,tagtxidpk,cp->CCpriv,tagCCaddress);
+	//mtx.vin.push_back(CTxIn(latesttxid,1,CScript()));  // try spend marker
+
+	//CCaddr1of2set(cp,TokenTagspk,tagtxidpk,cp->CCpriv,tagCCaddress);
 	CCwrapper cond(MakeCCcond1of2(cp->evalcode,TokenTagspk,tagtxidpk));
 	CCAddVintxCond(cp,cond,cp->CCpriv);
+
+	CCwrapper cond2(MakeCCcond1(cp->evalcode,TokenTagspk));
+	CCAddVintxCond(cp,cond2,cp->CCpriv);
 	
-	if ((tokeninputs = AddTokenInputsToTag(cpTokens,mtx,mypk,tokenid,prevupdatesupply,64,false)) >= prevupdatesupply) // vin.1 to vin.m-1: tokens
+	if ((tokeninputs = AddTokenInputsToTag(cpTokens,mtx,mypk,tokenid,prevupdatesupply,64,false)) >= prevupdatesupply || true) // vin.1 to vin.m-1: tokens
 	{
+		std::cerr << __func__ << " tokeninputs=" << tokeninputs << " prevupdatesupply=" << prevupdatesupply << " newupdatesupply=" << newupdatesupply << std::endl;
         CCwrapper cond2(MakeCCcond1(cpTokens->evalcode,mypk));
         CCAddVintxCond(cp,cond2); 
 		
-        if (AddNormalinputs(mtx, mypk, txfee + CC_MARKER_VALUE, 5, pk.IsValid()) > 0) // vin.m to vin.n-1: normal input
+        if (AddNormalinputs(mtx, mypk, txfee + CC_MARKER_VALUE, 5, pk.IsValid()) > 0 || true) // vin.m to vin.n-1: normal input
         {
 			// vout.0: baton to global pubkey / tokenid-pubkey 1of2 CC address
 			mtx.vout.push_back(MakeCC1of2voutMixed(cp->evalcode, CC_MARKER_VALUE, TokenTagspk, tagtxidpk));
 			// vout.1: tokens back to source address
 			// note: since vout1 goes back to sender's address, we don't need to calculate change, we only need to make sure that enough tokens are passed through this transaction.
 			mtx.vout.push_back(MakeTokensCCvoutforTag(tokenid, cpTokens->evalcode, tokeninputs, mypk));
+			//mtx.vout.push_back(MakeTokensCCvoutforTag(tokenid, cpTokens->evalcode, tokeninputs, CPubKey(ParseHex("025f97b6c42409e8e69eb2fdab281219aafe15169deec801ee621c63cc1ba0bb8c"))));
 			
 			rawtx = FinalizeCCV2Tx(pk.IsValid(),0,cp,mtx,mypk,txfee,opret);
         }
@@ -1054,40 +1076,40 @@ UniValue TokenTagEscrowUpdate(const CPubKey& pk,uint64_t txfee,uint256 tokentagi
 	mypk = pk.IsValid() ? pk : pubkey2pk(Mypubkey());
 
 	if (!(mypk.IsFullyValid()))
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Signing pubkey must be valid");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Signing pubkey must be valid");
 
 	// Find the specified token tag transaction, extract its data.
 	if (myGetTransactionCCV2(cp,tokentagid,tokentagtx,hashBlock) == 0 || tokentagtx.vout.size() == 0 ||
 	DecodeTokenTagCreateOpRet(tokentagtx.vout.back().scriptPubKey,version,creatorpub,tokenid,tokensupply,updatesupply,flags,name,refdata) != 'c')
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Specified token tag transaction not found or is invalid");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Specified token tag transaction not found or is invalid");
 	else if (hashBlock.IsNull())
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Specified token tag transaction is still in mempool");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Specified token tag transaction is still in mempool");
 
 	// TTF_NOESCROWUPDATES is set to prevent this type of update for the tag to be done.
 	else if (flags & TTF_NOESCROWUPDATES)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Tag update cannot be done while tokens are in escrow due to a setting in the tag");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Tag update cannot be done while tokens are in escrow due to a setting in the tag");
 	
 	// TTF_TAGCREATORONLY is set to prevent any other pubkey apart from the original creator from making updates for the tag.
 	else if ((flags & TTF_TAGCREATORONLY) && mypk != creatorpub)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Tag update must be signed by original creator due to a setting in the tag requiring it");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Tag update must be signed by original creator due to a setting in the tag requiring it");
 	
 	// TTF_CONSTREQS is set to prevent any other updatesupply from being specified compared to original updatesupply.
 	else if ((flags & TTF_CONSTREQS) && newupdatesupply != updatesupply)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "New required update supply for tag cannot be changed due to a setting in the tag");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "New required update supply for tag cannot be changed due to a setting in the tag");
 	
 	// Check specified update supply, which must be more than 50% of token supply unless TTF_ALLOWANYSUPPLY is set.
 	requiredupdatesupply = (tokensupply % 2) ? tokensupply * 0.5 + 1 : tokensupply * 0.5;
 	if (!(flags & TTF_ALLOWANYSUPPLY) && newupdatesupply > requiredupdatesupply)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "New update supply must be at least "+std::to_string(requiredupdatesupply+1)+" tokens");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "New update supply must be at least "+std::to_string(requiredupdatesupply+1)+" tokens");
 	else if (newupdatesupply > tokensupply)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "New required update supply cannot be more than entire token supply");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "New required update supply cannot be more than entire token supply");
 	
 	// Find latest tag update.
 	latestfuncid = FindLatestTagUpdate(tokentagid, cp, latesttxid);
 	if (myGetTransactionCCV2(cp,latesttxid,latesttx,hashBlock) == 0 || latesttx.vout.size() == 0)
 		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Couldn't find latest token tag update!");
 	else if (hashBlock.IsNull())
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Latest token tag update is still in mempool");
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Latest token tag update is still in mempool");
 	
 	// Get latest update supply.
 	switch (latestfuncid)
@@ -1107,14 +1129,15 @@ UniValue TokenTagEscrowUpdate(const CPubKey& pk,uint64_t txfee,uint256 tokentagi
 			CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Found incorrect funcid in latest token tag update!");
 	}
 	
-	if (flags & TTF_AWAITNOTARIES && komodo_txnotarizedconfirmed(latesttxid) == 0)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Latest tag creation or update must be notarised due to having mandatory notarisation flag set");
+	if (flags & TTF_AWAITNOTARIES && komodo_txnotarizedconfirmed(latesttxid) == 0) {
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Latest tag creation or update must be notarised due to having mandatory notarisation flag set");
+	}
 	
 	// Find the escrow transaction, extract its data.
 	else if (myGetTransactionCCV2(cp,escrowtxid,escrowtx,hashBlock) == 0 || escrowtx.vout.size() == 0)
-		CCERR_RESULT("agreementscc", CCLOG_INFO, stream << "Specified escrow transaction not found or is invalid");
+		LOGSTREAM("agreementscc", CCLOG_INFO, stream << "Specified escrow transaction not found or is invalid");
 	else if (hashBlock.IsNull())
-		CCERR_RESULT("agreementscc", CCLOG_INFO, stream << "Specified escrow transaction is still in mempool");
+		LOGSTREAM("agreementscc", CCLOG_INFO, stream << "Specified escrow transaction is still in mempool");
 	
 	// TODO: check what type of token escrow this is, and return a number that guesstimates how many tokens could be controlled by mypk.
 	// Possible types could be:
@@ -1125,8 +1148,8 @@ UniValue TokenTagEscrowUpdate(const CPubKey& pk,uint64_t txfee,uint256 tokentagi
 
 	// Checking data.
 	if (data.size() > TOKENTAGSCC_MAX_DATA_SIZE)
-		CCERR_RESULT("tokentagscc", CCLOG_INFO, stream << "Token tag data must be up to "+std::to_string(TOKENTAGSCC_MAX_DATA_SIZE)+" characters");
-	
+		LOGSTREAM("tokentagscc", CCLOG_INFO, stream << "Token tag data must be up to "+std::to_string(TOKENTAGSCC_MAX_DATA_SIZE)+" characters");
+
 	TokenTagspk = GetUnspendable(cp, NULL);
 	tagtxidpk = CCtxidaddr(txidaddr,tokenid);
 	GetCCaddress1of2(cp, tagCCaddress, TokenTagspk, tagtxidpk, true);

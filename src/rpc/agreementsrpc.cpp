@@ -316,7 +316,7 @@ UniValue agreementaccept(const UniValue& params, bool fHelp, const CPubKey& mypk
 {
     UniValue result(UniValue::VOBJ);
 
-    if (fHelp || params.size() != 1)
+    if (fHelp || params.size() < 1)
         throw runtime_error(
             "agreementaccept offertxid\n"
             );
@@ -339,7 +339,12 @@ UniValue agreementaccept(const UniValue& params, bool fHelp, const CPubKey& mypk
         ENTER_CRITICAL_SECTION(cs_main);
         ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
     }
-    result = AgreementAccept(mypk,0,offertxid);
+
+    uint256 mytxid;
+    if (params.size() > 1)
+        mytxid = Parseuint256((char *)params[1].get_str().c_str());
+
+    result = AgreementAccept(mypk,0,offertxid,mytxid);
     if (result[JSON_HEXTX].getValStr().size() > 0)
         result.push_back(Pair("result", "success"));
     if (lockWallet)
@@ -357,7 +362,7 @@ UniValue agreementdispute(const UniValue& params, bool fHelp, const CPubKey& myp
     UniValue result(UniValue::VOBJ);
 	std::string typestr;
 
-    if (fHelp || params.size() < 1 || params.size() > 3)
+    if (fHelp || params.size() < 1 || params.size() > 4)
         throw runtime_error(
             "agreementdispute agreementtxid [disputememo][isdisputefinal]\n"
             );
@@ -396,7 +401,12 @@ UniValue agreementdispute(const UniValue& params, bool fHelp, const CPubKey& myp
         ENTER_CRITICAL_SECTION(cs_main);
         ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
     }
-    result = AgreementDispute(mypk,0,agreementtxid,disputeflags,disputememo);
+
+    uint256 agreementtxid2;
+    if (params.size() > 3)
+        agreementtxid2 = Parseuint256((char *)params[3].get_str().c_str());
+
+    result = AgreementDispute(mypk,0,agreementtxid,disputeflags,disputememo,agreementtxid2);
     if (result[JSON_HEXTX].getValStr().size() > 0)
         result.push_back(Pair("result", "success"));
     if (lockWallet)

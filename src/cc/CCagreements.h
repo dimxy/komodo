@@ -70,8 +70,8 @@ UniValue AgreementAmend(const CPubKey& pk, uint64_t txfee, uint256 prevagreement
 uint8_t offerflags, int64_t deposit, int64_t payment, int64_t disputefee, std::vector<uint8_t> arbkey, std::vector<std::vector<uint8_t>> unlockconds);
 UniValue AgreementClose(const CPubKey& pk, uint64_t txfee, uint256 prevagreementtxid, std::string agreementname, std::string agreementmemo, int64_t payment);
 UniValue AgreementStopOffer(const CPubKey& pk,uint64_t txfee,uint256 offertxid,std::string cancelmemo);
-UniValue AgreementAccept(const CPubKey& pk,uint64_t txfee,uint256 offertxid);
-UniValue AgreementDispute(const CPubKey& pk,uint64_t txfee,uint256 agreementtxid,uint8_t disputeflags,std::string disputememo);
+UniValue AgreementAccept(const CPubKey& pk,uint64_t txfee,uint256 offertxid, uint256 mytxid);
+UniValue AgreementDispute(const CPubKey& pk,uint64_t txfee,uint256 agreementtxid,uint8_t disputeflags,std::string disputememo, uint256 agreementtxid2);
 UniValue AgreementStopDispute(const CPubKey& pk,uint64_t txfee,uint256 disputetxid,std::string cancelmemo);
 UniValue AgreementResolve(const CPubKey& pk,uint64_t txfee,uint256 disputetxid,int64_t claimantpayout,std::string resolutionmemo);
 UniValue AgreementUnlock(const CPubKey& pk,uint64_t txfee,uint256 agreementtxid,uint256 unlocktxid);

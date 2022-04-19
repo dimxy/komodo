@@ -50,7 +50,7 @@ UniValue tokentagcreate(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
 
-    if (fHelp || params.size() < 5 || params.size() > 6)
+    if (fHelp || params.size() < 5 || params.size() > 7)
         throw runtime_error(
             "tokentagcreate tokenid tokensupply name updatesupply data [flags]\n"
             );
@@ -85,6 +85,9 @@ UniValue tokentagcreate(const UniValue& params, bool fHelp, const CPubKey& mypk)
     {
         flags = atoll(params[5].get_str().c_str());
     }
+    uint256 tokenid2;
+    if (params.size() >= 7 )
+        tokenid2 = Parseuint256((char *)params[6].get_str().c_str());
 
     bool lockWallet = false; 
     if (!mypk.IsValid())
@@ -95,7 +98,7 @@ UniValue tokentagcreate(const UniValue& params, bool fHelp, const CPubKey& mypk)
         ENTER_CRITICAL_SECTION(cs_main);
         ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
     }
-    result = TokenTagCreate(mypk,0,tokenid,tokensupply,updatesupply,flags,name,data);
+    result = TokenTagCreate(mypk,0,tokenid,tokensupply,updatesupply,flags,name,data, tokenid2);
     if (result[JSON_HEXTX].getValStr().size() > 0)
         result.push_back(Pair("result", "success"));
     if (lockWallet)
@@ -112,7 +115,7 @@ UniValue tokentagupdate(const UniValue& params, bool fHelp, const CPubKey& mypk)
 {
     UniValue result(UniValue::VOBJ);
 
-    if (fHelp || params.size() != 3)
+    if (fHelp || params.size() < 3)
         throw runtime_error(
             "tokentagupdate tokentagid newupdatesupply data\n"
             );
@@ -138,12 +141,17 @@ UniValue tokentagupdate(const UniValue& params, bool fHelp, const CPubKey& mypk)
     if (!mypk.IsValid())
         lockWallet = true;
 
+    uint256 anothertagid;
+    if (params.size() >= 4)
+        anothertagid = Parseuint256((char *)params[3].get_str().c_str());
+
+
     if (lockWallet)
     {
         ENTER_CRITICAL_SECTION(cs_main);
         ENTER_CRITICAL_SECTION(pwalletMain->cs_wallet);
     }
-    result = TokenTagUpdate(mypk,0,tokentagid,newupdatesupply,data);
+    result = TokenTagUpdate(mypk,0,tokentagid,newupdatesupply,data,anothertagid);
     if (result[JSON_HEXTX].getValStr().size() > 0)
         result.push_back(Pair("result", "success"));
     if (lockWallet)
