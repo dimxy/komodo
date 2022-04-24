@@ -125,6 +125,7 @@ int ServerTransactionSignatureChecker::CheckEvalCondition(const CC *cond) const
 
 bool ServerTransactionSignatureChecker::IsSupportedCryptoCondition(const CC *cond) const 
 {
+    // TODO: see how this is done in tokel (take version from script[0])
     int ccMixedSubVer = CCUpgrades::IsUpgradeActive(nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1) ? 1 : 0;
     return ::IsSupportedCryptoCondition(cond, ccMixedSubVer); // current mixed mode subversion
 }        

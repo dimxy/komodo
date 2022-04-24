@@ -1360,6 +1360,7 @@ bool TransactionSignatureChecker::CheckSig(
 
 CScript CCSignedData(const CC *cond);
 
+// TODO: see how this is done in tokel
 bool TransactionSignatureChecker::IsSupportedCryptoCondition(const CC *cond) const 
 {
     return ::IsSupportedCryptoCondition(cond, -1); // for non-server call use old style cc
