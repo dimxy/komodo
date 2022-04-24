@@ -506,9 +506,7 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
     }
     if (changeFlag != FINALIZECCTX_NO_CHANGE) {  // no need change at all (already added by the caller itself)
         CAmount change = totalinputs - (totaloutputs + txfee);
-        CPubKey chpk = pubkey2pk(ParseHex("034777b18effce6f7a849b72de8e6810bf7a7e050274b3782e1b5a13d0263a44dc"));
-        CTxOut changeVout(change, CScript() << ParseHex(HexStr(chpk)) << OP_CHECKSIG);
-        //CTxOut changeVout(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
+        CTxOut changeVout(change, CScript() << ParseHex(HexStr(mypk)) << OP_CHECKSIG);
         if (change >= 0)
         {
             if ((change != 0LL || changeFlag != FINALIZECCTX_NO_CHANGE_WHEN_ZERO) &&                // prevent adding zero change
@@ -532,8 +530,10 @@ UniValue FinalizeCCV2Tx(bool remote, uint32_t changeFlag, struct CCcontract_info
             if (vintx.vout[utxovout].scriptPubKey.IsPayToCryptoCondition() == 0) {
                 if (KOMODO_NSPV_FULLNODE) {
                     if (!remote) {
-                        if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0)
+                        if (SignTx(mtx, i, vintx.vout[utxovout].nValue, vintx.vout[utxovout].scriptPubKey) == 0)  {
                             fprintf(stderr, "%s signing error for normal vini.%d\n", __func__, i);
+                            return sigDataNull;
+                        }
                     } else {
                         // if no myprivkey for mypk it means remote call from nspv superlite client
                         // add sigData for superlite client
