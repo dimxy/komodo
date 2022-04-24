@@ -49,6 +49,7 @@ def add_normal_utxos(rpc, vins, pubkey,  amount) :
                         return total
                     total += u['satoshis']
                     vins.append({ "hash": u['txid'], "n": u['outputIndex'] })
+                break # use only first address elem
     
     return total
 
