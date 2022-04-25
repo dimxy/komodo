@@ -221,13 +221,10 @@ bool GetOpReturnData(const CScript &sig, std::vector<unsigned char> &data)
     return false;
 }
 
-const uint8_t CC_MIXED_MODE_PREFIX = 'M';  // v0
-const uint8_t CC_MIXED_MODE_V1_PREFIX = 'M' + 1;
-
 
 int cc_IsMixedModePrefix(uint8_t condbin0)
 {
-    if (condbin0 && condbin0 >= CC_MIXED_MODE_PREFIX) 
+    if (condbin0 >= CC_MIXED_MODE_PREFIX && condbin0 <= CC_MIXED_MODE_V1_PREFIX) 
         return (int)(condbin0 - CC_MIXED_MODE_PREFIX);
     return -1;
 }

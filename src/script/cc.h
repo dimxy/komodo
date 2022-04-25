@@ -104,7 +104,9 @@ bool GetPushData(const CScript &sig, std::vector<unsigned char> &data);
  */
 bool GetOpReturnData(const CScript &sig, std::vector<unsigned char> &data);
 
-extern const uint8_t CC_MIXED_MODE_PREFIX, CC_MIXED_MODE_V1_PREFIX;
+// mixed mode prefixes:
+const uint8_t CC_MIXED_MODE_PREFIX = 'M';               // v0
+const uint8_t CC_MIXED_MODE_V1_PREFIX = 'M' + 1;        // v1
 
 /*
  * Read a condition binary that might be mixed mode (prefixed with 'M')
