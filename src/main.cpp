@@ -3021,11 +3021,11 @@ bool ContextualCheckOutputs(
     {
         for (unsigned int i = 0; i < tx.vout.size(); i++) 
         {
-            int subversion = 0;
-            if (tx.vout[i].scriptPubKey.IsPayToCCV2(subversion) )
+            int ccSubversion = 0;
+            if (tx.vout[i].scriptPubKey.IsPayToCCV2(ccSubversion) )
             {
-                std::cerr << __func__ << " nHeight=" << nHeight << " CCUpgrades::IsUpgradeActive(nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1)=" << CCUpgrades::IsUpgradeActive(nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1) << std::endl;
-                if (subversion >= CC_MIXED_MODE_V1_PREFIX && !CCUpgrades::IsUpgradeActive(nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1))  
+                std::cerr << __func__ << " nHeight=" << nHeight << " CCUpgrades::IsUpgradeActive(nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1)=" << CCUpgrades::IsUpgradeActive(nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1) << " ccSubversion=" << ccSubversion << std::endl;
+                if (ccSubversion >= 0 && !CCUpgrades::IsUpgradeActive(nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCMIXEDMODE_SUBVER_1))  
                 {
                     return state.DoS(100,false, REJECT_INVALID, std::string("cc v2 subversion 1 or more not yet enabled"));
                 }
