@@ -469,10 +469,11 @@ bool CScript::IsPayToCryptoCondition(CScript *pCCSubScript, std::vector<std::vec
 
         // original mixed mode condition field's length check. Actually disables long mixed mode conds for cc subversions 'M'+1 and on:
         // if (data.size()>0 && (data[0]=='M' || (data[0]!='M' && opcode > OP_0 && opcode < OP_PUSHDATA1)))
+        // old pre mixed mode check was:
+        // if (opcode > OP_0 && opcode < OP_PUSHDATA1)
         // a new soft-forking check to allow long mixed mode conditions with the cc subversion encoded in the first byte 'M', 'M'+1, etc
-        if (data.size()>0 && (data[0] >= CC_MIXED_MODE_PREFIX || // allow long mixed mode cryptoconditions 
-                             (data[0] < CC_MIXED_MODE_PREFIX && opcode > OP_0 && opcode < OP_PUSHDATA1)))
-        //if (opcode > OP_0 && opcode < OP_PUSHDATA1)
+        if (data.size()>0 && (opcode > OP_0 && opcode < OP_PUSHDATA1 ||  // old pre mixed mode
+                              data[0] >= CC_MIXED_MODE_PREFIX && data[0] <= CC_MIXED_MODE_PREFIX+1)) // allow long mixed mode cryptoconditions 
             if (this->GetOp(pc, opcode1, data))
                 if (opcode1 == OP_CHECKCRYPTOCONDITION)
                 {
