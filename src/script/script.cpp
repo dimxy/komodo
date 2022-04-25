@@ -473,7 +473,7 @@ bool CScript::IsPayToCryptoCondition(CScript *pCCSubScript, std::vector<std::vec
         // if (opcode > OP_0 && opcode < OP_PUSHDATA1)
         // a new soft-forking check to allow long mixed mode conditions with the cc subversion encoded in the first byte 'M', 'M'+1, etc
         if (data.size()>0 && (opcode > OP_0 && opcode < OP_PUSHDATA1 ||  // old pre mixed mode
-                              data[0] >= CC_MIXED_MODE_PREFIX && data[0] <= CC_MIXED_MODE_PREFIX+1)) // allow long mixed mode cryptoconditions 
+                              data[0] >= CC_MIXED_MODE_PREFIX && data[0] <= CC_MIXED_MODE_V1_PREFIX)) // allow long mixed mode cryptoconditions 
             if (this->GetOp(pc, opcode1, data))
                 if (opcode1 == OP_CHECKCRYPTOCONDITION)
                 {
@@ -514,7 +514,7 @@ bool CScript::IsPayToCCV2(int &subversion) const
     return (false);
 }
 
-const std::vector<unsigned char> CScript::GetCCV2SPK(int &subversion) const
+const std::vector<unsigned char> CScript::GetCCV2SPK() const
 {
     const_iterator pc = begin();
     std::vector<unsigned char> data;
@@ -523,9 +523,8 @@ const std::vector<unsigned char> CScript::GetCCV2SPK(int &subversion) const
     if (!this->IsPayToCryptoCondition()) return (std::vector<unsigned char>());
     if (this->GetOp(pc, opcode, data))
     {
-        //subversion = cc_IsMixedModePrefix(data[0]);
-        //if (subversion >= 0) return data;
-        return data;
+        int subversion = cc_IsMixedModePrefix(data[0]);
+        if (subversion >= 0) return data;
     }
     return (std::vector<unsigned char>());
 }
@@ -559,8 +558,7 @@ void CCGetEvalParams(uint8_t evalCode, CC *cond, std::set< std::vector<uint8_t> 
 
 bool CScript::SpkHasEvalcodeCCV2(uint8_t evalCode, std::set< std::vector<uint8_t> > *pvvParamsIn) const
 {
-    int subversion;
-    std::vector<uint8_t> ccdata = this->GetCCV2SPK(subversion);
+    std::vector<uint8_t> ccdata = this->GetCCV2SPK();
 
     if (ccdata.empty())
         return (false);
@@ -592,13 +590,7 @@ bool CScript::MayAcceptCryptoCondition(int &ccSubVersion) const
     //CC *cond = cc_readFulfillmentBinary(data.data(), data.size());
     if (!cond) return false;
 
-/*
-    std::vector<uint8_t> ccmixed, dummy;
-    opcodetype opcodeNone, opcodeCC;
-    CScript::const_iterator pc = ccSubScript.begin();
-    ccSubScript.GetOp(pc, opcodeNone, ccmixed);
-    ccSubScript.GetOp(pc, opcodeCC, dummy);*/
-    ccSubVersion = (data[0] >= CC_MIXED_MODE_PREFIX ? (int)(data[0] - CC_MIXED_MODE_PREFIX) : -1);
+    ccSubVersion = cc_IsMixedModePrefix(data[0]);
     bool out = IsSupportedCryptoCondition(cond, ccSubVersion);
     cc_free(cond);
     return out;

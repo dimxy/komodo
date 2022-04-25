@@ -2804,9 +2804,8 @@ void UpdateCoins(const CTransaction& tx, CCoinsViewCache& inputs, int nHeight)
 bool CScriptCheck::operator()()
 {
     if (vout != 0) {  // check cc in scriptPubKey
-        int version;
         ServerTransactionSignatureChecker checker(ptxTo, n, amount, cacheStore, nHeight, evalContext, *txdata);
-        if (checker.CheckCryptoConditionSpk(scriptPubKey.GetCCV2SPK(version), &error) != 1) {
+        if (checker.CheckCryptoConditionSpk(scriptPubKey.GetCCV2SPK(), &error) != 1) {
             return ::error("CScriptCheck(): %s:%d CC validation failed: %s", ptxTo->GetHash().ToString(), n, ScriptErrorString(error));
         }
     } else {  // check cc in scriptSig

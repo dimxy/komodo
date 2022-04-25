@@ -55,8 +55,7 @@ static void FilterOutTokensUnspendablePk(const std::vector<CPubKey> &sourcePubke
 
 static std::vector<uint8_t> GetEvalCodesCCV2(const CScript& spk)
 {
-    int subversion;
-    std::vector<unsigned char> ccdata = spk.GetCCV2SPK(subversion);
+    std::vector<unsigned char> ccdata = spk.GetCCV2SPK();
     std::vector<uint8_t> vevalcodes;
 
     if (ccdata.empty())

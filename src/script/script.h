@@ -621,7 +621,7 @@ public:
     bool IsPayToCryptoCondition(CScript *ccSubScript) const;
     bool IsPayToCryptoCondition() const;
     bool IsPayToCCV2(int &subversion) const; // check scriptPubKey is cryptocondition version 2
-    const std::vector<unsigned char> GetCCV2SPK(int &subversion) const;
+    const std::vector<unsigned char> GetCCV2SPK() const;
     bool SpkHasEvalcodeCCV2(uint8_t eval, std::set< std::vector<uint8_t> > *pvvParams = nullptr) const;
     bool IsCoinImport() const;
     bool MayAcceptCryptoCondition(int &ccSubVersion) const;

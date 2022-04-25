@@ -144,9 +144,7 @@ private:
             if (vout.scriptPubKey.IsPayToCCV2(subversion))  {
 
                 ScriptError error;
-                int subversion;
-
-                bool bCheck = checker.CheckCryptoConditionSpk(vout.scriptPubKey.GetCCV2SPK(subversion), &error);
+                bool bCheck = checker.CheckCryptoConditionSpk(vout.scriptPubKey.GetCCV2SPK(), &error);
                 if (!bCheck) {
                     LOGSTREAMFN(cctokens_test_log, CCLOG_INFO, stream << " CheckCryptoCondition error=" << ScriptErrorString(error) << " eval=" << (*this).state.GetRejectReason() << std::endl);
                     return false;
