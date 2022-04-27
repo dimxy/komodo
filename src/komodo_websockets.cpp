@@ -644,8 +644,8 @@ public:
     bool run() 
     {
         try {
-            // Listen on port 9002
-            m_endpoint.listen(8192);
+            // Listen on -wsport 
+            m_endpoint.listen(GetWebSocketListenPort());
 
             // Queues a connection accept operation
             m_endpoint.start_accept();
