@@ -618,6 +618,7 @@ std::string TokenTransferDest(CAmount txfee, uint256 tokenid, uint8_t M, const s
             char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
             if (ver == 1)  {
                 CCwrapper ccToken( MakeTokenV2TransferCC(tokenid, { mypk }) );
+                if (ccToken == nullptr) continue;
                 Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), ver));
             }
             else
@@ -630,6 +631,7 @@ std::string TokenTransferDest(CAmount txfee, uint256 tokenid, uint8_t M, const s
             Getscriptaddress(normaladdr, CScript() << vuint8_t(mypk.begin(), mypk.end()) << OP_CHECKSIG); 
             CTxDestination dest = DecodeDestination(normaladdr);  // get normal dest
             CCwrapper ccToken( MakeTokenV2TransferCCDest(tokenid, { dest }) );
+            if (ccToken == nullptr) continue;
             Getscriptaddress(tokenaddr, CCPubKey(ccToken.get(), 1));
             tokenaddrs.push_back(tokenaddr);
         }
