@@ -2873,15 +2873,24 @@ TEST_F(TestAssetsCC, tokenv2transfer_raddress)
     EXPECT_TRUE(eval.AddTx(mcreatetx));
     uint256 tokenid = mcreatetx.GetHash();
 
-    std::vector<CTxDestination> dests = { pk2 };    
+    std::vector<CTxDestination> dests = { pk2.GetID() };    // dest R-address
 
-    std::vector<std::string> tokenaddrs = GetTokenV2IndexKeys(pk1);
-    CMutableTransaction mtransfertx = MakeTokenV2TransferTx(pk1, 0, tokenid, tokenaddrs, {}, 1, dests, 1, false, false);
-    ASSERT_FALSE(CTransaction(mtransfertx).IsNull());
-    EXPECT_TRUE(eval.AddTx(mtransfertx));
-    CAmount bal = TokenV2Balance(pk2, tokenid);
+    std::vector<std::string> tokenaddrs1 = GetTokenV2IndexKeys(pk1);
+    CMutableTransaction mtransfertx1 = MakeTokenV2TransferTx(pk1, 0, tokenid, tokenaddrs1, {}, 1, dests, 1, false, false);
+    ASSERT_FALSE(CTransaction(mtransfertx1).IsNull());
+    EXPECT_TRUE(eval.AddTx(mtransfertx1));
+    CAmount bal1 = TokenV2Balance(pk2, tokenid);
     // std::cerr << __func__ << " TokenV2Balance(pk2, tokenid)=" << bal  << " mtransfertxid=" << mtransfertx.GetHash().GetHex() << " reason=" << eval.state.GetRejectReason() << std::endl;
-    EXPECT_TRUE(bal == 1);
+    EXPECT_TRUE(bal1 == 1);
+
+    // try to spend
+    std::vector<std::string> tokenaddrs2 = GetTokenV2IndexKeys(pk2);
+    CMutableTransaction mtransfertx2 = MakeTokenV2TransferTx(pk2, 0, tokenid, tokenaddrs2, {}, 1, dests, 1, false, false);
+    ASSERT_FALSE(CTransaction(mtransfertx2).IsNull());
+    EXPECT_TRUE(eval.AddTx(mtransfertx2));
+    CAmount bal2 = TokenV2Balance(pk2, tokenid);
+    EXPECT_TRUE(bal2 == 1);
+
 }
 
 // test burn pk
