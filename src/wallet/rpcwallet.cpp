@@ -1062,12 +1062,6 @@ UniValue cleanwallettransactions(const UniValue& params, bool fHelp, const CPubK
     }
     else
     {
-        // get all locked utxos to relock them later.
-        vector<COutPoint> vLockedUTXO;
-        pwalletMain->ListLockedCoins(vLockedUTXO);
-        // unlock all coins so that the following call contains all utxos.
-        pwalletMain->UnlockAllCoins();
-
         // this gets us all the txids that are unspent, we search for the oldest tx
         int32_t oldestTxDepth = 0;
         for (map<uint256, CWalletTx>::const_iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
@@ -1094,11 +1088,6 @@ UniValue cleanwallettransactions(const UniValue& params, bool fHelp, const CPubK
             }
         }
         oldestTxDepth = oldestTxDepth + 1; // add extra block just for safety.
-
-        // lock all the previouly locked coins.
-        BOOST_FOREACH(COutPoint &outpt, vLockedUTXO) {
-            pwalletMain->LockCoin(outpt);
-        }
 
         // then add all txs in the wallet before this block to the list to remove.
         for (map<uint256, CWalletTx>::iterator it = pwalletMain->mapWallet.begin(); it != pwalletMain->mapWallet.end(); ++it)
