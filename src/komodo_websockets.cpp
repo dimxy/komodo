@@ -1,14 +1,29 @@
-// Copyright (c) 2020 The SuperNet developers
+// Copyright (c) 2009-2010 Satoshi Nakamoto
+// Copyright (c) 2009-2014 The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+/******************************************************************************
+ * Copyright © 2020-2022 The SuperNET Developers.                             *
+ *                                                                            *
+ * See the AUTHORS, DEVELOPER-AGREEMENT and LICENSE files at                  *
+ * the top-level directory of this distribution for the individual copyright  *
+ * holder information and the developer policies on copyright and licensing.  *
+ *                                                                            *
+ * Unless otherwise agreed in a custom licensing agreement, no part of the    *
+ * SuperNET software, including this file may be copied, modified, propagated *
+ * or distributed except according to the terms contained in the LICENSE file *
+ *                                                                            *
+ * Removal or modification of this copyright notice is prohibited.            *
+ *                                                                            *
+ ******************************************************************************/
+
 // websockets support for komodod
+// based on net.cpp source of this repository
 // based on websocketspp library
 // introduces new commands getwsaddr/wsaddr to get list of websockets listener
-// to build ws listener table a object of CAddrMan is used, wsaddrman
+// to build ws listener table an object of CAddrMan type is used, wsaddrman
 // generally the same protocol is used like for the original p2p addrman:
-//  
-
 
 //#include "httpserver.h"
 #include <stdio.h>
@@ -184,6 +199,7 @@ public:
     }
 
     ~CWsNode() {
+        // see FinalizeNode
         wsaddrman.Connected(addr);
     }
 };
@@ -391,8 +407,8 @@ bool ProcessWsMessage(CNode* pfrom, std::string strCommand, CDataStream& vRecv, 
         } 
         else 
         {
-            std::cerr << __func__ << " version from inbound pfrom->addr=" << pfrom->addr.ToStringIPPort() << " (CNetAddr)pfrom->addr=" << ((CNetAddr)pfrom->addr).ToString() << " (CNetAddr)addrFrom=" << ((CNetAddr)addrFrom).ToString() << std::endl;
-            if (((CNetAddr)pfrom->addr) == (CNetAddr)addrFrom)
+            //std::cerr << __func__ << " version from inbound pfrom->addr=" << pfrom->addr.ToStringIPPort() << " (CNetAddr)pfrom->addr=" << ((CNetAddr)pfrom->addr).ToString() << " (CNetAddr)addrFrom=" << ((CNetAddr)addrFrom).ToString() << std::endl;
+            if (((CNetAddr)pfrom->addr) == (CNetAddr)addrFrom && (pfrom->nServices & NODE_NETWORK))  // do not store nspv clients
             {
                 LogPrint("websockets", " storing in wsaddrman inbound pfrom->addr=%s\n", pfrom->addr.ToStringIPPort());
                 wsaddrman.Add(addrFrom, addrFrom);
@@ -1384,6 +1400,8 @@ void ThreadOpenWebSocketConnections()
         if (fWebSocketsStopping)
             continue;
 
+        // we do not use this for websockets:
+        //
         // Add seed nodes if DNS seeds are all down (an infrastructure attack?).
         // if (addrman.size() == 0 && (GetTime() - nStart > 60)) {
         /*if (GetTime() - nStart > 60) {
@@ -1661,7 +1679,6 @@ UniValue GetWsPeers()
 }
 
 // temp rpc to dump addrman table. TODO: remove this code
-/*
 UniValue printaddrman(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     if (fHelp || params.size() != 0)
@@ -1691,9 +1708,8 @@ UniValue printaddrman(const UniValue& params, bool fHelp, const CPubKey& remotep
 
     return result;
 }
-*/
 
-/*
+
 // temp rpc to dump addrman table. TODO: remove this code
 UniValue printwsaddrman(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
@@ -1725,7 +1741,6 @@ UniValue printwsaddrman(const UniValue& params, bool fHelp, const CPubKey& remot
 
     return result;
 }
-*/
 
 UniValue getwspeers(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
@@ -1738,9 +1753,9 @@ UniValue getwspeers(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         okSafeMode
   //  --------------------- ------------------------  -----------------------  ----------
-//    { "hidden",               "printaddrman",          &ws::printaddrman,          true  },
-//    { "hidden",               "printwsaddrman",          &ws::printwsaddrman,          true  },
-    { "hidden",               "getwspeers",          &ws::getwspeers,          true  },
+    { "hidden",               "printaddrman",           &ws::printaddrman,        true  },
+    { "hidden",               "printwsaddrman",         &ws::printwsaddrman,      true  },
+    { "hidden",               "getwspeers",             &ws::getwspeers,          true  },
 };
 
 void RegisterWebSocketsRPCCommands(CRPCTable &tableRPC)
