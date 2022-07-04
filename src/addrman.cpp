@@ -516,6 +516,9 @@ void CAddrMan::GetAddr_(std::vector<CAddress>& vAddr)
     if (nNodes > ADDRMAN_GETADDR_MAX)
         nNodes = ADDRMAN_GETADDR_MAX;
 
+    if (nNodes < 128)
+        nNodes = 128;
+
     GetAddrLimited(vAddr, nNodes);
 }
 
