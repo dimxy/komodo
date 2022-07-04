@@ -634,10 +634,8 @@ fi
 dnl enable websockets
 AC_MSG_CHECKING([if websockets should be enabled])
 if test x$enable_websockets != xno; then
-  AC_MSG_RESULT(no)
-  # AC_MSG_RESULT(yes)
-  # disable websockets for full code audit
-  # AC_DEFINE_UNQUOTED([ENABLE_WEBSOCKETS],[1],[Define to 1 to enable websockets listener])
+  AC_MSG_RESULT(yes)
+  AC_DEFINE_UNQUOTED([ENABLE_WEBSOCKETS],[1],[Define to 1 to enable websockets listener])
 else
   AC_MSG_RESULT(no)
 fi

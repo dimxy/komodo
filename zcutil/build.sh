@@ -55,7 +55,7 @@ $0 [ --enable-lcov || --disable-tests ] [ --disable-mining ] [ --enable-proton ]
   If --enable-proton is passed, Komodo is configured to build the Apache Qpid Proton
   library required for AMQP support. This library is not built by default.
   It must be passed after the test/mining arguments, if present.
-  If --enable-websockets is passed, Komodo is configured to build with websockets support for nspv protocol (disabled for now)
+  If --enable-websockets is passed, Komodo is configured to build with websockets support for nspv protocol
   If --enable-debug is passed, Komodo is built with debugging information. It
   must be passed after the previous arguments, if present.
 EOF
@@ -113,11 +113,11 @@ fi
 
 # If --enable-websockets is the next argument, enable websockets support for nspv clients:
 WEBSOCKETS_ARG=''
-# if [ "x${1:-}" = 'x--enable-websockets' ]
-# then
-# WEBSOCKETS_ARG='--enable-websockets=yes'
-# shift
-# fi
+if [ "x${1:-}" = 'x--enable-websockets' ]
+then
+  WEBSOCKETS_ARG='--enable-websockets=yes'
+  shift
+fi
 
 eval "$MAKE" --version
 as --version

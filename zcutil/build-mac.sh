@@ -28,7 +28,7 @@ $0 [ --enable-lcov ] [ --enable-websockets ] [ --enable-debug ] [ MAKEARGS... ]
   source. MAKEARGS are applied to both dependencies and Komodo itself. 
   If --enable-lcov is passed, Komodo is configured to add coverage
   instrumentation, thus enabling "make cov" to work.
-  If --enable-websockets is passed then websockets support is added for nSPV protocol (disabled for now)
+  If --enable-websockets is passed then websockets support is added for nSPV protocol
   If --enable-debug is passed, Komodo is built with debugging information. It
   must be passed after the previous arguments, if present.
 EOF
@@ -47,11 +47,11 @@ fi
 
 # If --enable-websockets is the next argument, enable websockets support for nspv clients:
 WEBSOCKETS_ARG=''
-# if [ "x${1:-}" = 'x--enable-websockets' ]
-# then
-#    WEBSOCKETS_ARG='--enable-websockets=yes'
-#    shift
-#fi
+if [ "x${1:-}" = 'x--enable-websockets' ]
+then
+   WEBSOCKETS_ARG='--enable-websockets=yes'
+   shift
+fi
 
 # If --enable-debug is the next argument, enable debugging
 DEBUGGING_ARG=''
