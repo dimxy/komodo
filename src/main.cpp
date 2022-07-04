@@ -7696,7 +7696,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             }
             addrman.Good(pfrom->addr);
         } else {
-            if (((CNetAddr)pfrom->addr) == (CNetAddr)addrFrom)
+            if (((CNetAddr)pfrom->addr) == (CNetAddr)addrFrom && (pfrom->nServices & NODE_NETWORK))
             {
                 addrman.Add(addrFrom, addrFrom);
                 addrman.Good(addrFrom);
