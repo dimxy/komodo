@@ -1642,8 +1642,82 @@ void StopWebSockets()
 
 }
 
+UniValue addwsnode(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    std::string strCommand;
+    if (params.size() == 2)
+        strCommand = params[1].get_str();
+    if (fHelp || params.size() != 2 ||
+        (strCommand != "onetry" && strCommand != "add" && strCommand != "remove"))
+        throw std::runtime_error(
+            "addwsnode \"node\" \"add|remove|onetry\"\n"
+            "\nAttempts add or remove a websocket node from the addnode list. Uses ws or wss protocol depending on tls enabled or not for websockets\n"
+            "Or try a connection to a node once.\n"
+            "\nArguments:\n"
+            "1. \"node\"     (string, required) The node (see getwspeers for ws nodes)\n"
+            "2. \"command\"  (string, required) 'add' to add a ws node to the list, 'remove' to remove a node from the list, 'onetry' to try a connection to the node once\n"
+            "\nExamples:\n"
+            + HelpExampleCli("addwsnode", "\"192.168.1.6:8192\" \"onetry\"")
+            + HelpExampleRpc("addwsnode", "\"192.168.1.6:8192\", \"onetry\"")
+        );
+
+    std::string strNode = params[0].get_str();
+
+    if (strCommand == "onetry")
+    {
+        CService addrsrv(strNode);
+        CAddress addr(addrsrv);
+        OpenWebSocketNetworkConnection(addr, nullptr);
+        return NullUniValue;
+    }
+
+    LOCK(cs_vAddedWsNodes);
+    std::vector<std::string>::iterator it = vAddedWsNodes.begin();
+    for(; it != vAddedWsNodes.end(); it++)
+        if (strNode == *it)
+            break;
+
+    if (strCommand == "add")
+    {
+        if (it != vAddedWsNodes.end())
+            throw JSONRPCError(RPC_CLIENT_NODE_ALREADY_ADDED, "Error: Node already added");
+        vAddedWsNodes.push_back(strNode);
+    }
+    else if(strCommand == "remove")
+    {
+        if (it == vAddedWsNodes.end())
+            throw JSONRPCError(RPC_CLIENT_NODE_NOT_ADDED, "Error: Node has not been added.");
+        vAddedWsNodes.erase(it);
+    }
+
+    return NullUniValue;
+}
+
+UniValue disconnectwsnode(const UniValue& params, bool fHelp, const CPubKey& mypk)
+{
+    if (fHelp || params.size() != 1)
+        throw std::runtime_error(
+            "disconnectwsnode \"node\" \n"
+            "\nImmediately disconnects from the specified websocket node.\n"
+            "\nArguments:\n"
+            "1. \"node\"     (string, required) The node (see getwspeers for nodes)\n"
+            "\nExamples:\n"
+            + HelpExampleCli("disconnectwsnode", "\"192.168.0.6:8233\"")
+            + HelpExampleRpc("disconnectwsnode", "\"192.168.0.6:8233\"")
+        );
+
+    std::shared_ptr<CWsNode> spNode = FindWsNode(params[0].get_str());
+    if (spNode == NULL)
+        throw JSONRPCError(RPC_CLIENT_NODE_NOT_CONNECTED, "Node not found in connected nodes");
+
+    spNode->fDisconnect = true;
+
+    return NullUniValue;
+}
+
+
 // debug rpc impl
-UniValue GetWsPeers()
+UniValue getwspeers(const UniValue& params, bool fHelp, const CPubKey& remotepk)
 {
     UniValue result(UniValue::VARR);
     std::vector<CNodeStats> vstats;
@@ -1742,11 +1816,6 @@ UniValue printwsaddrman(const UniValue& params, bool fHelp, const CPubKey& remot
     return result;
 }
 
-UniValue getwspeers(const UniValue& params, bool fHelp, const CPubKey& remotepk)
-{
-    UniValue result = GetWsPeers();
-    return result;
-}
 
 }; // namespace ws
 
@@ -1755,7 +1824,10 @@ static const CRPCCommand commands[] =
   //  --------------------- ------------------------  -----------------------  ----------
     { "hidden",               "printaddrman",           &ws::printaddrman,        true  },
     { "hidden",               "printwsaddrman",         &ws::printwsaddrman,      true  },
-    { "hidden",               "getwspeers",             &ws::getwspeers,          true  },
+    { "websockets",               "getwspeers",          &ws::getwspeers,          true  },
+    { "websockets",               "addwsnode",          &ws::addwsnode,          true  },
+    { "websockets",               "disconnectwsnode",          &ws::disconnectwsnode,          true  },
+
 };
 
 void RegisterWebSocketsRPCCommands(CRPCTable &tableRPC)
