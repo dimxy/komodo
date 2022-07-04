@@ -526,7 +526,6 @@ int32_t NSPV_getaddresstxids(struct NSPV_txidsresp* ptr, char* coinaddr, bool is
 
     std::vector<std::pair<CAddressIndexKey, CAmount>> txids;
     SetAddressIndexOutputs(txids, coinaddr, isCC, beginHeight, endHeight);
-    std::cerr << __func__ << " isParamsToSkip=" << isParamsToSkip << " beginHeight=" << beginHeight << " endHeight=" << endHeight << std::endl;
     
     // using maxrecords instead:
     //maxlen = MAX_BLOCK_SIZE(ptr->nodeheight) - 512;
