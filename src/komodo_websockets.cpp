@@ -212,8 +212,8 @@ static std::set<CWsNodePtr> vWsNodesDisconnected; // websocket disconnected node
 static CCriticalSection cs_vWsNodesDisconnected;
 
 class CWebSocketOutbound;
-static std::vector<ws_endpoint_ptr> vOutboundEndpoints; // wait until enpoint opens
-static CCriticalSection cs_vOutboundEndpoints;
+static std::vector<ws_endpoint_ptr> vWsOutboundEndpoints; // wait until enpoint opens
+static CCriticalSection cs_vWsOutboundEndpoints;
 
 static CWsNodePtr FindWsNode(const CNetAddr& ip)
 {
@@ -1037,9 +1037,9 @@ public:
 
         // Add node
         {
-            LOCK2(cs, cs_vOutboundEndpoints);
+            LOCK2(cs, cs_vWsOutboundEndpoints);
             m_pNode.reset( new CWsNode(INVALID_SOCKET, m_addrConnect, (!m_uri.empty() ? m_uri : ""), false) );
-            m_pNode->m_spWsEndpoint = *(std::find_if(vOutboundEndpoints.begin(), vOutboundEndpoints.end(), [&](const ws_endpoint_ptr& sp){ return sp.get() == static_cast<CWsEndpointWrapper*>(this); }));
+            m_pNode->m_spWsEndpoint = *(std::find_if(vWsOutboundEndpoints.begin(), vWsOutboundEndpoints.end(), [&](const ws_endpoint_ptr& sp){ return sp.get() == static_cast<CWsEndpointWrapper*>(this); }));
         }
 
         m_pNode->m_hdl = hdl;
@@ -1170,8 +1170,8 @@ bool OpenWebSocketNetworkConnection(const CAddress& addrConnect, CSemaphoreGrant
     pOutbound->run();
 
     {
-        LOCK(cs_vOutboundEndpoints);
-        vOutboundEndpoints.push_back(ws_endpoint_ptr(pOutbound));
+        LOCK(cs_vWsOutboundEndpoints);
+        vWsOutboundEndpoints.push_back(ws_endpoint_ptr(pOutbound));
     }
     //if (fOneShot)
     //    pnode->fOneShot = true;  // one shot not implemented
@@ -1246,12 +1246,12 @@ static void ThreadWebSocketWaitForDisconnectedThreads()
         boost::this_thread::interruption_point();
 
         // remove failed outbound endpoints 
-        std::vector<ws_endpoint_ptr> vOutboundEndpointsCopy;
+        std::vector<ws_endpoint_ptr> vWsOutboundEndpointsCopy;
         {
-            LOCK(cs_vOutboundEndpoints);
-            vOutboundEndpointsCopy = vOutboundEndpoints;
+            LOCK(cs_vWsOutboundEndpoints);
+            vWsOutboundEndpointsCopy = vWsOutboundEndpoints;
         }
-        for (auto &spOutbound : vOutboundEndpointsCopy)
+        for (auto &spOutbound : vWsOutboundEndpointsCopy)
         {
             CWebSocketOutbound *pOutbound = static_cast<CWebSocketOutbound*>(spOutbound.get());
             bool bJoin = false;
@@ -1271,9 +1271,9 @@ static void ThreadWebSocketWaitForDisconnectedThreads()
                     }
                 }
                 {
-                    LOCK(cs_vOutboundEndpoints);
-                    auto it = std::remove(vOutboundEndpoints.begin(), vOutboundEndpoints.end(), spOutbound);
-                    vOutboundEndpoints.erase(it, vOutboundEndpoints.end());
+                    LOCK(cs_vWsOutboundEndpoints);
+                    auto it = std::remove(vWsOutboundEndpoints.begin(), vWsOutboundEndpoints.end(), spOutbound);
+                    vWsOutboundEndpoints.erase(it, vWsOutboundEndpoints.end());
                 }
             }
         }
@@ -1503,7 +1503,7 @@ static void ThreadOpenAddedWebSocketConnections()
 
         std::list<std::string> lAddresses(0);
         {
-            LOCK(cs_vAddedNodes);
+            LOCK(cs_vAddedWsNodes);
             for(const std::string& strAddNode : vAddedWsNodes)
                 lAddresses.push_back(strAddNode);
         }
@@ -1628,8 +1628,8 @@ void StopWebSockets()
 
     LogPrintf("Waiting for websockets outbound threads to stop...\n"); 
     // joined in "wsdiscon" thread:
-    while(vWsNodesDisconnected.size() > 0 || GetOutboundNodes() > 0 || vOutboundEndpoints.size() > 0) {  
-        //std::cerr << __func__ << " vWsNodesDisconnected.size()=" << vWsNodesDisconnected.size() << " GetOutboundNodes()=" << GetOutboundNodes() << " vOutboundEndpoints.size()=" << vOutboundEndpoints.size() << std::endl;
+    while(vWsNodesDisconnected.size() > 0 || GetOutboundNodes() > 0 || vWsOutboundEndpoints.size() > 0) {  
+        //std::cerr << __func__ << " vWsNodesDisconnected.size()=" << vWsNodesDisconnected.size() << " GetOutboundNodes()=" << GetOutboundNodes() << " vWsOutboundEndpoints.size()=" << vWsOutboundEndpoints.size() << std::endl;
         MilliSleep(500);
     }
 
