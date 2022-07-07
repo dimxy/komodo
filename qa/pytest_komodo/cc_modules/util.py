@@ -34,7 +34,7 @@ def mine_and_waitconfirms(txid, proxy, confs_req=2):  # should be used after tx 
         try:
             confirmations_amount = proxy.getrawtransaction(txid, 1)['confirmations']
             if confirmations_amount < confs_req:
-                print("\ntx is not confirmed yet! Let's wait a little more")
+                print("\ntx is not confirmed yet! Let's wait a little more", txid)
                 time.sleep(5)
             else:
                 print("\ntx confirmed")
