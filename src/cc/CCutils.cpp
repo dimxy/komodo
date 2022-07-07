@@ -378,7 +378,7 @@ bool _GetCCaddress(char *destaddr,uint8_t evalcode,CPubKey pk,bool mixed)
     if (payoutCond.get() != 0 )
     {
         //if (mixed) CCtoAnon(payoutCond.get());
-        Getscriptaddress(destaddr,CCPubKey(payoutCond.get(), CC_MIXED_MODE_SUBVER_0));
+        Getscriptaddress(destaddr,CCPubKey(payoutCond.get(), mixed ? CC_MIXED_MODE_SUBVER_0 : CC_OLD_V1_SUBVER));
     }
     return(destaddr[0] != 0);
 }
