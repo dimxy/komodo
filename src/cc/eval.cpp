@@ -164,6 +164,10 @@ unsigned int Eval::GetCurrentHeight() const
 {
     return nCurrentHeight;
 }
+unsigned int Eval::GetCurrentHeightCompat() const
+{
+    return chainActive.Height();
+}
 
 bool Eval::GetBlock(uint256 hash, CBlockIndex& blockIdx) const
 {
