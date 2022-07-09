@@ -94,7 +94,7 @@ jobs:
           move komodod.exe src\
           python3.exe -m pip install --upgrade setuptools
           python3.exe -m pip install --upgrade pip
-          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
+          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" pycurl
           python3.exe -m pip install pytest wget jsonschema
           python3.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
@@ -125,7 +125,7 @@ jobs:
           move komodod.exe src\
           python3.exe -m pip install --upgrade setuptools
           python3.exe -m pip install --upgrade pip
-          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
+          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" pycurl
           python3.exe -m pip install pytest wget jsonschema
           python3.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
@@ -156,7 +156,7 @@ jobs:
           move komodod.exe src\
           python3.exe -m pip install --upgrade setuptools
           python3.exe -m pip install --upgrade pip
-          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
+          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" pycurl
           python3.exe -m pip install pytest wget jsonschema
           python3.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
@@ -187,7 +187,7 @@ jobs:
           move komodod.exe src\
           python3.exe -m pip install --upgrade setuptools
           python3.exe -m pip install --upgrade pip
-          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
+          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" pycurl
           python3.exe -m pip install pytest wget jsonschema
           python3.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
@@ -218,7 +218,7 @@ jobs:
           move komodod.exe src\
           python3.exe -m pip install --upgrade setuptools
           python3.exe -m pip install --upgrade pip
-          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
+          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" pycurl
           python3.exe -m pip install pytest wget jsonschema
           python3.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
