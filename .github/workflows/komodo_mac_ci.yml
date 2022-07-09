@@ -28,6 +28,7 @@ jobs:
           brew install wget
           brew install python3
           brew install gmp
+          brew install openssl@1.1
           ./zcutil/fetch-params.sh
 
       - name: Build (macOS)
@@ -43,7 +44,7 @@ jobs:
           name: komodo-macos
           path: ./komodo-macos.tar.gz
 
-  macos-test-dice-token-reards-faucet-cc:
+  macos-test-dice-token-rewards-faucet-cc:
 
     name: Test (MacOS/Dice, Token, Faucet, Rewards)
     runs-on: macos-latest
