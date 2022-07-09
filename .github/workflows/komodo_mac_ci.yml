@@ -28,7 +28,6 @@ jobs:
           brew install wget
           brew install python3
           brew install gmp
-          brew install openssl@1.1
           ./zcutil/fetch-params.sh
 
       - name: Build (macOS)
