@@ -85,7 +85,7 @@ def mine_and_waitconfirms(txid, proxy, confs_req=2):  # should be used after tx 
             else:
                 print("\ntx confirmed")
                 return True
-        except KeyError as e:
+        except (KeyError, RPCError) as e:
             print("\ntx is in mempool still probably, let's wait a little bit more\nError: ", e)
             time.sleep(5)
             attempts += 1
