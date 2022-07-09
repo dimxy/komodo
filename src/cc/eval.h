@@ -16,6 +16,9 @@
 #ifndef CC_EVAL_H
 #define CC_EVAL_H
 
+#ifdef _WIN32
+#undef __cpuid
+#endif
 #include <boost/thread/locks.hpp>
 #include <boost/thread/mutex.hpp>
 
