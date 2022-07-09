@@ -55,6 +55,7 @@ jobs:
       - name: Install deps (Dice, Token, Faucet, Rewards CC)
         run: |
           brew install python3 curl
+          python3 -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
           python3 -m pip install setuptools wheel
           python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
 
@@ -84,6 +85,7 @@ jobs:
       - name: Install deps (OraclesCC)
         run: |
           brew install python3 curl
+          python3 -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
           python3 -m pip install setuptools wheel
           python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
       - name: Download komodo-macos.tar.gz
@@ -112,6 +114,7 @@ jobs:
       - name: Install deps (BasicRPC)
         run: |
           brew install python3 curl
+          python3 -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
           python3 -m pip install setuptools wheel
           python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
       - name: Download komodo-macos.tar.gz
@@ -140,6 +143,7 @@ jobs:
       - name: Install deps (ChannelsCC)
         run: |
           brew install python3 curl
+          python3 -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
           python3 -m pip install setuptools wheel
           python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
       - name: Download komodo-macos.tar.gz
@@ -168,6 +172,7 @@ jobs:
       - name: Install deps (HeirCC)
         run: |
           brew install python3 curl
+          python3 -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
           python3 -m pip install setuptools wheel
           python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
       - name: Download komodo-macos.tar.gz

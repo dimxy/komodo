@@ -32,7 +32,7 @@ jobs:
                              libncurses-dev \
                              unzip  \
                              git \
-                             python \
+                             python3 \
                              zlib1g-dev \
                              wget \
                              bsdmainutils \
@@ -92,10 +92,11 @@ jobs:
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python3.exe -m pip install --upgrade setuptools
+          python3.exe -m pip install --upgrade pip
+          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
+          python3.exe -m pip install pytest wget jsonschema
+          python3.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
       - name: Base RPC Test (Windows)
         shell: cmd
@@ -122,10 +123,11 @@ jobs:
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python3.exe -m pip install --upgrade setuptools
+          python3.exe -m pip install --upgrade pip
+          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
+          python3.exe -m pip install pytest wget jsonschema
+          python3.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
       - name: CC Dice Faucet Tokens Rewards (Windows)
         shell: cmd
@@ -152,10 +154,11 @@ jobs:
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python3.exe -m pip install --upgrade setuptools
+          python3.exe -m pip install --upgrade pip
+          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
+          python3.exe -m pip install pytest wget jsonschema
+          python3.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
       - name: CC Oracles (Windows)
         shell: cmd
@@ -182,10 +185,11 @@ jobs:
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python3.exe -m pip install --upgrade setuptools
+          python3.exe -m pip install --upgrade pip
+          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
+          python3.exe -m pip install pytest wget jsonschema
+          python3.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
       - name: CC Heir (Windows)
         shell: cmd
@@ -212,10 +216,11 @@ jobs:
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+          python3.exe -m pip install --upgrade setuptools
+          python3.exe -m pip install --upgrade pip
+          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --install-option="--openssl-dir=/usr/local/opt/openssl@1.1" pycurl
+          python3.exe -m pip install pytest wget jsonschema
+          python3.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
       - name: ChannelsCC (Windows)
         shell: cmd
