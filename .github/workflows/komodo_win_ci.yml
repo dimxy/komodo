@@ -93,15 +93,20 @@ jobs:
           7z e komodod_win.zip
           move komodod.exe src\
 
+#      - name: Restore vcpkg packages
+#        working-directory: ${{env.GITHUB_WORKSPACE}}
+#        run: vcpkg integrate install
+
+      - name: Install libcurl
+        uses: lukka/run-vcpkg@v4
+        with:
+          vcpkgArguments: 'curl'
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          working-directory: ${{env.GITHUB_WORKSPACE}}
+
       - name: Install deps (Base)
         shell: cmd
         run: |
-          git clone https://github.com/Microsoft/vcpkg
-          cd vcpkg
-          .\bootstrap-vcpkg.bat
-          vcpkg integrate install
-          vcpkg install curl[*]:x64-windows
-          cd ..
           dir /s vcpkg\packages\curl_x64-windows
           python3.exe -m pip install --upgrade setuptools
           python3.exe -m pip install --upgrade pip
@@ -112,8 +117,10 @@ jobs:
 
   windows-test-baserpc:
     name: Test (Win/BasicRPC)
-    needs: [windows-build, windows-build-prereqs]
     runs-on: windows-latest
+    needs: [windows-build-prereqs]
+    with:
+      working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
       - name: Base RPC Test (Windows)
@@ -125,7 +132,9 @@ jobs:
   windows-test-dice-faucet-tok-rewCC:
     name: Test (Win/Dice Faucet Token Rewards)
     runs-on: windows-latest
-    needs: [windows-build, windows-build-prereqs]
+    needs: [windows-build-prereqs]
+    with:
+      working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
       - name: CC Dice Faucet Tokens Rewards (Windows)
@@ -137,7 +146,9 @@ jobs:
   windows-test-oracles-cc:
     name: Test (Win/OraclesCC)
     runs-on: windows-latest
-    needs: [windows-build, windows-build-prereqs]
+    needs: [windows-build-prereqs]
+    with:
+      working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
       - name: CC Oracles (Windows)
@@ -149,7 +160,9 @@ jobs:
   windows-test-heir-cc:
     name: Test (Win/HeirCC)
     runs-on: windows-latest
-    needs: [windows-build, windows-build-prereqs]
+    needs: [windows-build-prereqs]
+    with:
+      working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
       - name: CC Heir (Windows)
@@ -161,8 +174,10 @@ jobs:
   windows-test-channels-cc:
     name: Test (Win/ChannelsCC)
     runs-on: windows-latest
-    needs: [windows-build, windows-build-prereqs]
-
+    needs: [windows-build-prereqs]
+    with:
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      
     steps:
       - name: ChannelsCC (Windows)
         shell: cmd
