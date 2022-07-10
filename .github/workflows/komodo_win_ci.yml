@@ -78,8 +78,9 @@ jobs:
     runs-on: windows-latest
 
     steps:
-
       - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
 
       - name: Download komodo_win.zip
         uses: actions/download-artifact@v1
@@ -92,10 +93,6 @@ jobs:
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
-
-#      - name: Restore vcpkg packages
-#        working-directory: ${{env.GITHUB_WORKSPACE}}
-#        run: vcpkg integrate install
 
       - name: Install libcurl
         uses: lukka/run-vcpkg@v4
@@ -118,7 +115,7 @@ jobs:
   windows-test-baserpc:
     name: Test (Win/BasicRPC)
     runs-on: windows-latest
-    needs: [windows-build-prereqs]
+    needs: windows-build-prereqs
     with:
       working-directory: ${{env.GITHUB_WORKSPACE}}
 
@@ -132,7 +129,7 @@ jobs:
   windows-test-dice-faucet-tok-rewCC:
     name: Test (Win/Dice Faucet Token Rewards)
     runs-on: windows-latest
-    needs: [windows-build-prereqs]
+    needs: windows-build-prereqs
     with:
       working-directory: ${{env.GITHUB_WORKSPACE}}
 
@@ -146,7 +143,7 @@ jobs:
   windows-test-oracles-cc:
     name: Test (Win/OraclesCC)
     runs-on: windows-latest
-    needs: [windows-build-prereqs]
+    needs: windows-build-prereqs
     with:
       working-directory: ${{env.GITHUB_WORKSPACE}}
 
@@ -160,7 +157,7 @@ jobs:
   windows-test-heir-cc:
     name: Test (Win/HeirCC)
     runs-on: windows-latest
-    needs: [windows-build-prereqs]
+    needs: windows-build-prereqs
     with:
       working-directory: ${{env.GITHUB_WORKSPACE}}
 
@@ -174,10 +171,10 @@ jobs:
   windows-test-channels-cc:
     name: Test (Win/ChannelsCC)
     runs-on: windows-latest
-    needs: [windows-build-prereqs]
+    needs: windows-build-prereqs
     with:
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      
+
     steps:
       - name: ChannelsCC (Windows)
         shell: cmd
