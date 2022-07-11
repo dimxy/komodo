@@ -94,12 +94,12 @@ jobs:
           7z e komodod_win.zip
           move komodod.exe src\
 
-      - name: Install libcurl
-        uses: lukka/run-vcpkg@v4
-        with:
-          vcpkgArguments: 'curl'
-          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          working-directory: ${{env.GITHUB_WORKSPACE}}
+#      - name: Install libcurl
+#        uses: lukka/run-vcpkg@v4
+#        with:
+#          vcpkgArguments: 'curl'
+#          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+#          working-directory: ${{env.GITHUB_WORKSPACE}}
 
       - name: Install deps (Base)
         shell: cmd
