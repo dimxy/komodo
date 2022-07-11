@@ -79,8 +79,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      #  with:
-      #    submodules: 'recursive'
+        with:
+          submodules: 'recursive'
 
       - name: Download komodo_win.zip
         uses: actions/download-artifact@v1
@@ -94,12 +94,12 @@ jobs:
           7z e komodod_win.zip
           move komodod.exe src\
 
-#      - name: Install libcurl
-#        uses: lukka/run-vcpkg@v4
-#        with:
-#          vcpkgArguments: 'curl'
-#          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-#          working-directory: ${{env.GITHUB_WORKSPACE}}
+      - name: Install libcurl
+        uses: lukka/run-vcpkg@v4
+        with:
+          vcpkgArguments: 'curl'
+          vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          working-directory: ${{env.GITHUB_WORKSPACE}}
 
       - name: Install deps (Base)
         shell: cmd
@@ -116,8 +116,8 @@ jobs:
     name: Test (Win/BasicRPC)
     runs-on: windows-latest
     needs: windows-build-prereqs
-    with:
-      working-directory: ${{env.GITHUB_WORKSPACE}}
+    #with:
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
       - name: Base RPC Test (Windows)
