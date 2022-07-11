@@ -79,8 +79,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-        with:
-          submodules: 'recursive'
+      #  with:
+      #    submodules: 'recursive'
 
       - name: Download komodo_win.zip
         uses: actions/download-artifact@v1
@@ -116,8 +116,8 @@ jobs:
     name: Test (Win/BasicRPC)
     runs-on: windows-latest
     needs: windows-build-prereqs
-    with:
-      working-directory: ${{env.GITHUB_WORKSPACE}}
+    #with:
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
       - name: Base RPC Test (Windows)
@@ -130,8 +130,8 @@ jobs:
     name: Test (Win/Dice Faucet Token Rewards)
     runs-on: windows-latest
     needs: windows-build-prereqs
-    with:
-      working-directory: ${{env.GITHUB_WORKSPACE}}
+    #with:
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
       - name: CC Dice Faucet Tokens Rewards (Windows)
@@ -144,8 +144,8 @@ jobs:
     name: Test (Win/OraclesCC)
     runs-on: windows-latest
     needs: windows-build-prereqs
-    with:
-      working-directory: ${{env.GITHUB_WORKSPACE}}
+    #with:
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
       - name: CC Oracles (Windows)
@@ -158,8 +158,8 @@ jobs:
     name: Test (Win/HeirCC)
     runs-on: windows-latest
     needs: windows-build-prereqs
-    with:
-      working-directory: ${{env.GITHUB_WORKSPACE}}
+    #with:
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
       - name: CC Heir (Windows)
@@ -172,8 +172,8 @@ jobs:
     name: Test (Win/ChannelsCC)
     runs-on: windows-latest
     needs: windows-build-prereqs
-    with:
-      working-directory: ${{env.GITHUB_WORKSPACE}}
+    #with:
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
       - name: ChannelsCC (Windows)
