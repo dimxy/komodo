@@ -116,8 +116,8 @@ jobs:
     name: Test (Win/BasicRPC)
     runs-on: windows-latest
     needs: windows-build-prereqs
-    #with:
-    #  working-directory: ${{env.GITHUB_WORKSPACE}}
+    with:
+      working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
       - name: Base RPC Test (Windows)
