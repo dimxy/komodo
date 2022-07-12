@@ -104,6 +104,7 @@ jobs:
           # working-directory: ${{env.GITHUB_WORKSPACE}}
         run: |
           vcpkg install curl
+        shell: cmd
 
       - name: Install deps (Base)
         shell: cmd
