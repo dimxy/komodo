@@ -99,7 +99,7 @@ jobs:
         with:
           setupOnly: true
           # vcpkgArguments: 'curl'
-          # vcpkgGitCommitId: '5568f110b509a9fd90711978a7cb76bae75bb092'
+          vcpkgGitCommitId: 'f46f924c08b1fca7ad450ff0b1b26dc9554a3c8e'
           # vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           # working-directory: ${{env.GITHUB_WORKSPACE}}
 
