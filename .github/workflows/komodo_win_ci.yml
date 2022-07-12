@@ -98,9 +98,9 @@ jobs:
         uses: lukka/run-vcpkg@v4
         with:
           vcpkgArguments: 'curl'
-          vcpkgGitCommitId: '6b951a6928811507d493303b2878e848c077b471'
+          vcpkgGitCommitId: 80ab37ed1b60a9adae6d46b4d7b982c05d594d07
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
-          working-directory: ${{env.GITHUB_WORKSPACE}}
+          # working-directory: ${{env.GITHUB_WORKSPACE}}
 
       - name: Install deps (Base)
         shell: cmd
