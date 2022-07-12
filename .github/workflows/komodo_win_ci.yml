@@ -95,10 +95,10 @@ jobs:
           move komodod.exe src\
 
       - name: Install libcurl
-        uses: lukka/run-vcpkg@v4
+        uses: lukka/run-vcpkg@main
         with:
           vcpkgArguments: 'curl'
-          vcpkgGitCommitId: 80ab37ed1b60a9adae6d46b4d7b982c05d594d07
+          vcpkgCommitId: '5568f110b509a9fd90711978a7cb76bae75bb092'
           vcpkgDirectory: '${{ github.workspace }}/vcpkg'
           # working-directory: ${{env.GITHUB_WORKSPACE}}
 
