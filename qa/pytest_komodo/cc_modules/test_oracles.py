@@ -27,14 +27,14 @@ def test_oracles(test_params):
 
     for x in result.keys():
         if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
+            assert result[x][0] == 'R' or result[x][0] == 'C'
 
     result = rpc.oraclesaddress(pubkey)
     assert_success(result)
 
     for x in result.keys():
         if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
+            assert result[x][0] == 'R' or result[x][0] == 'C'
 
     # there are no oracles created yet
     if is_fresh_chain:
@@ -247,6 +247,7 @@ def test_oracles(test_params):
 
     # checking data for s type
     result = rpc.oraclessamples(globals()["oracle_{}".format("s")], batonaddr_s, "1")
+    print('result=', result)
     assert "['Anton']" == str(result["samples"][0]['data'])
 
     # checking data for S type

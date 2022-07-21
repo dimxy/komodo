@@ -30,29 +30,24 @@ def test_token(test_params):
 
     for v in ["", "v2"] :
 
-        result = call_token_rpc(rpc, "token"+v+"address")
-        assert_success(result)
-        for x in result.keys():
-            if x.find('ddress') > 0:
-                assert result[x][0] == 'R'
+        result = call_token_rpc(rpc, "token"+v+"indexkey", pubkey)
+        if v == '':  # for v2 a diff result
+            assert_success(result)
+            for x in result.keys():
+                if x.find('ddress') > 0:
+                    assert result[x][0] == 'R' or result[x][0] == 'C'
+        else : # v2 index keys:
+            for x in result:
+                assert x[0] == 'C'
 
-        result = call_token_rpc(rpc, "token"+v+"address", pubkey)
-        assert_success(result)
-        for x in result.keys():
-            if x.find('ddress') > 0:
-                assert result[x][0] == 'R'
-
-        result = call_token_rpc(rpc, "assetsaddress")
-        assert_success(result)
-        for x in result.keys():
-            if x.find('ddress') > 0:
-                assert result[x][0] == 'R'
-
-        result = call_token_rpc(rpc, "assetsaddress", pubkey)
-        assert_success(result)
-        for x in result.keys():
-            if x.find('ddress') > 0:
-                assert result[x][0] == 'R'
+        result = call_token_rpc(rpc, "assets"+v+"indexkey", pubkey)
+        if v == '':  # for v2 a diff result
+            assert_success(result)
+            for x in result.keys():
+                if x.find('ddress') > 0:
+                    assert result[x][0] == 'R' or result[x][0] == 'C'
+        else : # v2 index key
+            assert result[0] == 'C'
 
         # there are no tokens created yet
         # TODO: this test conflicts with heir test because token creating for heir

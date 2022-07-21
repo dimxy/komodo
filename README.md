@@ -23,7 +23,7 @@ To NFT and Beyond
 
 #### What Tokel offers:
 - The blockchain that facilitates the tokens and NFTs.
-- An open-sourced all-in-one ]GUI application](https://github.com/TokelPlatform/tokel_dapp).
+- An open-sourced all-in-one [GUI application](https://github.com/TokelPlatform/tokel_dapp).
 - DEX functionality for all tokens/NFTs created on Tokel.
 - A free-to-use test blockchain (TKLTEST).
 - Easy to use integrations (nSPV)
@@ -60,6 +60,7 @@ https://github.com/TokelPlatform/tokel_dapp
 - Tokel Website: [https://tokel.io](https://tokel.io)
 - Tokel Block Explorer: [https://explorer.tokel.io](https://explorer.tokel.io)
 - Tokel Discord: [Tokel Discord Invitation](http://discord.tokel.io)
+- Tokel Blog: [Tokel Blog](https://tokel.io/blog/)
 - Email: [contact@tokel.io](mailto:contact@tokel.io)
 - Whitepaper: [Tokel Paper](https://tokel.io/TokelPaper1stEdition.pdf)
 - Knowledgebase & How-to: [Tokel Documentation](https://docs.tokel.io)

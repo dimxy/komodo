@@ -140,6 +140,10 @@ static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
 
     { // Get the real threshold from the first ffill
         CC *tc = fulfillmentToCC(arrFulfills[0], flags);
+        if (tc == NULL) {
+            free(cond);
+            return NULL;
+        }
         if (tc->type->typeId != CC_Preimage || tc->preimageLength != 1) {
             cc_free(tc);
             free(cond);

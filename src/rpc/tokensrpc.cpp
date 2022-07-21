@@ -564,9 +564,11 @@ static UniValue tokentransfer(const std::string& name, const UniValue& params, b
         return MakeResultError("destination as address not active yet");
     if (dest.which() != TX_PUBKEYHASH && dest.which() != TX_PUBKEY)
         return MakeResultError("invalid destination pubkey or address");
+    if (V::EvalCode() == EVAL_TOKENS && dest.which() != TX_PUBKEY)  // address not supported for tokens 1
+        return MakeResultError("invalid destination pubkey");
         
-    // after subver_1 upgrade only addresses always will be used as destination, pubkeys are converted to addresses
-    if (dest.which() == TX_PUBKEY && CCUpgrades::IsUpgradeActive(nTime, nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCUPGID_MIXEDMODE_SUBVER_1))
+    // after subver_1 upgrade only addresses always will be used as destination, pubkeys are converted to addresses (for tokens v2)
+    if (V::EvalCode() == EVAL_TOKENSV2 && dest.which() == TX_PUBKEY && CCUpgrades::IsUpgradeActive(nTime, nHeight, CCUpgrades::GetUpgrades(), CCUpgrades::CCUPGID_MIXEDMODE_SUBVER_1))
         dests.push_back(boost::get<CPubKey>(dest).GetID());
     else
         dests.push_back(dest);  // address or pubkey
@@ -643,12 +645,14 @@ UniValue tokentransfermany(const std::string& name, const UniValue& params, bool
     Myprivkey(mypriv);
     std::vector<std::string> srctokenaddrs;
     std::vector<std::pair<CCwrapper, uint8_t*>> probes;
-    if (V::IsMixed() == EVAL_TOKENS) {
+    if (V::EvalCode() == EVAL_TOKENS) {
         CCwrapper probeCond;
         probeCond.reset( MakeCCcond1(V::EvalCode(), mypk) );
-        char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
-        GetTokensCCaddress(cpTokens, tokenaddr, mypk, V::IsMixed());
-        srctokenaddrs.push_back(tokenaddr);
+        //char tokenaddr[KOMODO_ADDRESS_BUFSIZE];
+        //GetTokensCCaddress(cpTokens, tokenaddr, mypk, V::IsMixed());
+        //srctokenaddrs.push_back(tokenaddr);
+        srctokenaddrs = GetTokenV1IndexKeys(mypk);
+
         probes.push_back({probeCond, mypriv});
 
     }

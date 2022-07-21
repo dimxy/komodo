@@ -179,7 +179,7 @@ void asnCondition(const CC *cond, Condition_t *asn) {
             default: return;
         };
         choice->cost = cc_getCost(cond);
-        choice->fingerprint.buf = calloc(1, fingerprintSize);
+        choice->fingerprint.buf = calloc(1, 32);
         cond->type->fingerprint(cond, choice->fingerprint.buf);
         choice->fingerprint.size = fingerprintSize;
     }

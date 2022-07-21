@@ -297,7 +297,7 @@ bool RewardsValidate(struct CCcontract_info *cp,Eval* eval,const CTransaction &t
                     if ( !CheckTxFee(tx, txfee, chainActive.LastTip()->GetHeight(), chainActive.LastTip()->nTime, dummy) )
                         return eval->Invalid("txfee is too high");
                     amount = vinTx.vout[0].nValue;
-                    reward = RewardsCalc((int64_t)amount,tx.vin[0].prevout.hash,(int64_t)APR,(int64_t)minseconds,(int64_t)maxseconds,GetLatestTimestamp(eval->GetCurrentHeight()));
+                    reward = RewardsCalc((int64_t)amount,tx.vin[0].prevout.hash,(int64_t)APR,(int64_t)minseconds,(int64_t)maxseconds,GetLatestTimestamp(eval->GetCurrentHeightCompat()));
                     if ( reward == 0 )
                         return eval->Invalid("no eligible rewards");
                     if ( numvins == 1 && tx.vout[0].scriptPubKey.IsPayToCryptoCondition() == 0 )

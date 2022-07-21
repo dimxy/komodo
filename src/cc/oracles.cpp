@@ -498,7 +498,7 @@ bool OraclesValidate(struct CCcontract_info* cp, Eval* eval, const CTransaction&
                 // vout.2: marker from oraclesfund tx to normal pubkey address (activation on Jul 15th 2019 00:00)
                 // vout.n-2: change, if any
                 // vout.n-1: opreturn with createtxid, pubkey and price per data point
-                if (GetLatestTimestamp(eval->GetCurrentHeight()) > PUBKEY_SPOOFING_FIX_ACTIVATION) {
+                if (GetLatestTimestamp(eval->GetCurrentHeightCompat()) > PUBKEY_SPOOFING_FIX_ACTIVATION) {
                     if (tx.vout.size() < 1 || DecodeOraclesOpRet(tx.vout.back().scriptPubKey, oracletxid, tmppk, amount) != 'R')
                         return eval->Invalid("invalid oraclesregister OP_RETURN data!");
                     else if (!eval->GetTxUnconfirmed(oracletxid, tmptx, hashblock))

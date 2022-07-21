@@ -19,7 +19,7 @@ dnl komodo codebase version
 define(_KOMODO_VERSION, 60000)
 
 dnl tokel codebase version
-define(_TOKEL_VERSION, 30100)
+define(_TOKEL_VERSION, 30200)
 
 AC_DEFINE(KOMODO_VERSION, _KOMODO_VERSION, [Komodo Version])
 AC_DEFINE(TOKEL_VERSION, _TOKEL_VERSION, [Tokel Version])

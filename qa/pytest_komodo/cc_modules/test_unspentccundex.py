@@ -28,7 +28,7 @@ def test_ccindex(test_params):
     assert_success(result)
     for x in result.keys():
         if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
+            assert result[x][0] == 'R' or result[x][0] == 'C'
 
     # get token cc address for pubkey:
     result = rpc.tokenaddress(pubkey)
@@ -36,7 +36,7 @@ def test_ccindex(test_params):
     pubkeyTokenCCAddress = ""
     for x in result.keys():
         if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
+            assert result[x][0] == 'R' or result[x][0] == 'C'
             if x == 'pubkey Tokens CC Address':
                 pubkeyTokenCCAddress = result[x]
 
@@ -46,7 +46,7 @@ def test_ccindex(test_params):
     pubkey1TokenCCAddress = ""
     for x in result.keys():
         if x.find('ddress') > 0:
-            assert result[x][0] == 'R'
+            assert result[x][0] == 'R' or result[x][0] == 'C'
             if x == 'pubkey Tokens CC Address':
                 pubkey1TokenCCAddress = result[x]
 

@@ -342,6 +342,8 @@ class TestBlockchainMethods:
         res = rpc.getrawmempool(True)
         assert res.get(txid).get('height') == kvheight
 
+    '''
+    # kv not supported
     def test_kvsearch(self, test_params):
         test_values = {
             'key': 'search_key',
@@ -358,6 +360,7 @@ class TestBlockchainMethods:
         assert res.get('key') == test_values['key']
         assert res.get('keylen') == keylen
         assert res.get('value') == test_values['value']
+    '''
 
     def test_notaries(self, test_params):
         rpc = test_params.get('node1').get('rpc')

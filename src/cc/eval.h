@@ -117,6 +117,7 @@ public:
     virtual int64_t GetCurrentTime() const;
     void SetCurrentTime(int64_t nTimeIn) { nCurrentTime = nTimeIn; }
     virtual unsigned int GetCurrentHeight() const;
+    virtual unsigned int GetCurrentHeightCompat() const;
     void SetCurrentHeight(int32_t nHeightIn) { nCurrentHeight = nHeightIn; }
     virtual bool GetSpendsConfirmed(uint256 hash, std::vector<CTransaction> &spends) const;
     virtual bool GetBlock(uint256 hash, CBlockIndex& blockIdx) const;
