@@ -7619,6 +7619,8 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             pindex = chainActive.Next(pindex);
         int nLimit = 500;
         LogPrint("net", "getblocks %d to %s limit %d from peer=%d\n", (pindex ? pindex->nHeight : -1), hashStop.IsNull() ? "end" : hashStop.ToString(), nLimit, pfrom->id);
+        std::cerr << "getblocks locator size=" << locator.vHave.size() << std::endl;
+        int cnt = 0;
         for (; pindex; pindex = chainActive.Next(pindex))
         {
             if (pindex->GetBlockHash() == hashStop)
@@ -7626,7 +7628,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 LogPrint("net", "  getblocks stopping at %d %s\n", pindex->nHeight, pindex->GetBlockHash().ToString());
                 break;
             }
-            pfrom->PushInventory(CInv(MSG_BLOCK, pindex->GetBlockHash()));
+            pfrom->PushInventory(CInv(MSG_BLOCK, pindex->GetBlockHash())); cnt ++;
             if (--nLimit <= 0)
             {
                 // When this block is requested, we'll send an inv that'll
@@ -7636,6 +7638,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 break;
             }
         }
+        std::cerr << "getblocks pushed blocks=" << cnt << std::endl;
     }
 
 
@@ -8553,6 +8556,7 @@ CMutableTransaction CreateNewContextualCMutableTransaction(const Consensus::Para
     else
     {
         bool isOverwintered = NetworkUpgradeActive(nHeight, consensusParams, Consensus::UPGRADE_OVERWINTER);
+        std::cerr << __func__ << " isOverwintered=" << isOverwintered << std::endl;
         if (isOverwintered)
         {
             mtx.fOverwintered = true;
