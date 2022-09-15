@@ -7618,7 +7618,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         if (pindex)
             pindex = chainActive.Next(pindex);
         int nLimit = 500;
-        LogPrint("net", "getblocks %d to %s limit %d from peer=%d\n", (pindex ? pindex->nHeight : -1), hashStop.IsNull() ? "end" : hashStop.ToString(), nLimit, pfrom->id);
+        LogPrint("net", "getblocks since %d to %s limit %d from peer=%d\n", (pindex ? pindex->nHeight : -1), hashStop.IsNull() ? "end" : hashStop.ToString(), nLimit, pfrom->id);
         std::cerr << "getblocks locator size=" << locator.vHave.size() << std::endl;
         int cnt = 0;
         for (; pindex; pindex = chainActive.Next(pindex))
@@ -7629,6 +7629,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 break;
             }
             pfrom->PushInventory(CInv(MSG_BLOCK, pindex->GetBlockHash())); cnt ++;
+            std::cerr << "getblocks tried pushing inv=" << pindex->GetBlockHash().GetHex() << std::endl;
             if (--nLimit <= 0)
             {
                 // When this block is requested, we'll send an inv that'll
@@ -7638,7 +7639,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 break;
             }
         }
-        std::cerr << "getblocks pushed blocks=" << cnt << std::endl;
+        std::cerr << "getblocks pushed blocks=" << cnt << " " << DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()) << std::endl;
     }
 
 
@@ -7691,6 +7692,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 if (--nLimit <= 0 || pindex->GetBlockHash() == hashStop)
                     break;
             }
+            std::cerr << " pushed headers=" << vHeaders.size() << std::endl;
             pfrom->PushMessage("headers", vHeaders);
         }
     }

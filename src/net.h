@@ -452,6 +452,9 @@ public:
             LOCK(cs_inventory);
             if (!setInventoryKnown.count(inv))
                 vInventoryToSend.push_back(inv);
+            else {
+                std::cerr << __func__ << " not pushed: known=" << setInventoryKnown.count(inv) << std::endl;
+            }
         }
     }
 
