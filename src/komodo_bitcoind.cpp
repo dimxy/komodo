@@ -2247,16 +2247,15 @@ int64_t komodo_coinsupply(int64_t *zfundsp,int64_t *sproutfundsp,int32_t height)
     return(supply);
 }
 
-void komodo_addutxo(std::vector<komodo_staking> &array,uint32_t txtime,uint64_t nValue,uint256 txid,int32_t vout,char *address,uint8_t *hashbuf,CScript pk)
+void komodo_addutxo(std::vector<komodo_staking> &collection, uint32_t txtime, uint64_t nValue, uint256 txid,
+        int32_t vout, char *address, uint8_t *hashbuf, CScript pk)
 {
     uint256 hash; uint32_t segid32; komodo_staking kp;
     segid32 = komodo_stakehash(&hash,address,hashbuf,txid,vout);
-    if ( array.size() >= array.capacity() )
+    if ( collection.size() >= collection.capacity() )
     {
-        array.reserve(array.capacity() + 1000);
-        //fprintf(stderr,"%s realloc array.size().%d array.capacity().%d\n", __func__, array.size(), array.capacity());
+        collection.reserve(collection.capacity() + 1000);
     }
-    //memset(&kp,0,sizeof(kp));
     strcpy(kp.address, address);
     kp.txid = txid;
     kp.vout = vout;
@@ -2265,18 +2264,30 @@ void komodo_addutxo(std::vector<komodo_staking> &array,uint32_t txtime,uint64_t 
     kp.segid32 = segid32;
     kp.nValue = nValue;
     kp.scriptPubKey = pk;
-    array.push_back(kp);
-    //fprintf(stderr,"kp.%p array.size().%d\n",kp,array.size());
+    collection.push_back(kp);
 }
 
-int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blocktimep,uint32_t *txtimep,uint256 *utxotxidp,int32_t *utxovoutp,uint64_t *utxovaluep,uint8_t *utxosig, uint256 merkleroot)
+int32_t komodo_staked(CMutableTransaction &txNew, uint32_t nBits, uint32_t *blocktimep,
+        uint32_t *txtimep, uint256 *utxotxidp, int32_t *utxovoutp, uint64_t *utxovaluep,
+        uint8_t *utxosig, uint256 merkleroot)
 {
     // use thread_local to prevent crash in case of accidental thread overlapping
-    thread_local std::vector<komodo_staking> array; 
+    thread_local std::vector<komodo_staking> collection; 
     thread_local uint32_t lasttime;
 
     int32_t PoSperc = 0, newStakerActive; 
-    std::set<CBitcoinAddress> setAddress; int32_t winners,segid,minage,nHeight,counter=0,i,m,siglen=0,nMinDepth = 1,nMaxDepth = 99999999; std::vector<COutput> vecOutputs; uint32_t block_from_future_rejecttime,besttime,eligible,earliest = 0; CScript best_scriptPubKey; arith_uint256 mindiff,ratio,bnTarget,tmpTarget; CBlockIndex *tipindex,*pindex; CTxDestination address; bool fNegative,fOverflow; uint8_t hashbuf[256]; CTransaction tx; uint256 hashBlock;
+    std::set<CBitcoinAddress> setAddress; 
+    int32_t winners,segid,minage,nHeight,counter=0,i,m,siglen=0,nMinDepth = 1,nMaxDepth = 99999999; 
+    std::vector<COutput> vecOutputs; 
+    uint32_t block_from_future_rejecttime,besttime,eligible,earliest = 0; 
+    CScript best_scriptPubKey; 
+    arith_uint256 mindiff,ratio,bnTarget,tmpTarget; 
+    CBlockIndex *tipindex,*pindex; 
+    CTxDestination address; 
+    bool fNegative,fOverflow; 
+    uint8_t hashbuf[256]; 
+    CTransaction tx; 
+    uint256 hashBlock;
     uint64_t cbPerc = *utxovaluep, tocoinbase = 0;
     if (!EnsureWalletIsAvailable(0))
         return 0;
@@ -2295,41 +2306,42 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
     if ( *blocktimep < tipindex->nTime+60 )
         *blocktimep = tipindex->nTime+60;
     komodo_segids(hashbuf,nHeight-101,100);
-    // this was for VerusHash PoS64
-    //tmpTarget = komodo_PoWtarget(&PoSperc,bnTarget,nHeight,ASSETCHAINS_STAKED);
     bool resetstaker = false;
-    if ( array.size() != 0 )
+    if ( collection.size() != 0 )
     {
         LOCK(cs_main);
         CBlockIndex* pblockindex = chainActive[tipindex->nHeight];
         CBlock block; CTxDestination addressout;
-        if ( ReadBlockFromDisk(block, pblockindex, 1) && komodo_isPoS(&block, nHeight, &addressout) != 0 && IsMine(*pwalletMain,addressout) != 0 )
+        if ( ReadBlockFromDisk(block, pblockindex, 1) 
+                && komodo_isPoS(&block, nHeight, &addressout) != 0 
+                && IsMine(*pwalletMain,addressout) != 0 )
         {
               resetstaker = true;
-              fprintf(stderr, "[%s:%d] Reset ram staker after mining a block!\n",ASSETCHAINS_SYMBOL,nHeight);
+              fprintf(stderr, "[%s:%d] Reset ram staker after mining a block!\n",
+                    ASSETCHAINS_SYMBOL,nHeight);
         }
     }
 
-    if ( resetstaker || array.size() == 0 || time(NULL) > lasttime+600 )
+    if ( resetstaker || collection.size() == 0 || time(NULL) > lasttime+600 )
     {
         LOCK2(cs_main, pwalletMain->cs_wallet);
         pwalletMain->AvailableCoins(vecOutputs, false, NULL, true);
-        if ( array.size() != 0 )
+        if ( collection.size() != 0 )
         {
-            array.clear();
+            collection.clear();
             lasttime = 0;
         }
         BOOST_FOREACH(const COutput& out, vecOutputs)
         {
             if ( (tipindex= chainActive.Tip()) == 0 || tipindex->nHeight+1 > nHeight )
             {
-                fprintf(stderr,"[%s:%d] chain tip changed during staking loop t.%u counter.%d\n",ASSETCHAINS_SYMBOL,nHeight,(uint32_t)time(NULL),counter);
+                fprintf(stderr,"[%s:%d] chain tip changed during staking loop t.%u counter.%d\n",
+                        ASSETCHAINS_SYMBOL,nHeight,(uint32_t)time(NULL),counter);
                 return(0);
             }
             counter++;
             if ( out.nDepth < nMinDepth || out.nDepth > nMaxDepth )
             {
-                //fprintf(stderr,"komodo_staked invalid depth %d\n",(int32_t)out.nDepth);
                 continue;
             }
             CAmount nValue = out.tx->vout[out.i].nValue;
@@ -2340,32 +2352,36 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
             {
                 if ( IsMine(*pwalletMain,address) == 0 )
                     continue;
-                if ( myGetTransaction(out.tx->GetHash(),tx,hashBlock) != 0 && (pindex= komodo_getblockindex(hashBlock)) != 0 )
+                if ( myGetTransaction(out.tx->GetHash(),tx,hashBlock) != 0 
+                        && (pindex= komodo_getblockindex(hashBlock)) != 0 )
                 {
-                    komodo_addutxo(array,(uint32_t)pindex->nTime,(uint64_t)nValue,out.tx->GetHash(),out.i,(char *)CBitcoinAddress(address).ToString().c_str(),hashbuf,(CScript)pk);
-                    //fprintf(stderr,"%s array.size().%d vs array.capacity().%d\n", __func__,array.size(),array.capacity());
+                    komodo_addutxo(collection,(uint32_t)pindex->nTime,(uint64_t)nValue,out.tx->GetHash(),
+                            out.i,(char *)CBitcoinAddress(address).ToString().c_str(),hashbuf,
+                            (CScript)pk);
                 }
             }
         }
         lasttime = (uint32_t)time(NULL);
-        //fprintf(stderr,"%s finished kp data of utxo for staking %u ht.%d array.size().%d array.capacity().%d\n", __func__,(uint32_t)time(NULL),nHeight,array.size(),array.capacity());
     }
     block_from_future_rejecttime = (uint32_t)GetTime() + ASSETCHAINS_STAKED_BLOCK_FUTURE_MAX;    
-    for (i=winners=0; i<array.size(); i++)
+    for (i=winners=0; i<collection.size(); i++)
     {
         if ( fRequestShutdown || !GetBoolArg("-gen",false) )
             return(0);
         if ( (tipindex= chainActive.Tip()) == 0 || tipindex->nHeight+1 > nHeight )
         {
-            fprintf(stderr,"[%s:%d] chain tip changed during staking loop t.%u counter.%d\n",ASSETCHAINS_SYMBOL,nHeight,(uint32_t)time(NULL),i);
+            fprintf(stderr,"[%s:%d] chain tip changed during staking loop t.%u counter.%d\n",
+                    ASSETCHAINS_SYMBOL,nHeight,(uint32_t)time(NULL),i);
             return(0);
         }
-        komodo_staking &kp = array[i];
-        eligible = komodo_stake(0,bnTarget,nHeight,kp.txid,kp.vout,0,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp.address,PoSperc);
+        komodo_staking &kp = collection[i];
+        eligible = komodo_stake(0,bnTarget,nHeight,kp.txid,kp.vout,0,
+                (uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp.address,PoSperc);
         if ( eligible > 0 )
         {
             besttime = 0;
-            if ( eligible == komodo_stake(1,bnTarget,nHeight,kp.txid,kp.vout,eligible,(uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp.address,PoSperc) )
+            if ( eligible == komodo_stake(1,bnTarget,nHeight,kp.txid,kp.vout,eligible,
+                    (uint32_t)tipindex->nTime+ASSETCHAINS_STAKED_BLOCK_FUTURE_HALF,kp.address,PoSperc) )
             {
                 // have elegible utxo to stake with. 
                 if ( earliest == 0 || eligible < earliest || (eligible == earliest && (*utxovaluep == 0 || kp.nValue < *utxovaluep)) )
@@ -2378,18 +2394,12 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
                     *utxovoutp = kp.vout;
                     *txtimep = kp.txtime;
                 }
-                /*if ( eligible < block_from_future_rejecttime )
-                { 
-                    // better to scan all and choose earliest! 
-                    fprintf(stderr, "block_from_future_rejecttime.%u vs eligible.%u \n", block_from_future_rejecttime, eligible);
-                    break;
-                } */ 
             }
         }
     }
-    if ( array.size() < 500 && array.size() != 0 )
+    if ( collection.size() < 500 && collection.size() != 0 )
     {
-        array.clear();
+        collection.clear();
         lasttime = 0;
     }
     if ( earliest != 0 )
@@ -2420,7 +2430,8 @@ int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blockt
             txNew.vout[1].nValue = 0;
         } 
         CTransaction txNewConst(txNew);
-        signSuccess = ProduceSignature(TransactionSignatureCreator(&keystore, &txNewConst, 0, *utxovaluep, SIGHASH_ALL), best_scriptPubKey, sigdata, consensusBranchId);
+        signSuccess = ProduceSignature(TransactionSignatureCreator(&keystore, &txNewConst, 0, 
+                *utxovaluep, SIGHASH_ALL), best_scriptPubKey, sigdata, consensusBranchId);
         UpdateTransaction(txNew,0,sigdata);
         ptr = (uint8_t *)&sigdata.scriptSig[0];
         siglen = sigdata.scriptSig.size();
