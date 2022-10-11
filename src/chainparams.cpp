@@ -431,7 +431,7 @@ public:
         strNetworkID = "test";
         strCurrencyUnits = "TKMD";
         bip44CoinType = 1;
-        consensus.fCoinbaseMustBeProtected = true;
+        consensus.fCoinbaseMustBeProtected = false;
         consensus.nSubsidySlowStartInterval = 20000;
         consensus.nSubsidyHalvingInterval = 840000;
         consensus.nMajorityEnforceBlockUpgrade = 51;
@@ -511,9 +511,14 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
 
-        base58Prefixes[PUBKEY_ADDRESS] = {0};
-        base58Prefixes[SCRIPT_ADDRESS] = {5};
-        base58Prefixes[SECRET_KEY] =     {128};
+        //base58Prefixes[PUBKEY_ADDRESS] = {0};
+        //base58Prefixes[SCRIPT_ADDRESS] = {5};
+        //base58Prefixes[SECRET_KEY] =     {128};
+        base58Prefixes[PUBKEY_ADDRESS] = {60};  // change to mainnet
+        base58Prefixes[SCRIPT_ADDRESS] = {85};
+        base58Prefixes[SECRET_KEY] =     {188};
+
+        // TODO: change to mainnet??
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
         base58Prefixes[ZCPAYMENT_ADDRRESS] = {20,81};
