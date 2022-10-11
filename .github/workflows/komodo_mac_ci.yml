@@ -54,6 +54,7 @@ jobs:
       - name: Install deps (Dice, Token, Faucet, Rewards CC)
         run: |
           brew install python3 curl
+          PYCURL_SSL_LIBRARY=openssl LDFLAGS="-L/usr/local/opt/openssl@3/lib" CPPFLAGS="-I/usr/local/opt/openssl@3/include" pip3 install --no-cache-dir pycurl
           python3 -m pip install setuptools wheel
           python3 -m pip install slick-bitcoinrpc pytest wget jsonschema
 
