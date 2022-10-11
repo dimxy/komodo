@@ -1,8 +1,8 @@
 name: Komodo MacOS CI
 
 on:
-#  pull_request:
-#    types: [opened, synchronize, reopened]
+  pull_request:
+    types: [opened, synchronize, reopened]
   schedule:
     - cron: '0 0 * * 1'
 
