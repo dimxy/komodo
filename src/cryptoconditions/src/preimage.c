@@ -30,6 +30,10 @@ static CC *preimageFromJSON(const cJSON *params, char *err) {
         free(cond);
         return NULL;
     }
+    int dontFulfill = 0;
+    cJSON *obj = cJSON_GetObjectItem(params, "dontFulfill");
+    if (obj) cond->dontFulfill = !!obj->valueint;    
+    
     return cond;
 }
 
@@ -88,6 +92,7 @@ static CC* preimageCopy(const CC* cond)
     condCopy->preimage = calloc(1, cond->preimageLength);
     memcpy(condCopy->preimage, cond->preimage, cond->preimageLength);
     condCopy->preimageLength = cond->preimageLength;
+    condCopy->dontFulfill = cond->dontFulfill;
     return (condCopy);
 }
 

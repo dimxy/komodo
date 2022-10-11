@@ -57,15 +57,6 @@
 
 static bool fDaemon;
 #include "komodo_defs.h"
-#define KOMODO_ASSETCHAIN_MAXLEN 65
-extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
-extern int32_t ASSETCHAINS_BLOCKTIME;
-extern uint64_t ASSETCHAINS_CBOPRET;
-void komodo_passport_iteration();
-uint64_t komodo_interestsum();
-int32_t komodo_longestchain();
-void komodo_cbopretupdate(int32_t forceflag);
-CBlockIndex *komodo_chainactive(int32_t height);
 
 void WaitForShutdown(boost::thread_group* threadGroup)
 {
@@ -77,14 +68,7 @@ void WaitForShutdown(boost::thread_group* threadGroup)
         fprintf(stderr,"error: earlytx must be before block height %d or tx does not exist\n",KOMODO_EARLYTXID_HEIGHT);
         StartShutdown();
     }
-    /*if ( ASSETCHAINS_STAKED == 0 && ASSETCHAINS_ADAPTIVEPOW == 0 && (pindex= komodo_chainactive(1)) != 0 )
-    {
-        if ( pindex->nTime > ADAPTIVEPOW_CHANGETO_DEFAULTON )
-        {
-            ASSETCHAINS_ADAPTIVEPOW = 1;
-            fprintf(stderr,"default activate adaptivepow\n");
-        } else fprintf(stderr,"height1 time %u vs %u\n",pindex->nTime,ADAPTIVEPOW_CHANGETO_DEFAULTON);
-    } //else fprintf(stderr,"cant find height 1\n");*/
+
     if ( ASSETCHAINS_CBOPRET != 0 )
         komodo_pricesinit();
     /*
@@ -108,11 +92,6 @@ void WaitForShutdown(boost::thread_group* threadGroup)
 //
 // Start
 //
-extern int32_t IS_KOMODO_NOTARY,USE_EXTERNAL_PUBKEY;
-extern uint32_t ASSETCHAIN_INIT;
-extern std::string NOTARY_PUBKEY;
-int32_t komodo_is_issuer();
-void komodo_passport_iteration();
 
 bool AppInit(int argc, char* argv[])
 {
@@ -120,7 +99,16 @@ bool AppInit(int argc, char* argv[])
     CScheduler scheduler;
 
     bool fRet = false;
-
+    std::string daemonname = "komodod";
+    std::string cliname = "komodo-cli";
+#if defined(CUSTOM_BIN_NAME)
+    daemonname = std::string(CUSTOM_BIN_NAME) + "d";
+    cliname = std::string(CUSTOM_BIN_NAME) + "-cli";
+#endif
+    std::string brandname = "Komodo";
+#if defined(CUSTOM_BRAND_NAME)
+    brandname = std::string("Komodo") + " " + std::string(CUSTOM_BRAND_NAME);
+#endif
     //
     // Parameters
     //
@@ -139,7 +127,7 @@ bool AppInit(int argc, char* argv[])
         else
         {
             strUsage += "\n" + _("Usage:") + "\n" +
-                  "  komodod [options]                     " + _("Start Komodo Daemon") + "\n";
+                  "  " + daemonname + " [options]                     " + _("Start ") + brandname + _(" Daemon") + "\n";
 
             strUsage += "\n" + HelpMessage(HMM_BITCOIND);
         }
@@ -155,7 +143,14 @@ bool AppInit(int argc, char* argv[])
             fprintf(stderr, "Error: Invalid combination of -regtest and -testnet.\n");
             return false;
         }
+
+#if defined(CUSTOM_SERVER_ARGS)
+        // add custom chain parameters
+        AddSettings(mapArgs, mapMultiArgs, CUSTOM_SERVER_ARGS);
+#endif
+
         void komodo_args(char *argv0);
+
         komodo_args(argv[0]);
         void chainparams_commandline();
         chainparams_commandline();
@@ -172,16 +167,16 @@ bool AppInit(int argc, char* argv[])
             ReadConfigFile(mapArgs, mapMultiArgs);
         } catch (const missing_zcash_conf& e) {
             fprintf(stderr,
-                (_("Before starting komodod, you need to create a configuration file:\n"
+                (_("Before starting ") + daemonname + _(", you need to create a configuration file:\n"
                    "%s\n"
                    "It can be completely empty! That indicates you are happy with the default\n"
-                   "configuration of komodod. But requiring a configuration file to start ensures\n"
-                   "that komodod won't accidentally compromise your privacy if there was a default\n"
+                   "configuration of ") + daemonname + _(". But requiring a configuration file to start ensures\n"
+                   "that ") + daemonname + _(" won't accidentally compromise your privacy if there was a default\n"
                    "option you needed to change.\n"
                    "\n"
                    "You can look at the example configuration file for suggestions of default\n"
                    "options that you may want to change. It should be in one of these locations,\n"
-                   "depending on how you installed Komodo:\n") +
+                   "depending on how you installed ") + brandname + _(":\n") +
                  _("- Source code:  %s\n"
                    "- .deb package: %s\n")).c_str(),
                 GetConfigFile().string().c_str(),
@@ -196,12 +191,12 @@ bool AppInit(int argc, char* argv[])
         // Command-line RPC
         bool fCommandLine = false;
         for (int i = 1; i < argc; i++)
-            if (!IsSwitchChar(argv[i][0]) && !boost::algorithm::istarts_with(argv[i], "komodo:"))
+            if (!IsSwitchChar(argv[i][0]) && !boost::algorithm::istarts_with(argv[i], "komodo:"))  // Are there any "komodo:" params?
                 fCommandLine = true;
 
         if (fCommandLine)
         {
-            fprintf(stderr, "Error: There is no RPC client functionality in komodod. Use the komodo-cli utility instead.\n");
+            std::cerr << "Error: There is no RPC client functionality in " << daemonname << ". Use the " << cliname << " utility instead." << std::endl;
             exit(EXIT_FAILURE);
         }
 
@@ -209,7 +204,7 @@ bool AppInit(int argc, char* argv[])
         fDaemon = GetBoolArg("-daemon", false);
         if (fDaemon)
         {
-            fprintf(stdout, "Komodo %s server starting\n",ASSETCHAINS_SYMBOL);
+            fprintf(stdout, "Komodo %s server starting\n", ASSETCHAINS_SYMBOL);
 
             // Daemonize
             pid_t pid = fork();

@@ -24,6 +24,7 @@
 #include "rpc/protocol.h"
 #include "util.h"
 #include "utilstrencodings.h"
+#include "komodo_globals.h"
 
 #include <boost/filesystem/operations.hpp>
 #include <stdio.h>
@@ -31,8 +32,6 @@
 #include <event2/buffer.h>
 #include <event2/keyvalq_struct.h>
 #include "support/events.h"
-uint16_t BITCOIND_RPCPORT = 7771;
-char ASSETCHAINS_SYMBOL[65];
 
 #include <univalue.h>
 
@@ -95,18 +94,38 @@ static int AppInitRPC(int argc, char* argv[])
     // Parameters
     //
     ParseParameters(argc, argv);
+
+#if defined(CUSTOM_CLIENT_ARGS)
+    // add custom chain parameters
+    try {
+        AddSettings(mapArgs, mapMultiArgs, CUSTOM_CLIENT_ARGS);
+    } catch (const std::exception& e) {
+        fprintf(stderr,"Error in custom parameters: %s\n", e.what());
+        return EXIT_FAILURE;
+    }
+#endif
+
+        std::string cliname = "komodo-cli";
+        std::string brandname = "Komodo";
+#if defined(CUSTOM_BIN_NAME)
+        cliname = std::string(CUSTOM_BIN_NAME) + "-cli";
+#endif
+#if defined(CUSTOM_BRAND_NAME)
+        brandname = std::string("Komodo") + " " + std::string(CUSTOM_BRAND_NAME);
+#endif
+
     std:string name;
     name = GetArg("-ac_name","");
     if ( !name.empty() )
         strncpy(ASSETCHAINS_SYMBOL,name.c_str(),sizeof(ASSETCHAINS_SYMBOL)-1);
 
     if (argc<2 || mapArgs.count("-?") || mapArgs.count("-h") || mapArgs.count("-help") || mapArgs.count("-version")) {
-        std::string strUsage = _("Komodo RPC client version") + " " + FormatFullVersion() + "\n" + PrivacyInfo();
+        std::string strUsage = brandname + " " + _("RPC client version") + " " + FormatFullVersion() + "\n" + PrivacyInfo();
         if (!mapArgs.count("-version")) {
             strUsage += "\n" + _("Usage:") + "\n" +
-                  "  komodo-cli [options] <command> [params]  " + _("Send command to Komodo") + "\n" +
-                  "  komodo-cli [options] help                " + _("List commands") + "\n" +
-                  "  komodo-cli [options] help <command>      " + _("Get help for a command") + "\n";
+                  "  " + cliname + " [options] <command> [params]  " + _("Send command to ") + brandname + "\n" +
+                  "  " + cliname + " [options] help                " + _("List commands") + "\n" +
+                  "  " + cliname + " [options] help <command>      " + _("Get help for a command") + "\n";
 
             strUsage += "\n" + HelpMessageCli();
         } else {
@@ -124,6 +143,7 @@ static int AppInitRPC(int argc, char* argv[])
         fprintf(stderr, "Error: Specified data directory \"%s\" does not exist.\n", mapArgs["-datadir"].c_str());
         return EXIT_FAILURE;
     }
+
     try {
         ReadConfigFile(mapArgs, mapMultiArgs);
     } catch (const std::exception& e) {

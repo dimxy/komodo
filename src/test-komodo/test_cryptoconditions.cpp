@@ -79,7 +79,7 @@ TEST_F(CCTest, testMayAcceptCryptoCondition)
           { "type": "eval-sha-256", "code": "" }
       ]
     })!!");
-    ASSERT_FALSE(CCPubKey(cond).MayAcceptCryptoCondition());
+    ASSERT_TRUE(CCPubKey(cond).MayAcceptCryptoCondition());   // used to be ASSERT_FALSE, now enabled for generic evals
 }
 
 
@@ -88,7 +88,7 @@ static bool CCVerify(const CMutableTransaction &mtxTo, const CC *cond) {
     ScriptError error;
     CTransaction txTo(mtxTo);
     PrecomputedTransactionData txdata(txTo);
-    auto checker = ServerTransactionSignatureChecker(&txTo, 0, amount, false, NULL, txdata);
+    auto checker = ServerTransactionSignatureChecker(&txTo, 0, amount, false, 0, 1, NULL, txdata);
     return VerifyScript(CCSig(cond), CCPubKey(cond), 0, checker, 0, &error);
 };
 

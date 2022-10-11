@@ -17,103 +17,15 @@
 // make token cryptoconditions and vouts
 // This code was moved to a separate source file to enable linking libcommon.so (with importcoin.cpp which depends on some token functions)
 
+#include "key_io.h"
 #include "CCtokens.h"
-#include "old/CCtokens_v0.h"
-
-
-#ifndef IS_CHARINSTR
-#define IS_CHARINSTR(c, str) (std::string(str).find((char)(c)) != std::string::npos)
-#endif
-
-//#ifndef MAY2020_NNELECTION_HARDFORK
-//#define MAY2020_NNELECTION_HARDFORK 1590926400
-//#endif
-
-
-// return true if new v1 version activation time is passed or chain is always works v1
-// return false if v0 is still active  
-bool TokensIsVer1Active(const Eval *eval)
-{
-    return true; // aleays true for tokel chains
-}
-
-// compatibility code
-// adds old-style opretid 
-// for create oprets treat EVAL_IMPORTCOIN as import tx
-static std::vector<std::pair<uint8_t, vscript_t>> CreationOpretsToOpretsWithId(const std::vector<vscript_t> &oprets)   {
-    std::vector<std::pair<uint8_t, vscript_t>> opretswithid;
-
-    for (auto const &o : oprets)    {
-        if (o.size() > 0)   {
-            uint8_t opretid = 0;
-            switch(o[0])    {
-            case EVAL_IMPORTCOIN:
-                opretid = tokensv0::OPRETID_IMPORTDATA;
-                break;
-            default:
-                opretid = tokensv0::OPRETID_NONFUNGIBLEDATA;
-                break;
-            } 
-            if (opretid != 0)
-                opretswithid.push_back(std::make_pair(opretid, o));
-        }
-    }
-    return opretswithid;
-}
-
-// compatibility code
-// adds old-style opretid for eval code 
-// for non create oprets treat EVAL_IMPORTCOIN as burn tx
-static std::vector<std::pair<uint8_t, vscript_t>> NonCreationOpretsToOpretsWithId(const std::vector<vscript_t> &oprets)   {
-    std::vector<std::pair<uint8_t, vscript_t>> opretswithid;
-
-    for (auto const &o : oprets)    
-    {
-        if (o.size() > 0)   {
-            uint8_t opretid = 0;
-            switch(o[0])    {
-            case EVAL_CHANNELS:
-                opretid = tokensv0::OPRETID_CHANNELSDATA;
-                break;
-            case EVAL_HEIR:
-                opretid = tokensv0::OPRETID_HEIRDATA;
-                break;
-            case 17:
-                opretid = tokensv0::OPRETID_ROGUEGAMEDATA;
-                break; 
-            case EVAL_ASSETS:
-                opretid = tokensv0::OPRETID_ASSETSDATA;
-                break;
-            case EVAL_PEGS:
-                opretid = tokensv0::OPRETID_PEGSDATA;
-                break;
-            case EVAL_GATEWAYS:
-                opretid = tokensv0::OPRETID_GATEWAYSDATA;
-                break;
-            case EVAL_IMPORTCOIN:
-                opretid = tokensv0::OPRETID_BURNDATA;
-                break;
-            }   
-            if (opretid != 0)
-                opretswithid.push_back(std::make_pair(opretid, o));
-        }
-    }
-    return opretswithid;
-}
 
 CScript EncodeTokenCreateOpRetV1(const std::vector<uint8_t> &origpubkey, const std::string &name, const std::string &description, const std::vector<vscript_t> &oprets)
 {        
-    /* no tokens v0 for tokel
-    // call compatibility code:
-    if (!TokensIsVer1Active(NULL))   {
-        return tokensv0::EncodeTokenCreateOpRet('c', origpubkey, name, description, CreationOpretsToOpretsWithId(oprets));  // route to the previous version
-    }
-    */
-
     CScript opret;
     uint8_t evalcode = EVAL_TOKENS;
-    uint8_t funcid = 'C'; // 'C' indicates v1
-    uint8_t version = 1;
+    uint8_t funcid = 'C'; // 'C' indicates opreturn version 1 (with the version field)
+    uint8_t version = TOKENS_OPRETURN_VERSION;
 
     opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version << origpubkey << name << description;
     for (const auto &o : oprets) {
@@ -127,7 +39,7 @@ CScript EncodeTokenCreateOpRetV2(const std::vector<uint8_t> &origpubkey, const s
     CScript opret;
     uint8_t evalcode = EVAL_TOKENSV2;
     uint8_t funcid = 'c'; 
-    uint8_t version = 1;
+    uint8_t version = TOKENS_OPRETURN_VERSION;
 
     opret << OP_RETURN << E_MARSHAL(ss << evalcode << funcid << version << origpubkey << name << description;
     for (const auto &o : oprets) {
@@ -139,17 +51,10 @@ CScript EncodeTokenCreateOpRetV2(const std::vector<uint8_t> &origpubkey, const s
 // v1 format with no opretid (evalcode is used instead)
 CScript EncodeTokenOpRetV1(uint256 tokenid, const std::vector<CPubKey> &voutPubkeys, const std::vector<vscript_t> &oprets)
 {
-    /* no tokens v0 for tokel
-    // call compatibility code:
-    if (!TokensIsVer1Active(NULL))   {
-        return tokensv0::EncodeTokenOpRet(tokenid, voutPubkeys, NonCreationOpretsToOpretsWithId(oprets));  // route to the previous version
-    }
-    */
-
     CScript opret;
-    uint8_t tokenFuncId = 'T'; // 'T' indicates v1
+    uint8_t tokenFuncId = 'T'; // 'T' indicates opreturn version 1 (with the version field)
     uint8_t evalCodeInOpret = EVAL_TOKENS;
-    uint8_t version = 1;
+    uint8_t version = TOKENS_OPRETURN_VERSION;
 
     tokenid = revuint256(tokenid);
 
@@ -159,9 +64,6 @@ CScript EncodeTokenOpRetV1(uint256 tokenid, const std::vector<CPubKey> &voutPubk
         pkCount = 2;
         LOGSTREAM(cctokens_log, CCLOG_DEBUG2, stream << "EncodeTokenOpRet voutPubkeys.size()=" << voutPubkeys.size() << " not supported" << std::endl);
     }
-
-    //vopret_t vpayload;
-    //GetOpReturnData(payload, vpayload);
 
     opret << OP_RETURN << E_MARSHAL(ss << evalCodeInOpret << tokenFuncId << version << tokenid << pkCount;
                             if (pkCount >= 1) ss << voutPubkeys[0];
@@ -179,7 +81,7 @@ CScript EncodeTokenOpRetV2(uint256 tokenid, const std::vector<vscript_t> &oprets
     CScript opret;
     uint8_t tokenFuncId = 't'; 
     uint8_t evalCodeInOpret = EVAL_TOKENSV2;
-    uint8_t version = 1;
+    uint8_t version = TOKENS_OPRETURN_VERSION;
 
     tokenid = revuint256(tokenid);
 
@@ -205,19 +107,6 @@ uint8_t DecodeTokenCreateOpRetV1(const CScript &scriptPubKey, std::vector<uint8_
     uint8_t dummyEvalcode, funcid, version;
 
     oprets.clear();
-
-    /* no token v0 for tokel
-    // try to decode old version:
-    std::vector<std::pair<uint8_t, vscript_t>> opretswithid;
-    if ((funcid = tokensv0::DecodeTokenCreateOpRet(scriptPubKey, origpubkey, name, description, opretswithid)) != 0) // check pubkey is parsed okay
-    {
-        for (auto const & oi : opretswithid)
-            oprets.push_back(oi.second);
-        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "decoded v0 opret funcid=" << (char)funcid << " name=" << name << std::endl);
-        return funcid;
-    }
-    */
-    
 
     GetOpReturnData(scriptPubKey, vopret);
     if (vopret.size() > 2 && vopret[0] == EVAL_TOKENS && vopret[1] == 'C')
@@ -272,18 +161,6 @@ uint8_t DecodeTokenOpRetV1(const CScript scriptPubKey, uint256 &tokenid, std::ve
     CPubKey voutPubkey1, voutPubkey2;
 
     oprets.clear();
-
-    /* no tokens v0 for tokel
-    // try to decode old opreturn version (check tokenid is not null):
-    std::vector<std::pair<uint8_t, vscript_t>> opretswithid;
-    if ((funcId = tokensv0::DecodeTokenOpRet(scriptPubKey, evalCodeOld, tokenid, voutPubkeys, opretswithid)) != 0) 
-    {
-        for (auto const & oi : opretswithid)
-            oprets.push_back(oi.second);
-        LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "decoded v0 opret funcid=" << (char)funcId << " tokenid=" << tokenid.GetHex() << std::endl);
-        return funcId;
-    }
-    */
 
     GetOpReturnData(scriptPubKey, vopret);
     // tokenid = zeroid; this was incorrect: cleared the passed tokenid if creation tx
@@ -364,7 +241,7 @@ uint8_t DecodeTokenOpRetV2(const CScript scriptPubKey, uint256 &tokenid, std::ve
             LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "incorrect evalcode in tokens v2 opret" << std::endl);
             return (uint8_t)0;
         }
-        if (version != 1) {
+        if (version != TOKENS_OPRETURN_VERSION) {
             LOGSTREAMFN(cctokens_log, CCLOG_DEBUG1, stream << "incorrect version in tokens v2 opret" << std::endl);
             return (uint8_t)0;
         }
@@ -493,13 +370,21 @@ CTxOut MakeTokensCC1vout(uint8_t evalcode, CAmount nValue, CPubKey pk, std::vect
 
 // token v2 'mixed' vouts:
 
-// make three-eval (token+evalcode+evalcode2) 1of2 cryptocondition:
-CC *MakeTokensv2CCcondMofN(uint8_t evalcode1, uint8_t evalcode2, uint8_t M, std::vector<CPubKey> pks)
+// make three-eval (token+evalcode+evalcode2) 1of2 cryptocondition with pubkeys or keyids:
+CC *MakeTokensv2CCcondMofNDest(uint8_t evalcode1, uint8_t evalcode2, uint8_t M, std::vector<CTxDestination> dests)
 {
-    // make 1of2 sigs cond 
-    std::vector<CC*> condpks;
-    for (auto const &pk : pks)
-        condpks.push_back(CCNewSecp256k1(pk));
+    // make MofN sigs cond with destinations
+    std::vector<CC*> conddests;
+    for (auto const &dest : dests) {
+        CC *ccSig;
+        if (dest.which() == TX_PUBKEY)
+            ccSig = CCNewSecp256k1(boost::get<CPubKey>(dest));
+        else if (dest.which() == TX_PUBKEYHASH)
+            ccSig = CCNewSecp256k1Hash(boost::get<CKeyID>(dest));
+        else 
+            return nullptr;
+        conddests.push_back(ccSig);
+    }
 
     std::vector<CC*> thresholds;
     if (evalcode1 != 0)
@@ -508,10 +393,23 @@ CC *MakeTokensv2CCcondMofN(uint8_t evalcode1, uint8_t evalcode2, uint8_t M, std:
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << (uint8_t)EVAL_TOKENSV2)));	// this is eval token cc
     if (evalcode2 != 0)
         thresholds.push_back(CCNewEval(E_MARSHAL(ss << evalcode2)));                // add optional additional evalcode
-    thresholds.push_back(CCNewThreshold(M, condpks));		                            // this is 1 of 2 sigs cc
+    thresholds.push_back(CCNewThreshold(M, conddests));		                            // this is 1 of 2 sigs cc
 
     return CCNewThreshold(thresholds.size(), thresholds);
 }
+
+// make three-eval (token+evalcode+evalcode2) 1of2 cryptocondition with pubkeys:
+CC *MakeTokensv2CCcondMofN(uint8_t evalcode1, uint8_t evalcode2, uint8_t M, std::vector<CPubKey> pks)
+{
+    // convert pks to dests
+    std::vector<CTxDestination> dests;
+    for (auto const &pk : pks)
+        dests.push_back(pk);
+    // make MofN sigs cond 
+    return MakeTokensv2CCcondMofNDest(evalcode1, evalcode2, M, dests);
+}
+
+
 // overload to make two-eval (token+evalcode) 1of2 cryptocondition:
 CC *MakeTokensv2CCcond1of2(uint8_t evalcode, CPubKey pk1, CPubKey pk2) {
     return MakeTokensv2CCcondMofN(evalcode, 0, 1, { pk1, pk2 });
@@ -533,19 +431,27 @@ CC *MakeTokensv2CCcond1(uint8_t evalcode, CPubKey pk) {
     return MakeTokensv2CCcondMofN(evalcode, 0, 1, { pk });
 }
 
-// make three-eval (token+evalcode+evalcode2) MofN cc vout:
-CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> &pks, vscript_t* pvData)
+CTxOut MakeTokensCCMofNDestVoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CTxDestination> &dests, vscript_t* pvData)
 {
     CTxOut vout;
-    CCwrapper payoutCond( MakeTokensv2CCcondMofN(evalcode1, evalcode2, M, pks) );
-    if (!CCtoAnon(payoutCond.get())) 
-        return vout;
-    vout = CTxOut(nValue, CCPubKey(payoutCond.get(),true));
+    CCwrapper payoutCond( MakeTokensv2CCcondMofNDest(evalcode1, evalcode2, M, dests) );
+    //if (!CCtoAnon(payoutCond.get())) 
+    //    return vout;
+
+    bool hasSecHash = std::find_if(dests.begin(), dests.end(), [](const CTxDestination &dest){ return dest.which() == TX_PUBKEYHASH; }) != dests.end();
+
+    vout = CTxOut(nValue, CCPubKey(payoutCond.get(), hasSecHash ? CC_MIXED_MODE_SECHASH_SUBVER_1 : CC_MIXED_MODE_SUBVER_0) );
 
     {
         std::vector<vscript_t> vvData;
         if (pvData)
             vvData.push_back(*pvData);
+
+        // convert to pubkeys to show them in opdrop
+        std::vector<CPubKey> pks;
+        for (auto const &dest : dests)
+            if (dest.which() == TX_PUBKEY)
+                pks.push_back(boost::get<CPubKey>(dest));
 
         COptCCParams ccp = COptCCParams(COptCCParams::VERSION_2, evalcode1, M, pks.size(), pks, vvData);  // ver2 -> add pks
         vout.scriptPubKey << ccp.AsVector() << OP_DROP;
@@ -553,6 +459,16 @@ CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount n
     //if (pvData)
     //    vout.scriptPubKey << *pvData << OP_DROP;
     return vout;
+}
+
+// make three-eval (token+evalcode+evalcode2) MofN cc vout:
+CTxOut MakeTokensCCMofNvoutMixed(uint8_t evalcode1, uint8_t evalcode2, CAmount nValue, uint8_t M, const std::vector<CPubKey> &pks, vscript_t* pvData)
+{
+    // convert pks to dests
+    std::vector<CTxDestination> dests;
+    for (auto const &pk : pks)
+        dests.push_back(pk);
+    return MakeTokensCCMofNDestVoutMixed(evalcode1, evalcode2, nValue, M, dests, pvData);
 }
 
 // make three-eval (token+evalcode+evalcode2) cc vout:
@@ -612,21 +528,4 @@ uint8_t DecodeTokenOpretVersion(const CScript &scriptPubKey)
         }
     }
     return version;
-}
-
-template <class V>
-uint8_t GetTokenOpReturnVersion(uint256 tokenid)
-{
-    CTransaction tokencreatetx;
-    uint256 hashBlock;
-    vuint8_t vorigpk;
-    std::string name, desc;
-    std::vector<vuint8_t> oprets;
-
-    if (myGetTransaction(tokenid, tokencreatetx, hashBlock) && 
-        tokencreatetx.vout.size() > 0 && 
-        V::DecodeTokenCreateOpRet(tokencreatetx.vout.back().scriptPubKey, vorigpk, name, desc, oprets) != 0)
-        return DecodeTokenOpretVersion(tokencreatetx.vout.back().scriptPubKey);
-    else
-        return 0;
 }

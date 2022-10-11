@@ -42,11 +42,11 @@
 #include "zcash/Note.hpp"
 #include "zcash/NoteEncryption.hpp"
 
+#include "rpcwallet.h"
+
 using namespace std;
 using namespace libzcash;
 
-// Function declaration for function implemented in wallet/rpcwallet.cpp
-bool EnsureWalletIsAvailable(bool avoidException);
 
 /**
  * RPC call to generate a payment disclosure

@@ -1373,8 +1373,10 @@ int TransactionSignatureChecker::CheckCryptoCondition(
     int error = cc_readFulfillmentBinaryExt((unsigned char*)ffillBin.data(), ffillBin.size()-1, &cond);
     if (error || !cond) return -1;
 
-    if (!IsSupportedCryptoCondition(cond)) return 0;
-    if (!IsSignedCryptoCondition(cond)) return 0;
+    CC_SUBVER ccSubVersion = CC_MixedModeSubVersion(scriptCode[0]); 
+
+    if (!IsSupportedCryptoCondition(cond, ccSubVersion)) return 0;
+    if (!IsSignedCryptoCondition(cond, ccSubVersion)) return 0;
     
     uint256 sighash;
     int nHashType = ffillBin.back();
@@ -1388,10 +1390,10 @@ int TransactionSignatureChecker::CheckCryptoCondition(
         return ((TransactionSignatureChecker*)checker)->CheckEvalCondition(cond);
     };
 
-    //fprintf(stderr,"non-checker path\n");
+    //fprintf(stderr,"%s non-checker path\n", __func__);
     int out = cc_verifyMaybeMixed(
             cond, sighash, condBin.data(), condBin.size(), eval, (void*)this);
-    //fprintf(stderr,"out.%d from cc_verify\n",(int32_t)out);
+    //fprintf(stderr,"%s out.%d from cc_verify\n", __func__, (int32_t)out);
     cc_free(cond);
     return out;
 }

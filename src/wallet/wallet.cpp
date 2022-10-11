@@ -38,6 +38,8 @@
 #include "crypter.h"
 #include "coins.h"
 #include "zcash/zip32.h"
+
+#include "komodo_defs.h"
 #include "cc/CCinclude.h"
 
 #include <assert.h>
@@ -58,12 +60,7 @@ unsigned int nTxConfirmTarget = DEFAULT_TX_CONFIRM_TARGET;
 bool bSpendZeroConfChange = true;
 bool fSendFreeTransactions = false;
 bool fPayAtLeastCustomFee = true;
-#include "komodo_defs.h"
 
-CBlockIndex *komodo_chainactive(int32_t height);
-extern std::string DONATION_PUBKEY;
-int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
-int tx_height( const uint256 &hash );
 
 /**
  * Fees smaller than this (in satoshi) are considered zero fee (for transaction creation)
@@ -2215,8 +2212,9 @@ isminetype CWallet::IsMine(const CTransaction& tx, uint32_t voutNum)
     vector<valtype> vSolutions;
     txnouttype whichType;
     const CScriptExt scriptPubKey = CScriptExt(tx.vout[voutNum].scriptPubKey);
+    bool iscltv;
 
-    if (!Solver(scriptPubKey, whichType, vSolutions)) {
+    if (!SolverCLTV(scriptPubKey, whichType, vSolutions, iscltv)) {
         if (this->HaveWatchOnly(scriptPubKey))
             return ISMINE_WATCH_ONLY;
         return ISMINE_NO;
@@ -2233,6 +2231,8 @@ isminetype CWallet::IsMine(const CTransaction& tx, uint32_t voutNum)
         case TX_NULL_DATA:
             break;
 
+        // Note: this is unusable in komodo 
+        // Unlike in Verus the wallet in Komodo can't understand cryptoconditions spks (only appropriate cc modules understand their spks)
         case TX_CRYPTOCONDITION:
             // for now, default is that the first value returned will be the script, subsequent values will be
             // pubkeys. if we have the first pub key in our wallet, we consider this spendable
@@ -2260,7 +2260,7 @@ isminetype CWallet::IsMine(const CTransaction& tx, uint32_t voutNum)
             scriptID = CScriptID(uint160(vSolutions[0]));
             if (this->GetCScript(scriptID, subscript))
             {
-                // if this is a CLTV, handle it differently
+                // if this is a P2SH/CLTV, handle it differently
                 if (subscript.IsCheckLockTimeVerify())
                 {
                     return (::IsMine(*this, subscript));
@@ -2276,6 +2276,7 @@ isminetype CWallet::IsMine(const CTransaction& tx, uint32_t voutNum)
                 tx.vout[voutNext].scriptPubKey.size() > 7 &&
                 tx.vout[voutNext].scriptPubKey[0] == OP_RETURN)
             {
+                // Verus specific:
                 // get the opret script from next vout, verify that the front is CLTV and hash matches
                 // if so, remove it and use the solver
                 opcodetype op;
@@ -3385,10 +3386,7 @@ CAmount CWallet::GetImmatureWatchOnlyBalance() const
 /**
  * populate vCoins with vector of available COutputs.
  */
-uint64_t komodo_interestnew(int32_t txheight,uint64_t nValue,uint32_t nLockTime,uint32_t tiptime);
-uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 hash,int32_t n,int32_t checkheight,uint64_t checkvalue,int32_t tipheight);
-
-void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl, bool fIncludeZeroValue, bool fIncludeCoinBase) const
+void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const CCoinControl *coinControl, bool fIncludeZeroValue, bool fIncludeCoinBase, int64_t txLockTime) const
 {
     uint64_t interest,*ptr;
     vCoins.clear();
@@ -3464,7 +3462,15 @@ void CWallet::AvailableCoins(vector<COutput>& vCoins, bool fOnlyConfirmed, const
                             (*ptr) = 0;
                         }
                     }
-                    vCoins.push_back(COutput(pcoin, i, nDepth, (mine & ISMINE_SPENDABLE) != ISMINE_NO));
+
+                    bool bStillTimeLocked = false;
+                    {
+                        int64_t nLockTime;
+                        if(pcoin->vout[i].scriptPubKey.IsCheckLockTimeVerify(&nLockTime))
+                            bStillTimeLocked = !TokelCheckLockTimeHelper(nLockTime, txLockTime);
+                    }
+
+                    vCoins.push_back(COutput(pcoin, i, nDepth, (mine & ISMINE_SPENDABLE) != ISMINE_NO && !bStillTimeLocked));
                 }
             }
         }
@@ -3639,7 +3645,7 @@ bool CWallet::SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int
     return true;
 }
 
-bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet,  bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl* coinControl) const
+bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet,  bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl* coinControl, int64_t txLockTime) const
 {
     // Output parameter fOnlyCoinbaseCoinsRet is set to true when the only available coins are coinbase utxos.
     uint64_t tmp; int32_t retval;
@@ -3649,8 +3655,8 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*
     //    *interestp = 0;
     //}
     vector<COutput> vCoinsNoCoinbase, vCoinsWithCoinbase;
-    AvailableCoins(vCoinsNoCoinbase, true, coinControl, false, false);
-    AvailableCoins(vCoinsWithCoinbase, true, coinControl, false, true);
+    AvailableCoins(vCoinsNoCoinbase, true, coinControl, false, false, txLockTime);
+    AvailableCoins(vCoinsWithCoinbase, true, coinControl, false, true, txLockTime);
     fOnlyCoinbaseCoinsRet = vCoinsNoCoinbase.size() == 0 && vCoinsWithCoinbase.size() > 0;
 
     // If coinbase utxos can only be sent to zaddrs, exclude any coinbase utxos from coin selection.
@@ -3727,6 +3733,7 @@ bool CWallet::SelectCoins(const CAmount& nTargetValue, set<pair<const CWalletTx*
         else
             ++it;
     }
+
     retval = false;
     if ( nTargetValue <= nValueFromPresetInputs )
         retval = true;
@@ -3815,10 +3822,11 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
     CMutableTransaction txNew = CreateNewContextualCMutableTransaction(Params().GetConsensus(), nextBlockHeight);
     
     //if ((uint32_t)chainActive.LastTip()->nTime < ASSETCHAINS_STAKED_HF_TIMESTAMP)
-    if ( !komodo_hardfork_active((uint32_t)chainActive.LastTip()->nTime) )
+    /*if ( !komodo_hardfork_active((uint32_t)chainActive.LastTip()->nTime) )
         txNew.nLockTime = (uint32_t)chainActive.LastTip()->nTime + 1; // set to a time close to now
     else
-        txNew.nLockTime = (uint32_t)chainActive.Tip()->GetMedianTimePast();
+        txNew.nLockTime = (uint32_t)chainActive.Tip()->GetMedianTimePast();*/
+    txNew.nLockTime = komodo_next_tx_locktime();
 
     // Activates after Overwinter network upgrade
     if (NetworkUpgradeActive(nextBlockHeight, Params().GetConsensus(), Consensus::UPGRADE_OVERWINTER)) {
@@ -3910,7 +3918,7 @@ bool CWallet::CreateTransaction(const vector<CRecipient>& vecSend, CWalletTx& wt
                 bool fOnlyCoinbaseCoins = false;
                 bool fNeedCoinbaseCoins = false;
                 interest2 = 0;
-                if (!SelectCoins(nTotalValue, setCoins, nValueIn, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coinControl))
+                if (!SelectCoins(nTotalValue, setCoins, nValueIn, fOnlyCoinbaseCoins, fNeedCoinbaseCoins, coinControl, txNew.nLockTime))
                 {
                     if (fOnlyCoinbaseCoins && Params().GetConsensus().fCoinbaseMustBeProtected) {
                         strFailReason = _("Coinbase funds can only be sent to a zaddr");
@@ -4187,7 +4195,7 @@ bool CWallet::CommitTransaction(CWalletTx& wtxNew, CReserveKey& reservekey)
             // Broadcast
             if (!wtxNew.AcceptToMemoryPool(false))
             {
-                fprintf(stderr,"commit failed\n");
+                // fprintf(stderr,"commit failed\n");
                 // This must not fail. The transaction has already been signed and recorded.
                 LogPrintf("CommitTransaction(): Error: Transaction not valid\n");
                 return false;
@@ -4222,7 +4230,7 @@ CAmount CWallet::GetMinimumFee(unsigned int nTxBytes, unsigned int nConfirmTarge
 }
 
 
-void komodo_prefetch(FILE *fp);
+//void komodo_prefetch(FILE *fp);
 
 DBErrors CWallet::LoadWallet(bool& fFirstRunRet)
 {
@@ -4481,7 +4489,7 @@ int64_t CWallet::GetOldestKeyPoolTime()
     return keypool.nTime;
 }
 
-std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
+std::map<CTxDestination, CAmount> CWallet::GetAddressBalances(int64_t txLockTime)
 {
     map<CTxDestination, CAmount> balances;
 
@@ -4508,6 +4516,9 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
                     continue;
                 if(!ExtractDestination(pcoin->vout[i].scriptPubKey, addr))
                     continue;
+                // if this is CLTV then set if it is already unlocked for spending for the next txLockTime:
+                if (addr.which() == TX_CLTV)
+                    TokelSetIfTimeUnlocked(addr, txLockTime);
 
                 CAmount n = IsSpent(walletEntry.first, i) ? 0 : pcoin->vout[i].nValue;
 
@@ -4521,7 +4532,7 @@ std::map<CTxDestination, CAmount> CWallet::GetAddressBalances()
     return balances;
 }
 
-set< set<CTxDestination> > CWallet::GetAddressGroupings()
+set< set<CTxDestination> > CWallet::GetAddressGroupings(int64_t txLockTime)
 {
     AssertLockHeld(cs_wallet); // mapWallet
     set< set<CTxDestination> > groupings;
@@ -4542,6 +4553,8 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings()
                     continue;
                 if(!ExtractDestination(mapWallet[txin.prevout.hash].vout[txin.prevout.n].scriptPubKey, address))
                     continue;
+                if (address.which() == TX_CLTV)
+                    TokelSetIfTimeUnlocked(address, txLockTime);
                 grouping.insert(address);
                 any_mine = true;
             }
@@ -4549,14 +4562,16 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings()
             // group change with input addresses
             if (any_mine)
             {
-               BOOST_FOREACH(CTxOut txout, pcoin->vout)
-                   if (IsChange(txout))
-                   {
-                       CTxDestination txoutAddr;
-                       if(!ExtractDestination(txout.scriptPubKey, txoutAddr))
-                           continue;
-                       grouping.insert(txoutAddr);
-                   }
+                BOOST_FOREACH (CTxOut txout, pcoin->vout)
+                    if (IsChange(txout)) {
+                        CTxDestination txoutAddr;
+                        if (!ExtractDestination(txout.scriptPubKey, txoutAddr))
+                            continue;
+                        // if this is CLTV then set if it is already unlocked for spending for the next txLockTime:
+                        if (txoutAddr.which() == TX_CLTV)  
+                            TokelSetIfTimeUnlocked(txoutAddr, txLockTime);
+                        grouping.insert(txoutAddr);
+                    }
             }
             if (grouping.size() > 0)
             {
@@ -4572,6 +4587,11 @@ set< set<CTxDestination> > CWallet::GetAddressGroupings()
                 CTxDestination address;
                 if(!ExtractDestination(pcoin->vout[i].scriptPubKey, address))
                     continue;
+
+                // if this is CLTV then set if it is already unlocked for spending for the next txLockTime:
+                if (address.which() == TX_CLTV)  
+                    TokelSetIfTimeUnlocked(address, txLockTime);
+
                 grouping.insert(address);
                 groupings.insert(grouping);
                 grouping.clear();
@@ -4830,6 +4850,14 @@ public:
         if (keystore.GetCScript(scriptId, script))
             Process(script);
     }
+
+    void operator()(const CCLTVID &cltv) {
+        CKeyID keyId = cltv.GetID();
+        if (keystore.HaveKey(keyId))
+            vKeys.push_back(keyId);
+    }
+
+    void operator()(const CCryptoConditionID &none) {}  // no cc in the wallet
 
     void operator()(const CNoDestination &none) {}
 };

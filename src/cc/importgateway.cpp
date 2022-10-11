@@ -13,9 +13,9 @@
  *                                                                            *
  ******************************************************************************/
 
-#include "CCImportGateway.h"
 #include "key_io.h"
 #include "../importcoin.h"
+#include "CCImportGateway.h"
 
 // start of consensus code
 

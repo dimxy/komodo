@@ -19,21 +19,13 @@
 #include <curl/easy.h>
 #include "primitives/nonce.h"
 #include "consensus/params.h"
-#include "komodo_defs.h"
 #include "script/standard.h"
+#include "init.h"
+#include "main.h"
+#include "komodo_defs.h"
 #include "cc/CCinclude.h"
 
 const char *LOG_KOMODOBITCOIND = "komodostaking";
-
-int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestamp);
-int32_t komodo_electednotary(int32_t *numnotariesp,uint8_t *pubkey33,int32_t height,uint32_t timestamp);
-int32_t komodo_voutupdate(bool fJustCheck,int32_t *isratificationp,int32_t notaryid,uint8_t *scriptbuf,int32_t scriptlen,int32_t height,uint256 txhash,int32_t i,int32_t j,uint64_t *voutmaskp,int32_t *specialtxp,int32_t *notarizedheightp,uint64_t value,int32_t notarized,uint64_t signedmask,uint32_t timestamp);
-unsigned int lwmaGetNextPOSRequired(const CBlockIndex* pindexLast, const Consensus::Params& params);
-bool EnsureWalletIsAvailable(bool avoidException);
-extern bool fRequestShutdown;
-extern CScript KOMODO_EARLYTXID_SCRIPTPUB;
-
-uint32_t komodo_heightstamp(int32_t height);
 
 //#define issue_curl(cmdstr) bitcoind_RPC(0,(char *)"curl",(char *)"http://127.0.0.1:7776",0,0,(char *)(cmdstr))
 
@@ -527,7 +519,7 @@ int32_t komodo_verifynotarization(char *symbol,char *dest,int32_t height,int32_t
     {
         if ( (json= cJSON_Parse(jsonstr)) != 0 )
         {
-            if ( (txjson= jobj(json,(char *)"result")) != 0 && (vouts= jarray(&n,txjson,(char *)"vout")) > 0 )
+            if ( (txjson= jobj(json,(char *)"result")) != 0 && (vouts= jarray(&n,txjson,(char *)"vout")) != 0 )
             {
                 vout = jitem(vouts,n-1);
                 if ( 0 && ASSETCHAINS_SYMBOL[0] != 0 )
@@ -942,6 +934,7 @@ int32_t komodo_blockload(CBlock& block,CBlockIndex *pindex)
 
 uint32_t komodo_chainactive_timestamp()
 {
+    AssertLockHeld(cs_main);
     if ( chainActive.LastTip() != 0 )
         return((uint32_t)chainActive.LastTip()->GetBlockTime());
     else return(0);
@@ -949,6 +942,7 @@ uint32_t komodo_chainactive_timestamp()
 
 CBlockIndex *komodo_chainactive(int32_t height)
 {
+    AssertLockHeld(cs_main);
     if ( chainActive.LastTip() != 0 )
     {
         if ( height <= chainActive.LastTip()->GetHeight() )
@@ -961,6 +955,7 @@ CBlockIndex *komodo_chainactive(int32_t height)
 
 uint32_t komodo_heightstamp(int32_t height)
 {
+    AssertLockHeld(cs_main);
     CBlockIndex *ptr;
     if ( height > 0 && (ptr= komodo_chainactive(height)) != 0 )
         return(ptr->nTime);
@@ -1268,11 +1263,11 @@ uint32_t komodo_interest_args(uint32_t *txheighttimep,int32_t *txheightp,uint32_
     return(locktime);
 }
 
-uint64_t komodo_interest(int32_t txheight,uint64_t nValue,uint32_t nLockTime,uint32_t tiptime);
-
 uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 hash,int32_t n,int32_t checkheight,uint64_t checkvalue,int32_t tipheight)
 {
     uint64_t value; uint32_t tiptime=0,txheighttimep; CBlockIndex *pindex;
+    AssertLockHeld(cs_main);
+
     if ( (pindex= chainActive[tipheight]) != 0 )
         tiptime = (uint32_t)pindex->nTime;
     else fprintf(stderr,"cant find height[%d]\n",tipheight);
@@ -1288,15 +1283,25 @@ uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 
 
 int32_t komodo_nextheight()
 {
-    CBlockIndex *pindex; int32_t ht;
-    if ( (pindex= chainActive.LastTip()) != 0 && (ht= pindex->GetHeight()) > 0 )
-        return(ht+1);
-    else return(komodo_longestchain() + 1);
+    CBlockIndex* pindex;
+    int32_t ht;
+    
+    {
+        LOCK(cs_main); // dimxy added to protect chainActive concurrent use. 
+        pindex = chainActive.LastTip();
+    }
+
+    if (pindex != nullptr && (ht = pindex->GetHeight()) > 0)
+        return (ht + 1);
+    else
+        return (komodo_longestchain() + 1);
 }
 
 int32_t komodo_isrealtime(int32_t *kmdheightp)
 {
     struct komodo_state *sp; CBlockIndex *pindex;
+    
+    AssertLockHeld(cs_main);
     if ( (sp= komodo_stateptrget((char *)"KMD")) != 0 )
         *kmdheightp = sp->CURRENT_HEIGHT;
     else *kmdheightp = 0;

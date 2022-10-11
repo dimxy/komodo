@@ -263,8 +263,16 @@ protected:
     int Check_();
 #endif
 
+    void GetAddrLimited(std::vector<CAddress> &vAddr, unsigned int nNodes);
+
     //! Select several addresses at once.
     void GetAddr_(std::vector<CAddress> &vAddr);
+
+#ifdef ENABLE_WEBSOCKETS
+    //! Actual function to select several at most N addresses at once.
+    void GetAddrAtMost_(std::vector<CAddress> &vAddr);
+    void GetAddrInfoAll_(std::vector<CAddrInfo> &vAddrInfo);
+#endif
 
     //! Mark an entry as currently-connected-to.
     void Connected_(const CService &addr, int64_t nTime);
@@ -499,9 +507,9 @@ public:
         Check();
     }
 
-    void Clear()
+private:
+    void Clear_()
     {
-        LOCK(cs);
         std::vector<int>().swap(vRandom);
         nKey = GetRandHash();
         for (size_t bucket = 0; bucket < ADDRMAN_NEW_BUCKET_COUNT; bucket++) {
@@ -522,9 +530,16 @@ public:
         mapAddr.clear();
     }
 
+public:
     CAddrMan()
     {
-        Clear();
+        Clear_(); // use unlocked version bcz locked one caused boost: mutex lock failed in pthread_mutex_lock: Invalid argument exception because of static init concurrency (static dd_mutex has not been constructed yet)
+    }
+
+    void Clear()
+    {
+        LOCK(cs);
+        Clear_();
     }
 
     ~CAddrMan()
@@ -631,6 +646,40 @@ public:
         Check();
         return vAddr;
     }
+
+#ifdef ENABLE_WEBSOCKETS
+    //! Return at most N addresses, selected at random.
+    std::vector<CAddress> GetAddrAtMost()
+    {
+        Check();
+        std::vector<CAddress> vAddr;
+        {
+            LOCK(cs);
+            GetAddrAtMost_(vAddr);
+        }
+        Check();
+        return vAddr;
+    }
+
+    //! Return all addrinfo.
+    std::vector<CAddrInfo> GetAddrInfoAll()
+    {
+        Check();
+        std::vector<CAddrInfo> vAddrInfo;
+        {
+            LOCK(cs);
+            GetAddrInfoAll_(vAddrInfo);
+        }
+        Check();
+        return vAddrInfo;
+    }
+    
+    // for debugging: access to addrinfo private member
+    CNetAddr GetSource(CAddrInfo addrInfo)
+    {
+        return addrInfo.source;
+    }
+#endif    
 
     //! Mark an entry as currently-connected-to.
     void Connected(const CService &addr, int64_t nTime = GetTime())

@@ -492,12 +492,9 @@ int CAddrMan::Check_()
 }
 #endif
 
-void CAddrMan::GetAddr_(std::vector<CAddress>& vAddr)
+// gather a list of random nodes, skipping those of low quality
+void CAddrMan::GetAddrLimited(std::vector<CAddress>& vAddr, unsigned int nNodes)
 {
-    unsigned int nNodes = ADDRMAN_GETADDR_MAX_PCT * vRandom.size() / 100;
-    if (nNodes > ADDRMAN_GETADDR_MAX)
-        nNodes = ADDRMAN_GETADDR_MAX;
-
     // gather a list of random nodes, skipping those of low quality
     for (unsigned int n = 0; n < vRandom.size(); n++) {
         if (vAddr.size() >= nNodes)
@@ -512,6 +509,35 @@ void CAddrMan::GetAddr_(std::vector<CAddress>& vAddr)
             vAddr.push_back(ai);
     }
 }
+
+void CAddrMan::GetAddr_(std::vector<CAddress>& vAddr)
+{
+    unsigned int nNodes = ADDRMAN_GETADDR_MAX_PCT * vRandom.size() / 100;
+    if (nNodes > ADDRMAN_GETADDR_MAX)
+        nNodes = ADDRMAN_GETADDR_MAX;
+
+    GetAddrLimited(vAddr, nNodes);
+}
+
+#ifdef ENABLE_WEBSOCKETS
+// get no more than N addresses for clients (do not use 23% limit assuming there are no many websockets listeners in the net)
+void CAddrMan::GetAddrAtMost_(std::vector<CAddress>& vAddr)
+{
+    unsigned int nNodes = vRandom.size();
+    if (nNodes > 1000)  // actually MAX_ADDR_TO_SEND
+        nNodes = 1000;
+
+    GetAddrLimited(vAddr, nNodes);
+}
+
+// get all addrinfo for printing
+void CAddrMan::GetAddrInfoAll_(std::vector<CAddrInfo>& vAddrInfo)
+{
+    for (auto const &i : mapInfo) {
+       vAddrInfo.push_back(i.second);
+    }
+}
+#endif
 
 void CAddrMan::Connected_(const CService& addr, int64_t nTime)
 {

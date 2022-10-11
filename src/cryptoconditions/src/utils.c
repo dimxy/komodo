@@ -72,15 +72,9 @@ unsigned char *base64_encode(const unsigned char *data, size_t input_length) {
     // make sure there's a null termination for string protocol
     encoded_data[output_length] = '\0';
 
-
-    // url safe
-    for (int i=0; i<output_length; i++) {
-        if (encoded_data[i] == '/') encoded_data[i] = '_';
-        if (encoded_data[i] == '+') encoded_data[i] = '-';
-    }
-
     return encoded_data;
 }
+
 
 
 unsigned char *base64_decode(const unsigned char *data_,
@@ -99,12 +93,6 @@ unsigned char *base64_decode(const unsigned char *data_,
             data[input_length + i] = '=';
         }
         input_length += 4-rem;
-    }
-
-    // for URL safe
-    for (int i=0; i<input_length; i++) {
-        if (data[i] == '-') data[i] = '+';
-        if (data[i] == '_') data[i] = '/';
     }
 
     *output_length = input_length / 4 * 3;
@@ -134,6 +122,31 @@ unsigned char *base64_decode(const unsigned char *data_,
     return decoded_data;
 }
 
+unsigned char *base64_encode_url_safe(const unsigned char *data, size_t input_length) {
+    unsigned char * encoded_data = base64_encode(data, input_length);
+
+    if (encoded_data)  {
+        // url safe
+        for (char *pc = encoded_data; *pc != '\0'; pc++) {
+            if (*pc == '/') *pc = '_';
+            if (*pc == '+') *pc = '-';
+        }
+    }
+    return encoded_data;
+}
+
+unsigned char *base64_decode_url_safe(const unsigned char *data_,
+                             size_t *output_length) {
+    unsigned char * decoded_data = base64_decode(data_, output_length);
+    if (decoded_data) {
+        // for URL safe
+        for (unsigned char *pc = decoded_data; pc - decoded_data < *output_length; pc++) {
+            if (*pc == '-') *pc = '+';
+            if (*pc == '_') *pc = '/';
+        }
+    }
+    return decoded_data;                    
+}
 
 void base64_cleanup() {
     free(decoding_table);
@@ -216,7 +229,7 @@ void hashFingerprintContents(asn_TYPE_descriptor_t *asnType, void *fp, uint8_t *
     ASN_STRUCT_FREE(*asnType, fp);
     if (rc.encoded < 1) {
         fprintf(stderr, "Encoding fingerprint failed\n");
-        return 0;
+        return;
     }
     sha256(buf, rc.encoded, out);
 }

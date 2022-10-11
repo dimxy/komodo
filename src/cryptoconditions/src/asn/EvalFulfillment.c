@@ -16,18 +16,28 @@ static asn_TYPE_member_t asn_MBR_EvalFulfillment_1[] = {
 		0,
 		"code"
 		},
+	{ ATF_POINTER, 1, offsetof(struct EvalFulfillment, param),
+		(ASN_TAG_CLASS_CONTEXT | (1 << 2)),
+		-1,	/* IMPLICIT tag at current level */
+		&asn_DEF_OCTET_STRING,
+		0,	/* Defer constraints checking to the member type */
+		0,	/* PER is not compiled, use -gen-PER */
+		0,
+		"param"
+		},
 };
 static const ber_tlv_tag_t asn_DEF_EvalFulfillment_tags_1[] = {
 	(ASN_TAG_CLASS_UNIVERSAL | (16 << 2))
 };
 static const asn_TYPE_tag2member_t asn_MAP_EvalFulfillment_tag2el_1[] = {
-    { (ASN_TAG_CLASS_CONTEXT | (0 << 2)), 0, 0, 0 } /* code */
+    { (ASN_TAG_CLASS_CONTEXT | (0 << 2)), 0, 0, 0 }, /* code */
+    { (ASN_TAG_CLASS_CONTEXT | (1 << 2)), 1, 0, 0 } /* param */
 };
 static asn_SEQUENCE_specifics_t asn_SPC_EvalFulfillment_specs_1 = {
 	sizeof(struct EvalFulfillment),
 	offsetof(struct EvalFulfillment, _asn_ctx),
 	asn_MAP_EvalFulfillment_tag2el_1,
-	1,	/* Count of tags in the map */
+	2,	/* Count of tags in the map */
 	0, 0, 0,	/* Optional elements (not needed) */
 	-1,	/* Start extensions */
 	-1	/* Stop extensions */
@@ -52,7 +62,7 @@ asn_TYPE_descriptor_t asn_DEF_EvalFulfillment = {
 		/sizeof(asn_DEF_EvalFulfillment_tags_1[0]), /* 1 */
 	0,	/* No PER visible constraints */
 	asn_MBR_EvalFulfillment_1,
-	1,	/* Elements count */
+	2,	/* Elements count */
 	&asn_SPC_EvalFulfillment_specs_1	/* Additional specs */
 };
 

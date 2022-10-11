@@ -92,7 +92,7 @@ public:
 
 
 
-CAmount GetCoinImportValue(const CTransaction &tx);
+CAmount GetCoinImportValue(const CTransaction &tx, int64_t nTime, int32_t nHeight);
 
 CTransaction MakeImportCoinTransaction(const ImportProof proof, const CTransaction burnTx, const std::vector<CTxOut> payouts, uint32_t nExpiryHeightOverride = 0);
 CTransaction MakePegsImportCoinTransaction(const ImportProof proof, const CTransaction burnTx, const std::vector<CTxOut> payouts, uint32_t nExpiryHeightOverride = 0);
@@ -121,5 +121,8 @@ bool CheckVinPubKey(const CTransaction &sourcetx, int32_t i, uint8_t pubkey33[33
 
 CMutableTransaction MakeSelfImportSourceTx(CTxDestination &dest, int64_t amount);
 int32_t GetSelfimportProof(const CMutableTransaction sourceMtx, CMutableTransaction &templateMtx, ImportProof &proofNull);
+
+extern std::string ASSETCHAINS_SELFIMPORT;
+extern uint16_t ASSETCHAINS_CODAPORT, ASSETCHAINS_BEAMPORT;
 
 #endif /* IMPORTCOIN_H */

@@ -230,6 +230,8 @@ public:
     bool operator()(const CKeyID& id) const { return addr->Set(id); }
     bool operator()(const CPubKey& key) const { return addr->Set(key); }
     bool operator()(const CScriptID& id) const { return addr->Set(id); }
+    bool operator()(const CCryptoConditionID& id) const { return addr->Set(id); }
+    bool operator()(const CCLTVID& id) const { return addr->Set(id); }
     bool operator()(const CNoDestination& no) const { return false; }
 };
 
@@ -254,6 +256,21 @@ bool CBitcoinAddress::Set(const CScriptID& id)
     return true;
 }
 
+bool CBitcoinAddress::Set(const CCryptoConditionID& id)
+{
+    SetData(Params().Base58Prefix(CChainParams::CRYPTOCONDITION_ADDRESS), &id, 20);
+    return true;
+}
+
+bool CBitcoinAddress::Set(const CCLTVID& id)
+{
+    if (id.which() == TX_PUBKEY)
+        Set(id.GetPubKey());
+    else
+        Set(id.GetKeyID());
+    return true;
+}
+
 bool CBitcoinAddress::Set(const CTxDestination& dest)
 {
     return boost::apply_visitor(CBitcoinAddressVisitor(this), dest);
@@ -268,7 +285,8 @@ bool CBitcoinAddress::IsValid(const CChainParams& params) const
 {
     bool fCorrectSize = vchData.size() == 20;
     bool fKnownVersion = vchVersion == params.Base58Prefix(CChainParams::PUBKEY_ADDRESS) ||
-                         vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
+                         vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS) ||
+                         vchVersion == params.Base58Prefix(CChainParams::CRYPTOCONDITION_ADDRESS);
     return fCorrectSize && fKnownVersion;
 }
 
@@ -292,6 +310,8 @@ CTxDestination CBitcoinAddress::Get() const
         return CKeyID(id);
     else if (vchVersion == Params().Base58Prefix(CChainParams::SCRIPT_ADDRESS))
         return CScriptID(id);
+    else if (vchVersion == Params().Base58Prefix(CChainParams::CRYPTOCONDITION_ADDRESS))
+        return CCryptoConditionID(id);
     else
         return CNoDestination();
 }
@@ -308,8 +328,11 @@ bool CBitcoinAddress::GetIndexKey(uint160& hashBytes, int& type, bool ccflag) co
         memcpy(&hashBytes, &vchData[0], 20);
         type = 2;
         return true;
+    } else if (vchVersion == Params().Base58Prefix(CChainParams::CRYPTOCONDITION_ADDRESS)) {
+        memcpy(&hashBytes, &vchData[0], 20);
+        type = 3;
+        return true;
     }
-
     return false;
 }
 
@@ -352,6 +375,22 @@ bool CCustomBitcoinAddress::Set(const CPubKey& key)
 bool CCustomBitcoinAddress::Set(const CScriptID& id)
 {
     SetData(base58Prefixes[1], &id, 20);
+    return true;
+}
+
+bool CCustomBitcoinAddress::Set(const CCryptoConditionID& id)
+{
+    SetData(base58Prefixes[0], &id, 20);  // dimxy: CCryptoConditionID is actually CKeyID so we use base58Prefixes[0] as only two prefixes are supported in CCustomBitcoinAddress. 
+                                          // TODO: check how it would work in gateways and importgateways 
+    return true;
+}
+
+bool CCustomBitcoinAddress::Set(const CCLTVID& id)
+{
+    if (id.which() == TX_PUBKEY)
+        Set(id.GetPubKey());
+    else
+        Set(id.GetKeyID());
     return true;
 }
 

@@ -124,7 +124,7 @@ static int cmpConditionCost(const void *a, const void *b) {
 
 static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
     ThresholdFulfillment_t *t = ffill->choice.thresholdSha256;
-    FulfillmentFlags flags = 0;
+    FulfillmentFlags flags = MixedMode;
 
     Fulfillment_t** arrFulfills = t->subfulfillments.list.array;
     size_t nffills = t->subfulfillments.list.count;
@@ -134,11 +134,16 @@ static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
 
     if (nffills == 0) {
         free(cond);
+        //fprintf(stderr, "%s nffills == 0\n", __func__);
         return NULL;
     }
 
     { // Get the real threshold from the first ffill
         CC *tc = fulfillmentToCC(arrFulfills[0], flags);
+        if (tc == NULL) {
+            free(cond);
+            return NULL;
+        }
         if (tc->type->typeId != CC_Preimage || tc->preimageLength != 1) {
             cc_free(tc);
             free(cond);
@@ -172,12 +177,12 @@ static CC *thresholdFromFulfillmentMixed(const Fulfillment_t *ffill) {
             return NULL;
         }
     }
-
     return cond;
 }
 
 
 static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags flags) {
+    //printf("%s flags & MixedMode %d\n", __func__, (flags & MixedMode));
     if (flags & MixedMode) return thresholdFromFulfillmentMixed(ffill);
 
     ThresholdFulfillment_t *t = ffill->choice.thresholdSha256;
@@ -194,7 +199,8 @@ static CC *thresholdFromFulfillment(const Fulfillment_t *ffill, FulfillmentFlags
         if (!subconditions[i]) {
             for (int j=0; j<i; j++) free(subconditions[j]);
             free(subconditions);
-            return 0;
+            //fprintf(stderr, "%s !subconditions[i]\n", __func__);
+            return NULL;
         }
     }
 
@@ -213,14 +219,14 @@ static Fulfillment_t *thresholdToFulfillmentMixed(const CC *cond, FulfillmentFla
     // Add a marker into the threshold to indicate `t`
     CC* t = cc_new(CC_Preimage);
     t->code = calloc(1, 2);
-    t->code[0] = cond->threshold;
+    t->code[0] = cond->threshold; // store threshold value in a special purpose preimage cond
     t->preimageLength = 1;
     asn_set_add(&tf->subfulfillments, asnFulfillmentNew(t, flags));
 
     for (int i=0; i<cond->size; i++) {
         CC *sub = cond->subconditions[i];
         if (fulfillment = asnFulfillmentNew(sub, flags)) {
-            asn_set_add(&tf->subfulfillments, fulfillment);
+            asn_set_add(&tf->subfulfillments, fulfillment);  // always first try to add as fulfillment 
         } else {
             asn_set_add(&tf->subconditions, asnConditionNew(sub));
         }
@@ -249,11 +255,11 @@ static Fulfillment_t *thresholdToFulfillment(const CC *cond, FulfillmentFlags fl
 
     for (int i=0; i<cond->size; i++) {
         CC *sub = subconditions[i];
-        if (needed && (fulfillment = asnFulfillmentNew(sub, flags))) {
-            asn_set_add(&tf->subfulfillments, fulfillment);
+        if (needed && !sub->dontFulfill && (fulfillment = asnFulfillmentNew(sub, flags))) {
+            asn_set_add(&tf->subfulfillments, fulfillment);  // add as a fulfillment for as many as the thershold number
             needed--;
         } else {
-            asn_set_add(&tf->subconditions, asnConditionNew(sub));
+            asn_set_add(&tf->subconditions, asnConditionNew(sub)); // the rest add as anon conds
         }
     }
 
@@ -289,11 +295,15 @@ static CC *thresholdFromJSON(const cJSON *params, char *err) {
     cond->size = cJSON_GetArraySize(subfulfillments_item);
     cond->subconditions = calloc(cond->size, sizeof(CC*));
 
+    int dontFulfill = 0;
+    cJSON *obj = cJSON_GetObjectItem(params, "dontFulfill");
+    if (obj) cond->dontFulfill = !!obj->valueint;
+
     cJSON *sub;
     for (int i=0; i<cond->size; i++) {
         sub = cJSON_GetArrayItem(subfulfillments_item, i);
         cond->subconditions[i] = cc_conditionFromJSON(sub, err);
-        if (err[0] || cond->subconditions[i]==NULL)
+        if (/*err[0] || */ cond->subconditions[i]==NULL) // it should not be any 'err' if subconditions was created okay. This 'err[0]' check caused cc_conditionFromJSON failure if err not inited by the user
         {
             if (cond) cc_free(cond);
             return NULL;
@@ -344,6 +354,7 @@ static CC* thresholdCopy(const CC* cond)
     for (int i=0; i<cond->size; i++) {
         condCopy->subconditions[i]=cond->subconditions[i]->type->copy(cond->subconditions[i]);
     }
+    condCopy->dontFulfill = cond->dontFulfill;
     return (condCopy);
 }
 

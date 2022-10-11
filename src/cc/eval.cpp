@@ -34,9 +34,11 @@ Eval* EVAL_TEST = 0;
 struct CCcontract_info CCinfos[0x100];
 extern pthread_mutex_t KOMODO_CC_mutex;
 
-bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn,std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
+bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn, int64_t nTime, int32_t nHeight, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker)
 {
     EvalRef eval;
+    eval->SetCurrentTime(nTime);
+    eval->SetCurrentHeight(nHeight);
     pthread_mutex_lock(&KOMODO_CC_mutex);
     bool out = eval->Dispatch(cond, tx, nIn, evalcodeChecker);
     pthread_mutex_unlock(&KOMODO_CC_mutex);
@@ -46,13 +48,17 @@ bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn,std::sha
 
     if (eval->state.IsValid()) return true;
 
+    if (evalcodeChecker != nullptr)
+        evalcodeChecker->lastEvalErrorState = eval->state;
+
+    // report cc error:
     std::string lvl = eval->state.IsInvalid() ? "Invalid" : "Error!";
-    fprintf(stderr, "CC Eval %s %s: %s spending tx %s\n",
-            EvalToStr(cond->code[0]).data(),
-            lvl.data(),
-            eval->state.GetRejectReason().data(),
-            tx.vin[nIn].prevout.hash.GetHex().data());
-    if (eval->state.IsError()) fprintf(stderr, "Culprit: %s\n", EncodeHexTx(tx).data());
+    LOGSTREAMFN("cc", CCLOG_ERROR, stream << "CC Eval evalcode: " << EvalToStr(cond->code[0]) << " " << lvl << ", reason: " << eval->state.GetRejectReason() << std::endl);
+    if (eval->state.IsError()) {
+        LOGSTREAMFN("cc", CCLOG_ERROR, stream << "CC Eval Culprit tx: " << EncodeHexTx(tx) << std::endl);
+    }
+
+    /* this hangs komodod bcs of lock!
     CTransaction tmp; 
     if (mempool.lookup(tx.GetHash(), tmp))
     {
@@ -60,8 +66,9 @@ bool RunCCEval(const CC *cond, const CTransaction &tx, unsigned int nIn,std::sha
         // Miner will mine 1 invalid block, but doesnt stop them mining until a restart.
         // This would almost never happen in normal use.
         std::list<CTransaction> dummy;
-        mempool.remove(tx,dummy,true);
+        //mempool.remove(tx,dummy,true);  
     }
+    */
     return false;
 }
 
@@ -100,6 +107,9 @@ bool Eval::Dispatch(const CC *cond, const CTransaction &txTo, unsigned int nIn,s
         CCinit(cp,ecode);
         cp->didinit = 1;
     }
+
+    if (GetCurrentHeight() <= 0)
+        return Invalid("current chain height not set for eval object");
 
     switch ( ecode )
     {
@@ -145,7 +155,16 @@ bool Eval::GetTxConfirmed(const uint256 &hash, CTransaction &txOut, CBlockIndex 
     return true;
 }
 
+int64_t Eval::GetCurrentTime() const
+{
+    return nCurrentTime;
+}
+
 unsigned int Eval::GetCurrentHeight() const
+{
+    return nCurrentHeight;
+}
+unsigned int Eval::GetCurrentHeightCompat() const
 {
     return chainActive.Height();
 }
@@ -258,4 +277,9 @@ uint256 GetMerkleRoot(const std::vector<uint256>& vLeaves)
     bool fMutated;
     std::vector<uint256> vMerkleTree;
     return BuildMerkleTree(&fMutated, vLeaves, vMerkleTree);
+}
+
+bool GetTxUnconfirmedOpt(Eval *eval, const uint256 &hash, CTransaction &txOut, uint256 &hashBlock)
+{
+   return eval ? eval->GetTxUnconfirmed(hash, txOut, hashBlock) : myGetTransaction(hash, txOut, hashBlock);
 }

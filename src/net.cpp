@@ -1439,6 +1439,13 @@ void ThreadOpenConnections()
             if (!addr.IsValid() || setConnected.count(addr.GetGroup(addrman.m_asmap)) || IsLocal(addr))
                 break;
 
+#ifdef ENABLE_WEBSOCKETS
+            // do not connect to client nodes (looks like this should be added for non-websocket version too):
+            if ((addr.nServices & NODE_NETWORK) == 0) {
+                continue;
+            }
+#endif
+
             // If we didn't find an appropriate destination after trying 100 addresses fetched from addrman,
             // stop this loop, and let the outer loop run again (which sleeps, adds seed nodes, recalculates
             // already-connected network ranges, ...) before trying new addrman addresses.
@@ -2130,6 +2137,7 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     fInbound = fInboundIn;
     fNetworkNode = false;
     fSuccessfullyConnected = false;
+    fNspvConnected = false;
     fDisconnect = false;
     nRefCount = 0;
     nSendSize = 0;
@@ -2145,6 +2153,8 @@ CNode::CNode(SOCKET hSocketIn, const CAddress& addrIn, const std::string& addrNa
     nPingUsecTime = 0;
     fPingQueued = false;
     nMinPingUsecTime = std::numeric_limits<int64_t>::max();
+    memset(nspvdata, '\0', sizeof(nspvdata));
+    nLastWsAddrTime = 0LL;
 
     {
         LOCK(cs_nLastNodeId);
@@ -2260,9 +2270,15 @@ void CNode::EndMessage() UNLOCK_FUNCTION(cs_vSend)
     ssSend.GetAndClear(*it);
     nSendSize += (*it).size();
 
-    // If write queue empty, attempt "optimistic write"
-    if (it == vSendMsg.begin())
-        SocketSendData(this);
+#ifdef ENABLE_WEBSOCKETS
+    if (this->hSocket != INVALID_SOCKET)    {
+#endif
+        // If write queue empty, attempt "optimistic write"
+        if (it == vSendMsg.begin())
+            SocketSendData(this);
+#ifdef ENABLE_WEBSOCKETS
+    }
+#endif
 
     LEAVE_CRITICAL_SECTION(cs_vSend);
 }

@@ -9,7 +9,9 @@
 #include <boost/foreach.hpp>
 
 #include "komodo_defs.h"
-char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
+#include "komodo_globals.h"
+
+/*char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
 int64_t MAX_MONEY = 200000000 * 100000000LL;
 uint64_t ASSETCHAINS_SUPPLY;
 uint16_t BITCOIND_RPCPORT = 7771;
@@ -26,7 +28,7 @@ int32_t ASSETCHAINS_OVERWINTER = 227520;
 int32_t ASSETCHAINS_SAPLING = 227520;
 int32_t KOMODO_TESTNODE = 0;
 
-unsigned int MAX_BLOCK_SIGOPS = 20000;
+unsigned int MAX_BLOCK_SIGOPS = 20000;*/
 
 void show_help()
 {

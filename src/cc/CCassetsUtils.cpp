@@ -15,9 +15,12 @@
 
 #include "CCassets.h"
 #include "CCtokens.h"
+#include "cc/CCupgrades.h"
+#include "CCTokelData.h"
+
 #include <iomanip> 
 
-vscript_t EncodeAssetOpRetV1(uint8_t assetFuncId, uint256 assetid2, int64_t unit_price, std::vector<uint8_t> origpubkey)
+vscript_t EncodeAssetOpRetV1(uint8_t assetFuncId, CAmount unit_price, vscript_t origpubkey, int32_t expiryHeight)
 {
     vscript_t vopret; 
 	uint8_t evalcode = EVAL_ASSETS;
@@ -30,12 +33,12 @@ vscript_t EncodeAssetOpRetV1(uint8_t assetFuncId, uint256 assetid2, int64_t unit
 			vopret = E_MARSHAL(ss << evalcode << assetFuncId << version);
             break;
         case 's': case 'b': case 'S': case 'B':
-            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << unit_price << origpubkey);
+            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << unit_price << origpubkey << expiryHeight);
             break;
-        case 'E': case 'e':
+        /*case 'E': case 'e':
             assetid2 = revuint256(assetid2);
-            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << assetid2 << unit_price << origpubkey);
-            break;
+            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << expiryHeight << unit_price << origpubkey);
+            break;*/
         default:
             CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s illegal funcid.%02x\n", __func__, assetFuncId);
             break;
@@ -43,7 +46,7 @@ vscript_t EncodeAssetOpRetV1(uint8_t assetFuncId, uint256 assetid2, int64_t unit
     return(vopret);
 }
 
-uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &unit_price, std::vector<uint8_t> &origpubkey)
+uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, CAmount &unit_price, vscript_t &origpubkey, int32_t &expiryHeight)
 {
     vscript_t vopretAssets; //, vopretAssetsStripped;
 	uint8_t *script, funcId = 0, assetsFuncId = 0, dummyAssetFuncId, dummyEvalCode, version;
@@ -52,7 +55,6 @@ uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEval
     std::vector<vscript_t>  oprets;
 
 	tokenid = zeroid;
-	assetid2 = zeroid;
 	unit_price = 0;
     assetsEvalCode = 0;
     assetsFuncId = 0;
@@ -88,13 +90,13 @@ uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEval
                 }
                 break;
             case 's': case 'b': case 'S': case 'B':
-                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> unit_price; ss >> origpubkey) != 0)
+                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> unit_price; ss >> origpubkey; ss >> expiryHeight) != 0)
                 {
                     //fprintf(stderr,"DecodeAssetTokenOpRet() got price %lld\n",(long long)price);
                     return(assetsFuncId);
                 }
                 break;
-            case 'E': case 'e':
+            /*case 'E': case 'e':
                 // not implemented yet
                 if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> assetid2; ss >> unit_price; ss >> origpubkey) != 0)
                 {
@@ -102,7 +104,7 @@ uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEval
                     assetid2 = revuint256(assetid2);
                     return(assetsFuncId);
                 }
-                break;
+                break;*/
             default:
                 break;
             }
@@ -114,7 +116,7 @@ uint8_t DecodeAssetTokenOpRetV1(const CScript &scriptPubKey, uint8_t &assetsEval
 }
 
 
-vscript_t EncodeAssetOpRetV2(uint8_t assetFuncId, uint256 assetid2, int64_t unit_price, std::vector<uint8_t> origpubkey)
+vscript_t EncodeAssetOpRetV2(uint8_t assetFuncId, CAmount unit_price, vscript_t origpubkey, int32_t expiryHeight)
 {
     vscript_t vopret; 
 	uint8_t evalcode = EVAL_ASSETSV2;
@@ -127,12 +129,13 @@ vscript_t EncodeAssetOpRetV2(uint8_t assetFuncId, uint256 assetid2, int64_t unit
 			vopret = E_MARSHAL(ss << evalcode << assetFuncId << version);
             break;
         case 's': case 'b': case 'S': case 'B':
-            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << unit_price << origpubkey);
+            vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << unit_price << origpubkey << expiryHeight);
             break;
+    /*  swaps not implemented  
         case 'E': case 'e':
             assetid2 = revuint256(assetid2);
             vopret = E_MARSHAL(ss << evalcode << assetFuncId << version << assetid2 << unit_price << origpubkey);
-            break;
+            break;*/
         default:
             CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s illegal funcid.%02x\n", __func__, assetFuncId);
             break;
@@ -140,7 +143,7 @@ vscript_t EncodeAssetOpRetV2(uint8_t assetFuncId, uint256 assetid2, int64_t unit
     return(vopret);
 }
 
-uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, uint256 &assetid2, int64_t &unit_price, std::vector<uint8_t> &origpubkey)
+uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEvalCode, uint256 &tokenid, CAmount &unit_price, vscript_t &origpubkey, int32_t &expiryHeight)
 {
     vscript_t vopretAssets; //, vopretAssetsStripped;
 	uint8_t *script, funcId = 0, assetsFuncId = 0, dummyAssetFuncId, dummyEvalCode, version;
@@ -149,7 +152,6 @@ uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEval
     std::vector<vscript_t>  oprets;
 
 	tokenid = zeroid;
-	assetid2 = zeroid;
 	unit_price = 0;
     assetsEvalCode = 0;
     assetsFuncId = 0;
@@ -185,13 +187,13 @@ uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEval
                 }
                 break;
             case 's': case 'b': case 'S': case 'B':
-                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> unit_price; ss >> origpubkey) != 0)
+                if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> unit_price; ss >> origpubkey; ss >> expiryHeight) != 0)
                 {
                     //fprintf(stderr,"DecodeAssetTokenOpRet() got price %lld\n",(long long)price);
                     return(assetsFuncId);
                 }
                 break;
-            case 'E': case 'e':
+            /* case 'E': case 'e':
                 // not implemented yet
                 if (E_UNMARSHAL(vopretAssets, ss >> dummyEvalCode; ss >> dummyAssetFuncId; ss >> version; ss >> assetid2; ss >> unit_price; ss >> origpubkey) != 0)
                 {
@@ -199,7 +201,7 @@ uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEval
                     assetid2 = revuint256(assetid2);
                     return(assetsFuncId);
                 }
-                break;
+                break; */
             default:
                 break;
             }
@@ -213,9 +215,9 @@ uint8_t DecodeAssetTokenOpRetV2(const CScript &scriptPubKey, uint8_t &assetsEval
 // validate:
 // unit_price received for a token >= seller's unit_price
 // remaining_nValue calculated correctly
-bool ValidateBidRemainder(CAmount unit_price, int64_t remaining_nValue, int64_t orig_nValue, int64_t received_nValue, int64_t paid_units)
+bool ValidateBidRemainder(CAmount unit_price, CAmount remaining_nValue, CAmount orig_nValue, CAmount received_nValue, CAmount paid_units)
 {
-    int64_t received_unit_price;
+    CAmount received_unit_price;
     // int64_t new_unit_price = 0;
     if (orig_nValue == 0 || received_nValue == 0 || paid_units == 0)
     {
@@ -254,7 +256,7 @@ bool ValidateBidRemainder(CAmount unit_price, int64_t remaining_nValue, int64_t 
 // paid_units is tokens paid to the bidder
 // orig_units it the tokens amount the bidder wants to buy
 // paid_unit_price is unit_price that token seller sells his tokens for
-bool SetBidFillamounts(CAmount unit_price, int64_t &received_nValue, int64_t orig_nValue, int64_t &paid_units, int64_t orig_units, CAmount paid_unit_price)
+bool SetBidFillamounts(CAmount unit_price, CAmount &received_nValue, CAmount orig_nValue, CAmount &paid_units, CAmount orig_units, CAmount paid_unit_price)
 {
     // int64_t remaining_nValue;
 
@@ -271,7 +273,7 @@ bool SetBidFillamounts(CAmount unit_price, int64_t &received_nValue, int64_t ori
         // received_nValue = orig_nValue;
         received_nValue = (paid_units * paid_unit_price);  // as paid unit_price might be less than original unit_price
         //  remaining_units = 0;
-        fprintf(stderr, "%s not enough units!\n", __func__);
+        CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s not enough units!\n", __func__);
         return(false);
     }
     //remaining_units = (orig_units - paid_units);
@@ -280,8 +282,8 @@ bool SetBidFillamounts(CAmount unit_price, int64_t &received_nValue, int64_t ori
     //unit_price = (orig_nValue / orig_remaining_units);
     
     received_nValue = (paid_units * paid_unit_price);
-    fprintf(stderr, "%s orig_units.%lld - paid_units.%lld, (orig_value.%lld - received_value.%lld)\n", __func__, 
-            (long long)orig_units, (long long)paid_units, (long long)orig_nValue, (long long)received_nValue);
+    CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s orig_units.%lld - paid_units.%lld, (orig_value.%lld - received_value.%lld)\n", __func__, 
+        (long long)orig_units, (long long)paid_units, (long long)orig_nValue, (long long)received_nValue);
     if (unit_price > 0 && received_nValue > 0 && received_nValue <= orig_nValue)
     {
         CAmount remaining_nValue = (orig_nValue - received_nValue);
@@ -289,7 +291,7 @@ bool SetBidFillamounts(CAmount unit_price, int64_t &received_nValue, int64_t ori
     }
     else 
     {
-        fprintf(stderr, "%s incorrect values: unit_price %lld > 0, orig_value.%lld >= received_value.%lld\n", __func__, 
+        CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s incorrect values: unit_price %lld > 0, orig_value.%lld >= received_value.%lld\n", __func__, 
             (long long)unit_price, (long long)orig_nValue, (long long)received_nValue);
         return(false);
     }
@@ -299,7 +301,7 @@ bool SetBidFillamounts(CAmount unit_price, int64_t &received_nValue, int64_t ori
 // fill_assetoshis is tokens purchased
 // orig_assetoshis is available tokens to sell
 // paid_nValue is the paid coins calculated as fill_assetoshis * paid_unit_price 
-bool SetAskFillamounts(CAmount unit_price, int64_t fill_assetoshis, int64_t orig_assetoshis, int64_t paid_nValue)
+bool SetAskFillamounts(CAmount unit_price, CAmount fill_assetoshis, CAmount orig_assetoshis, CAmount paid_nValue)
 {
     //int64_t remaining_assetoshis; 
     //double dunit_price;
@@ -318,11 +320,11 @@ bool SetAskFillamounts(CAmount unit_price, int64_t fill_assetoshis, int64_t orig
         return(true);
     }*/
     if (orig_assetoshis == 0)   {
-        fprintf(stderr, "%s ask order empty!\n", __func__);
+        CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s ask order empty!\n", __func__);
         return false;
     }
     if (fill_assetoshis == 0)   {
-        fprintf(stderr, "%s ask fill tokens is null!\n", __func__);
+        CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s ask fill tokens is null!\n", __func__);
         return false;
     }
     CAmount paid_unit_price = paid_nValue / fill_assetoshis;
@@ -331,18 +333,18 @@ bool SetAskFillamounts(CAmount unit_price, int64_t fill_assetoshis, int64_t orig
     //remaining_nValue = orig_nValue - unit_price * fill_assetoshis;
     // dunit_price = ((double)orig_nValue / orig_assetoshis);
     // fill_assetoshis = (paid_nValue / dunit_price);  // back conversion -> could be loss of value
-    fprintf(stderr, "%s paid_unit_price %lld fill_assetoshis %lld orig_assetoshis %lld unit_price %lld fill_assetoshis %lld\n", __func__, 
-            (long long)paid_unit_price, (long long)fill_assetoshis, (long long)orig_assetoshis, (long long)unit_price, (long long)fill_assetoshis);
+    CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s paid_unit_price %lld fill_assetoshis %lld orig_assetoshis %lld unit_price %lld fill_assetoshis %lld\n", 
+        __func__, (long long)paid_unit_price, (long long)fill_assetoshis, (long long)orig_assetoshis, (long long)unit_price, (long long)fill_assetoshis);
     if (paid_unit_price > 0 && fill_assetoshis <= orig_assetoshis)
     {
         CAmount remaining_assetoshis = (orig_assetoshis - fill_assetoshis);
         if (remaining_assetoshis == 0)
-            fprintf(stderr, "%s ask order totally filled!\n", __func__);
+            CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s ask order totally filled!\n", __func__);
         return ValidateAskRemainder(unit_price, remaining_assetoshis, orig_assetoshis, fill_assetoshis, paid_nValue);
     }
     else 
     {
-        fprintf(stderr, "%s incorrect values paid_unit_price %lld > 0, fill_assetoshis %lld > 0 and <= orig_assetoshis %lld\n", __func__, 
+        CCLogPrintF(ccassets_log, CCLOG_DEBUG1, "%s incorrect values paid_unit_price %lld > 0, fill_assetoshis %lld > 0 and <= orig_assetoshis %lld\n", __func__, 
             (long long)paid_unit_price, (long long)fill_assetoshis, (long long)orig_assetoshis);
         return(false);
     }
@@ -351,9 +353,9 @@ bool SetAskFillamounts(CAmount unit_price, int64_t fill_assetoshis, int64_t orig
 // validate: 
 // paid unit_price for a token <= the bidder's unit_price
 // remaining coins calculated correctly
-bool ValidateAskRemainder(CAmount unit_price, int64_t remaining_assetoshis, int64_t orig_assetoshis, int64_t received_assetoshis, int64_t paid_nValue)
+bool ValidateAskRemainder(CAmount unit_price, CAmount remaining_assetoshis, CAmount orig_assetoshis, CAmount received_assetoshis, CAmount paid_nValue)
 {
-    int64_t paid_unit_price;
+    CAmount paid_unit_price;
     //CAmount unit_price = AssetsGetUnitPrice(ordertxid);
     //int64_t new_unit_price = 0;
 
@@ -458,29 +460,60 @@ bool ValidateSwapRemainder(int64_t remaining_price, int64_t remaining_nValue, in
     return(true);
 }
 
-// get tx's vin inputs for cp->evalcode and addr. If addr is null then all inputs are added
-CAmount AssetsGetCCInputs(struct CCcontract_info *cp, const char *addr, const CTransaction &tx)
+// get tx's vin inputs for cp->evalcode and addr
+CAmount AssetsGetTxCCInputs(Eval *eval, struct CCcontract_info *cp, const char *addr, const CTransaction &tx)
 {
 	CTransaction vinTx; 
     uint256 hashBlock; 
 	CAmount inputs = 0LL;
 
-	//struct CCcontract_info *cpTokens, C;
-	//cpTokens = CCinit(&C, EVAL_TOKENS);
-
 	for (int32_t i = 0; i < tx.vin.size(); i++)
 	{												    
 		if (cp->ismyvin(tx.vin[i].scriptSig))
 		{
-			if (myGetTransaction(tx.vin[i].prevout.hash, vinTx, hashBlock))
+			if (eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock))
 			{
                 char scriptaddr[KOMODO_ADDRESS_BUFSIZE];
-                if (addr == NULL || Getscriptaddress(scriptaddr, vinTx.vout[tx.vin[i].prevout.n].scriptPubKey) && strcmp(scriptaddr, addr) == 0)  {
-                    //std::cerr << __func__ << " adding amount=" << vinTx.vout[tx.vin[i].prevout.n].nValue << " for vin i=" << i << " eval=" << std::hex << (int)cp->evalcode << std::resetiosflags(std::ios::hex) << std::endl;
+                if (Getscriptaddress(scriptaddr, vinTx.vout[tx.vin[i].prevout.n].scriptPubKey) && strcmp(scriptaddr, addr) == 0)  {
                     inputs += vinTx.vout[tx.vin[i].prevout.n].nValue;
                 }
 			}
 		}
 	}
 	return inputs;
+}
+
+CAmount AssetsGetTxTokenInputs(Eval *eval, struct CCcontract_info *cpTokens, const CTransaction &tx)
+{
+	CTransaction vinTx; 
+    uint256 hashBlock; 
+	CAmount inputs = 0LL;
+
+	for (int32_t i = 0; i < tx.vin.size(); i++)
+	{												    
+		if (cpTokens->ismyvin(tx.vin[i].scriptSig))
+		{
+			if (eval->GetTxUnconfirmed(tx.vin[i].prevout.hash, vinTx, hashBlock))
+			{
+                inputs += vinTx.vout[tx.vin[i].prevout.n].nValue;
+			}
+		}
+	}
+	return inputs;
+}
+
+// check if either royalty or paid_value is dust in fill ask
+// nOutputValue is the total amount of paid_value + royalty
+// it is expected that 0 < royaltyFract < TKLROYALTY_DIVISOR (calling validation code should provide that)
+bool AssetsFillOrderIsDust(int32_t royaltyFract, CAmount nOutputValue, bool &isRoyaltyDust)
+{
+    // nOutputValue is sum of paid_value + royalty_value
+    // check whether any of them is assets' dust (calc min of royalty and paid_value, compare with assets' dust):
+    if (nOutputValue / (int64_t)TKLROYALTY_DIVISOR * std::min(royaltyFract, (int32_t)TKLROYALTY_DIVISOR - royaltyFract) <= ASSETS_NORMAL_DUST)  {
+        // decide who should receive nOutputValue if one of values is dust
+        isRoyaltyDust = royaltyFract < (int64_t)TKLROYALTY_DIVISOR / 2 ? true : false;
+        //std::cerr << __func__ << " new calc, nOutputValue=" << nOutputValue << " test dust=" << nOutputValue / (int64_t)TKLROYALTY_DIVISOR * std::min(royaltyFract, (int32_t)TKLROYALTY_DIVISOR - royaltyFract) << " isRoyaltyDust=" << isRoyaltyDust << std::endl;
+        return true;
+    }
+    return false;
 }

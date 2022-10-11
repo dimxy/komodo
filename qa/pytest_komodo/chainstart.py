@@ -81,7 +81,7 @@ def create_configs(asset, node=0):
     with open(confpath, 'a') as conf:
         conf.write("rpcuser=test\n")
         conf.write("rpcpassword=test\n")
-        conf.write('rpcport=' + str(7000 + node) + '\n')
+        conf.write('rpcport=' + str(7001 + node) + '\n')
         conf.write("rpcbind=0.0.0.0\n")
         conf.write("rpcallowip=0.0.0.0/0\n")
 
@@ -149,7 +149,7 @@ def main():
             'rpc_user': 'test',
             'rpc_password': 'test',
             'rpc_ip': '127.0.0.1',
-            'rpc_port': 7000 + i
+            'rpc_port': 7001 + i
         }
         rpc_p = create_proxy(node_params)
         validate_proxy(env_params, rpc_p, i)

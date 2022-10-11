@@ -18,16 +18,10 @@
  ******************************************************************************/
 
 #include "consensus/upgrades.h"
+#include "komodo_nSPV_defs.h"
+
 extern int32_t KOMODO_NSPV;
 #define NSPV_BRANCHID 0x76b809bb
-
-#ifndef KOMODO_NSPV_FULLNODE
-#define KOMODO_NSPV_FULLNODE (KOMODO_NSPV <= 0)
-#endif // !KOMODO_NSPV_FULLNODE
-
-#ifndef KOMODO_NSPV_SUPERLITE
-#define KOMODO_NSPV_SUPERLITE (KOMODO_NSPV > 0)
-#endif // !KOMODO_NSPV_SUPERLITE
 
 /**
  * General information about each network upgrade.

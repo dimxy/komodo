@@ -64,12 +64,21 @@
 #endif
 #include <mutex>
 
+#include "komodo_defs.h"
+#include "cc/CCinclude.h"
+
 using namespace std;
 
 //////////////////////////////////////////////////////////////////////////////
 //
 // BitcoinMiner
 //
+
+
+extern CCriticalSection cs_metrics;
+
+uint32_t Mining_start,Mining_height;
+int32_t My_notaryid = -1;
 
 //
 // Unconfirmed transactions in the memory pool often depend on other
@@ -133,34 +142,6 @@ void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, 
         pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, consensusParams);
     }
 }
-#include "komodo_defs.h"
-#include "cc/CCinclude.h"
-
-extern CCriticalSection cs_metrics;
-void vcalc_sha256(char deprecated[(256 >> 3) * 2 + 1],uint8_t hash[256 >> 3],uint8_t *src,int32_t len);
-
-uint32_t Mining_start,Mining_height;
-int32_t My_notaryid = -1;
-int32_t komodo_chosennotary(int32_t *notaryidp,int32_t height,uint8_t *pubkey33,uint32_t timestamp);
-int32_t komodo_pax_opreturn(int32_t height,uint8_t *opret,int32_t maxsize);
-int32_t komodo_baseid(char *origbase);
-int32_t komodo_longestchain();
-int32_t komodo_validate_interest(const CTransaction &tx,int32_t txheight,uint32_t nTime,int32_t dispflag);
-int64_t komodo_block_unlocktime(uint32_t nHeight);
-uint64_t komodo_commission(const CBlock *block,int32_t height);
-int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blocktimep,uint32_t *txtimep,uint256 *utxotxidp,int32_t *utxovoutp,uint64_t *utxovaluep,uint8_t *utxosig, uint256 merkleroot);
-int32_t verus_staked(CBlock *pBlock, CMutableTransaction &txNew, uint32_t &nBits, arith_uint256 &hashResult, uint8_t *utxosig, CPubKey &pk);
-uint256 komodo_calcmerkleroot(CBlock *pblock, uint256 prevBlockHash, int32_t nHeight, bool fNew, CScript scriptPubKey);
-int32_t komodo_newStakerActive(int32_t height, uint32_t timestamp);
-int32_t komodo_notaryvin(CMutableTransaction &txNew,uint8_t *notarypub33, void* ptr);
-int32_t decode_hex(uint8_t *bytes,int32_t n,char *hex);
-int32_t komodo_is_notarytx(const CTransaction& tx);
-uint64_t komodo_notarypay(CMutableTransaction &txNew, std::vector<int8_t> &NotarisationNotaries, uint32_t timestamp, int32_t height, uint8_t *script, int32_t len);
-int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestamp);
-int32_t komodo_getnotarizedheight(uint32_t timestamp,int32_t height, uint8_t *script, int32_t len);
-CScript komodo_mineropret(int32_t nHeight);
-bool komodo_appendACscriptpub();
-CScript komodo_makeopret(CBlock *pblock, bool fNew);
 
 int32_t komodo_waituntilelegible(uint32_t blocktime, int32_t stakeHeight, uint32_t delay)
 {
@@ -340,7 +321,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             std::vector<int8_t> TMP_NotarisationNotaries;
             if (tx.IsCoinImport())
             {
-                CAmount nValueIn = GetCoinImportValue(tx); // burn amount
+                CAmount nValueIn = GetCoinImportValue(tx, pblock->nTime, nHeight); // burn amount
                 nTotalIn += nValueIn;
                 dPriority += (double)nValueIn * 1000;  // flat multiplier... max = 1e16.
             } else {
@@ -353,7 +334,7 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
                 {
                     if (tx.IsPegsImport() && txin.prevout.n==10e8)
                     {
-                        CAmount nValueIn = GetCoinImportValue(tx); // burn amount
+                        CAmount nValueIn = GetCoinImportValue(tx, pblock->nTime, nHeight); // burn amount
                         nTotalIn += nValueIn;
                         dPriority += (double)nValueIn * 1000;  // flat multiplier... max = 1e16.
                         continue;
@@ -584,8 +565,8 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             // create only contains transactions that are valid in new blocks.
             CValidationState state;
             PrecomputedTransactionData txdata(tx);
-            std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker(new CCheckCCEvalCodes());
-            if (!ContextualCheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId, evalcodeChecker))
+            std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker(new CCheckCCEvalCodes()); // evalcodeChecker pblock->nTime, nHeight are not used as no cc checks are performed (only MANDATORY_SCRIPT_VERIFY_FLAGS)
+            if (!ContextualCheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId, pblock->nTime, nHeight, evalcodeChecker))
             {
                 //fprintf(stderr,"context failure\n");
                 continue;
@@ -1136,13 +1117,10 @@ static bool ProcessBlockFound(CBlock* pblock)
     return true;
 }
 
-int32_t komodo_baseid(char *origbase);
-int32_t komodo_eligiblenotary(uint8_t pubkeys[66][33],int32_t *mids,uint32_t *blocktimes,int32_t *nonzpkeysp,int32_t height);
-arith_uint256 komodo_PoWtarget(int32_t *percPoSp,arith_uint256 target,int32_t height,int32_t goalperc,int32_t newStakerActive);
-int32_t FOUND_BLOCK,KOMODO_MAYBEMINED;
-extern int32_t KOMODO_LASTMINED,KOMODO_INSYNC;
+
+int32_t FOUND_BLOCK, KOMODO_MAYBEMINED;
 int32_t roundrobin_delay;
-arith_uint256 HASHTarget,HASHTarget_POW;
+arith_uint256 HASHTarget, HASHTarget_POW;
 
 // wait for peers to connect
 void waitForPeers(const CChainParams &chainparams)
@@ -1191,19 +1169,17 @@ void waitForPeers(const CChainParams &chainparams)
 }
 
 #ifdef ENABLE_WALLET
-CBlockIndex *get_chainactive(int32_t height)
+CBlockIndex* get_chainactive(int32_t height)
 {
-    if ( chainActive.LastTip() != 0 )
-    {
-        if ( height <= chainActive.LastTip()->GetHeight() )
-        {
-            LOCK(cs_main);
-            return(chainActive[height]);
+    LOCK(cs_main);  // moved lock at the begininng as getting the vector size is unsafe in the multithread env
+    if (chainActive.LastTip() != 0) {
+        if (height <= chainActive.LastTip()->GetHeight()) {
+            return (chainActive[height]);
         }
         // else fprintf(stderr,"get_chainactive height %d > active.%d\n",height,chainActive.Tip()->GetHeight());
     }
     //fprintf(stderr,"get_chainactive null chainActive.Tip() height %d\n",height);
-    return(0);
+    return (0);
 }
 
 /*

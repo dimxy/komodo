@@ -355,16 +355,40 @@ bool CScript::GetOpretData(std::vector<std::vector<unsigned char>>& vData) const
     else return false;
 }
 
+// validate mixed and non mixed-mode cc spk script opcode and data
+static bool IsCCOpcodeValid(opcodetype opcode, const vector<unsigned char> &data)
+{
+    if (data.size() > 0) 
+    {
+        if (opcode > OP_0 && opcode < OP_PUSHDATA1)  // pre mixed mode (cc_conditionBinary always < 76 bytes) or small mixed mode
+            return true;
+        else if (data[0] == CC_MIXED_MODE_PREFIX /*&& opcode > OP_0 && opcode <= OP_PUSHDATA1*/)  // for mixed mode subver 'M'+0 enable longer data upto 255 b
+            return true;
+        else if (data[0] == CC_MIXED_MODE_PREFIX+1 /*&& opcode > OP_0 && opcode <= OP_PUSHDATA2*/) // for mixed mode subver >= 'M'+1 enable even longer data upto 65K b
+            return true; 
+    }
+    return false;
+}
+
 bool CScript::IsPayToCryptoCondition(CScript *pCCSubScript, std::vector<std::vector<unsigned char>>& vParams) const
 {
     const_iterator pc = begin();
     vector<unsigned char> data;
     opcodetype opcode,opcode1;
-    if (this->GetOp(pc, opcode, data))
-        // Sha256 conditions are <76 bytes
-        if (data.size()>0 && (data[0]=='M' || (data[0]!='M' && opcode > OP_0 && opcode < OP_PUSHDATA1)))
-        //if (opcode > OP_0 && opcode < OP_PUSHDATA1)
+    if (this->GetOp(pc, opcode, data))  
+    {
+        // Pre mixed mode check:
+        // Sha256 conditions are <76 bytes (for cc pre mixed mode)
+        // if (opcode > OP_0 && opcode < OP_PUSHDATA1)
+
+        // Original mixed mode condition field's length check. It actually disables long mixed mode conds for cc subversions 'M'+1 and on:
+        // if (data.size()>0 && (data[0]=='M' || (data[0]!='M' && opcode > OP_0 && opcode < OP_PUSHDATA1)))
+
+        // new function that checks both non mixed and new mixed mode cc script opcode and data
+        if (IsCCOpcodeValid(opcode, data))
+        {
             if (this->GetOp(pc, opcode1, data))
+            {
                 if (opcode1 == OP_CHECKCRYPTOCONDITION)
                 {
                     const_iterator pcCCEnd = pc;
@@ -375,6 +399,9 @@ bool CScript::IsPayToCryptoCondition(CScript *pCCSubScript, std::vector<std::vec
                         return true;
                     }
                 }
+            }
+        }
+    }
     return false;
 }
 
@@ -398,7 +425,7 @@ bool CScript::IsPayToCCV2() const
     if (!this->IsPayToCryptoCondition()) return (false);
     if (this->GetOp(pc, opcode, data))
     {
-        if (data[0]==CC_MIXED_MODE_PREFIX) return (true);
+        if (CC_MixedModeSubVersion(data[0]) >= CC_MIXED_MODE_SUBVER_0) return (true);
     }
     return (false);
 }
@@ -412,7 +439,7 @@ const std::vector<unsigned char> CScript::GetCCV2SPK() const
     if (!this->IsPayToCryptoCondition()) return (std::vector<unsigned char>());
     if (this->GetOp(pc, opcode, data))
     {
-        if (data[0]==CC_MIXED_MODE_PREFIX) return data;
+        if (CC_MixedModeSubVersion(data[0]) >= CC_MIXED_MODE_SUBVER_0) return data;
     }
     return (std::vector<unsigned char>());
 }
@@ -444,10 +471,13 @@ bool CScript::MayAcceptCryptoCondition() const
     vector<unsigned char> data;
     opcodetype opcode;
     if (!this->GetOp(pc, opcode, data)) return false;
-    if (!(opcode > OP_0 && opcode < OP_PUSHDATA1)) return false;
+    if (!IsCCOpcodeValid(opcode, data)) return false;
+
     CC *cond = cc_readConditionBinaryMaybeMixed(data.data(), data.size());
     if (!cond) return false;
-    bool out = IsSupportedCryptoCondition(cond);
+
+    CC_SUBVER ccSubVersion = CC_MixedModeSubVersion((*this)[0]); 
+    bool out = IsSupportedCryptoCondition(cond, ccSubVersion);
     cc_free(cond);
     return out;
 }

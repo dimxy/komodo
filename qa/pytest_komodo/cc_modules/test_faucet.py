@@ -100,7 +100,7 @@ class TestFaucetCCe2e:
     def test_faucet_addresses(self, test_params):
         rpc1 = test_params.get('node1').get('rpc')
         pubkey = test_params.get('node1').get('pubkey')
-        address_pattern = re.compile(r"R[a-zA-Z0-9]{33}\Z")  # normal R-addr
+        address_pattern = re.compile(r"[RC][a-zA-Z0-9]{33}\Z")  # normal R-addr
 
         res = rpc1.faucetaddress()
         for key in res.keys():

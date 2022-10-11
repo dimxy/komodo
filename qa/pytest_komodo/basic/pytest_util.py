@@ -80,12 +80,12 @@ def mine_and_waitconfirms(txid, proxy, confs_req=2):  # should be used after tx 
         try:
             confirmations_amount = proxy.getrawtransaction(txid, 1)['confirmations']
             if confirmations_amount < confs_req:
-                print("\ntx is not confirmed yet! Let's wait a little more")
+                print("\ntx is not confirmed yet! Let's wait a little more", txid, 'confs=', confirmations_amount, 'required=', confs_req)
                 time.sleep(5)
             else:
                 print("\ntx confirmed")
                 return True
-        except KeyError as e:
+        except (KeyError, RPCError) as e:
             print("\ntx is in mempool still probably, let's wait a little bit more\nError: ", e)
             time.sleep(5)
             attempts += 1
@@ -249,7 +249,7 @@ def validate_tx_pattern(txid):
 def validate_raddr_pattern(addr):
     if not isinstance(addr, str):
         return False
-    address_pattern = re.compile(r"R[a-zA-Z0-9]{33}\Z")
+    address_pattern = re.compile(r"[RC][a-zA-Z0-9]{33}\Z")
     if address_pattern.match(addr):
         return True
     else:

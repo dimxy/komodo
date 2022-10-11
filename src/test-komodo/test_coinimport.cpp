@@ -71,7 +71,7 @@ protected:
     {
         CTransaction importTx(mtx);
         PrecomputedTransactionData txdata(importTx);
-        ServerTransactionSignatureChecker checker(&importTx, 0, 0, false, NULL, txdata);
+        ServerTransactionSignatureChecker checker(&importTx, 0, 0, false, 0, 1, NULL, txdata);
         CValidationState verifystate;
         if (!VerifyCoinImport(importTx.vin[0].scriptSig, checker, verifystate))
             printf("TestRunCCEval: %s\n", verifystate.GetRejectReason().data());
@@ -251,7 +251,7 @@ TEST_F(TestCoinImport, DISABLED_testMomomCheckFail)
 
 TEST_F(TestCoinImport, testGetCoinImportValue)
 {
-    ASSERT_EQ(100, GetCoinImportValue(importTx));
+    ASSERT_EQ(100, GetCoinImportValue(importTx, 0, 1));
 }
 
 } /* namespace TestCoinImport */

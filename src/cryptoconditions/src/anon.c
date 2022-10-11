@@ -36,7 +36,7 @@ CC* cc_anon(const CC *cond) {
     return out;
 }
 
-
+// assumes the root condition is a threshold
 CC *mkAnon(const Condition_t *asnCond) {
 
     CCType *realType = getTypeByAsnEnum(asnCond->present);
@@ -46,7 +46,7 @@ CC *mkAnon(const Condition_t *asnCond) {
     }
     CC *cond = cc_new(CC_Anon);
     cond->conditionType = realType;
-    const CompoundSha256Condition_t *deets = &asnCond->choice.thresholdSha256;
+    const CompoundSha256Condition_t *deets = &asnCond->choice.thresholdSha256; // assumes CompoundSha256Condition_t and SimpleSha256Condition_t are same for fingerprint and cost
     memcpy(cond->fingerprint, deets->fingerprint.buf, 32);
     cond->cost = deets->cost;
     if (realType->getSubtypes) {
@@ -59,7 +59,7 @@ static CC* anonFromJSON(const cJSON *params, char *err) {
     size_t len;
     cJSON *fingerprint_item = cJSON_GetObjectItem(params, "fingerprint");
     if (!cJSON_IsString(fingerprint_item)) {
-        strcpy(err, "fingerprint must be a number");
+        strcpy(err, "fingerprint must be a string");
         return NULL;
     }
     unsigned char *fing = base64_decode(fingerprint_item->valuestring, &len);
@@ -73,15 +73,34 @@ static CC* anonFromJSON(const cJSON *params, char *err) {
         strcpy(err, "cost must be a number");
         return NULL;
     }
-    cJSON *subtypes_item = cJSON_GetObjectItem(params, "subtypes");
-    if (!cJSON_IsNumber(subtypes_item)) {
-        strcpy(err, "subtypes must be a number");
+
+    /* it was not good to use asnType as it is just an internal utility var:
+    cJSON *asnType_item = cJSON_GetObjectItem(params, "asnType"); */
+    cJSON *condType_item = cJSON_GetObjectItem(params, "cond_type");
+    if (!cJSON_IsNumber(condType_item)) {
+        strcpy(err, "cond_type must be a number");
         return NULL;
     }
+    if (condType_item->valueint < 0 || condType_item->valueint >= CCTypeRegistryLength)  {
+        strcpy(err, "cond_type invalid");
+        return NULL;
+    }
+    CCType * realType = CCTypeRegistry[condType_item->valueint];
+
     CC* cond=cc_new(CC_Anon);
     memcpy(cond->fingerprint,fing,len);
     cond->cost = (long) cost_item->valuedouble;
-    cond->subtypes = subtypes_item->valueint;
+    cond->subtypes = 0;
+    cond->conditionType = realType;
+
+    if (cc_hasSubtypes(realType->typeId)) {
+        cJSON *subtypes_item = cJSON_GetObjectItem(params, "subtypes");
+        if (!cJSON_IsNumber(subtypes_item)) {
+            strcpy(err, "subtypes must be a number");
+            return NULL;
+        }
+        cond->subtypes = subtypes_item->valueint;
+    }
     return cond;
 }
 
@@ -90,7 +109,15 @@ static void anonToJSON(const CC *cond, cJSON *params) {
     cJSON_AddItemToObject(params, "fingerprint", cJSON_CreateString(b64));
     free(b64);
     cJSON_AddItemToObject(params, "cost", cJSON_CreateNumber(cond->cost));
-    cJSON_AddItemToObject(params, "subtypes", cJSON_CreateNumber(cond->subtypes));
+    if (cc_hasSubtypes(cc_typeId(cond)))
+        cJSON_AddItemToObject(params, "subtypes", cJSON_CreateNumber(cond->subtypes));
+
+    // cJSON_AddItemToObject(params, "asnType", cJSON_CreateNumber((int)cond->conditionType->asnType));
+    // this was not good as asnType is not stored into any cc asn1 encoding, 
+    // it is just an internal variable for indexing in the asn_MBR_Condition_1 array:
+    // better to use a persistent conditionType,
+    // the same field is used in the rust cryptocondition lib:
+    cJSON_AddItemToObject(params, "cond_type", cJSON_CreateNumber((int) cc_typeId(cond)));
 }
 
 

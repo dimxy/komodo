@@ -46,14 +46,10 @@
 #include "cc/CCinclude.h"
 #include "cc/CCPrices.h"
 
-using namespace std;
-
-extern int32_t KOMODO_INSYNC;
-extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
-void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex);
-int32_t komodo_notarized_height(int32_t *prevMoMheightp, uint256 *hashp, uint256 *txidp);
 #include "komodo_defs.h"
 #include "komodo_structs.h"
+
+using namespace std;
 
 double GetDifficultyINTERNAL(const CBlockIndex* blockindex, bool networkDifficulty)
 {
@@ -288,7 +284,7 @@ UniValue blockToDeltasJSON(const CBlock& block, const CBlockIndex* blockindex)
     return result;
 }
 
-UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails = false)
+UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool txDetails)
 {
     UniValue result(UniValue::VOBJ);
     uint256 notarized_hash, notarized_desttxid; int32_t prevMoMheight, notarized_height;
@@ -451,7 +447,7 @@ bool mytxid_inmempool(uint256 txid)
     return(false);
 }
 
-UniValue mempoolToJSON(bool fVerbose = false)
+UniValue mempoolToJSON(bool fVerbose)
 {
     if (fVerbose)
     {
@@ -1123,8 +1119,6 @@ UniValue notaries(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return ret;
 }
 
-int32_t komodo_pending_withdraws(char *opretstr);
-int32_t pax_fiatstatus(uint64_t *available, uint64_t *deposited, uint64_t *issued, uint64_t *withdrawn, uint64_t *approved, uint64_t *redeemed, char *base);
 extern char CURRENCIES[][8];
 
 UniValue paxpending(const UniValue& params, bool fHelp, const CPubKey& mypk)

@@ -23,11 +23,14 @@ Usage:
 $0 --help
   Show this help message and exit.
 
-$0 [ --enable-lcov ] [ MAKEARGS... ]
-  Build Zcash and most of its transitive dependencies from
-  source. MAKEARGS are applied to both dependencies and Zcash itself. If
-  --enable-lcov is passed, Zcash is configured to add coverage
+$0 [ --enable-lcov ] [ --enable-websockets ] [ --enable-debug ] [ MAKEARGS... ]
+  Build Komodo and most of its transitive dependencies from
+  source. MAKEARGS are applied to both dependencies and Komodo itself. 
+  If --enable-lcov is passed, Komodo is configured to add coverage
   instrumentation, thus enabling "make cov" to work.
+  If --enable-websockets is passed then websockets support is added for nSPV protocol (disabled for now)
+  If --enable-debug is passed, Komodo is built with debugging information. It
+  must be passed after the previous arguments, if present.
 EOF
     exit 0
 fi
@@ -42,29 +45,35 @@ then
     shift
 fi
 
+# If --enable-websockets is the next argument, enable websockets support for nspv clients:
+WEBSOCKETS_ARG=''
+# if [ "x${1:-}" = 'x--enable-websockets' ]
+# then
+#    WEBSOCKETS_ARG='--enable-websockets=yes'
+#    shift
+#fi
+
+# If --enable-debug is the next argument, enable debugging
+DEBUGGING_ARG=''
+if [ "x${1:-}" = 'x--enable-debug' ]
+then
+    DEBUG=1
+    export DEBUG
+    DEBUGGING_ARG='--enable-debug'
+    shift
+fi
+
 TRIPLET=`./depends/config.guess`
 PREFIX="$(pwd)/depends/$TRIPLET"
 
 make "$@" -C ./depends/ V=1 NO_QT=1 NO_PROTON=1
 
-#BUILD CCLIB
-
-WD=$PWD
-
-cd src/cc
-echo $PWD
-echo Making cclib...
-./makecustom
-
-cd ./priceslibs
-echo Making prices feeds custom libs...
-make all
-
-cd $WD
-
 ./autogen.sh
 CPPFLAGS="-I$PREFIX/include -arch x86_64" LDFLAGS="-L$PREFIX/lib -arch x86_64 -Wl,-no_pie" \
-CXXFLAGS='-arch x86_64 -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/ -I$PREFIX/include -fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -Wno-error=attributes -g -Wl,-undefined -Wl,dynamic_lookup' \
-./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" "$CONFIGURE_FLAGS"
+CXXFLAGS="-arch x86_64 -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/ -fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -Wno-error=attributes -g -Wl,-undefined -Wl,dynamic_lookup" \
+./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" "$CONFIGURE_FLAGS" "$WEBSOCKETS_ARG"  "$DEBUGGING_ARG" \
+  --with-custom-bin=yes CUSTOM_BIN_NAME=tokel CUSTOM_BRAND_NAME=Tokel \
+  CUSTOM_SERVER_ARGS="'-ac_name=TOKEL -ac_supply=100000000 -ac_eras=2 -ac_cbmaturity=1 -ac_reward=100000000,4250000000 -ac_end=80640,0 -ac_decay=0,77700000 -ac_halving=0,525600 -ac_cc=555 -ac_ccenable=236,245,246,247 -ac_adaptivepow=6 -addnode=135.125.204.169 -addnode=192.99.71.125 -nspv_msg=1'" \
+  CUSTOM_CLIENT_ARGS='-ac_name=TOKEL'
 
-make "$@" V=1 NO_GTEST=1 STATIC=1
+make "$@" V=1 NO_GTEST=1 STATIC=1 

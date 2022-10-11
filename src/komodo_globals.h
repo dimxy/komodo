@@ -14,22 +14,7 @@
  ******************************************************************************/
 
 #include "komodo_defs.h"
-
-void komodo_prefetch(FILE *fp);
-uint32_t komodo_heightstamp(int32_t height);
-void komodo_stateupdate(int32_t height,uint8_t notarypubs[][33],uint8_t numnotaries,uint8_t notaryid,uint256 txhash,uint64_t voutmask,uint8_t numvouts,uint32_t *pvals,uint8_t numpvals,int32_t kheight,uint32_t ktime,uint64_t opretvalue,uint8_t *opretbuf,uint16_t opretlen,uint16_t vout,uint256 MoM,int32_t MoMdepth);
-void komodo_init(int32_t height);
-int32_t komodo_MoMdata(int32_t *notarized_htp,uint256 *MoMp,uint256 *kmdtxidp,int32_t nHeight,uint256 *MoMoMp,int32_t *MoMoMoffsetp,int32_t *MoMoMdepthp,int32_t *kmdstartip,int32_t *kmdendip);
-int32_t komodo_notarizeddata(int32_t nHeight,uint256 *notarized_hashp,uint256 *notarized_desttxidp);
-char *komodo_issuemethod(char *userpass,char *method,char *params,uint16_t port);
-void komodo_init(int32_t height);
-int32_t komodo_chosennotary(int32_t *notaryidp,int32_t height,uint8_t *pubkey33,uint32_t timestamp);
-int32_t komodo_isrealtime(int32_t *kmdheightp);
-uint64_t komodo_paxtotal();
-int32_t komodo_longestchain();
-uint64_t komodo_maxallowed(int32_t baseid);
-int32_t komodo_bannedset(int32_t *indallvoutsp,uint256 *array,int32_t max);
-int32_t komodo_checkvout(int32_t vout,int32_t k,int32_t indallvouts);
+#include "komodo_structs.h"
 
 pthread_mutex_t komodo_mutex,staked_mutex;
 
@@ -46,6 +31,12 @@ const int32_t nDecemberHardforkHeight = 1670000;   //December 2019 hardfork
 
 const uint32_t nS4Timestamp = 1592146800; //dPoW Season 4 2020 hardfork Sunday, June 14th, 2020 03:00:00 PM UTC
 const int32_t nS4HardforkHeight = 1922000;   //dPoW Season 4 2020 hardfork Sunday, June 14th, 2020 
+
+const uint32_t nS5Timestamp = 1627466969;  //dPoW Season 5 Wed Jul 28 2021 10:09:29 GMT+0000 (timestamp of TOKEL block #1)
+const int32_t nS5HardforkHeight = 2437300;  //dPoW Season 5 Monday, June 14th, 2021
+
+const uint32_t nS6Timestamp = 1656077853;  // dPoW Season 6 Fri Jun 24 2022 13:37:33 GMT+0000
+const int32_t nS6HardforkHeight = 2963330; // estimated June 24 2022
 
 #define _COINBASE_MATURITY 100
 int COINBASE_MATURITY = _COINBASE_MATURITY;//100;
@@ -76,14 +67,13 @@ int64_t MAX_MONEY = 200000000 * 100000000LL;
 // to be verifiable, timelocks require additional data that enables them to be validated and their ownership and
 // release time determined from the blockchain. to do this, every time locked output according to this
 // spec will use an op_return with CLTV at front and anything after |OP_RETURN|PUSH of rest|OPRETTYPE_TIMELOCK|script|
-#define _ASSETCHAINS_TIMELOCKOFF 0xffffffffffffffff
 uint64_t ASSETCHAINS_TIMELOCKGTE = _ASSETCHAINS_TIMELOCKOFF;
 uint64_t ASSETCHAINS_TIMEUNLOCKFROM = 0, ASSETCHAINS_TIMEUNLOCKTO = 0,ASSETCHAINS_CBOPRET=0;
 
 uint64_t ASSETCHAINS_LASTERA = 1;
 uint64_t ASSETCHAINS_ENDSUBSIDY[ASSETCHAINS_MAX_ERAS+1],ASSETCHAINS_REWARD[ASSETCHAINS_MAX_ERAS+1],ASSETCHAINS_HALVING[ASSETCHAINS_MAX_ERAS+1],ASSETCHAINS_DECAY[ASSETCHAINS_MAX_ERAS+1],ASSETCHAINS_NOTARY_PAY[ASSETCHAINS_MAX_ERAS+1],ASSETCHAINS_PEGSCCPARAMS[3];
 uint8_t ASSETCHAINS_CCDISABLES[256],ASSETCHAINS_CCZEROTXFEE[256];
-std::vector<std::string> ASSETCHAINS_PRICES,ASSETCHAINS_STOCKS;
+std::vector<std::string> ASSETCHAINS_PRICES, ASSETCHAINS_STOCKS;
 
 #define _ASSETCHAINS_EQUIHASH 0
 uint32_t ASSETCHAINS_NUMALGOS = 3;
@@ -113,9 +103,9 @@ int32_t ASSETCHAINS_STAKED;
 uint64_t ASSETCHAINS_COMMISSION,ASSETCHAINS_SUPPLY = 10,ASSETCHAINS_FOUNDERS_REWARD;
 
 uint32_t KOMODO_INITDONE;
-char KMDUSERPASS[8192+512+1],BTCUSERPASS[8192]; uint16_t KMD_PORT = 7771,BITCOIND_RPCPORT = 7771, DEST_PORT;
+char KMDUSERPASS[8192+512+1],BTCUSERPASS[8192]; 
+uint16_t KMD_PORT = 7771,BITCOIND_RPCPORT = 7771, DEST_PORT;
 uint64_t PENDING_KOMODO_TX;
-extern int32_t KOMODO_LOADINGBLOCKS;
 unsigned int MAX_BLOCK_SIGOPS = 20000;
 
 int32_t KOMODO_TESTNODE, KOMODO_SNAPSHOT_INTERVAL; 

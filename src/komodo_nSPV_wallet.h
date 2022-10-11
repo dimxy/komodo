@@ -17,22 +17,30 @@
 #ifndef KOMODO_NSPVWALLET_H
 #define KOMODO_NSPVWALLET_H
 
+#include "rpc/server.h"
+#include "komodo_nSPV_defs.h"
+#include "komodo_nSPV.h"
+#include "komodo_nSPV_superlite.h"
+
+
 // nSPV wallet uses superlite functions (and some komodod built in functions) to implement nSPV_spend
-extern void TxToJSON(const CTransaction& tx, const uint256 hashBlock, UniValue& entry);
 
 int32_t NSPV_validatehdrs(struct NSPV_ntzsproofresp *ptr)
 {
     int32_t i,height,txidht; CTransaction tx; uint256 blockhash,txid,desttxid;
-    if ( (ptr->common.nextht-ptr->common.prevht+1) != ptr->common.numhdrs )
+    int16_t momdepthprev, momdepthnext;
+    const int32_t VALIDATESIGS = 1;
+
+    /*if (ptr->common.depth != ptr->common.numhdrs)
     {
         fprintf(stderr,"next.%d prev.%d -> %d vs %d\n",ptr->common.nextht,ptr->common.prevht,ptr->common.nextht-ptr->common.prevht+1,ptr->common.numhdrs);
         return(-2);
-    }
-    else if ( NSPV_txextract(tx,ptr->nextntz,ptr->nexttxlen) < 0 )
+    } else */
+    if ( NSPV_txextract(tx,ptr->nextntz,ptr->nexttxlen) < 0 )
         return(-3);
     else if ( tx.GetHash() != ptr->nexttxid )
         return(-4);
-    else if ( NSPV_notarizationextract(1,&height,&blockhash,&desttxid,tx) < 0 )
+    else if ( NSPV_notarizationextract(VALIDATESIGS, &height, &blockhash, &desttxid, &momdepthprev, tx) < 0 )
         return(-5);
     else if ( height != ptr->common.nextht )
         return(-6);
@@ -44,23 +52,28 @@ int32_t NSPV_validatehdrs(struct NSPV_ntzsproofresp *ptr)
         if ( blockhash != ptr->common.hdrs[i].hashPrevBlock )
             return(-i-13);
     }
-    sleep(1); // need this to get past the once per second rate limiter per message
+    /*sleep(1); // need this to get past the once per second rate limiter per message
     if ( NSPV_txextract(tx,ptr->prevntz,ptr->prevtxlen) < 0 )
         return(-8);
     else if ( tx.GetHash() != ptr->prevtxid )
         return(-9);
-    else if ( NSPV_notarizationextract(1,&height,&blockhash,&desttxid,tx) < 0 )
+    else if ( NSPV_notarizationextract(VALIDATESIGS, &height, &blockhash, &desttxid, &momdepthnext, tx) < 0 )
         return(-10);
     else if ( height != ptr->common.prevht )
         return(-11);
-    else if ( NSPV_hdrhash(&ptr->common.hdrs[0]) != blockhash )
+    else  */
+    if ( NSPV_hdrhash(&ptr->common.hdrs[0]) != blockhash )
         return(-12);
     return(0);
 }
 
 int32_t NSPV_gettransaction(int32_t skipvalidation,int32_t vout,uint256 txid,int32_t height,CTransaction &tx,uint256 &hashblock,int32_t &txheight,int32_t &currentheight,int64_t extradata,uint32_t tiptime,int64_t &rewardsum)
 {
-    struct NSPV_txproof *ptr; int32_t i,offset,retval; int64_t rewards = 0; uint32_t nLockTime; std::vector<uint8_t> proof;
+    struct NSPV_txproof* ptr;
+    int32_t i, offset, retval;
+    int64_t rewards = 0;
+    uint32_t nLockTime;
+    std::vector<uint8_t> proof;
     retval = skipvalidation != 0 ? 0 : -1;
 
     //fprintf(stderr,"NSPV_gettx %s/v%d ht.%d\n",txid.GetHex().c_str(),vout,height);
@@ -101,38 +114,48 @@ int32_t NSPV_gettransaction(int32_t skipvalidation,int32_t vout,uint256 txid,int
             proof.resize(ptr->txprooflen);
             memcpy(&proof[0],ptr->txproof,ptr->txprooflen);
         }
-        NSPV_notarizations(height); // gets the prev and next notarizations
-        if ( NSPV_inforesult.notarization.height >= height && (NSPV_ntzsresult.prevntz.height == 0 || NSPV_ntzsresult.prevntz.height >= NSPV_ntzsresult.nextntz.height) )
-        {
+
+        NSPV_ntz *ntzp;
+        if (height > NSPV_inforesult.ntz.ntzheight - NSPV_inforesult.ntz.depth && height <= NSPV_inforesult.ntz.ntzheight)
+            ntzp = &NSPV_inforesult.ntz;
+        else if (height > NSPV_ntzsresult.ntz.ntzheight - NSPV_ntzsresult.ntz.depth && height <= NSPV_ntzsresult.ntz.ntzheight)
+            ntzp = &NSPV_ntzsresult.ntz;
+        else   {
             fprintf(stderr,"issue manual bracket\n");
-            NSPV_notarizations(height-1);
-            NSPV_notarizations(height+1);
-            NSPV_notarizations(height); // gets the prev and next notarizations
+            NSPV_notarizations(height); // gets the notarization for tx height
+            ntzp = &NSPV_ntzsresult.ntz;
+            //NSPV_notarizations(height-1);
+            //NSPV_notarizations(height+1);
+            //NSPV_notarizations(height); // gets the prev and next notarizations
         }
-        if ( NSPV_ntzsresult.prevntz.height != 0 && NSPV_ntzsresult.prevntz.height <= NSPV_ntzsresult.nextntz.height )
+        if (ntzp->txidheight != 0 && height > ntzp->ntzheight-ntzp->depth && height <= ntzp->ntzheight)
         {
-            fprintf(stderr,">>>>> gettx ht.%d prev.%d next.%d\n",height,NSPV_ntzsresult.prevntz.height, NSPV_ntzsresult.nextntz.height);
-            offset = (height - NSPV_ntzsresult.prevntz.height);
-            if ( offset >= 0 && height <= NSPV_ntzsresult.nextntz.height )
+            fprintf(stderr,">>>>> gettx ht.%d next ntzht.%d\n", height, ntzp->ntzheight);
+            offset = height - (ntzp->ntzheight - ntzp->depth) + 1;  // pos in headers
+
+            //fprintf(stderr,"call NSPV_txidhdrsproof %s %s\n",NSPV_ntzsresult.prevntz.txid.GetHex().c_str(),NSPV_ntzsresult.nextntz.txid.GetHex().c_str());
+            NSPV_txidhdrsproof(ntzp->txid);
+            //usleep(10000);
+            if ((retval = NSPV_validatehdrs(&NSPV_ntzsproofresult)) == 0)
             {
-                //fprintf(stderr,"call NSPV_txidhdrsproof %s %s\n",NSPV_ntzsresult.prevntz.txid.GetHex().c_str(),NSPV_ntzsresult.nextntz.txid.GetHex().c_str());
-                NSPV_txidhdrsproof(NSPV_ntzsresult.prevntz.txid,NSPV_ntzsresult.nextntz.txid);
-                usleep(10000);
-                if ( (retval= NSPV_validatehdrs(&NSPV_ntzsproofresult)) == 0 )
+                std::vector<uint256> txids; uint256 proofroot;
+                proofroot = BitcoinGetProofMerkleRoot(proof,txids);
+                if ( proofroot != NSPV_ntzsproofresult.common.hdrs[offset].hashMerkleRoot || txids[0] != txid )
                 {
-                    std::vector<uint256> txids; uint256 proofroot;
-                    proofroot = BitcoinGetProofMerkleRoot(proof,txids);
-                    if ( proofroot != NSPV_ntzsproofresult.common.hdrs[offset].hashMerkleRoot || txids[0] != txid )
-                    {
-                        fprintf(stderr,"txid.%s vs txids[0] %s\n",txid.GetHex().c_str(),txids[0].GetHex().c_str());
-                        fprintf(stderr,"prooflen.%d proofroot.%s vs %s\n",(int32_t)proof.size(),proofroot.GetHex().c_str(),NSPV_ntzsproofresult.common.hdrs[offset].hashMerkleRoot.GetHex().c_str());
-                        retval = -2003;
-                    } else retval = 0;
-                }
-            } else retval = -2005;
-        } else retval = -2004;
+                    fprintf(stderr,"txid.%s vs txids[0] %s\n",txid.GetHex().c_str(),txids[0].GetHex().c_str());
+                    fprintf(stderr,"prooflen.%d proofroot.%s vs %s\n",(int32_t)proof.size(),proofroot.GetHex().c_str(),NSPV_ntzsproofresult.common.hdrs[offset].hashMerkleRoot.GetHex().c_str());
+                    retval = -2003;
+                } 
+                else 
+                    retval = 0;
+            }
+            else 
+                retval = -2005;
+        } 
+        else 
+            retval = -2004;
     }
-    return(retval);
+    return retval;
 }
 
 int32_t NSPV_vinselect(int32_t *aboveip,int64_t *abovep,int32_t *belowip,int64_t *belowp,struct NSPV_utxoresp utxos[],int32_t numunspents,int64_t value)
@@ -389,6 +412,7 @@ UniValue NSPV_spend(char *srcaddr,char *destaddr,int64_t satoshis) // what its a
     mtx.nVersionGroupId = SAPLING_VERSION_GROUP_ID;
     mtx.nVersion = SAPLING_TX_VERSION;
     if ( ASSETCHAINS_SYMBOL[0] == 0 ) {
+        LOCK(cs_main);
         if ( !komodo_hardfork_active((uint32_t)chainActive.LastTip()->nTime) )
             mtx.nLockTime = (uint32_t)time(NULL) - 777;
         else
@@ -493,42 +517,47 @@ void NSPV_utxos2CCunspents(struct NSPV_utxosresp *ptr,std::vector<std::pair<CAdd
     }
 }
 
-void NSPV_txids2CCtxids(struct NSPV_txidsresp *ptr,std::vector<std::pair<CAddressIndexKey, CAmount> > &txids)
+void NSPV_resp2indexOutputs(struct NSPV_txidsresp* ptr, std::vector<std::pair<CAddressIndexKey, CAmount>>& indexOutputs)
 {
-    CAddressIndexKey key; int64_t value; int32_t i,type; uint160 hashBytes; std::string addrstr(ptr->coinaddr);
-    if ( ptr->txids != NULL && ptr->numtxids > 0 )
-    {
+    if (!ptr->coinaddr)
+        return;
+
+    CAddressIndexKey key;
+    int64_t value;
+    int32_t i, type;
+    uint160 hashBytes;
+    std::string addrstr(ptr->coinaddr);
+
+    if (ptr->txids != NULL && ptr->numtxids > 0) {
         CBitcoinAddress address(addrstr);
-        if ( address.GetIndexKey(hashBytes, type, ptr->CCflag) == 0 )
-        {
-            fprintf(stderr,"couldnt get indexkey\n");
+        if (address.GetIndexKey(hashBytes, type, ptr->CCflag) == 0) {
+            fprintf(stderr, "couldnt get indexkey\n");
             return;
         }
-        for (i = 0; i < ptr->numtxids; i ++)
-        {
+        for (i = 0; i < ptr->numtxids; i++) {
             key.type = type;
             key.hashBytes = hashBytes;
             key.txhash = ptr->txids[i].txid;
-            key.index = ptr->txids[i].vout;
+            key.index = ptr->txids[i].index;
             key.blockHeight = ptr->txids[i].height;
             value = ptr->txids[i].satoshis;
-            txids.push_back(std::make_pair(key, value));
+            indexOutputs.push_back(std::make_pair(key, value));
         }
     }
 }
 
-void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &outputs,char *coinaddr,bool ccflag)
+void NSPV_CCunspents(std::vector<std::pair<CAddressUnspentKey, CAddressUnspentValue> > &outputs, char *coinaddr, bool ccflag)
 {
     int32_t filter = 0;
     NSPV_addressutxos(coinaddr,ccflag,0,filter);
     NSPV_utxos2CCunspents(&NSPV_utxosresult,outputs);
 }
 
-void NSPV_CCtxids(std::vector<std::pair<CAddressIndexKey, CAmount> > &txids,char *coinaddr,bool ccflag)
+void NSPV_CCindexOutputs(std::vector<std::pair<CAddressIndexKey, CAmount>>& indexOutputs, char* coinaddr, bool ccflag)
 {
     int32_t filter = 0;
-    NSPV_addresstxids(coinaddr,ccflag,0,filter);
-    NSPV_txids2CCtxids(&NSPV_txidsresult,txids);
+    NSPV_addresstxids(coinaddr, ccflag, 0, filter);
+    NSPV_resp2indexOutputs(&NSPV_txidsresult, indexOutputs);
 }
 
 void NSPV_CCtxids(std::vector<uint256> &txids,char *coinaddr,bool ccflag, uint8_t evalcode,uint256 filtertxid, uint8_t func)

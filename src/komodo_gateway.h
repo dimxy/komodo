@@ -682,8 +682,6 @@ int32_t komodo_bannedset(int32_t *indallvoutsp,uint256 *array,int32_t max)
     return(i);
 }
 
-void komodo_passport_iteration();
-
 int32_t komodo_check_deposit(int32_t height,const CBlock& block,uint32_t prevtime) // verify above block is valid pax pricing
 {
     static uint256 array[64]; static int32_t numbanned,indallvouts;
@@ -1426,8 +1424,6 @@ int32_t komodo_faststateinit(struct komodo_state *sp,char *fname,char *symbol,ch
     return(-1);
 }
 
-uint64_t komodo_interestsum();
-
 void komodo_passport_iteration()
 {
     static long lastpos[34]; static char userpass[33][1024]; static uint32_t lasttime,callcounter,lastinterest;
@@ -1582,7 +1578,6 @@ void komodo_passport_iteration()
 }
 
 
-extern std::vector<uint8_t> Mineropret; // opreturn data set by the data gathering code
 #define PRICES_ERRORRATE (COIN / 100)	  // maximum acceptable change, set at 1%
 #define PRICES_SIZEBIT0 (sizeof(uint32_t) * 4) // 4 uint32_t unixtimestamp, BTCUSD, BTCGBP and BTCEUR
 #define KOMODO_LOCALPRICE_CACHESIZE 13

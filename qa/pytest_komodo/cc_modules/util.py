@@ -5,9 +5,10 @@ from random import choice
 from string import ascii_uppercase
 try:
     from slickrpc import Proxy
+    from slickrpc.exc import RpcException as RPCError
 except ImportError:
     from bitcoinrpc.authproxy import AuthServiceProxy as Proxy
-
+    from bitcoinrpc.authproxy import JSONRPCException as RPCError
 
 def assert_success(result):
     assert result['result'] == 'success'
@@ -34,12 +35,12 @@ def mine_and_waitconfirms(txid, proxy, confs_req=2):  # should be used after tx 
         try:
             confirmations_amount = proxy.getrawtransaction(txid, 1)['confirmations']
             if confirmations_amount < confs_req:
-                print("\ntx is not confirmed yet! Let's wait a little more")
+                print("\ntx is not confirmed yet! Let's wait a little more", txid, 'confs=', confirmations_amount, 'required=', confs_req)
                 time.sleep(5)
             else:
                 print("\ntx confirmed")
                 return True
-        except KeyError as e:
+        except (KeyError, RPCError) as e:
             print("\ntx is in mempool still probably, let's wait a little bit more\nError: ", e)
             time.sleep(5)
             attempts += 1

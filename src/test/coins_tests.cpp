@@ -899,7 +899,7 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
 
     {
         CTransaction tx2(mtx2);
-        BOOST_CHECK(Consensus::CheckTxInputs(tx2, state, cache, 100+COINBASE_MATURITY, Params().GetConsensus()));
+        BOOST_CHECK(Consensus::CheckTxInputs(tx2, state, cache, 100+COINBASE_MATURITY, 0, Params().GetConsensus()));
     }
 
     mtx2.vout.resize(1);
@@ -908,7 +908,7 @@ BOOST_AUTO_TEST_CASE(coins_coinbase_spends)
 
     {
         CTransaction tx2(mtx2);
-        BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, cache, 100+COINBASE_MATURITY, Params().GetConsensus()));
+        BOOST_CHECK(!Consensus::CheckTxInputs(tx2, state, cache, 100+COINBASE_MATURITY, 0, Params().GetConsensus()));
         BOOST_CHECK(state.GetRejectReason() == "bad-txns-coinbase-spend-has-transparent-outputs");
     }
 }

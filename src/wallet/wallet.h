@@ -748,7 +748,7 @@ private:
 class CWallet : public CCryptoKeyStore, public CValidationInterface
 {
 private:
-    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL) const;
+    bool SelectCoins(const CAmount& nTargetValue, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet, bool& fOnlyCoinbaseCoinsRet, bool& fNeedCoinbaseCoinsRet, const CCoinControl *coinControl = NULL, int64_t txLockTime = 0LL) const;
 
     CWalletDB *pwalletdbEncryption;
 
@@ -993,7 +993,7 @@ public:
     //! check whether we are allowed to upgrade (or already support) to the named feature
     bool CanSupportFeature(enum WalletFeature wf) { AssertLockHeld(cs_wallet); return nWalletMaxVersion >= wf; }
 
-    void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = NULL, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true) const;
+    void AvailableCoins(std::vector<COutput>& vCoins, bool fOnlyConfirmed=true, const CCoinControl *coinControl = NULL, bool fIncludeZeroValue=false, bool fIncludeCoinBase=true, int64_t txLockTime = 0L) const;
     bool SelectCoinsMinConf(const CAmount& nTargetValue, int nConfMine, int nConfTheirs, std::vector<COutput> vCoins, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, CAmount& nValueRet) const;
 
     bool IsSpent(const uint256& hash, unsigned int n) const;
@@ -1171,8 +1171,8 @@ public:
     int64_t GetOldestKeyPoolTime();
     void GetAllReserveKeys(std::set<CKeyID>& setAddress) const;
 
-    std::set< std::set<CTxDestination> > GetAddressGroupings();
-    std::map<CTxDestination, CAmount> GetAddressBalances();
+    std::set< std::set<CTxDestination> > GetAddressGroupings(int64_t txUnlockTime);
+    std::map<CTxDestination, CAmount> GetAddressBalances(int64_t txUnlockTime);
 
     std::set<CTxDestination> GetAccountAddresses(const std::string& strAccount) const;
 
@@ -1517,5 +1517,18 @@ public:
     SpendingKeyAddResult operator()(const libzcash::SaplingExtendedSpendingKey &sk) const;
     SpendingKeyAddResult operator()(const libzcash::InvalidEncoding& no) const;    
 };
+
+/*inline void TokelRemoveTimeLockedCoins(std::vector<COutput> &vCoins, int64_t txLockTime)
+{
+    // remove still timelocked coins
+    for (std::vector<COutput>::iterator it = vCoins.begin(); it != vCoins.end();)
+    {
+        int64_t nLockTime;
+        if (it->tx->vout[it->i].scriptPubKey.IsCheckLockTimeVerify(&nLockTime) && !TokelCheckLockTimeHelper(nLockTime, txLockTime))
+            it = vCoins.erase(it);
+        else
+            ++it;
+    }
+}*/
 
 #endif // BITCOIN_WALLET_WALLET_H

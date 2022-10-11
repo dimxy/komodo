@@ -182,12 +182,13 @@ public:
         assert(genesis.hashMerkleRoot == uint256S("0x4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b"));
         vFixedSeeds.clear();
         vSeeds.clear();
-        vSeeds.push_back(CDNSSeedData("komodoseeds.com", "kmd.komodoseeds.com")); // Static contolled seeds list (Kolo)
-        vSeeds.push_back(CDNSSeedData("komodoseeds.com", "dynamic.komodoseeds.com")); // Active seeds crawler (Kolo)
+        //vSeeds.push_back(CDNSSeedData("komodoseeds.com", "kmd.komodoseeds.com")); // Static contolled seeds list (Kolo)
+        //vSeeds.push_back(CDNSSeedData("komodoseeds.com", "dynamic.komodoseeds.com")); // Active seeds crawler (Kolo)
         // TODO: we need more seed crawlers from other community members
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,60);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,85);
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,188);
+        base58Prefixes[CRYPTOCONDITION_ADDRESS] =     std::vector<unsigned char>(1,0x1c);
         base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x88)(0xB2)(0x1E).convert_to_container<std::vector<unsigned char> >();
         base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x88)(0xAD)(0xE4).convert_to_container<std::vector<unsigned char> >();
         // guarantees the first two characters, when base58 encoded, are "zc"
@@ -196,6 +197,8 @@ public:
         base58Prefixes[ZCVIEWING_KEY]      = {0xA8,0xAB,0xD3};
         // guarantees the first two characters, when base58 encoded, are "SK"
         base58Prefixes[ZCSPENDING_KEY] = {171,54};
+
+        base58Prefixes[CRYPTOCONDITION_ADDRESS] =     std::vector<unsigned char>(1,0x1c);
 
         bech32HRPs[SAPLING_PAYMENT_ADDRESS]      = "zs";
         bech32HRPs[SAPLING_FULL_VIEWING_KEY]     = "zviews";
@@ -307,6 +310,8 @@ public:
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,0);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,5);
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,128);
+        base58Prefixes[CRYPTOCONDITION_ADDRESS] =     std::vector<unsigned char>(1,0x1c);
+
         base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x04)(0x35)(0x87)(0xCF).convert_to_container<std::vector<unsigned char> >();
         base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x04)(0x35)(0x83)(0x94).convert_to_container<std::vector<unsigned char> >();
         base58Prefixes[ZCPAYMENT_ADDRRESS] = {20,81};
@@ -428,6 +433,8 @@ public:
         base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,60);
         base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,85);
         base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,188);
+        base58Prefixes[CRYPTOCONDITION_ADDRESS] =     std::vector<unsigned char>(1,0x1c);
+
         //base58Prefixes[PUBKEY_ADDRESS]     = {0x1D,0x25};
         //base58Prefixes[SCRIPT_ADDRESS]     = {0x1C,0xBA};
         //base58Prefixes[SECRET_KEY]         = {0xEF};

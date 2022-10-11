@@ -32,7 +32,7 @@ jobs:
                              libncurses-dev \
                              unzip  \
                              git \
-                             python \
+                             python3 \
                              zlib1g-dev \
                              wget \
                              bsdmainutils \
@@ -72,151 +72,117 @@ jobs:
         name: komodod_win
         path: ./komodod_win.zip
 
-  windows-test-baserpc:
-
-    name: Test (Win/BasicRPC)
+  windows-build-prereqs:
+    name: Get Prereqs
     needs: windows-build
     runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
 
       - name: Download komodo_win.zip
         uses: actions/download-artifact@v1
         with:
           name: komodod_win
 
-      - name: Install deps (Base)
+      - name: Unpack Komodo
         shell: cmd
         run: |
           move komodod_win\komodod_win.zip
           7z e komodod_win.zip
           move komodod.exe src\
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
+
+      - name: Install vcpkg
+        uses: lukka/run-vcpkg@v4
+        with:
+          setupOnly: true
+          # vcpkgArguments: 'curl'
+          vcpkgGitCommitId: 'f46f924c08b1fca7ad450ff0b1b26dc9554a3c8e'
+          # vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+          # working-directory: ${{env.GITHUB_WORKSPACE}}
+
+      - name: Install libcurl
+        run: |
+          vcpkg install curl
+        shell: cmd
+
+      - name: Install deps (Base)
+        shell: cmd
+        run: |
+          dir /s vcpkg\packages\curl_x64-windows
+          python3.exe -m pip install --upgrade setuptools
+          python3.exe -m pip install --upgrade pip
+          python3.exe -m pip install --no-cache-dir --compile --ignore-installed --install-option="--with-openssl" --curl-dir="vcpkg\packages\curl_x64-windows\lib" pycurl
+          python3.exe -m pip install pytest wget jsonschema
+          python3.exe -m pip install slick-bitcoinrpc
           zcutil\fetch-params.bat
+
+  windows-test-baserpc:
+    name: Test (Win/BasicRPC)
+    runs-on: windows-latest
+    needs: windows-build-prereqs
+    #with:
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
+
+    steps:
       - name: Base RPC Test (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat basic
-  windows-test-dice-faucet-tok-rewCC:
 
+  windows-test-dice-faucet-tok-rewCC:
     name: Test (Win/Dice Faucet Token Rewards)
     runs-on: windows-latest
-    needs: windows-build
+    needs: windows-build-prereqs
+    #with:
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
-        with:
-          name: komodod_win
-
-      - name: Install deps (MainCC)
-        shell: cmd
-        run: |
-          move komodod_win\komodod_win.zip
-          7z e komodod_win.zip
-          move komodod.exe src\
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
-          zcutil\fetch-params.bat
       - name: CC Dice Faucet Tokens Rewards (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat cc_modules\test_dice.py cc_modules\test_faucet.py cc_modules\test_token.py cc_modules\test_rewards.py
-  windows-test-oracles-cc:
 
+  windows-test-oracles-cc:
     name: Test (Win/OraclesCC)
     runs-on: windows-latest
-    needs: windows-build
+    needs: windows-build-prereqs
+    #with:
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
-        with:
-          name: komodod_win
-
-      - name: Install deps (OraclesCC)
-        shell: cmd
-        run: |
-          move komodod_win\komodod_win.zip
-          7z e komodod_win.zip
-          move komodod.exe src\
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
-          zcutil\fetch-params.bat
       - name: CC Oracles (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat cc_modules\test_oracles.py
-  windows-test-heir-cc:
 
+  windows-test-heir-cc:
     name: Test (Win/HeirCC)
     runs-on: windows-latest
-    needs: windows-build
+    needs: windows-build-prereqs
+    #with:
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
-        with:
-          name: komodod_win
-
-      - name: Install deps (CC Heir)
-        shell: cmd
-        run: |
-          move komodod_win\komodod_win.zip
-          7z e komodod_win.zip
-          move komodod.exe src\
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
-          zcutil\fetch-params.bat
       - name: CC Heir (Windows)
         shell: cmd
         run: |
           cd qa\pytest_komodo
           start_ci.bat cc_modules\test_heir.py
-  windows-test-channels-cc:
 
+  windows-test-channels-cc:
     name: Test (Win/ChannelsCC)
     runs-on: windows-latest
-    needs: windows-build
+    needs: windows-build-prereqs
+    #with:
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
 
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Download komodo_win.zip
-        uses: actions/download-artifact@v1
-        with:
-          name: komodod_win
-
-      - name: Install deps (ChannelsCC)
-        shell: cmd
-        run: |
-          move komodod_win\komodod_win.zip
-          7z e komodod_win.zip
-          move komodod.exe src\
-          python.exe -m pip install --upgrade setuptools
-          python.exe -m pip install --upgrade pip
-          python.exe -m pip install pycurl pytest wget jsonschema
-          python.exe -m pip install slick-bitcoinrpc
-          zcutil\fetch-params.bat
       - name: ChannelsCC (Windows)
         shell: cmd
         run: |

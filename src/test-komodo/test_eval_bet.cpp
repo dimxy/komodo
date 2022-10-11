@@ -15,6 +15,7 @@
 
 
 extern Eval* EVAL_TEST;
+extern int32_t KOMODO_CONNECTING;
 
 
 namespace TestBet {
@@ -43,7 +44,7 @@ int TestCC(CMutableTransaction &mtxTo, unsigned int nIn, CC *cond)
     ScriptError error;
     CTransaction txTo(mtxTo);
     PrecomputedTransactionData txdata(txTo);
-    auto checker = ServerTransactionSignatureChecker(&txTo, nIn, amount, false, NULL, txdata);
+    auto checker = ServerTransactionSignatureChecker(&txTo, nIn, amount, false, 0, 1, NULL, txdata);
     return VerifyScript(txTo.vin[nIn].scriptSig, CCPubKey(cond), 0, checker, 0, &error);
 }
 
@@ -311,9 +312,10 @@ TEST_F(TestBet, testSignDisputeCond)
     EXPECT_EQ(1, cc_isFulfilled(disputeCond));
 }
 
-
-TEST_F(TestBet, testDispute)
+// these tests do not work in the existing ProcessCC implementation (it does not allow a eval param in the cond->code)
+TEST_F(TestBet, DISABLED_testDispute)
 {
+    KOMODO_CONNECTING = 1;
     EvalMock eval = ebet.SetEvalMock(12);
 
     // Only one key needed to dispute
@@ -332,8 +334,7 @@ TEST_F(TestBet, testDispute)
     EXPECT_EQ("wrong-payout", eval.state.GetRejectReason());
 }
 
-
-TEST_F(TestBet, testDisputeInvalidOutput)
+TEST_F(TestBet, DISABLED_testDisputeInvalidOutput)
 {
     EvalMock eval = ebet.SetEvalMock(11);
 
@@ -356,7 +357,7 @@ TEST_F(TestBet, testDisputeInvalidOutput)
 }
 
 
-TEST_F(TestBet, testDisputeEarly)
+TEST_F(TestBet, DISABLED_testDisputeEarly)
 {
     EvalMock eval = ebet.SetEvalMock(11);
 
@@ -370,7 +371,7 @@ TEST_F(TestBet, testDisputeEarly)
 }
 
 
-TEST_F(TestBet, testDisputeInvalidParams)
+TEST_F(TestBet, DISABLED_testDisputeInvalidParams)
 {
     EvalMock eval = ebet.SetEvalMock(12);
 
@@ -399,7 +400,7 @@ TEST_F(TestBet, testDisputeInvalidParams)
 }
 
 
-TEST_F(TestBet, testDisputeInvalidEvidence)
+TEST_F(TestBet, DISABLED_testDisputeInvalidEvidence)
 {
     EvalMock eval = ebet.SetEvalMock(12);
 

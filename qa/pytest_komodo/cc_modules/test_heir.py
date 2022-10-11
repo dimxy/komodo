@@ -189,7 +189,7 @@ class TestHeirFunc:
     def test_heir_addresses(self, test_params):
         rpc1 = test_params.get('node1').get('rpc')
         pubkey = test_params.get('node2').get('pubkey')
-        address_pattern = re.compile(r"R[a-zA-Z0-9]{33}\Z")  # normal R-addr
+        address_pattern = re.compile(r"[RC][a-zA-Z0-9]{33}\Z")  # normal R-addr
 
         # verify all keys look like valid AC addrs
         res = rpc1.faucetaddress('')

@@ -5,18 +5,15 @@
 #include "CCtokens.h"
 #include "CCtokens_impl.h"
 #include "CCHeir.h"
-#include "old/heir_validate_v0.h"
 
 
 #define IS_CHARINSTR(c, str) (std::string(str).find((char)(c)) != std::string::npos)
-
-bool HeirIsVer1Active(const Eval *eval);
 
 // makes coin initial tx opret
 vscript_t EncodeHeirCreateOpRetV1(uint8_t funcid, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string heirName, std::string memo);
 vscript_t EncodeHeirOpRetV1(uint8_t funcid,  uint256 fundingtxid, uint8_t isHeirSpendingBegan);
 
-uint256 FindLatestFundingTx(uint256 fundingtxid, uint256 &tokenid, CScript& opRetScript, uint8_t &isHeirSpendingBegan);
+uint256 FindLatestFundingTx(Eval *eval, uint256 fundingtxid, uint256 &tokenid, CScript& opRetScript, uint8_t &isHeirSpendingBegan);
 uint8_t DecodeHeirEitherOpRetV1(CScript scriptPubKey, uint256 &tokenid, CPubKey& ownerPubkey, CPubKey& heirPubkey, int64_t& inactivityTime, std::string& heirName, std::string& memo, bool noLogging = false);
 uint8_t DecodeHeirEitherOpRetV1(CScript scriptPubKey, uint256 &tokenid, uint256 &fundingTxidInOpret, uint8_t &hasHeirSpendingBegun, bool noLogging = false);
 
@@ -33,23 +30,13 @@ public:
     }
     
     static CScript makeCreateOpRet(uint256 dummyid, std::vector<CPubKey> dummyPubkeys, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string heirName, std::string memo) {
-        if (HeirIsVer1Active(NULL))
-            return CScript() << OP_RETURN << EncodeHeirCreateOpRetV1((uint8_t)'F', ownerPubkey, heirPubkey, inactivityTimeSec, heirName, memo);
-        else
-            return CScript() << OP_RETURN << heirv0::EncodeHeirCreateOpRet((uint8_t)'F', ownerPubkey, heirPubkey, inactivityTimeSec, heirName, memo);
+        return CScript() << OP_RETURN << EncodeHeirCreateOpRetV1((uint8_t)'F', ownerPubkey, heirPubkey, inactivityTimeSec, heirName, memo);
     }
     static CScript makeAddOpRet(uint256 dummyid, std::vector<CPubKey> dummyPubkeys, uint256 fundingtxid, uint8_t isHeirSpendingBegan) {
-        if (HeirIsVer1Active(NULL))
-            return CScript() << OP_RETURN << EncodeHeirOpRetV1((uint8_t)'A', fundingtxid, isHeirSpendingBegan);
-        else
-            return CScript() << OP_RETURN << heirv0::EncodeHeirOpRet((uint8_t)'A', fundingtxid, isHeirSpendingBegan);
-
+        return CScript() << OP_RETURN << EncodeHeirOpRetV1((uint8_t)'A', fundingtxid, isHeirSpendingBegan);
     }
     static CScript makeClaimOpRet(uint256 dummyid, std::vector<CPubKey> dummyPubkeys, uint256 fundingtxid, uint8_t isHeirSpendingBegan) {
-        if (HeirIsVer1Active(NULL))
-            return CScript() << OP_RETURN << EncodeHeirOpRetV1((uint8_t)'C', fundingtxid, isHeirSpendingBegan);
-        else
-            return CScript() << OP_RETURN << heirv0::EncodeHeirOpRet((uint8_t)'C', fundingtxid, isHeirSpendingBegan);
+        return CScript() << OP_RETURN << EncodeHeirOpRetV1((uint8_t)'C', fundingtxid, isHeirSpendingBegan);
     }
     static CTxOut make1of2Vout(int64_t amount, CPubKey ownerPubkey, CPubKey heirPubkey) {
         return MakeCC1of2vout(EVAL_HEIR, amount, ownerPubkey, heirPubkey);
@@ -85,22 +72,13 @@ public:
     }
     
     static CScript makeCreateOpRet(uint256 tokenid, std::vector<CPubKey> voutTokenPubkeys, CPubKey ownerPubkey, CPubKey heirPubkey, int64_t inactivityTimeSec, std::string heirName, std::string memo) {
-        if (HeirIsVer1Active(NULL))
-            return EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, { EncodeHeirCreateOpRetV1((uint8_t)'F', ownerPubkey, heirPubkey, inactivityTimeSec, heirName, memo) });
-        else
-            return EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, { heirv0::EncodeHeirCreateOpRet((uint8_t)'F', ownerPubkey, heirPubkey, inactivityTimeSec, heirName, memo) });
+        return EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, { EncodeHeirCreateOpRetV1((uint8_t)'F', ownerPubkey, heirPubkey, inactivityTimeSec, heirName, memo) });
     }
     static CScript makeAddOpRet(uint256 tokenid, std::vector<CPubKey> voutTokenPubkeys, uint256 fundingtxid, uint8_t isHeirSpendingBegan) {
-        if (HeirIsVer1Active(NULL))
-            return EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, { EncodeHeirOpRetV1((uint8_t)'A', fundingtxid, isHeirSpendingBegan) });
-        else
-            return EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, { heirv0::EncodeHeirOpRet((uint8_t)'A', fundingtxid, isHeirSpendingBegan) });
+        return EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, { EncodeHeirOpRetV1((uint8_t)'A', fundingtxid, isHeirSpendingBegan) });
     }
     static CScript makeClaimOpRet(uint256 tokenid, std::vector<CPubKey> voutTokenPubkeys, uint256 fundingtxid, uint8_t isHeirSpendingBegan) {
-        if (HeirIsVer1Active(NULL))
-            return EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, { EncodeHeirOpRetV1((uint8_t)'C', fundingtxid, isHeirSpendingBegan) });
-        else
-            return EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, { heirv0::EncodeHeirOpRet((uint8_t)'C', fundingtxid, isHeirSpendingBegan) });
+        return EncodeTokenOpRetV1(tokenid, voutTokenPubkeys, { EncodeHeirOpRetV1((uint8_t)'C', fundingtxid, isHeirSpendingBegan) });
     }
     
     static CTxOut make1of2Vout(int64_t amount, CPubKey ownerPubkey, CPubKey heirPubkey) {

@@ -565,9 +565,6 @@ const CTxOut &CCoinsViewCache::GetOutputFor(const CTxIn& input) const
     return coins->vout[input.prevout.n];
 }
 
-//uint64_t komodo_interest(int32_t txheight,uint64_t nValue,uint32_t nLockTime,uint32_t tiptime);
-uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 hash,int32_t n,int32_t checkheight,uint64_t checkvalue,int32_t tipheight);
-extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
 
 const CScript &CCoinsViewCache::GetSpendFor(const CCoins *coins, const CTxIn& input)
 {
@@ -599,14 +596,14 @@ CAmount CCoinsViewCache::GetValueIn(int32_t nHeight,int64_t *interestp,const CTr
     if ( interestp != 0 )
         *interestp = 0;
     if ( tx.IsCoinImport() )
-        return GetCoinImportValue(tx);
+        return GetCoinImportValue(tx, tiptime, nHeight);
     if ( tx.IsCoinBase() != 0 )
         return 0;
     for (unsigned int i = 0; i < tx.vin.size(); i++)
     {
         if (tx.IsPegsImport() && i==0)
         {
-            nResult = GetCoinImportValue(tx);
+            nResult = GetCoinImportValue(tx, tiptime, nHeight);
             continue;
         } 
         value = GetOutputFor(tx.vin[i]).nValue;

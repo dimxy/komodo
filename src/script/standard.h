@@ -40,6 +40,13 @@ public:
     CScriptID(const uint160& in) : uint160(in) {}
 };
 
+class CCryptoConditionID : public uint160
+{
+public:
+    CCryptoConditionID() : uint160() {}
+    CCryptoConditionID(const uint160& in) : uint160(in) {}
+};
+
 static const unsigned int MAX_OP_RETURN_RELAY = 8192;      //! bytes
 extern unsigned nMaxDatacarrierBytes;
 
@@ -78,10 +85,73 @@ enum txnouttype
     TX_PUBKEY,
     TX_PUBKEYHASH,
     TX_SCRIPTHASH,
-    TX_MULTISIG,
     TX_CRYPTOCONDITION,
+    TX_CLTV, 
+    // ^^ enum order matches types' order in CTxDestination
+    TX_MULTISIG,
     TX_NULL_DATA,
 };
+
+class CCLTVID
+{
+private:
+    int64_t unlockTime;
+    txnouttype whichType;
+    union {
+        CKeyID keyid;
+        CPubKey pubkey;
+    };
+    bool unlocked;
+public:
+    CCLTVID(const CKeyID &id, int64_t ut) : keyid(id), unlockTime(ut), whichType(TX_PUBKEYHASH), unlocked(false) {}
+    CCLTVID(const CPubKey &pk, int64_t ut) : pubkey(pk), unlockTime(ut), whichType(TX_PUBKEY), unlocked(false) {}
+
+    txnouttype which() const { return whichType; }
+    int64_t GetUnlockTime() const { return unlockTime; }
+    CKeyID GetKeyID() const { return keyid; }
+    CPubKey GetPubKey() const { return pubkey; }
+    CKeyID GetID() const {
+        if (whichType == TX_PUBKEYHASH)
+            return keyid;
+        else 
+            return pubkey.GetID();
+    }
+    void SetUnlocked() { unlocked = true; }
+    bool IsUnlocked() const { return unlocked; }
+    friend bool operator==(const CCLTVID &a, const CCLTVID &b) { 
+        if (a.whichType == TX_PUBKEY && b.whichType == TX_PUBKEY)  
+            return a.pubkey == b.pubkey && (a.unlocked == b.unlocked && !a.unlocked ? b.unlockTime == a.unlockTime : a.unlocked == b.unlocked); 
+        else 
+            return a.GetID() == b.GetID() && (a.unlocked == b.unlocked && !a.unlocked ? b.unlockTime == a.unlockTime : a.unlocked == b.unlocked); 
+    }
+    friend bool operator<(const CCLTVID &a, const CCLTVID &b) { 
+        if (a.whichType == TX_PUBKEY && b.whichType == TX_PUBKEY)  {
+            if (a.pubkey < b.pubkey) 
+                return true;
+            else if (a.pubkey == b.pubkey)   {
+                if (a.unlocked == b.unlocked && !a.unlocked)
+                    return a.unlockTime < b.unlockTime;
+                else
+                    return a.unlocked < b.unlocked;
+            }            
+            else
+                return false;
+        }
+        else {
+            if (a.GetID() < b.GetID())
+                return true;
+            else if (a.GetID() == b.GetID()) {
+                if (a.unlocked == b.unlocked && !a.unlocked)
+                    return a.unlockTime < b.unlockTime;
+                else
+                    return a.unlocked < b.unlocked;
+            }
+            else
+                return false;
+        }
+    }
+};
+
 
 class CNoDestination {
 public:
@@ -94,15 +164,19 @@ public:
  *  * CNoDestination: no destination set
  *  * CKeyID: TX_PUBKEYHASH destination
  *  * CScriptID: TX_SCRIPTHASH destination
+ *  Komodo added:
+ *  * CCryptoConditionID: TX_CRYPTOCONDITION destination
+ *  * CCLTVID TX_CLTV destination
  *  A CTxDestination is the internal data type encoded in a bitcoin address
  */
-typedef boost::variant<CNoDestination, CPubKey, CKeyID, CScriptID> CTxDestination;
+typedef boost::variant<CNoDestination, CPubKey, CKeyID, CScriptID, CCryptoConditionID, CCLTVID> CTxDestination;
 
+// Verus-format for additional data added after cryptocondition as OP_DROP in the spk
 class COptCCParams
 {
     public:
         static const uint8_t VERSION_1 = 1;
-        static const uint8_t VERSION_2 = 2; // i needede to add version2 to allow adding pubkeys (as we violated the OptCCParams format by not adding pubkeys in MakeCCVout1,...)
+        static const uint8_t VERSION_2 = 2; // i needed to add version2 to allow adding pubkeys (as we violated the OptCCParams format by not adding pubkeys in MakeCCVout1,...)
         static bool isMyVersion(uint8_t version) { return version >= 1 && version <= 2; }
         uint8_t version;
         uint8_t evalCode;
@@ -169,6 +243,7 @@ bool IsValidDestination(const CTxDestination& dest);
 const char* GetTxnOutputType(txnouttype t);
 
 bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet);
+bool SolverCLTV(const CScript& _scriptPubKey, txnouttype& typeRet, std::vector<std::vector<unsigned char> >& vSolutionsRet, bool &isCltv);
 int ScriptSigArgsExpected(txnouttype t, const std::vector<std::vector<unsigned char> >& vSolutions);
 bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType);
 bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet, bool returnPubKey=false);
@@ -176,5 +251,28 @@ bool ExtractDestinations(const CScript& scriptPubKey, txnouttype& typeRet, std::
 
 CScript GetScriptForDestination(const CTxDestination& dest);
 CScript GetScriptForMultisig(int nRequired, const std::vector<CPubKey>& keys);
+
+// helper to check if locktime from OP_CLTV opcode not more than tx lock time. Return true if nScriptLockTime <= txLockTime so the utxo spendable
+inline bool TokelCheckLockTimeHelper(int64_t nScriptLockTime, int64_t txLockTime)
+{
+    if (!(
+        (txLockTime <  LOCKTIME_THRESHOLD && nScriptLockTime <  LOCKTIME_THRESHOLD) ||
+        (txLockTime >= LOCKTIME_THRESHOLD && nScriptLockTime >= LOCKTIME_THRESHOLD)
+    ))
+        return false;
+    if (nScriptLockTime > txLockTime)
+    {
+        return false;
+    }
+    return true;
+}
+
+// sets unlocked state in the CLTV dest
+inline void TokelSetIfTimeUnlocked(CTxDestination &dest, int64_t txLockTime)
+{
+    CCLTVID& cltv = boost::get<CCLTVID>(dest);
+    if (TokelCheckLockTimeHelper(cltv.GetUnlockTime(), txLockTime))
+        cltv.SetUnlocked();
+}
 
 #endif // BITCOIN_SCRIPT_STANDARD_H

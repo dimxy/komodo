@@ -417,8 +417,8 @@ static const CRPCCommand vRPCCommands[] =
     { "FSM",   "FSMlist",      &FSMlist,    true },
     { "FSM",   "FSMinfo",      &FSMinfo,    true },
 
-    // DEX
-    { "DEX",   "DEX_broadcast",         &DEX_broadcast, true },
+    // DEX  (disabled)
+/*  { "DEX",   "DEX_broadcast",         &DEX_broadcast, true },
     { "DEX",   "DEX_anonsend",          &DEX_anonsend, true },
     { "DEX",   "DEX_list",              &DEX_list, true },
     { "DEX",   "DEX_get",               &DEX_get, true },
@@ -430,7 +430,7 @@ static const CRPCCommand vRPCCommands[] =
     { "DEX",   "DEX_subscribe",         &DEX_subscribe, true },
     { "DEX",   "DEX_stream",            &DEX_stream, true },
     { "DEX",   "DEX_streamsub",         &DEX_streamsub, true },
-    { "DEX",   "DEX_notarize",          &DEX_notarize, true },
+    { "DEX",   "DEX_notarize",          &DEX_notarize, true }, */
 
     // fsm
     { "nSPV",   "nspv_getinfo",         &nspv_getinfo, true },
@@ -876,7 +876,11 @@ std::string HelpExampleCli(const std::string& methodname, const std::string& arg
     } else if ((strncmp(ASSETCHAINS_SYMBOL, "HUSH3", 5) == 0) ) {
         return "> hush-cli " + methodname + " " + args + "\n";
     } else {
-        return "> komodo-cli -ac_name=" + strprintf("%s", ASSETCHAINS_SYMBOL) + " " + methodname + " " + args + "\n";
+#if !defined CUSTOM_BIN_NAME
+        return std::string("> komodo-cli -ac_name=") + std::string(ASSETCHAINS_SYMBOL) + " " + methodname + " " + args + "\n";
+#else
+        return std::string("> ") + std::string(CUSTOM_BIN_NAME) + std::string("-cli") + " " + methodname + " " + args + "\n";
+#endif
     }
 }
 

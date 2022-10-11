@@ -1,5 +1,6 @@
 dnl require autoconf 2.60 (AS_ECHO/AS_ECHO_N)
 AC_PREREQ([2.60])
+dnl zcash version
 define(_CLIENT_VERSION_MAJOR, 3)
 define(_CLIENT_VERSION_MINOR, 0)
 define(_CLIENT_VERSION_REVISION, 0)
@@ -7,12 +8,22 @@ define(_CLIENT_VERSION_BUILD, 0)
 define(_ZC_BUILD_VAL, m4_if(m4_eval(_CLIENT_VERSION_BUILD < 25), 1, m4_incr(_CLIENT_VERSION_BUILD), m4_eval(_CLIENT_VERSION_BUILD < 50), 1, m4_eval(_CLIENT_VERSION_BUILD - 24), m4_eval(_CLIENT_VERSION_BUILD == 50), 1, , m4_eval(_CLIENT_VERSION_BUILD - 50)))
 define(_CLIENT_VERSION_SUFFIX, m4_if(m4_eval(_CLIENT_VERSION_BUILD < 25), 1, _CLIENT_VERSION_REVISION-beta$1, m4_eval(_CLIENT_VERSION_BUILD < 50), 1, _CLIENT_VERSION_REVISION-rc$1, m4_eval(_CLIENT_VERSION_BUILD == 50), 1, _CLIENT_VERSION_REVISION, _CLIENT_VERSION_REVISION-$1)))
 define(_CLIENT_VERSION_IS_RELEASE, true)
-define(_COPYRIGHT_YEAR, 2018)
-AC_INIT([Verus-CLI],[_CLIENT_VERSION_MAJOR._CLIENT_VERSION_MINOR._CLIENT_VERSION_SUFFIX(_ZC_BUILD_VAL)],[https://github.com/VerusCoin/VerusCoin/issues],[verus-cli])
+define(_COPYRIGHT_YEAR, 2022)
+AC_INIT([tokel-CLI],[_CLIENT_VERSION_MAJOR._CLIENT_VERSION_MINOR._CLIENT_VERSION_SUFFIX(_ZC_BUILD_VAL)],[https://github.com/TokelPlatform/komodo/issues],[tokel-cli])
 AC_CONFIG_SRCDIR([src/main.cpp])
 AC_CONFIG_HEADERS([src/config/bitcoin-config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([build-aux/m4])
+
+dnl komodo codebase version
+define(_KOMODO_VERSION, 60000)
+
+dnl tokel codebase version
+define(_TOKEL_VERSION, 30200)
+
+AC_DEFINE(KOMODO_VERSION, _KOMODO_VERSION, [Komodo Version])
+AC_DEFINE(TOKEL_VERSION, _TOKEL_VERSION, [Tokel Version])
+
 
 BITCOIN_DAEMON_NAME=komodod
 BITCOIN_CLI_NAME=komodo-cli
@@ -195,11 +206,19 @@ AC_ARG_ENABLE([werror],
     [enable_werror=$enableval],
     [enable_werror=no])
 
+# Enable websockets listener
+AC_ARG_ENABLE([websockets],
+  [AS_HELP_STRING([--enable-websockets],
+  [enable websockets (default is no)])],
+  [enable_websockets=$enableval],
+  [enable_websockets=no])
+
 AC_LANG_PUSH([C++])
 AX_CHECK_COMPILE_FLAG([-Werror],[CXXFLAG_WERROR="-Werror"],[CXXFLAG_WERROR=""])
 
 if test "x$enable_debug" = xyes; then
-    CPPFLAGS="$CPPFLAGS -DDEBUG -DDEBUG_LOCKORDER"
+dnl   CPPFLAGS="$CPPFLAGS -DDEBUG -DDEBUG_LOCKORDER"
+    CPPFLAGS="$CPPFLAGS -DDEBUG"
     if test "x$GCC" = xyes; then
         CFLAGS="$CFLAGS -g3 -O0"
     fi
@@ -612,6 +631,17 @@ else
     AC_DEFINE(ENABLE_PROTON, 0, [Define to 1 to enable Proton functions])
 fi
 
+dnl enable websockets
+AC_MSG_CHECKING([if websockets should be enabled])
+if test x$enable_websockets != xno; then
+  AC_MSG_RESULT(no)
+  # AC_MSG_RESULT(yes)
+  # disable websockets for full code audit
+  # AC_DEFINE_UNQUOTED([ENABLE_WEBSOCKETS],[1],[Define to 1 to enable websockets listener])
+else
+  AC_MSG_RESULT(no)
+fi
+
 if test x$build_bitcoin_utils$build_bitcoind$use_tests = xnonono; then
     use_boost=no
 else
@@ -905,6 +935,7 @@ AM_CONDITIONAL([HARDEN],[test x$use_hardening = xyes])
 AM_CONDITIONAL([EXPERIMENTAL_ASM],[test x$experimental_asm = xyes])
 AM_CONDITIONAL([ASAN],[test x$use_asan = xyes])
 AM_CONDITIONAL([TSAN],[test x$use_tsan = xyes])
+AM_CONDITIONAL([ENABLE_WEBSOCKETS],[test x$enable_websockets = xyes])
 
 AC_DEFINE(CLIENT_VERSION_MAJOR, _CLIENT_VERSION_MAJOR, [Major version])
 AC_DEFINE(CLIENT_VERSION_MINOR, _CLIENT_VERSION_MINOR, [Minor version])
@@ -975,6 +1006,46 @@ PKG_CONFIG_LIBDIR="$PKGCONFIG_LIBDIR_TEMP"
 ac_configure_args="${ac_configure_args} --disable-shared --with-pic --with-bignum=no --enable-module-recovery"
 AC_CONFIG_SUBDIRS([src/secp256k1 src/snark src/univalue src/cryptoconditions])
 
+# build custom executable with customised args:
+
+AC_ARG_WITH([custom-bin],
+  [AS_HELP_STRING([--with-custom-bin],
+  [build custom named daemon cli (default=no)])],
+  [build_custom_bin=$withval],
+  [build_custom_bin=no])
+
+# build custom executable added with an Makefile.nnn.include
+AM_CONDITIONAL([BUILD_CUSTOM_BIN], [test "x$build_custom_bin" = "xyes"])
+
+AC_ARG_VAR(CUSTOM_BIN_NAME, [custom executable prefix])
+if test "x${CUSTOM_BIN_NAME+set}" = "xset"; then
+  AC_SUBST([CUSTOM_BIN_NAME], ${CUSTOM_BIN_NAME})
+else
+  AC_SUBST([CUSTOM_BIN_NAME], '')
+fi
+
+AC_ARG_VAR(CUSTOM_BRAND_NAME, [custom brand name])
+if test "x${CUSTOM_BRAND_NAME+set}" = "xset"; then
+  AC_SUBST([CUSTOM_BRAND_NAME], ${CUSTOM_BRAND_NAME})
+else
+  AC_SUBST([CUSTOM_BRAND_NAME], '')
+fi
+
+AC_ARG_VAR(CUSTOM_SERVER_ARGS, [custom daemon params])
+if test "x${CUSTOM_SERVER_ARGS+set}" = "xset"; then
+  AC_SUBST([CUSTOM_SERVER_ARGS], ${CUSTOM_SERVER_ARGS})
+else
+  AC_SUBST([CUSTOM_SERVER_ARGS], '')
+fi
+
+AC_ARG_VAR(CUSTOM_CLIENT_ARGS, [custom cli params])
+if test "x${CUSTOM_CLIENT_ARGS+set}" = "xset"; then
+  AC_SUBST([CUSTOM_CLIENT_ARGS], ${CUSTOM_CLIENT_ARGS})
+else
+  AC_SUBST([CUSTOM_CLIENT_ARGS], '')
+fi
+
+
 AC_OUTPUT
 
 dnl Taken from https://wiki.debian.org/RpathIssue
@@ -996,6 +1067,7 @@ echo "  with zmq      = $use_zmq"
 echo "  with test     = $use_tests"
 echo "  debug enabled = $enable_debug"
 echo "  werror        = $enable_werror"
+echo "  with websockets  = $enable_websockets"
 echo 
 echo "  target os     = $TARGET_OS"
 echo "  build os      = $BUILD_OS"

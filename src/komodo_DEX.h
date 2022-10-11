@@ -60,11 +60,6 @@ later:
  detect evil peer: 'Q' is directly protected by txpow, G is a fixed size, so it cant be very big and invalid request can be detected. 'P' message will lead to 'G' queries that cannot be answered, 'R' needs to have high priority
  */
 
-uint8_t *komodo_DEX_encrypt(uint8_t **allocatedp,uint8_t *data,int32_t *datalenp,bits256 pubkey,bits256 privkey);
-uint8_t *komodo_DEX_decrypt(uint8_t *senderpub,uint8_t **allocatedp,uint8_t *data,int32_t *datalenp,bits256 privkey);
-void komodo_DEX_pubkey(bits256 &pub0);
-void komodo_DEX_privkey(bits256 &priv0);
-int32_t komodo_DEX_request(int32_t priority,uint32_t shorthash,uint32_t timestamp,char *tagA,char *tagB);
 
 #define KOMODO_DEX_PURGELIST 0
 
@@ -171,6 +166,29 @@ static struct DEX_globals
     FILE *fp;
 } *G;
 
+void komodo_DEX_privkey(bits256 &privkey)
+{
+    bits256 priv,hash;
+    Myprivkey(priv.bytes);
+    vcalc_sha256(0,hash.bytes,priv.bytes,32);
+    vcalc_sha256(0,privkey.bytes,hash.bytes,32);
+    memset(priv.bytes,0,sizeof(priv));
+    memset(hash.bytes,0,sizeof(hash));
+}
+
+void komodo_DEX_pubkey(bits256 &pubkey)
+{
+    bits256 privkey;
+    komodo_DEX_privkey(privkey);
+    /*{
+        char *bits256_str(char hexstr[65],bits256 x);
+        char str[65];
+        fprintf(stderr,"new DEX_privkey %s\n",bits256_str(str,privkey));
+    }*/
+    pubkey = curve25519(privkey,curve25519_basepoint9());
+    memset(privkey.bytes,0,sizeof(privkey));
+}
+
 void komodo_DEX_pubkeyupdate()
 {
     komodo_DEX_pubkey(DEX_pubkey);
@@ -252,6 +270,34 @@ uint32_t komodo_DEXquotehash(bits256 &hash,uint8_t *msg,int32_t len)
     vcalc_sha256(0,hash.bytes,tmp2.bytes,sizeof(tmp2));
     return(_komodo_DEXquotehash(hash,len));
 }
+
+uint8_t *komodo_DEX_encrypt(uint8_t **allocatedp,uint8_t *data,int32_t *datalenp,bits256 destpubkey,bits256 privkey)
+{
+     int32_t cipherlen; uint8_t *cipher;
+    cipher = SuperNET_ciphercalc(allocatedp,&cipherlen,privkey,destpubkey,data,*datalenp);
+    *datalenp = cipherlen;
+    return(cipher);
+}
+
+uint8_t *komodo_DEX_decrypt(uint8_t *senderpub,uint8_t **allocatedp,uint8_t *data,int32_t *datalenp,bits256 privkey)
+{
+    int32_t msglen;
+    *allocatedp = 0;
+    if ( (msglen= *datalenp) <= crypto_box_NONCEBYTES + crypto_box_ZEROBYTES + sizeof(bits256) )
+    {
+        *datalenp = 0;
+        return(0);
+    }
+    if ( (data= SuperNET_deciphercalc(senderpub,allocatedp,&msglen,privkey,data,*datalenp)) == 0 )
+    {
+        //printf("komodo_DEX_decrypt decrytion error\n");
+        *datalenp = 0;
+        return(0);
+    } else *datalenp = msglen;
+    return(data);
+}
+
+
 
 uint16_t _komodo_DEXpeerpos(uint32_t timestamp,int32_t peerid)
 {

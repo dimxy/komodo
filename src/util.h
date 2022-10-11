@@ -179,13 +179,13 @@ inline bool IsSwitchChar(char c)
 /**
  * Return string argument or default value
  *
- * @param strVal string to split
+ * @param strVal string to split into array of uint64_t
  * @param outVals array of numbers from string or default
- *      if the string is null, nDefault is used for all array entries
- *      else if the string has fewer than _MAX_ERAS entries, then the last 
- *      entry fills remaining entries
+ *      if the strVal is null, nDefault is used for all array entries
+ *      else if the strVal has fewer than outsize entries, then the last 
+ *      entry fills remaining entries in outVals
  */
-void Split(const std::string& strVal, int32_t outsize, uint64_t *outVals, uint64_t nDefault);
+void SplitIntoU64List(const std::string& strVal, int32_t outsize, uint64_t *outVals, uint64_t nDefault);
 
 /**
  * Return string argument or default value
@@ -288,7 +288,8 @@ template <typename Callable> void TraceThread(const char* name,  Callable func)
 }
 
 // split string using by space or comma as a delimiter char
-void SplitStr(const std::string& strVal, std::vector<std::string> &outVals);
+void SplitStr(const std::string& strVal, std::vector<std::string> &outVals, const std::string &delims = ",");
+void AddSettings(std::map<std::string, std::string>& mapSettingsRet, std::map<std::string, std::vector<std::string> >& mapMultiSettingsRet, const std::string &strOpts);
 
 #define KOMODO_ASSETCHAIN_MAXLEN 65
 

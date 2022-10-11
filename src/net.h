@@ -284,7 +284,11 @@ public:
     int64_t nLastRecv;
     int64_t nTimeConnected;
     int64_t nTimeOffset;
-    uint32_t prevtimes[16],dexlastping;
+    struct {
+        uint32_t prevtime;
+        uint32_t nreqs;
+    } nspvdata[32];
+    uint32_t dexlastping;
     // Address of this peer
     CAddress addr;
     // Bind address of our side of the connection
@@ -304,6 +308,7 @@ public:
     bool fInbound;
     bool fNetworkNode;
     bool fSuccessfullyConnected;
+    bool fNspvConnected;
     bool fDisconnect;
     // We use fRelayTxes for two purposes -
     // a) it allows us to not relay tx invs before receiving the peer's version message
@@ -340,6 +345,7 @@ public:
     CRollingBloomFilter addrKnown;
     bool fGetAddr;
     std::set<uint256> setKnown;
+    int64_t nLastWsAddrTime;
 
     // inventory based relay
     mruset<CInv> setInventoryKnown;

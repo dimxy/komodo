@@ -49,6 +49,21 @@ public:
         return EncodeBase58Check(data);
     }
 
+    std::string operator()(const CCryptoConditionID& id) const
+    {
+        std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::CRYPTOCONDITION_ADDRESS);
+        data.insert(data.end(), id.begin(), id.end());
+        return EncodeBase58Check(data);
+    }
+
+    std::string operator()(const CCLTVID& id) const
+    {
+        if (id.which() == TX_PUBKEY)
+            return operator()(id.GetPubKey());
+        else 
+            return operator()(id.GetKeyID());
+    }
+
     std::string operator()(const CNoDestination& no) const { return {}; }
 };
 
@@ -72,6 +87,14 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
             return CScriptID(hash);
         }
+
+        // added cc addresses decode:
+        const std::vector<unsigned char>& cc_prefix = params.Base58Prefix(CChainParams::CRYPTOCONDITION_ADDRESS);
+        if (data.size() == hash.size() + cc_prefix.size() && std::equal(cc_prefix.begin(), cc_prefix.end(), data.begin())) {
+            std::copy(data.begin() + cc_prefix.size(), data.end(), hash.begin());
+            return CCryptoConditionID(hash);
+        }
+
     }
     return CNoDestination();
 }

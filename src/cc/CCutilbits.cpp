@@ -20,6 +20,36 @@
 #include "CCinclude.h"
 #include "komodo_structs.h"
 
+bool fDisableCCLogForTests = false;
+
+// get address for a scriptPubKey
+bool Getscriptaddress(char *destaddr,const CScript &scriptPubKey)
+{
+    CTxDestination address; txnouttype whichType;
+    destaddr[0] = 0;
+    if ( scriptPubKey.begin() != 0 )
+    {
+        if ( ExtractDestination(scriptPubKey,address) != 0 )
+        {
+            strcpy(destaddr,(char *)CBitcoinAddress(address).ToString().c_str());
+            return(true);
+        }
+    }
+    //fprintf(stderr,"ExtractDestination failed\n");
+    return(false);
+}
+
+// extract and compare addresses
+bool IsEqualDestinations(const CScript &spk1, const CScript &spk2)
+{
+    char addr1[KOMODO_ADDRESS_BUFSIZE];
+    char addr2[KOMODO_ADDRESS_BUFSIZE];
+    if (Getscriptaddress(addr1, spk1) && Getscriptaddress(addr2, spk2))
+        return strcmp(addr1, addr2) == 0;
+    else
+        return false;
+}
+
 int32_t unstringbits(char *buf,uint64_t bits)
 {
     int32_t i;
@@ -104,6 +134,7 @@ CPubKey pubkey2pk(std::vector<uint8_t> vpubkey)
 // like -debug=cctokens (CCLOG_INFO) or -debug=cctokens-2 (CCLOG_DEBUG2 and lower levels)
 static bool cc_log_accept_category(const char *category, int level)
 {
+    if (fDisableCCLogForTests) return false;
     if (level < 0)
         return true;  // always print errors
 
@@ -146,15 +177,4 @@ void SetRemoteRPCCall(bool isRemote)
 bool IsRemoteRPCCall()
 {
     return is_remote_rpc_call;
-}
-
-bool CCtoAnon(const CC* cond)
-{
-    for (int i = 0; i < cond->size; i++)
-        if (cc_typeId(cond->subconditions[i]) == CC_Threshold) {
-            CCwrapper tmp(cond->subconditions[i]);
-            cond->subconditions[i] = cc_anon(tmp.get());
-            return (true);
-        }
-    return (false);
 }

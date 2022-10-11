@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 /******************************************************************************
- * Copyright © 2014-2019 The SuperNET Developers.                             *
+ * Copyright © 2014-2022 The SuperNET Developers.                             *
  *                                                                            *
  * See the AUTHORS, DEVELOPER-AGREEMENT and LICENSE files at                  *
  * the top-level directory of this distribution for the individual copyright  *
@@ -30,8 +30,8 @@
  */
 
 //! These need to be macros, as clientversion.cpp's and bitcoin*-res.rc's voodoo requires it
-#define CLIENT_VERSION_MAJOR 3
-#define CLIENT_VERSION_MINOR 0
+#define CLIENT_VERSION_MAJOR 0
+#define CLIENT_VERSION_MINOR 6
 #define CLIENT_VERSION_REVISION 1
 #define CLIENT_VERSION_BUILD 0
 
@@ -78,7 +78,7 @@ extern const std::string CLIENT_BUILD;
 extern const std::string CLIENT_DATE;
 
 
-std::string FormatVersion(int nVersion);
+std::string FormatVersion(int nVersion, const std::string &stage = std::string());
 std::string FormatFullVersion();
 std::string FormatSubVersion(const std::string& name, int nClientVersion, const std::vector<std::string>& comments);
 

@@ -3,7 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 /******************************************************************************
- * Copyright © 2014-2019 The SuperNET Developers.                             *
+ * Copyright © 2014-2022 The SuperNET Developers.                             *
  *                                                                            *
  * See the AUTHORS, DEVELOPER-AGREEMENT and LICENSE files at                  *
  * the top-level directory of this distribution for the individual copyright  *
@@ -35,7 +35,8 @@
  * for both bitcoind and bitcoin-core, to make it harder for attackers to
  * target servers or GUI users specifically.
  */
-const std::string CLIENT_NAME = GetArg("-clientname", "MagicBean");
+
+const std::string CLIENT_NAME = GetArg("-clientname", "komodod");
 
 /**
  * Client version number
@@ -117,16 +118,10 @@ const std::string CLIENT_NAME = GetArg("-clientname", "MagicBean");
 const std::string CLIENT_BUILD(BUILD_DESC CLIENT_VERSION_SUFFIX);
 const std::string CLIENT_DATE(BUILD_DATE);
 
-std::string FormatVersion(int nVersion)
+std::string FormatVersion(int nVersion, const std::string &stage)
 {
-    if (nVersion % 100 < 25)
-        return strprintf("%d.%d.%d-beta%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100)+1);
-    if (nVersion % 100 < 50)
-        return strprintf("%d.%d.%d-rc%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100)-24);
-    else if (nVersion % 100 == 50)
-        return strprintf("%d.%d.%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100);
-    else
-        return strprintf("%d.%d.%d-%d", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, (nVersion % 100)-50);
+    // use own rules to determine the development stage
+    return strprintf("%d.%d.%d%s", nVersion / 1000000, (nVersion / 10000) % 100, (nVersion / 100) % 100, stage);
 }
 
 std::string FormatFullVersion()
@@ -136,6 +131,7 @@ std::string FormatFullVersion()
 
 /** 
  * Format the subversion field according to BIP 14 spec (https://github.com/bitcoin/bips/blob/master/bip-0014.mediawiki) 
+ * added derived repo extension's version 
  */
 std::string FormatSubVersion(const std::string& name, int nClientVersion, const std::vector<std::string>& comments)
 {

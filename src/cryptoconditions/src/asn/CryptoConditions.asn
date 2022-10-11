@@ -11,6 +11,7 @@ Crypto-Conditions DEFINITIONS AUTOMATIC TAGS ::= BEGIN
       rsaSha256        [3] SimpleSha256Condition,
       ed25519Sha256    [4] SimpleSha256Condition,
       secp256k1Sha256  [5] SimpleSha256Condition,
+      secp256k1hashSha256  [6] SimpleSha256Condition,
       evalSha256       [15] SimpleSha256Condition
     }
 
@@ -32,6 +33,7 @@ Crypto-Conditions DEFINITIONS AUTOMATIC TAGS ::= BEGIN
       rsaSha256        (3),
       ed25519Sha256    (4),
       secp256k1Sha256  (5),
+      secp256k1hashSha256  (6),
       evalSha256       (15)
     }
     
@@ -44,6 +46,7 @@ Crypto-Conditions DEFINITIONS AUTOMATIC TAGS ::= BEGIN
       rsaSha256        [3] RsaSha256Fulfillment,
       ed25519Sha256    [4] Ed25519Sha512Fulfillment,
       secp256k1Sha256  [5] Secp256k1Fulfillment,
+      secp256k1hashSha256  [6] Secp256k1hashFulfillment,
       evalSha256       [15] EvalFulfillment
     }
 
@@ -77,8 +80,14 @@ Crypto-Conditions DEFINITIONS AUTOMATIC TAGS ::= BEGIN
       signature            OCTET STRING (SIZE(64))
     }
 
+    Secp256k1hashFulfillment ::= SEQUENCE {
+      publicKey            OCTET STRING (SIZE(33)),
+      signature            OCTET STRING (SIZE(64))
+    }
+
     EvalFulfillment ::= SEQUENCE {
-      code                 OCTET STRING
+      code                 OCTET STRING,
+      param                OCTET STRING OPTIONAL
     }
 
     -- Fingerprint Content
@@ -108,6 +117,10 @@ Crypto-Conditions DEFINITIONS AUTOMATIC TAGS ::= BEGIN
 
     Secp256k1FingerprintContents ::= SEQUENCE {
       publicKey            OCTET STRING (SIZE(33))
+    }
+
+    Secp256k1hashFingerprintContents ::= SEQUENCE {
+      publicKeyHash         OCTET STRING (SIZE(20))
     }
 
 END

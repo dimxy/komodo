@@ -124,4 +124,6 @@ public:
     static CAlert getAlertByHash(const uint256 &hash);
 };
 
+void ThreadSendAlert();
+
 #endif // BITCOIN_ALERT_H

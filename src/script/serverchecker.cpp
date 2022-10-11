@@ -119,13 +119,13 @@ bool ServerTransactionSignatureChecker::VerifySignature(const std::vector<unsign
 int ServerTransactionSignatureChecker::CheckEvalCondition(const CC *cond) const
 {
     //fprintf(stderr,"call RunCCeval from ServerTransactionSignatureChecker::CheckEvalCondition\n");
-    return RunCCEval(cond, *txTo, nIn, evalcodeChecker);
+    return RunCCEval(cond, *txTo, nIn, nTime, nHeight, evalcodeChecker);
 }
 
-int ServerTransactionSignatureChecker::CheckCryptoCondition(const std::vector<unsigned char> &condBin, ScriptError *serror) const
+int ServerTransactionSignatureChecker::CheckCryptoConditionSpk(const std::vector<unsigned char> &condBin, ScriptError *serror) const
 {
     CC* condMixed;
-    if (condBin[0] == CC_MIXED_MODE_PREFIX)
+    if (CC_MixedModeSubVersion(condBin[0]) >= CC_MIXED_MODE_SUBVER_0)
     {
         condMixed = cc_readFulfillmentBinaryMixedMode((unsigned char*)condBin.data()+1, condBin.size()-1);
         if (serror) *serror = SCRIPT_ERR_PUBKEYTYPE;

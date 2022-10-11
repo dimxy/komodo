@@ -1,30 +1,27 @@
-lib_LTLIBRARIES=libcryptoconditions.la
-noinst_LTLIBRARIES=$(CRYPTOCONDITIONS_CORE)
+noinst_LIBRARIES=libcryptoconditions_core.a
 SUBDIRS = src/include/secp256k1
 
-include_HEADERS = include/cryptoconditions.h
+# optimisation off to allow better gdb/lldb
+# CFLAGS = -g -O0
+
+# use to debug:
+# CPPFLAGS = -DEMIT_ASN_DEBUG=1
+
+include_HEADERS = include/cryptoconditions.h src/internal.h
 
 # Have a separate build target for cryptoconditions that does not contain secp256k1
-
-libcryptoconditions_la_SOURCES = include/cryptoconditions.h
-libcryptoconditions_la_LIBADD = $(CRYPTOCONDITIONS_CORE) $(LIBSECP256K1)
-
-AM_CFLAGS = -I$(top_srcdir)/src/asn -I$(top_srcdir)/include -I$(top_srcdir)/src/include \
-			-Wall -Wno-pointer-sign -Wno-discarded-qualifiers
 
 LIBSECP256K1=src/include/secp256k1/libsecp256k1.la
 
 $(LIBSECP256K1): $(wildcard src/secp256k1/*)
-	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) -march:x86-64 -g
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F) -march:x86-64 -g 
 
-CRYPTOCONDITIONS_CORE=libcryptoconditions_core.la
-
-libcryptoconditions_core_la_SOURCES = \
-	include/cryptoconditions.h \
+libcryptoconditions_core_a_SOURCES = \
 	src/cryptoconditions.c \
 	src/utils.c \
 	src/include/cJSON.c \
 	src/include/sha256.c \
+	src/include/ripemd160.c \
 	src/include/ed25519/src/keypair.c \
 	src/include/ed25519/src/seed.c \
 	src/include/ed25519/src/verify.c \
@@ -51,7 +48,9 @@ libcryptoconditions_core_la_SOURCES = \
 	src/asn/Ed25519FingerprintContents.c \
 	src/asn/EvalFulfillment.c \
 	src/asn/Secp256k1FingerprintContents.c \
+	src/asn/Secp256k1hashFingerprintContents.c \
 	src/asn/Secp256k1Fulfillment.c \
+	src/asn/Secp256k1hashFulfillment.c \
 	src/asn/INTEGER.c \
 	src/asn/NativeEnumerated.c \
 	src/asn/NativeInteger.c \
@@ -75,18 +74,21 @@ libcryptoconditions_core_la_SOURCES = \
 	src/asn/per_decoder.c \
 	src/asn/per_encoder.c \
 	src/asn/per_opentype.c
+libcryptoconditions_core_a_CPPFLAGS=-I. -I./src/include -I./src/asn
 
 test:
 	bash -c '[ -d .env ] || virtualenv .env -p python3'
 	.env/bin/pip install pytest
+
 	gdb -batch -ex run -ex bt --args .env/bin/python -m pytest -s -x -v 2>&1 | grep -v ^"No stack."$
 
 test-debug-interactive:
 	gdb -ex run --args python3 -m pytest -s -x -v
 
 asn:
-	cd src/asn; \
-		mv asn_system.h asn_system.bak; \
-		rm *.c *.h; \
-		asn1c CryptoConditions.asn; \
-		mv asn_system.bak asn_system.h
+#	run asn1c in a dedicated directory, use exactly the same asn1c version, when asn1c is done copy generated files manually into asn subdir 
+#	cd src/asn; \
+#		mv asn_system.h asn_system.bak; \
+#		rm *.c *.h; \
+#		asn1c CryptoConditions.asn; \
+#		mv asn_system.bak asn_system.h

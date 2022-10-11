@@ -4,7 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 /******************************************************************************
- * Copyright © 2014-2019 The SuperNET Developers.                             *
+ * Copyright © 2014-2022 The SuperNET Developers.                             *
  *                                                                            *
  * See the AUTHORS, DEVELOPER-AGREEMENT and LICENSE files at                  *
  * the top-level directory of this distribution for the individual copyright  *
@@ -65,6 +65,8 @@ class CValidationInterface;
 class CValidationState;
 class PrecomputedTransactionData;
 
+class CCheckCCEvalCodes;
+
 struct CNodeStateStats;
 #define DEFAULT_MEMPOOL_EXPIRY 1
 #define _COINBASE_MATURITY 100
@@ -121,14 +123,14 @@ static const unsigned int DATABASE_FLUSH_INTERVAL = 24 * 60 * 60;
 static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 
-/** Default NSPV support enabled */
-#define DEFAULT_NSPV_TOKEL true
-static const bool DEFAULT_NSPV_PROCESSING = DEFAULT_NSPV_TOKEL;
+/** Default NSPV support enabled for Tokel */
+static const bool DEFAULT_NSPV_PROCESSING = true;
 
-//static const bool DEFAULT_ADDRESSINDEX = false;
-//static const bool DEFAULT_SPENTINDEX = false;
 #define DEFAULT_ADDRESSINDEX (GetArg("-ac_cc",0) != 0 || GetArg("-ac_ccactivate",0) != 0)
 #define DEFAULT_SPENTINDEX (GetArg("-ac_cc",0) != 0 || GetArg("-ac_ccactivate",0) != 0)
+
+/** Default unspent cc enabled for Tokel */
+static const bool DEFAULT_UNSPENTCCINDEX = true;
 
 static const bool DEFAULT_TIMESTAMPINDEX = false;
 static const unsigned int DEFAULT_DB_MAX_OPEN_FILES = 1000;
@@ -665,36 +667,6 @@ struct CDiskTxPos : public CDiskBlockPos
 
 CAmount GetMinRelayFee(const CTransaction& tx, unsigned int nBytes, bool fAllowFree);
 
-class CCheckCCEvalCodes
-{
-    //! The set of evalcodes that are already processed in CC validation.
-    std::map<uint256, std::set<uint8_t> > evalcodes;
-
-    //! Mutex to protect evalcodes map
-    boost::mutex mutex_eval;
-
-public:
-    void MarkEvalCode(uint256 txid,uint8_t ecode)
-    {
-        boost::unique_lock<boost::mutex> lock(mutex_eval);
-        auto search = evalcodes.find(txid);
-        if (search==evalcodes.end())
-        {
-            std::set<uint8_t> tmp;
-            tmp.insert(ecode);
-            evalcodes[txid]=tmp;
-        }
-        else search->second.insert(ecode);
-    }
-
-    bool CheckEvalCode(uint256 txid, uint8_t ecode)
-    {
-        boost::unique_lock<boost::mutex> lock(mutex_eval);
-        auto search = evalcodes.find(txid);
-        return search==evalcodes.end()?false:(search->second.find(ecode)!=search->second.end());
-    }
-};
-
 /**
  * Check transaction inputs, and make sure any
  * pay-to-script-hash transactions are evaluating IsStandard scripts
@@ -737,14 +709,22 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& ma
  * instead of being performed inline.
  */
 bool ContextualCheckInputs(const CTransaction& tx, CValidationState &state, const CCoinsViewCache &view, bool fScriptChecks,
-                           unsigned int flags, bool cacheStore, PrecomputedTransactionData& txdata,
-                           const Consensus::Params& consensusParams, uint32_t consensusBranchId, std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker,
+                           unsigned int flags, 
+                           bool cacheStore, 
+                           PrecomputedTransactionData& txdata,
+                           const Consensus::Params& consensusParams, 
+                           uint32_t consensusBranchId, 
+                           int64_t nTime, 
+                           int32_t nHeight, 
+                           std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker,
                            std::vector<CScriptCheck> *pvChecks = NULL);
 bool ContextualCheckOutputs(
                            const CTransaction& tx,
                            CValidationState &state,
                            bool fScriptChecks,
                            PrecomputedTransactionData& txdata,
+                           int64_t nTime, 
+                           int32_t nHeight,
                            std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker,
                            std::vector<CScriptCheck> *pvChecks = NULL);
 
@@ -773,7 +753,7 @@ namespace Consensus {
  * This does not modify the UTXO set. This does not check scripts and sigs.
  * Preconditions: tx.IsCoinBase() is false.
  */
-bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams);
+bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, int64_t nSpendTime, const Consensus::Params& consensusParams);
 
 } // namespace Consensus
 
@@ -808,22 +788,24 @@ private:
     CScript scriptPubKey;
     CAmount amount;
     const CTransaction *ptxTo;
-    unsigned int n;
+    unsigned int n;  // vin/vout index, since ccv2 unused for cc validation (it always validates the whole cc tx and does not re-enter validation for each vin)
     unsigned int nFlags;
     bool cacheStore;
     uint32_t consensusBranchId;
+    int64_t nTime;
+    int32_t nHeight;
     ScriptError error;
     PrecomputedTransactionData *txdata;
     std::shared_ptr<CCheckCCEvalCodes> evalcodeChecker;
     bool vout;
 
 public:
-    CScriptCheck(): amount(0), ptxTo(0), n(0), nFlags(0), cacheStore(false), consensusBranchId(0), error(SCRIPT_ERR_UNKNOWN_ERROR), vout(false) {}
-    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nIn, unsigned int nFlagsIn, bool cacheIn, uint32_t consensusBranchIdIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeCheckerIn,PrecomputedTransactionData* txdataIn) :
+    CScriptCheck(): amount(0), ptxTo(0), n(0), nFlags(0), cacheStore(false), consensusBranchId(0), nTime(0LL), nHeight(0), error(SCRIPT_ERR_UNKNOWN_ERROR), vout(false) {}
+    CScriptCheck(const CCoins& txFromIn, const CTransaction& txToIn, unsigned int nIn, unsigned int nFlagsIn, bool cacheIn, uint32_t consensusBranchIdIn, int32_t nTimeIn, int32_t nHeightIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeCheckerIn,PrecomputedTransactionData* txdataIn) :
         scriptPubKey(CCoinsViewCache::GetSpendFor(&txFromIn, txToIn.vin[nIn])), amount(txFromIn.vout[txToIn.vin[nIn].prevout.n].nValue),
-        ptxTo(&txToIn), n(nIn), nFlags(nFlagsIn), cacheStore(cacheIn), consensusBranchId(consensusBranchIdIn), error(SCRIPT_ERR_UNKNOWN_ERROR), evalcodeChecker(evalcodeCheckerIn),txdata(txdataIn), vout(false) { }
-    CScriptCheck(const CScript& scriptPubKeyIn, const CAmount& amountIn, const CTransaction& txToIn, unsigned int nIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeCheckerIn,PrecomputedTransactionData* txdataIn) :
-        scriptPubKey(scriptPubKeyIn), amount(amountIn), ptxTo(&txToIn), n(nIn), nFlags(0), cacheStore(false), consensusBranchId(0),
+        ptxTo(&txToIn), n(nIn), nFlags(nFlagsIn), cacheStore(cacheIn), consensusBranchId(consensusBranchIdIn), nTime(nTimeIn), nHeight(nHeightIn),  error(SCRIPT_ERR_UNKNOWN_ERROR), evalcodeChecker(evalcodeCheckerIn),txdata(txdataIn), vout(false) { }
+    CScriptCheck(const CScript& scriptPubKeyIn, const CAmount& amountIn, const CTransaction& txToIn, unsigned int nIn, int32_t nTimeIn, int32_t nHeightIn, std::shared_ptr<CCheckCCEvalCodes> evalcodeCheckerIn,PrecomputedTransactionData* txdataIn) :
+        scriptPubKey(scriptPubKeyIn), amount(amountIn), ptxTo(&txToIn), n(nIn), nFlags(0), cacheStore(false), consensusBranchId(0), nTime(nTimeIn), nHeight(nHeightIn),
         error(SCRIPT_ERR_UNKNOWN_ERROR), evalcodeChecker(evalcodeCheckerIn), txdata(txdataIn), vout(true) { }
     bool operator()();
 
@@ -835,6 +817,8 @@ public:
         std::swap(nFlags, check.nFlags);
         std::swap(cacheStore, check.cacheStore);
         std::swap(consensusBranchId, check.consensusBranchId);
+        std::swap(nTime, check.nTime);
+        std::swap(nHeight, check.nHeight);
         std::swap(error, check.error);
         std::swap(txdata, check.txdata);
         std::swap(vout,check.vout);
@@ -994,6 +978,10 @@ extern CBlockTreeDB *pblocktree;
  * This is also true for mempool checks.
  */
 int GetSpendHeight(const CCoinsViewCache& inputs);
+
+/** get next block time for coins */
+int64_t GetSpendTime(const CCoinsViewCache& coins);
+
 
 uint64_t CalculateCurrentUsage();
 

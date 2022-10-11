@@ -13,14 +13,18 @@
  *                                                                            *
  ******************************************************************************/
 
+#include <openssl/sha.h>
 #include "cc/eval.h"
 #include "cc/utils.h"
+#include "komodo_defs.h"
 #include "importcoin.h"
 #include "crosschain.h"
 #include "primitives/transaction.h"
 #include "cc/CCinclude.h"
-#include <openssl/sha.h>
 #include "cc/CCtokens.h"
+#include "cc/CCImportGateway.h"
+#include "cc/CCupgrades.h"
+
 
 #include "key_io.h"
 #define CODA_BURN_ADDRESS "KPrrRoPfHOnNpZZQ6laHXdQDkSQDkVHaN0V+LizLlHxz7NaA59sBAAAA"
@@ -32,22 +36,6 @@
  
  ##### 0xffffffff is a special CCid for single chain/dual daemon imports
  */
-
-extern std::string ASSETCHAINS_SELFIMPORT;
-extern uint16_t ASSETCHAINS_CODAPORT,ASSETCHAINS_BEAMPORT;
-extern uint8_t ASSETCHAINS_OVERRIDE_PUBKEY33[33];
-extern uint256 KOMODO_EARLYTXID;
-
-// utilities from gateways.cpp
-uint256 BitcoinGetProofMerkleRoot(const std::vector<uint8_t> &proofData, std::vector<uint256> &txids);
-uint256 GatewaysReverseScan(uint256 &txid, int32_t height, uint256 reforacletxid, uint256 batontxid);
-int32_t GatewaysCointxidExists(struct CCcontract_info *cp, uint256 cointxid);
-uint8_t DecodeImportGatewayBindOpRet(char *burnaddr,const CScript &scriptPubKey,std::string &coin,uint256 &oracletxid,uint8_t &M,uint8_t &N,std::vector<CPubKey> &importgatewaypubkeys,uint8_t &taddr,uint8_t &prefix,uint8_t &prefix2,uint8_t &wiftype);
-int64_t ImportGatewayVerify(char *refburnaddr,uint256 oracletxid,int32_t claimvout,std::string refcoin,uint256 burntxid,const std::string deposithex,std::vector<uint8_t>proof,uint256 merkleroot,CPubKey destpub,uint8_t taddr,uint8_t prefix,uint8_t prefix2);
-char *nonportable_path(char *str);
-char *portable_path(char *str);
-void *loadfile(char *fname,uint8_t **bufp,long *lenp,long *allocsizep);
-void *filestr(long *allocsizep,char *_fname);
 
 cJSON* CodaRPC(char **retstr,char const *arg0,char const *arg1,char const *arg2,char const *arg3,char const *arg4,char const *arg5)
 {
@@ -560,18 +548,23 @@ bool CheckMigration(Eval *eval, const CTransaction &importTx, const CTransaction
         if (!hasTokenVin)
             return eval->Invalid("burn-tx-has-no-token-vins");
 
+        std::vector<CPubKey> vDeadPubkeys = GetBurnPubKeys(eval->GetCurrentTime(), eval->GetCurrentHeight());
+
         // calc outputs for burn tx
         CAmount ccBurnOutputs = 0;
         for (auto v : burnTx.vout)
             if (v.scriptPubKey.IsPayToCryptoCondition() &&
-                CTxOut(v.nValue, v.scriptPubKey) == MakeTokensCC1vout(nonfungibleEvalCode, v.nValue, pubkey2pk(ParseHex(CC_BURNPUBKEY))))  // burned to dead pubkey
+                std::find_if(vDeadPubkeys.begin(), vDeadPubkeys.end(), [v, nonfungibleEvalCode](const CPubKey &burnpk)  { 
+                    return IsEqualDestinations(v.scriptPubKey, CCPubKey(CCwrapper(MakeTokensCCcond1(nonfungibleEvalCode, burnpk)).get() )); 
+                } ) != vDeadPubkeys.end())
+                //CTxOut(v.nValue, v.scriptPubKey) == MakeTokensCC1vout(nonfungibleEvalCode, v.nValue, pubkey2pk(ParseHex(CC_BURNPUBKEY_FIXED))))  // burned to dead pubkey
                 ccBurnOutputs += v.nValue;
 
         // calc outputs for import tx
         CAmount ccImportOutputs = 0;
         for (auto v : importTx.vout)
             if (v.scriptPubKey.IsPayToCryptoCondition() &&
-                !IsTokenMarkerVout<TokensV1>(v))  // should not be marker here
+                IsTokenMarkerVout<TokensV1>(v) > 0LL)  // should not be marker here
                 ccImportOutputs += v.nValue;
 
         if (ccBurnOutputs != ccImportOutputs)
@@ -704,6 +697,8 @@ bool Eval::ImportCoin(const std::vector<uint8_t> params, const CTransaction &imp
         return Invalid("wrong-payouts");
     if (targetCcid < KOMODO_FIRSTFUNGIBLEID)
         return Invalid("chain-not-fungible");
+    if (targetSymbol.empty())
+        return Invalid("target-symbol-empty");
 
     if ( targetCcid != 0xffffffff )
     {

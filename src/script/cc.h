@@ -26,6 +26,20 @@
 extern uint32_t ASSETCHAINS_CC;
 bool IsCryptoConditionsEnabled();
 
+const uint8_t CC_MIXED_MODE_PREFIX = 'M';
+enum CC_SUBVER : int { 
+	CC_OLD_V1_SUBVER                = -1,
+	CC_MIXED_MODE_SUBVER_0          = 0,
+	CC_MIXED_MODE_SECHASH_SUBVER_1  = 1,
+	CC_MIXED_MODE_SUBVER_MAX        = CC_MIXED_MODE_SECHASH_SUBVER_1,
+};
+
+
+CC_SUBVER CC_MixedModeSubVersion(int c);
+
+const size_t MAX_FULFILLMENT_SIZE = 10000;
+const size_t MAX_FULFILLMENT_SPK_SIZE_V0 = 1000;
+
 // Limit acceptable condition types
 // Prefix not enabled because no current use case, ambiguity on how to combine with secp256k1
 // RSA not enabled because no current use case, not implemented
@@ -33,21 +47,22 @@ const int CCEnabledTypes = 1 << CC_Secp256k1 | \
                            1 << CC_Threshold | \
                            1 << CC_Eval | \
                            1 << CC_Preimage | \
-                           1 << CC_Ed25519;
+                           1 << CC_Ed25519 | \
+                           1 << CC_Secp256k1hash;
 
-const int CCSigningNodes = 1 << CC_Ed25519 | 1 << CC_Secp256k1;
+const int CCSigningNodes = 1 << CC_Ed25519 | 1 << CC_Secp256k1 | 1 << CC_Secp256k1hash;
 
 
 /*
  * Check if the server can accept the condition based on it's structure / types
  */
-bool IsSupportedCryptoCondition(const CC *cond);
+bool IsSupportedCryptoCondition(const CC *cond, CC_SUBVER ccSubVersion);
 
 
 /*
  * Check if crypto condition is signed. Can only accept signed conditions.
  */
-bool IsSignedCryptoCondition(const CC *cond);
+bool IsSignedCryptoCondition(const CC *cond, CC_SUBVER ccSubVersion);
 
 
 /*
@@ -56,13 +71,14 @@ bool IsSignedCryptoCondition(const CC *cond);
 CC* CCNewPreimage(std::vector<unsigned char> preimage);
 CC* CCNewEval(std::vector<unsigned char> code);
 CC* CCNewSecp256k1(CPubKey k);
+CC* CCNewSecp256k1Hash(CKeyID k);
 CC* CCNewThreshold(int t, std::vector<CC*> v);
 
 
 /*
  * Turn a condition into a scriptPubKey
  */
-CScript CCPubKey(const CC *cond,bool mixed=false);
+CScript CCPubKey(const CC *cond, CC_SUBVER ccSubVersion = CC_OLD_V1_SUBVER);
 
 
 /*
@@ -91,6 +107,8 @@ std::string CCShowStructure(CC *cond);
  */
 CC* CCPrune(CC *cond);
 
+// Make first level threshold subconds anonymous
+bool CCtoAnon(const CC *cond);
 
 /*
  * Get PUSHDATA from a script

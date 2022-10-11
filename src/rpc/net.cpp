@@ -28,6 +28,7 @@
 #include "util.h"
 #include "version.h"
 #include "deprecation.h"
+#include "komodo_version.h"
 
 #include <boost/foreach.hpp>
 
@@ -169,69 +170,6 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
     }
 
     return ret;
-}
-
-int32_t KOMODO_LONGESTCHAIN;
-int32_t komodo_longestchain()
-{
-    static int32_t depth;
-    int32_t ht,n=0,num=0,maxheight=0,height = 0;
-    if ( depth < 0 )
-        depth = 0;
-    if ( depth == 0 )
-    {
-
-        /**
-         * Seems here we need to try to lock cs_main, to avoid wrong order of lock (cs_main, cs_vNodes),
-         * implementation of getting max(nStartingHeight, nSyncHeight, nCommonHeight) from CNodeStateStats
-         * and loop here is similar to getpeerinfo RPC and there we have LOCK(cs_main). If we'll not able
-         * to acquire lock on cs_main komodo_longestchain() will return previous saved value of
-         * KOMODO_LONGESTCHAIN, anyway, on next call it will be updated, when lock will success.
-        */
-
-        TRY_LOCK(cs_main, lockMain); // Acquire cs_main
-        if (!lockMain) {
-            return(KOMODO_LONGESTCHAIN);
-        }
-
-        depth++;
-        vector<CNodeStats> vstats;
-        {
-            //LOCK(cs_main);
-            CopyNodeStats(vstats);
-        }
-        BOOST_FOREACH(const CNodeStats& stats, vstats)
-        {
-            //fprintf(stderr,"komodo_longestchain iter.%d\n",n);
-            CNodeStateStats statestats;
-            bool fStateStats = GetNodeStateStats(stats.nodeid,statestats);
-            if ( statestats.nSyncHeight < 0 )
-                continue;
-            ht = 0;
-            if ( stats.nStartingHeight > ht )
-                ht = stats.nStartingHeight;
-            if ( statestats.nSyncHeight > ht )
-                ht = statestats.nSyncHeight;
-            if ( statestats.nCommonHeight > ht )
-                ht = statestats.nCommonHeight;
-            if ( maxheight == 0 || ht > maxheight*1.01 )
-                maxheight = ht, num = 1;
-            else if ( ht > maxheight*0.99 )
-                num++;
-            if ( ht > height )
-                height = ht;
-        }
-        depth--;
-        if ( num > (n >> 1) )
-        {
-            if ( 0 && height != KOMODO_LONGESTCHAIN )
-                fprintf(stderr,"set %s KOMODO_LONGESTCHAIN <- %d\n",ASSETCHAINS_SYMBOL,height);
-            KOMODO_LONGESTCHAIN = height;
-            return(height);
-        }
-        KOMODO_LONGESTCHAIN = 0;
-    }
-    return(KOMODO_LONGESTCHAIN);
 }
 
 UniValue addnode(const UniValue& params, bool fHelp, const CPubKey& mypk)
@@ -489,7 +427,7 @@ UniValue getdeprecationinfo(const UniValue& params, bool fHelp, const CPubKey& m
     UniValue obj(UniValue::VOBJ);
     obj.push_back(Pair("version", CLIENT_VERSION));
     obj.push_back(Pair("subversion",
-        FormatSubVersion(CLIENT_NAME, CLIENT_VERSION, std::vector<string>())));
+        FormatSubVersion(CLIENT_NAME, KOMODO_VERSION, { FormatVersion(TOKEL_VERSION) })));
     obj.push_back(Pair("deprecationheight", DEPRECATION_HEIGHT));
 
     return obj;

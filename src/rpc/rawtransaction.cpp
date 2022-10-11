@@ -41,19 +41,13 @@
 #endif
 
 #include "komodo_defs.h"
+#include "cc/CCinclude.h"
 
 #include <stdint.h>
-
 #include <boost/assign/list_of.hpp>
-
 #include <univalue.h>
 
-int32_t komodo_notarized_height(int32_t *prevMoMheightp,uint256 *hashp,uint256 *txidp);
-
 using namespace std;
-
-extern char ASSETCHAINS_SYMBOL[];
-int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
 
 void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fIncludeHex)
 {
@@ -79,6 +73,16 @@ void ScriptPubKeyToJSON(const CScript& scriptPubKey, UniValue& out, bool fInclud
         a.push_back(EncodeDestination(addr));
     }
     out.push_back(Pair("addresses", a));
+
+    // add cc decoded
+    if (scriptPubKey.IsPayToCCV2())  {
+        std::vector<uint8_t> ccdata = scriptPubKey.GetCCV2SPK();
+        CC* cond = cc_readConditionBinaryMaybeMixed(ccdata.data(), ccdata.size());
+        if (cond) {
+            out.push_back(Pair("condition", CCDecodeMixedMode(cond)));
+            cc_free(cond);
+        }
+    }
 }
 
 UniValue TxJoinSplitToJSON(const CTransaction& tx) {
@@ -139,8 +143,6 @@ UniValue TxJoinSplitToJSON(const CTransaction& tx) {
     }
     return vjoinsplit;
 }
-
-uint64_t komodo_accrued_interest(int32_t *txheightp,uint32_t *locktimep,uint256 hash,int32_t n,int32_t checkheight,uint64_t checkvalue,int32_t tipheight);
 
 UniValue TxShieldedSpendsToJSON(const CTransaction& tx) {
     UniValue vdesc(UniValue::VARR);

@@ -18,7 +18,13 @@
 
 #include <map>
 #include "arith_uint256.h"
+#include "script/script.h"
+#include "pubkey.h"
 #include "chain.h"
+#include "primitives/transaction.h"
+#include "threadsafety.h"
+
+#include "komodo_structs.h"
 #include "komodo_nk.h"
 
 #define KOMODO_EARLYTXID_HEIGHT 100
@@ -40,6 +46,10 @@
 #define ASSETCHAINS_STAKED_MIN_POW_DIFF 536900000 // 537000000 537300000
 #define _COINBASE_MATURITY 100
 
+#define _ASSETCHAINS_TIMELOCKOFF 0xffffffffffffffff
+
+#define IS_KMD_CHAIN() (ASSETCHAINS_SYMBOL[0] == '\0')
+
 #define KOMODO_ADDRESS_BUFSIZE 64
 
 // KMD Notary Seasons 
@@ -50,7 +60,7 @@
     // 7113400 = 5x current KMD blockheight. 
 // to add 4th season, change NUM_KMD_SEASONS to 4, and add timestamp and height of activation to these arrays. 
 
-#define NUM_KMD_SEASONS 5
+#define NUM_KMD_SEASONS 7
 #define NUM_KMD_NOTARIES 64
 
 extern const uint32_t nStakedDecemberHardforkTimestamp; //December 2019 hardfork
@@ -59,8 +69,14 @@ extern const int32_t nDecemberHardforkHeight;   //December 2019 hardfork
 extern const uint32_t nS4Timestamp; //dPoW Season 4 2020 hardfork
 extern const int32_t nS4HardforkHeight;   //dPoW Season 4 2020 hardfork
 
-static const uint32_t KMD_SEASON_TIMESTAMPS[NUM_KMD_SEASONS] = {1525132800, 1563148800, nStakedDecemberHardforkTimestamp, nS4Timestamp, 1751328000};
-static const int32_t KMD_SEASON_HEIGHTS[NUM_KMD_SEASONS] = {814000, 1444000, nDecemberHardforkHeight, nS4HardforkHeight, 7113400};
+extern const uint32_t nS5Timestamp; //dPoW Season 5 June 14th, 2021 hardfork (03:00:00 PM UTC) (defined in komodo_globals.h)
+extern const int32_t nS5HardforkHeight;   //dPoW Season 5 June 14th, 2021 hardfork estimated block height (defined in komodo_globals.h)
+
+extern const uint32_t nS6Timestamp; // dPoW Season 6 Fri Jun 24 2022 13:37:33 GMT+0000
+extern const int32_t nS6HardforkHeight; // estimated June 24 2022
+
+static const uint32_t KMD_SEASON_TIMESTAMPS[NUM_KMD_SEASONS] = {1525132800, 1563148800, nStakedDecemberHardforkTimestamp, nS4Timestamp, nS5Timestamp, nS6Timestamp, 1751328000};
+static const int32_t KMD_SEASON_HEIGHTS[NUM_KMD_SEASONS] = {814000, 1444000, nDecemberHardforkHeight, nS4HardforkHeight, nS5HardforkHeight, nS6HardforkHeight, 7113400};
 
 // Era array of pubkeys. Add extra seasons to bottom as requried, after adding appropriate info above. 
 static const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =
@@ -268,7 +284,7 @@ static const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =
         {"madmax_NA", "0237e0d3268cebfa235958808db1efc20cc43b31100813b1f3e15cc5aa647ad2c3" }, // 0
         {"alright_AR", "020566fe2fb3874258b2d3cf1809a5d650e0edc7ba746fa5eec72750c5188c9cc9" },
         {"strob_NA", "0206f7a2e972d9dfef1c424c731503a0a27de1ba7a15a91a362dc7ec0d0fb47685" },
-        {"hunter_EU", "0378224b4e9d8a0083ce36f2963ec0a4e231ec06b0c780de108e37f41181a89f6a" }, // FIXME verify this, kolo. Change name if you want
+        {"hunter_EU", "0378224b4e9d8a0083ce36f2963ec0a4e231ec06b0c780de108e37f41181a89f6a" },
         {"phm87_SH", "021773a38db1bc3ede7f28142f901a161c7b7737875edbb40082a201c55dcf0add" },
         {"chainmakers_NA", "02285d813c30c0bf7eefdab1ff0a8ad08a07a0d26d8b95b3943ce814ac8e24d885" },
         {"indenodes_EU", "0221387ff95c44cb52b86552e3ec118a3c311ca65b75bf807c6c07eaeb1be8303c" },
@@ -324,7 +340,7 @@ static const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =
         {"computergenie_NA", "03a78ae070a5e9e935112cf7ea8293f18950f1011694ea0260799e8762c8a6f0a4" },
         {"nutellalicka_SH", "02f7d90d0510c598ce45915e6372a9cd0ba72664cb65ce231f25d526fc3c5479fc" },
         {"chainstrike_SH", "03b806be3bf7a1f2f6290ec5c1ea7d3ea57774dcfcf2129a82b2569e585100e1cb" },
-        {"hunter_SH", "02407db70ad30ce4dfaee8b4ae35fae88390cad2b0ba0373fdd6231967537ccfdf" }, // FIXME verify this, Decker. Change name if you want
+        {"hunter_SH", "02407db70ad30ce4dfaee8b4ae35fae88390cad2b0ba0373fdd6231967537ccfdf" },
         {"alien_EU", "03bb749e337b9074465fa28e757b5aa92cb1f0fea1a39589bca91a602834d443cd" }, // 60
         {"gt_AR", "0348430538a4944d3162bb4749d8c5ed51299c2434f3ee69c11a1f7815b3f46135" },
         {"patchkez_SH", "03f45e9beb5c4cd46525db8195eb05c1db84ae7ef3603566b3d775770eba3b96ee" },
@@ -396,7 +412,141 @@ static const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =
         { "artemii235_DEV", "03bb616b12430bdd0483653de18733597a4fd416623c7065c0e21fe9d96460add1" },
         { "tonyl_DEV", "02d5f7fd6e25d34ab2f3318d60cdb89ff3a812ec5d0212c4c113bb12d12616cfdc" },
         { "decker_DEV", "028eea44a09674dda00d88ffd199a09c9b75ba9782382cc8f1e97c0fd565fe5707" }
-   }
+    },
+    {
+        // Season 5
+        {"alrighttt_DEV", "02a876c6c35060041f6beadb201f4dfc567e80eedd3a4206ff10d99878087bd440" }, // 0
+        {"alien_AR", "024f20c096b085308e21893383f44b4faf1cdedea9ad53cc7d7e7fbfa0c30c1e71" },
+        {"artempikulin_AR", "03a45c4ad7f279cbc50acb48d81fc0eb63c4c5f556e3a4393fb3d6414df09c6e4c" },
+        {"chmex_AR", "030cd487e10fbf142e0e8d582e702ecb775f378569c3cb5acd0ff97b6b12803588" },
+        {"cipi_AR", "02336758998f474659020e6887ece61ac7b8567f9b2d38724ebf77ae800c1fb2b7" },
+        {"shadowbit_AR", "03949b06c2773b4573aeb0b52e70ccc2d98dc5794a47e24eeb902c9d28e0e8d28b" },
+        {"goldenman_AR", "03d745bc6921104b73734e6d9615671bc70b9e11e26c9b0c9abf0d2f9babd01a4d" },
+        {"kolo_AR", "027579d0722b2f75b3d11a73829449e4251b4471716b6cb743c7667379750c8fb0" },
+        {"madmax_AR", "02ddb23f18e61ea792ae0f28be5a52859e7963bf7f1d2c4f19eec18ac6497cfa2a" },
+        {"mcrypt_AR", "02845d016c68c3e5ce924b164abc271511f3092ae359677a515e8f81a9533472f4" },
+        {"mrlynch_AR", "03e67440141f53a08684c329ebc852b018e41f905da88e52aa4a6dc5aa4b12447a" }, // 10
+        {"ocean_AR", "02d216e72d37a38449d661413cbc6e1f008b21cffdb06865f7be636e2cbc1e5346" },
+        {"smdmitry_AR", "0397b7584cb29717b721c0c587d4462477efc1f36a56921f133c9d17b0cd7f278a" },
+        {"tokel_AR", "02e4e07060fcd3640a3fd6d54cc15924f2bf63f8172b96a9f1d538ca7a0e490dc5" },
+        {"tonyl_AR", "02e2d9ecdc9f462a4767f7dfe8ed243c98fcccc1511989a60e3f859dc6fda42d16" },
+        {"tonyl_DEV", "0399c4f8c5b604cda64c1ccb8fdbd7a89730131519f87491a79b0811e619102d8f" },
+        {"artem_DEV", "025ee88d1c12f546c1c8942d7a3e0678f10bc27cc566e27bf4a2d2178e018d18c6" },
+        {"alien_EU", "022b85908191788f409506ebcf96a892f3274f352864c3ed566c5a16de63953236" },
+        {"alienx_EU", "025de0911bab55616c307f02ea8a5915a2e0c8e479aa97968e7f00d1025cbe6c6d" },
+        {"ca333_EU", "03a582cfae3760bb1cb38311d686cfeede8f8c4ce263aa1c082fc836c367859122" },
+        {"chmex_EU", "030bf7bd7ad0515c33b5d5d9a91e0729baf801b9002f80495ae535ea1cebb352cb" }, // 20
+        {"cipi_EU", "033a812d6cccdc4208378728f3a0e15db5b12074def9ab686ddc3752715ff1a194" },
+        {"cipi2_EU", "0302ca28a041ed00544de737651bdec9bafe3b7f1c0bf2c6092f2368d59fec75c2" },
+        {"shadowbit_EU", "025f8de3a6181270ceb5c31654e6a6e95d0339bc14b46b5e3050e8a69861c91baa" },
+        {"komodopioneers_EU", "02fb31b130babe79ac780a6118702555a8c66875835f35c2232a6cb8b1438fe71d" },
+        {"madmax_EU", "02e7e5306f159df252ecfded9bab6297050d12640b908b456ea553f90872f8a160" },
+        {"marmarachain_EU", "027029380f49b0c3cc1b814976f1a83f0c25d84020ad0a27454e55ebdb2ccc83d7" },
+        {"node-9_EU", "029401e427cffa29bb2bd7664110e160d525fac6f1518ac7b59343b16de301e0ac" },
+        {"slyris_EU", "02a0705ec221a94a6a5b3ea2e763ba0350f8213c73e8dad49a708fb1e87acdc5f8" },
+        {"smdmitry_EU", "0338f30ca34d0aca0d79b69abde447036aaaa75f482b6c75801fd382e984337d01" },
+        {"van_EU", "0370305b9e91d46331da202ae733d6050d01038ef6eceb2036ada394a48fae84b9" }, // 30
+        {"shadowbit_DEV", "03e2de3418c88be0cfe2fa0dcfdaea001b5a36ad86e6833ad284d79021ae7e2b94" },
+        {"gcharang_DEV", "0321868e0eb39271330fa2c3a9f4e542275d9719f8b87773c5432448ab10d6943d" },
+        {"alien_NA", "022f62b56ddfd07c9860921c701285ac39bb3ac8f6f083d1b59c8f4943be3de162" },
+        {"alienx_NA", "025d5e11725233ab161f4f63d697c5f9f0c6b9d3aa2b9c68299638f8cc63faa9c2" },
+        {"cipi_NA", "0335352862da521bd90b99d394db1ee3ecde379db9cf7ba2f28b16fa76153e289f" },
+        {"computergenie_NA", "02f945d87b7cd6e9f2173a110399d36b369edb1f10bdf5a4ba6fd4923e2986e137" },
+        {"dragonhound_NA", "0366a87a476a09e05560c5aae0e44d2ab9ba56e69701cee24307871ddd37c86258" },
+        {"hyper_NA", "0303503ea8f5ec8bcab474962dfadd3561b44732b6ad308acd8d04276dd2f1baf3" },
+        {"madmax_NA", "0378e47061572e4a406bbad1522c03c3331d0a6c820fde1248ccf2cbc72fec47c2" },
+        {"node-9_NA", "03fac1468a949244dd4c563062459d46e966479fe23748382fc2e3e8d05218023e" }, // 40
+        {"nodeone_NA", "0310a249c6c2dcc29f2135715138a9ddb8e01c0eab701cbd0b96d9cec660dbdc58" },
+        {"pbca26_NA", "03e8485883eba6d4f2902338ab6aac87654a4b98d3bc01f89638aaf9c37db66ccf" },
+        {"ptyx_NA", "028267c92db3c48a99dfb8d88e9cdab60d8a1525913ab3978b1b629667b12b1ee2" },
+        {"strob_NA", "02285bf2f9e96068ecac14bc6f770e394927b4da9f5ba833eaa9468b5d47f203a3" },
+        {"karasugoi_NA", "02f803e6f159824a181cc5d709f3d1e7ff65f19e1899920724aeb4e3d2d869f911" },
+        {"webworker01_NA", "03d6c76aabe24fde7ce7cc37cff0899d50a20d4147ac0b2db812e2a1edcf0d5232" },
+        {"yurii_DEV", "0243977da0533c7c1a37f0f6e30175225c9012d9f3f426180ff6e5710f5a50e32b" },
+        {"ca333_DEV", "035f3413d71856ac0859f564ced42fe1ce5c5058df888f4592b8a11d34a5ba3a45" },
+        {"chmex_SH", "03e09c8ee6ae20cde64857d116c4bb5d50db6de2887ac39ea3ccf6434b1abf8698" },
+        {"collider_SH", "033a1b62de10c3802f359da7767b033eac3837b58530722f3ddd2f359a2cd0a8f9" }, // 50
+        {"dappvader_SH", "02684e2e7425ffa36d331f7a2f9c4542b61e88370dc6b4313a5025643f82ee17fa" },
+        {"drkush_SH", "0210320b03f00f10f16313eb6e8929b5be7e66a034a4e9b7d11f2d87aa92708c6c" },
+        {"majora31_SH", "03bc75c112ac7c6a99d6eb3fe5582feef4fd1b43f11c08ad887e21c4c3bc4e9104" },
+        {"mcrypt_SH", "027a4ca7b11d3456ff558c08bb04483a89c7f383448461fd0b6b3b07424aabe9a4" },
+        {"metaphilibert_SH", "03b21ff042bf1730b28bde43f44c064578b41996117ac7634b567c3773089e3be3" },
+        {"mylo_SH", "026a52dba25ca4deb225a5ef7fca117d59e20ef2319b00e1bb6750a5d61e5ed601" },
+        {"nutellaLicka_SH", "03ca46ea9a32de632823419948188088069f5820023920d810da6076624adb9901" },
+        {"pbca26_SH", "021b39173b2b966ab277799a1f148a1d9e6cf26020f5f7eb9708f020ee0461e9c0" },
+        {"phit_SH", "021b893b7978284e3d73701a623f23104fcce27e70fb49427c215f9a7481f652da" },
+        {"sheeba_SH", "030dd2c3c02cbc5b3c25e3c54ed02c1541951a6f5ecf8adbd353e8d9052d08b8fc" }, // 60
+        {"strob_SH", "0213751a1c59d3489ca85b3d62a3d606dcef7f0428aa021c1978ea16fb38a2fad6" },
+        {"strobnidan_SH", "033e33ef18effb979437cd202bb87dc32385e16ebd52d6f762d8a3b308d6f89c52" },
+        {"dragonhound_DEV", "02b3c168ed4acd96594288cee3114c77de51b6afe1ab6a866887a13a96ee80f33c" }
+   },
+   {
+        // Season 6
+        {"blackice_DEV", "03e2de3418c88be0cfe2fa0dcfdaea001b5a36ad86e6833ad284d79021ae7e2b94"},
+        {"blackice_AR", "03949b06c2773b4573aeb0b52e70ccc2d98dc5794a47e24eeb902c9d28e0e8d28b"},
+        {"alien_EU", "022b85908191788f409506ebcf96a892f3274f352864c3ed566c5a16de63953236"},
+        {"alien_NA", "022f62b56ddfd07c9860921c701285ac39bb3ac8f6f083d1b59c8f4943be3de162"},
+        {"alien_SH", "024f20c096b085308e21893383f44b4faf1cdedea9ad53cc7d7e7fbfa0c30c1e71"},
+        {"alienx_EU", "025de0911bab55616c307f02ea8a5915a2e0c8e479aa97968e7f00d1025cbe6c6d"},
+        {"alienx_NA", "025d5e11725233ab161f4f63d697c5f9f0c6b9d3aa2b9c68299638f8cc63faa9c2"},
+        {"artem.pikulin_AR", "03a45c4ad7f279cbc50acb48d81fc0eb63c4c5f556e3a4393fb3d6414df09c6e4c"},
+        {"artem.pikulin_DEV", "025ee88d1c12f546c1c8942d7a3e0678f10bc27cc566e27bf4a2d2178e018d18c6"},
+        {"blackice_EU", "025f8de3a6181270ceb5c31654e6a6e95d0339bc14b46b5e3050e8a69861c91baa"},
+        {"chmex_AR", "030cd487e10fbf142e0e8d582e702ecb775f378569c3cb5acd0ff97b6b12803588"},
+        {"chmex_EU", "030bf7bd7ad0515c33b5d5d9a91e0729baf801b9002f80495ae535ea1cebb352cb"},
+        {"chmex_NA", "024e88a36d729352a391e07d1821dbfda1fca6409320cf9c2869b6fb99f05fbddd"},
+        {"chmex_SH", "03e09c8ee6ae20cde64857d116c4bb5d50db6de2887ac39ea3ccf6434b1abf8698"},
+        {"chmex1_SH", "02d59db293de6c7da6673beeb373ebce62fd6d3522f715ea1356b5a2624fbd11a2"},
+        {"cipi_1_EU", "033a812d6cccdc4208378728f3a0e15db5b12074def9ab686ddc3752715ff1a194"},
+        {"cipi_2_EU", "0302ca28a041ed00544de737651bdec9bafe3b7f1c0bf2c6092f2368d59fec75c2"},
+        {"cipi_AR", "02336758998f474659020e6887ece61ac7b8567f9b2d38724ebf77ae800c1fb2b7"},
+        {"cipi_NA", "0335352862da521bd90b99d394db1ee3ecde379db9cf7ba2f28b16fa76153e289f"},
+        {"computergenie_EU", "033a2474a762700b452b96a49730280040a9872070bc51461e3727f6f118ff5358"},
+        {"computergenie_NA", "02f945d87b7cd6e9f2173a110399d36b369edb1f10bdf5a4ba6fd4923e2986e137"},
+        {"dimxy_AR", "0337e443df52f278f313f90628aaaa7a8db777f17bc7ce519069eb72717c1c2755"},
+        {"dimxy_DEV", "03a7edd6d0ba188960e39eced4d6b4ca6946bd98323ab40cbc13d6e52696de7dc4"},
+        {"dragonhound_NA", "0366a87a476a09e05560c5aae0e44d2ab9ba56e69701cee24307871ddd37c86258"},
+        {"fediakash_AR", "035be6a54242a53e3ca55bd63430ac9b960fbfaad336d8c1464b5802f03ab184be"},
+        {"gcharang_DEV", "03a3878af1152f648e6084fd3fbe697a26b1c2e92d407dd96c375f45f7d3ca13bf"},
+        {"gcharang_SH", "0321868e0eb39271330fa2c3a9f4e542275d9719f8b87773c5432448ab10d6943d"},
+        {"goldenman_AR", "03e027927dd1e379c2f45624ed9b057b187fe094595fee55c53f36ed665ed566ab"},
+        {"kolo_AR", "032c2a6aeaf8176f9630abe2e1bbea5e481da23ab1f9a5b10f220a9b2bc9607bd6"},
+        {"kolo_EU", "03b21717e84c0a6cf22b557b198daba4f78980048211b9139b4517fa08f9f17359"},
+        {"kolox_AR", "038010e24e6d53f26871d31287f446f407fa87596d946bcd1f7b7b8458e34ad73f"},
+        {"komodopioneers_EU", "02fb31b130babe79ac780a6118702555a8c66875835f35c2232a6cb8b1438fe71d"},
+        {"madmax_DEV", "02d1ace4a25794de5a5287edeb9df9619dc97020114801c5cb287b1efdd49ddbb3"},
+        {"marmarachain_EU", "02ca3e0618bc7c75afa6359ae476ee639682adfaa6fc463bbe7016c4f00da23ccf"},
+        {"mcrypt_AR", "02845d016c68c3e5ce924b164abc271511f3092ae359677a515e8f81a9533472f4"},
+        {"mcrypt_SH", "027a4ca7b11d3456ff558c08bb04483a89c7f383448461fd0b6b3b07424aabe9a4"},
+        {"metaphilibert_SH", "03b21ff042bf1730b28bde43f44c064578b41996117ac7634b567c3773089e3be3"},
+        {"mylo_NA", "02493412e6014d2bb985b1026e31204e7634a211a16454fc696f4dc4dfe409e998"},
+        {"mylo_SH", "026a52dba25ca4deb225a5ef7fca117d59e20ef2319b00e1bb6750a5d61e5ed601"},
+        {"nodeone_NA", "0310a249c6c2dcc29f2135715138a9ddb8e01c0eab701cbd0b96d9cec660dbdc58"},
+        {"nutellalicka_AR", "03a5502c61839a34edc8443aee5c16c67d4a958874e13d9b6b69d29075354739ad"},
+        {"nutellalicka_SH", "03c7822f0c3434037fa17bfa4d3b7f9d3e0eb9abe49e8cc1188d92c6b3c360a675"},
+        {"ocean_AR", "02d216e72d37a38449d661413cbc6e1f008b21cffdb06865f7be636e2cbc1e5346"},
+        {"pbca26_NA", "030b6515e80aaa489215875e2aa6f2a15fa36cb3342580e885275f8c636252cbc8"},
+        {"pbca26_SH", "02d17840724692a9d5e72d61d001c31eb5ddc4d2f0f104b760e6854bf144e63fb8"},
+        {"phit_SH", "021b893b7978284e3d73701a623f23104fcce27e70fb49427c215f9a7481f652da"},
+        {"ptyx_NA", "025d72ef0f1c5103de306d536360bcf3c5b6129c2046334b21cec8202e9bfc4baf"},
+        {"ptyx2_NA", "02913b3af6f67453eaff2318f3eed0fa0ea60eb2b37c8da64c575fec972f178d9b"},
+        {"sheeba_SH", "030dd2c3c02cbc5b3c25e3c54ed02c1541951a6f5ecf8adbd353e8d9052d08b8fc"},
+        {"smdmitry_AR", "0397b7584cb29717b721c0c587d4462477efc1f36a56921f133c9d17b0cd7f278a"},
+        {"smdmitry_EU", "0338f30ca34d0aca0d79b69abde447036aaaa75f482b6c75801fd382e984337d01"},
+        {"smdmitry_SH", "03f7d5ac650baaccedab959adf7c4f416584f4c05a37bf079f710227560c456978"},
+        {"strob_SH", "0213751a1c59d3489ca85b3d62a3d606dcef7f0428aa021c1978ea16fb38a2fad6"},
+        {"strobnidan_SH", "033e33ef18effb979437cd202bb87dc32385e16ebd52d6f762d8a3b308d6f89c52"},
+        {"tokel_NA", "0315d866c09e15709e2036a05faec6aaf28e0ecf67329b2adb922b746f22e694bc"},
+        {"tonyl_AR", "02e2d9ecdc9f462a4767f7dfe8ed243c98fcccc1511989a60e3f859dc6fda42d16"},
+        {"tonyl_DEV", "0399c4f8c5b604cda64c1ccb8fdbd7a89730131519f87491a79b0811e619102d8f"},
+        {"van_EU", "0370305b9e91d46331da202ae733d6050d01038ef6eceb2036ada394a48fae84b9"},
+        {"webworker01_EU", "0390ba250f20b5849b9d37ad2bcb58d3d9a3a0385937e652c26511ba9f445f5db1"},
+        {"webworker01_NA", "03bde0df98de0ff9697b7d5ecea225fd7267f55c061caa2c43a47b313e35c9b6c6"},
+        {"who-biz_NA", "0268d30efafc6ac84b1c8210e99fd4936e178794581d348b87f64fcbbfa8d5e73b"},
+        {"yurii-khi_DEV", "0243977da0533c7c1a37f0f6e30175225c9012d9f3f426180ff6e5710f5a50e32b"},
+        {"ca333_EU", "03c34a62c8c89889e4529962578e0b75a010a6e1d9bcbe8f4bb9cc680d82c7261e"},
+        {"dragonhound_DEV", "02b3c168ed4acd96594288cee3114c77de51b6afe1ab6a866887a13a96ee80f33c"},
+   },
 };
 
 #define SETBIT(bits,bitoffset) (((uint8_t *)bits)[(bitoffset) >> 3] |= (1 << ((bitoffset) & 7)))
@@ -413,7 +563,7 @@ static const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =
     #define PRICES_DAYWINDOW ((3600*24/ASSETCHAINS_BLOCKTIME) + 1)
 #endif
 
-extern uint8_t ASSETCHAINS_TXPOW,ASSETCHAINS_PUBLIC;
+extern uint8_t ASSETCHAINS_TXPOW;
 extern int8_t ASSETCHAINS_ADAPTIVEPOW;
 int32_t MAX_BLOCK_SIZE(int32_t height);
 extern char ASSETCHAINS_SYMBOL[KOMODO_ASSETCHAIN_MAXLEN];
@@ -434,7 +584,10 @@ extern int32_t VERUS_MIN_STAKEAGE;
 extern uint32_t ASSETCHAINS_VERUSHASH, ASSETCHAINS_VERUSHASHV1_1, ASSETCHAINS_NONCESHIFT[], ASSETCHAINS_HASHESPERROUND[];
 extern std::string NOTARY_PUBKEY,ASSETCHAINS_OVERRIDE_PUBKEY,ASSETCHAINS_SCRIPTPUB;
 extern uint8_t NOTARY_PUBKEY33[33],ASSETCHAINS_OVERRIDE_PUBKEY33[33];
-//extern std::vector<std::string> ASSETCHAINS_PRICES,ASSETCHAINS_STOCKS;
+extern std::vector<std::string> ASSETCHAINS_PRICES, ASSETCHAINS_STOCKS;
+extern std::vector<uint8_t> Mineropret; // opreturn data set by the data gathering code
+extern uint64_t ASSETCHAINS_PEGSCCPARAMS[3];
+extern uint8_t ASSETCHAINS_OVERRIDE_PUBKEYHASH[];
 
 extern int32_t VERUS_BLOCK_POSUNITS, VERUS_CONSECUTIVE_POS_THRESHOLD, VERUS_NOPOS_THRESHHOLD;
 extern uint256 KOMODO_EARLYTXID;
@@ -463,7 +616,6 @@ void komodo_netevent(std::vector<uint8_t> payload);
 int32_t getacseason(uint32_t timestamp);
 int32_t getkmdseason(int32_t height);
 
-#define IGUANA_MAXSCRIPTSIZE 10001
 #define KOMODO_KVDURATION 1440
 #define KOMODO_KVBINARY 2
 #define PRICES_SMOOTHWIDTH 1
@@ -473,10 +625,8 @@ int32_t komodo_paxprices(int32_t *heights,uint64_t *prices,int32_t max,char *bas
 int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestamp);
 char *bitcoin_address(char *coinaddr,uint8_t addrtype,uint8_t *pubkey_or_rmd160,int32_t len);
 int32_t komodo_minerids(uint8_t *minerids,int32_t height,int32_t width);
-int32_t komodo_kvsearch(uint256 *refpubkeyp,int32_t current_height,uint32_t *flagsp,int32_t *heightp,uint8_t value[IGUANA_MAXSCRIPTSIZE],uint8_t *key,int32_t keylen);
 
 uint32_t komodo_blocktime(uint256 hash);
-int32_t komodo_longestchain();
 int32_t komodo_dpowconfs(int32_t height,int32_t numconfs);
 int8_t komodo_segid(int32_t nocache,int32_t height);
 int32_t komodo_heightpricebits(uint64_t *seedp,uint32_t *heightbits,int32_t nHeight);
@@ -485,7 +635,6 @@ int32_t komodo_priceind(const char *symbol);
 int32_t komodo_pricesinit();
 int64_t komodo_priceave(int64_t *tmpbuf,int64_t *correlated,int32_t cskip);
 int64_t komodo_pricecorrelated(uint64_t seed,int32_t ind,uint32_t *rawprices,int32_t rawskip,uint32_t *nonzprices,int32_t smoothwidth);
-int32_t komodo_nextheight();
 uint32_t komodo_heightstamp(int32_t height);
 int64_t komodo_pricemult_to10e8(int32_t ind);
 int32_t komodo_priceget(int64_t *buf64,int32_t ind,int32_t height,int32_t numblocks);
@@ -509,6 +658,88 @@ bool komodo_txnotarizedconfirmed(uint256 txid,int32_t minconfirms=1);
 int32_t komodo_blockload(CBlock& block, CBlockIndex *pindex);
 uint32_t komodo_chainactive_timestamp();
 uint32_t GetLatestTimestamp(int32_t height);
+int32_t komodo_get_current_height();
+struct komodo_state *komodo_stateptrget(char *base);
+
+void komodo_prefetch(FILE *fp);
+void komodo_stateupdate(int32_t height,uint8_t notarypubs[][33],uint8_t numnotaries,uint8_t notaryid,uint256 txhash,uint64_t voutmask,uint8_t numvouts,uint32_t *pvals,uint8_t numpvals,int32_t kheight,uint32_t ktime,uint64_t opretvalue,uint8_t *opretbuf,uint16_t opretlen,uint16_t vout,uint256 MoM,int32_t MoMdepth);
+void komodo_init(int32_t height);
+int32_t komodo_MoMdata(int32_t *notarized_htp,uint256 *MoMp,uint256 *kmdtxidp,int32_t nHeight,uint256 *MoMoMp,int32_t *MoMoMoffsetp,int32_t *MoMoMdepthp,int32_t *kmdstartip,int32_t *kmdendip);
+int32_t komodo_notarizeddata(int32_t nHeight,uint256 *notarized_hashp,uint256 *notarized_desttxidp);
+char *komodo_issuemethod(char *userpass,char *method,char *params,uint16_t port);
+int32_t komodo_chosennotary(int32_t *notaryidp,int32_t height,uint8_t *pubkey33,uint32_t timestamp);
+int32_t komodo_isrealtime(int32_t *kmdheightp);
+uint64_t komodo_paxtotal();
+int32_t komodo_longestchain();
+uint64_t komodo_maxallowed(int32_t baseid);
+int32_t komodo_bannedset(int32_t *indallvoutsp,uint256 *array,int32_t max);
+int32_t komodo_checkvout(int32_t vout,int32_t k,int32_t indallvouts);
+int32_t komodo_notarized_height(int32_t *prevMoMheightp,uint256 *hashp,uint256 *txidp);
+int64_t komodo_block_unlocktime(uint32_t nHeight);
+int32_t komodo_notaryvin(CMutableTransaction &txNew,uint8_t *notarypub33, void *pTr);
+uint64_t komodo_notarypayamount(int32_t nHeight, int64_t notarycount);
+CScript komodo_mineropret(int32_t nHeight);
+bool komodo_appendACscriptpub();
+uint64_t komodo_commission(const CBlock *pblock,int32_t height);
+int32_t komodo_staked(CMutableTransaction &txNew,uint32_t nBits,uint32_t *blocktimep,uint32_t *txtimep,uint256 *utxotxidp,int32_t *utxovoutp,uint64_t *utxovaluep,uint8_t *utxosig, uint256 merkleroot);
+uint256 komodo_calcmerkleroot(CBlock *pblock, uint256 prevBlockHash, int32_t nHeight, bool fNew, CScript scriptPubKey);
+int32_t verus_staked(CBlock *pBlock, CMutableTransaction &txNew, uint32_t &nBits, arith_uint256 &hashResult, uint8_t *utxosig, CPubKey &pk);
+int32_t komodo_getnotarizedheight(uint32_t timestamp,int32_t height, uint8_t *script, int32_t len);
+int32_t komodo_is_notarytx(const CTransaction& tx);
+int32_t komodo_validate_interest(const CTransaction &tx,int32_t txheight,uint32_t cmptime,int32_t dispflag);
+uint64_t komodo_notarypay(CMutableTransaction &txNew, std::vector<int8_t> &NotarisationNotaries, uint32_t timestamp, int32_t height, uint8_t *script, int32_t len);
+CScript komodo_makeopret(CBlock *pblock, bool fNew);
+int32_t notarizedtxid_height(char *dest,char *txidstr,int32_t *kmdnotarized_heightp);
+int32_t komodo_whoami(char *pubkeystr,int32_t height,uint32_t timestamp);
+int64_t komodo_coinsupply(int64_t *zfundsp,int64_t *sproutfundsp,int32_t height);
+int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime);
+void komodo_passport_iteration();
+void komodo_cbopretupdate(int32_t forceflag);
+uint64_t komodo_interestsum();
+uint64_t komodo_interest(int32_t txheight, uint64_t nValue, uint32_t nLockTime, uint32_t tiptime);
+bool komodo_dailysnapshot(int32_t height);
+void komodo_setactivation(int32_t height);
+void komodo_pricesupdate(int32_t height,CBlock *pblock);
+void komodo_broadcast(CBlock *pblock,int32_t limit);
+int32_t komodo_block2pubkey33(uint8_t *pubkey33,CBlock *block);
+void komodo_event_rewind(struct komodo_state *sp,char *symbol,int32_t height);
+int32_t komodo_connectblock(bool fJustCheck, CBlockIndex *pindex,CBlock& block) EXCLUSIVE_LOCKS_REQUIRED(cs_main) ;
+arith_uint256 komodo_PoWtarget(int32_t *percPoSp,arith_uint256 target,int32_t height,int32_t goalperc,int32_t newStakerActive);
+int32_t komodo_baseid(char *origbase);
+int32_t komodo_eligiblenotary(uint8_t pubkeys[66][33],int32_t *mids,uint32_t *blocktimes,int32_t *nonzpkeysp,int32_t height);
+uint64_t komodo_current_supply(uint32_t nHeight);
+
+int32_t gettxout_scriptPubKey(uint8_t *scriptPubkey,int32_t maxsize,uint256 txid,int32_t n);
+bool Getscriptaddress(char *destaddr,const CScript &scriptPubKey);
+
+char *nonportable_path(char *str);
+char *portable_path(char *str);
+void *loadfile(char *fname,uint8_t **bufp,long *lenp,long *allocsizep);
+void *filestr(long *allocsizep,char *_fname);
+
+extern uint64_t KOMODO_INTERESTSUM, KOMODO_WALLETBALANCE;
+extern int32_t KOMODO_INSYNC, KOMODO_LASTMINED, prevKOMODO_LASTMINED;
+extern uint64_t ASSETCHAINS_ENDSUBSIDY[ASSETCHAINS_MAX_ERAS + 1], ASSETCHAINS_HALVING[ASSETCHAINS_MAX_ERAS + 1];
+extern uint64_t ASSETCHAINS_DECAY[ASSETCHAINS_MAX_ERAS + 1];
+extern uint64_t ASSETCHAINS_LINEAR, ASSETCHAINS_SUPPLY;
+extern uint8_t ASSETCHAINS_PUBLIC, ASSETCHAINS_PRIVATE;
+extern int32_t KOMODO_LOADINGBLOCKS;
+extern int32_t ASSETCHAINS_FOUNDERS;
+extern char ASSETCHAINS_USERPASS[];
+extern int32_t KOMODO_REWIND;
+extern uint32_t ASSETCHAINS_NUMALGOS;
+extern uint32_t STAKING_MIN_DIFF;
+extern uint32_t ASSETCHAINS_MINDIFF[];
+extern uint64_t ASSETCHAINS_TIMEUNLOCKFROM;
+extern uint64_t ASSETCHAINS_TIMEUNLOCKTO;
+extern uint32_t KOMODO_DPOWCONFS;
+extern uint16_t KMD_PORT, BITCOIND_RPCPORT, DEST_PORT;
+extern char KMDUSERPASS[], BTCUSERPASS[];
+extern uint32_t KOMODO_STOPAT;
+extern int32_t ASSETCHAINS_CBMATURITY;
+extern struct komodo_state KOMODO_STATES[];
+extern int32_t KOMODO_EXTRASATOSHI;
+
 
 #ifndef KOMODO_NSPV_FULLNODE
 #define KOMODO_NSPV_FULLNODE (KOMODO_NSPV <= 0)
@@ -531,8 +762,77 @@ struct komodo_staking *komodo_addutxo(struct komodo_staking *array, int32_t *num
 void komodo_createminerstransactions();
 uint32_t komodo_segid32(char *coinaddr);
 
-#ifndef _WIN32
-void OS_randombytes(unsigned char *x, long xlen);
-#endif
+int32_t komodo_voutupdate(bool fJustCheck,int32_t *isratificationp,int32_t notaryid,uint8_t *scriptbuf,int32_t scriptlen,int32_t height,uint256 txhash,int32_t i,int32_t j,uint64_t *voutmaskp,int32_t *specialtxp,int32_t *notarizedheightp,uint64_t value,int32_t notarized,uint64_t signedmask,uint32_t timestamp);
+
+
+// #ifndef _WIN32
+void OS_randombytes(unsigned char *x, long xlen);  // this func impl exists for win too
+// #endif
+
+// curve25519 and sha256
+#ifndef _BITS256
+#define _BITS256
+    union _bits256 { uint8_t bytes[32]; uint16_t ushorts[16]; uint32_t uints[8]; uint64_t ulongs[4]; uint64_t txid; };
+    typedef union _bits256 bits256;
+#endif  
+
+bits256 curve25519_shared(bits256 privkey,bits256 otherpub);
+bits256 curve25519_basepoint9();
+bits256 curve25519(bits256 mysecret,bits256 basepoint);
+void vcalc_sha256(char deprecated[(256 >> 3) * 2 + 1],uint8_t hash[256 >> 3],uint8_t *src,int32_t len);
+bits256 bits256_doublesha256(char *deprecated,uint8_t *data,int32_t datalen);
+
+// supernet cipher
+int32_t _SuperNET_cipher(uint8_t nonce[crypto_box_NONCEBYTES],uint8_t *cipher,uint8_t *message,int32_t len,bits256 destpub,bits256 srcpriv,uint8_t *buf);
+uint8_t *_SuperNET_decipher(uint8_t nonce[crypto_box_NONCEBYTES],uint8_t *cipher,uint8_t *message,int32_t len,bits256 srcpub,bits256 mypriv);
+uint8_t *SuperNET_deciphercalc(uint8_t *senderpub,uint8_t **ptrp,int32_t *msglenp,bits256 privkey,uint8_t *cipher,int32_t cipherlen);
+uint8_t *SuperNET_ciphercalc(uint8_t **ptrp,int32_t *cipherlenp,bits256 privkey,bits256 destpubkey,uint8_t *data,int32_t datalen);
+
+#ifdef TESTMODE           
+    #define MIN_NON_NOTARIZED_CONFIRMS 2
+#else
+    #define MIN_NON_NOTARIZED_CONFIRMS 101
+#endif // TESTMODE
+
+
+extern int32_t JUMBLR_PAUSE;
+int32_t Jumblr_depositaddradd(char *depositaddr);
+int32_t Jumblr_secretaddradd(char *secretaddr);
+
+
+#define KOMODO_KVPROTECTED 1
+#define KOMODO_KVBINARY 2
+#define KOMODO_KVDURATION 1440
+
+uint64_t PAX_fiatdest(uint64_t *seedp,int32_t tokomodo,char *destaddr,uint8_t pubkey37[37],char *coinaddr,int32_t height,char *base,int64_t fiatoshis);
+int32_t komodo_opreturnscript(uint8_t *script,uint8_t type,uint8_t *opret,int32_t opretlen);
+#define CRYPTO777_KMDADDR "RXL3YXG2ceaB6C5hfJcN4fvmLH2C34knhA"
+extern int32_t KOMODO_PAX;
+int32_t komodo_is_issuer();
+
+// script tools analogue
+#define IGUANA_READ 0
+#define IGUANA_WRITE 1
+int32_t iguana_rwnum(int32_t rwflag,uint8_t *serialized,int32_t len,void *endianedp);
+int32_t iguana_rwbignum(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *endianedp);
+int32_t iguana_rwvarint(int32_t rwflag, uint8_t* serialized, uint64_t* varint64p);
+int32_t iguana_rwbuf(int32_t rwflag,uint8_t *serialized,int32_t len,uint8_t *buf);
+
+int32_t pax_fiatstatus(uint64_t *available,uint64_t *deposited,uint64_t *issued,uint64_t *withdrawn,uint64_t *approved,uint64_t *redeemed,char *base);
+
+int32_t komodo_pending_withdraws(char *opretstr);
+void komodo_kvupdate(uint8_t *opretbuf,int32_t opretlen,uint64_t value);
+int32_t komodo_kvsearch(uint256 *refpubkeyp,int32_t current_height,uint32_t *flagsp,int32_t *heightp,uint8_t value[IGUANA_MAXSCRIPTSIZE],uint8_t *key,int32_t keylen);
+int32_t komodo_kvcmp(uint8_t *refvalue,uint16_t refvaluesize,uint8_t *value,uint16_t valuesize);
+uint64_t komodo_kvfee(uint32_t flags,int32_t opretlen,int32_t keylen);
+uint256 komodo_kvsig(uint8_t *buf,int32_t len,uint256 privkey);
+int32_t komodo_kvduration(uint32_t flags);
+uint256 komodo_kvprivkey(uint256 *pubkeyp,char *passphrase);
+int32_t komodo_kvsigverify(uint8_t *buf,int32_t len,uint256 _pubkey,uint256 sig);
+
+uint64_t komodo_interestnew(int32_t txheight,uint64_t nValue,uint32_t nLockTime,uint32_t tiptime);
+uint64_t _komodo_interestnew(int32_t txheight,uint64_t nValue,uint32_t nLockTime,uint32_t tiptime);
+
+uint32_t komodo_next_tx_locktime();
 
 #endif

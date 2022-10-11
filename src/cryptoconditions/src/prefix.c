@@ -109,6 +109,9 @@ static CC *prefixFromJSON(const cJSON *params, char *err) {
         cc_free(cond);
         return NULL;
     }
+    int dontFulfill = 0;
+    cJSON *obj = cJSON_GetObjectItem(params, "dontFulfill");
+    if (obj) cond->dontFulfill = !!obj->valueint;    
     
     return cond;
 }
@@ -141,6 +144,7 @@ static CC* prefixCopy(const CC* cond)
     memcpy(condCopy->prefix, cond->prefix, cond->prefixLength);
     condCopy->prefixLength = cond->prefixLength;
     condCopy->subcondition = cond->subcondition->type->copy(cond->subcondition);
+    condCopy->dontFulfill = cond->dontFulfill;
     return (condCopy);
 }
 

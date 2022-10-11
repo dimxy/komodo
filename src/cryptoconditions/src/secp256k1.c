@@ -106,10 +106,13 @@ int secp256k1Verify(CC *cond, CCVisitor visitor) {
     rc = secp256k1_ec_pubkey_parse(ec_ctx_verify, &pk, cond->publicKey, SECP256K1_PK_SIZE);
     if (rc != 1) return 0;
 
-    // parse siganature
+    // parse signature
     secp256k1_ecdsa_signature sig;
     rc = secp256k1_ecdsa_signature_parse_compact(ec_ctx_verify, &sig, cond->signature);
     if (rc != 1) return 0;
+    //unsigned char *hex = cc_hex_encode(cond->publicKey, SECP256K1_PK_SIZE);
+    //printf("%s using publicKey %s\n", __func__, hex);
+    //free(hex);
 
     // Only accepts lower S signatures
     rc = secp256k1_ecdsa_verify(ec_ctx_verify, &sig, visitor.msg, &pk);
@@ -195,13 +198,13 @@ int cc_signTreeSecp256k1Msg32(CC *cond, const unsigned char *privateKey, const u
     unsigned char publicKey[SECP256K1_PK_SIZE];
     size_t ol = SECP256K1_PK_SIZE;
     secp256k1_ec_pubkey_serialize(ec_ctx_verify, publicKey, &ol, &spk, SECP256K1_EC_COMPRESSED);
-    if ( 0 )
+    /*if ( 0 )
     {
         int32_t z;
         for (z=0; z<33; z++)
             fprintf(stderr,"%02x",publicKey[z]);
         fprintf(stderr," pubkey\n");
-    }
+    }*/
     // sign
     CCSecp256k1SigningData signing = {publicKey, privateKey, 0};
     CCVisitor visitor = {&secp256k1Sign, msg32, 32, &signing};
@@ -259,6 +262,11 @@ static CC *secp256k1FromJSON(const cJSON *params, char *err) {
     if (!cond) {
         strcpy(err, "invalid public key");
     }
+
+    int dontFulfill = 0;
+    cJSON *obj = cJSON_GetObjectItem(params, "dontFulfill");
+    if (obj) cond->dontFulfill = !!obj->valueint;    
+    
 END:
     free(pk);
     free(sig);
@@ -290,7 +298,13 @@ static Fulfillment_t *secp256k1ToFulfillment(const CC *cond, FulfillmentFlags _f
     Secp256k1Fulfillment_t *sec = &ffill->choice.secp256k1Sha256;
 
     OCTET_STRING_fromBuf(&sec->publicKey, cond->publicKey, SECP256K1_PK_SIZE);
+    //if (cond->signature)
     OCTET_STRING_fromBuf(&sec->signature, cond->signature, SECP256K1_SIG_SIZE);
+    /*else {
+        uint8_t *fakesig = (uint8_t*)calloc(1, SECP256K1_SIG_SIZE);
+        OCTET_STRING_fromBuf(&sec->signature, fakesig, SECP256K1_SIG_SIZE);
+        free(fakesig);
+    }*/
     return ffill;
 }
 
@@ -316,6 +330,7 @@ static CC* secp256k1Copy(const CC* cond)
         condCopy->signature = calloc(1, SECP256K1_SIG_SIZE);
         memcpy(condCopy->signature, cond->signature, SECP256K1_SIG_SIZE);
     }
+    condCopy->dontFulfill = cond->dontFulfill;
     return (condCopy);
 }
 
