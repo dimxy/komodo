@@ -69,6 +69,7 @@ jobs:
           mv komodo-macos/komodo-macos.tar.gz .
           mkdir -p src
           tar xzvf komodo-macos.tar.gz
+          sysctl -n machdep.cpu.brand_string
           ./zcutil/fetch-params.sh
           cd qa/pytest_komodo
           ./ci_setup.sh "cc_modules/test_dice.py cc_modules/test_faucet.py cc_modules/test_token.py cc_modules/test_rewards.py"
