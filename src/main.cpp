@@ -7604,7 +7604,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         }
         lastAfterGetData = afterGetData;
 
-        if (countPrint % 100 == 1) {
+        if (++countPrint % 100 == 1) {
             std::cerr << __func__ << " otherTime=" << otherTime << " getdataTime=" << getdataTime << " readBlockTime=" << readBlockTime << std::endl;
         }
 
