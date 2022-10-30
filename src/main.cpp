@@ -6960,6 +6960,11 @@ bool static AlreadyHave(const CInv& inv) REQUIRES(cs_main)
     return true;
 }
 
+
+int64_t lastAfterGetData = 0L, beforeGetData, afterGetData, beforeReadBlock, afterReadBlock;
+int64_t otherTime = 0LL, getdataTime = 0LL, readBlockTime = 0LL;
+int64_t countPrint = 0LL;
+
 void static ProcessGetData(CNode* pfrom)
 {
     std::deque<CInv>::iterator it = pfrom->vRecvGetData.begin();
@@ -7005,7 +7010,10 @@ void static ProcessGetData(CNode* pfrom)
                 {
                     // Send block from disk
                     CBlock block;
-                    if (!ReadBlockFromDisk(block, (*mi).second,1))
+                    beforeReadBlock = GetTimeMillis();
+                    bool r = ReadBlockFromDisk(block, (*mi).second,1);
+                    afterReadBlock = GetTimeMillis();
+                    if (!r)
                     {
                         assert(!"cannot load block from disk");
                     }
@@ -7571,6 +7579,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == "getdata")
     {
+        beforeGetData = GetTimeMillis();
         vector<CInv> vInv;
         vRecv >> vInv;
         if (vInv.size() > MAX_INV_SZ)
@@ -7587,6 +7596,18 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         pfrom->vRecvGetData.insert(pfrom->vRecvGetData.end(), vInv.begin(), vInv.end());
         ProcessGetData(pfrom);
+        afterGetData = GetTimeMillis();
+        if (lastAfterGetData > 0LL)  {
+            otherTime += beforeGetData - lastAfterGetData;
+            getdataTime += afterGetData - beforeGetData;
+            readBlockTime += afterReadBlock - beforeReadBlock;
+        }
+        lastAfterGetData = afterGetData;
+
+        if (countPrint % 100 == 1) {
+            std::cerr << __func__ << " otherTime=" << otherTime << " getdataTime=" << getdataTime << " readBlockTime=" << readBlockTime << std::endl;
+        }
+
     }
 
 
