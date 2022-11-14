@@ -511,14 +511,16 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
 
-        //base58Prefixes[PUBKEY_ADDRESS] = {0};
-        //base58Prefixes[SCRIPT_ADDRESS] = {5};
-        //base58Prefixes[SECRET_KEY] =     {128};
-        base58Prefixes[PUBKEY_ADDRESS] = {60};
-        base58Prefixes[SCRIPT_ADDRESS] = {85};
+        base58Prefixes[PUBKEY_ADDRESS] = {0};  // use zebra 1-addr prefix for testnet to work
+        base58Prefixes[SCRIPT_ADDRESS] = {5};
+        base58Prefixes[SECRET_KEY] =     {128};
+        
+        //base58Prefixes[PUBKEY_ADDRESS] = {60};
+        //base58Prefixes[SCRIPT_ADDRESS] = {85};
+
         //base58Prefixes[PUBKEY_ADDRESS] = {0x1D, 0x25};  // use zcash t-addr for zebra testnet to work
         //base58Prefixes[SCRIPT_ADDRESS] = {0x1C, 0xBA};
-        base58Prefixes[SECRET_KEY] =     {188};
+        //base58Prefixes[SECRET_KEY] =     {188};
 
         // TODO: change to mainnet??
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
