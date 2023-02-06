@@ -2790,7 +2790,7 @@ namespace Consensus {
             // Check for negative or overflow input values
             nValueIn += coins->vout[prevout.n].nValue;
 #ifdef KOMODO_ENABLE_INTEREST
-            if ( chainName.isKMD() && nSpendHeight > 60000 )//chainActive.Tip() != 0 && chainActive.Tip()->nHeight >= 60000 )
+            if ( chainName.isKMD() && (::Params().NetworkIDString() != "main" || nSpendHeight > 60000) )//chainActive.Tip() != 0 && chainActive.Tip()->nHeight >= 60000 )            
             {
                 if ( coins->vout[prevout.n].nValue >= 10*COIN )
                 {
@@ -3673,7 +3673,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     LogPrint("bench", "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime1 - nTimeStart), 0.001 * (nTime1 - nTimeStart) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime1 - nTimeStart) / (nInputs-1), nTimeConnect * 0.000001);
 
     blockReward += nFees + sum;
-    if ( chainName.isKMD() && pindex->nHeight >= KOMODO_NOTARIES_HEIGHT2)
+    if ( chainName.isKMD() && (Params().NetworkIDString() != "main" || pindex->nHeight >= KOMODO_NOTARIES_HEIGHT2))
         blockReward -= sum;
 
     if ( ASSETCHAINS_COMMISSION != 0 || ASSETCHAINS_FOUNDERS_REWARD != 0 ) //ASSETCHAINS_OVERRIDE_PUBKEY33[0] != 0 &&
@@ -3694,7 +3694,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }
     if ( block.vtx[0].GetValueOut() > blockReward+KOMODO_EXTRASATOSHI )
     {
-        if ( !chainName.isKMD() || pindex->nHeight >= KOMODO_NOTARIES_HEIGHT1 || block.vtx[0].vout[0].nValue > blockReward )
+        // Seems a bug was fixed that allowed to pay on other coinbase outputs (before KOMODO_NOTARIES_HEIGHT1). Do not allow this for testnet since block 0
+        if ( !chainName.isKMD() || (Params().NetworkIDString() != "main" || pindex->nHeight >= KOMODO_NOTARIES_HEIGHT1) || block.vtx[0].vout[0].nValue > blockReward )
         {
             return state.DoS(100,
                              error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",

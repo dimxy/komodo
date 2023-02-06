@@ -637,7 +637,7 @@ bool komodo_checkopret(CBlock *pblock, CScript &merkleroot)
 
 bool komodo_hardfork_active(uint32_t time)
 {
-    return ( (chainName.isKMD() && chainActive.Height() > nDecemberHardforkHeight) 
+    return ( (chainName.isKMD() && (::Params().NetworkIDString() != "main" || chainActive.Height() > nDecemberHardforkHeight)) 
             || ( !chainName.isKMD() && time > nStakedDecemberHardforkTimestamp) ); //December 2019 hardfork
 }
 
@@ -1088,9 +1088,9 @@ bool komodo_validate_interest(const CTransaction &tx,int32_t txheight,uint32_t c
 {
     if ( KOMODO_REWIND == 0 && chainName.isKMD() && (int64_t)tx.nLockTime >= LOCKTIME_THRESHOLD ) //1473793441 )
     {
-        if ( txheight > 246748 ) // a long time ago
+        if (::Params().NetworkIDString() != "main" || txheight > 246748 ) // a long time ago
         {
-            if ( txheight < 247205 ) // a long time ago
+            if ( txheight < 247205 && ::Params().NetworkIDString() == "main" ) // a long time ago
                 cmptime -= 16000; // subtract about 4 1/2 hours
             if ( (int64_t)tx.nLockTime < cmptime-KOMODO_MAXMEMPOOLTIME )
             {  
