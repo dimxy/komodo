@@ -862,7 +862,7 @@ int32_t komodo_eligiblenotary(uint8_t pubkeys[66][33],int32_t *mids,uint32_t blo
             if ( komodo_blockload(block,pindex) == 0 )
             {
                 komodo_block2pubkey33(pubkeys[i],&block);   // get miner's pubkey
-                for (j=0; j<n; j++)
+                for (j=0; j<n; j++) // check if the miner is a notary
                 {
                     if ( memcmp(notarypubs33[j],pubkeys[i],33) == 0 )
                     {
