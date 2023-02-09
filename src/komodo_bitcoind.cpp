@@ -846,6 +846,7 @@ void komodo_index2pubkey33(uint8_t *pubkey33,CBlockIndex *pindex,int32_t height)
 // Get miner ids (notary ids who mined) and their pubkeys for last 65 blocks
 // Also return blocktimes 
 // Note that mids[0], pubkeys[0], blocktimes[0] actually is not set as these elements correspond to future block of height
+// TODO fix mids[0], pubkeys[0] to set properly
 int32_t komodo_eligiblenotary(uint8_t pubkeys[66][33],int32_t *mids,uint32_t blocktimes[66],int32_t *nonzpkeysp,int32_t height)
 {
     // after the season HF block ALL new notaries instantly become elegible. 

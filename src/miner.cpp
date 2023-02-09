@@ -1330,13 +1330,13 @@ void static BitcoinMiner()
                         else externalflag = 0;
                         if ( IS_KOMODO_NOTARY )
                         {
-                            // check for second mined block by this miner
-                            // actually this does not work as pubkeys[0] is not set properly in komodo_eligiblenotary
+                            // check for the second block created by the latest miner in last -1..-66 blocks
+                            // (actually this does not work as pubkeys[0] is not set properly in komodo_eligiblenotary)
                             for (i=1; i<66; i++)
                                 if ( memcmp(pubkeys[i],pubkeys[0],33) == 0 )  
                                     break;
                             if ( externalflag == 0 && i != 66 && mids[i] >= 0 )
-                                printf("VIOLATION at %d, notaryid.%d\n",i,mids[i]);
+                                printf("VIOLATION at %d, notaryid.%d\n",i,mids[i]);  // only print a warning if the second block by the latest miner, created as a notary, is found
                             for (j=gpucount=0; j<65; j++)
                             {
                                 if ( dispflag != 0 )
