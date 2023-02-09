@@ -361,7 +361,7 @@ int32_t komodo_prevMoMheight()
 }
 
 /******
- * @brief Get the last notarization information
+ * @brief Get the last notarization information (which is updated when a new valid nota comes in a block)
  * @param[out] prevMoMheightp the MoM height
  * @param[out] hashp the notarized hash
  * @param[out] txidp the DESTTXID
@@ -429,10 +429,10 @@ int32_t komodo_MoMdata(int32_t *notarized_htp,uint256 *MoMp,uint256 *kmdtxidp,in
 }
 
 /****
- * Get the notarization data below a particular height
+ * Get the notarization data below a particular height from the NPOINTS array
  * @param[in] nHeight the height desired
  * @param[out] notarized_hashp the hash of the notarized block
- * @param[out] notarized_desttxidp the desttxid
+ * @param[out] notarized_desttxidp the desttxid, the tx in the nota
  * @returns the notarized height
  */
 int32_t komodo_notarizeddata(int32_t nHeight,uint256 *notarized_hashp,uint256 *notarized_desttxidp)
@@ -452,7 +452,7 @@ int32_t komodo_notarizeddata(int32_t nHeight,uint256 *notarized_hashp,uint256 *n
 }
 
 /***
- * Add a notarized checkpoint to the komodo_state
+ * Add a notarized checkpoint to the komodo_state, also update the last nota in the komodo_state
  * @param[in] sp the komodo_state to add to
  * @param[in] nHeight the height
  * @param[in] notarized_height the height of the notarization

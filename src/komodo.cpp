@@ -27,6 +27,8 @@ static FILE *fp; // for stateupdate
 #include "komodo_events.h"
 #include "komodo_ccdata.h"
 
+/// Yet another func to set CURRENT_HEIGHT in the komodo_state
+/// See also komodo_setkmdheight
 void komodo_currentheight_set(int32_t height)
 {
     char symbol[KOMODO_ASSETCHAIN_MAXLEN],dest[KOMODO_ASSETCHAIN_MAXLEN]; struct komodo_state *sp;
@@ -36,6 +38,7 @@ void komodo_currentheight_set(int32_t height)
 
 extern NSPV_inforesp NSPV_inforesult;
 
+/// Return largest ever chain height (CURRENT_HEIGHT from the komodo_state)
 int32_t komodo_currentheight()
 {
     char symbol[KOMODO_ASSETCHAIN_MAXLEN],dest[KOMODO_ASSETCHAIN_MAXLEN]; struct komodo_state *sp;
@@ -361,6 +364,7 @@ int32_t komodo_voutupdate(bool fJustCheck,int32_t *isratificationp,int32_t notar
         if ( i == 0 && j == 0 && memcmp(NOTARY_PUBKEY33,scriptbuf+1,33) == 0 && IS_KOMODO_NOTARY )
         {
             printf("%s KOMODO_LASTMINED.%d -> %d\n",chainName.symbol().c_str(),KOMODO_LASTMINED,height);
+            // if this block is mined by me then update the KOMODO_LASTMINED and prevKOMODO_LASTMINED heights:
             prevKOMODO_LASTMINED = KOMODO_LASTMINED;
             KOMODO_LASTMINED = height;
         }
