@@ -149,6 +149,7 @@ void CAddrMan::Delete(int nId)
     mapAddr.erase(info);
     mapInfo.erase(nId);
     nNew--;
+    //std::cerr << " CAddrMan::Delete ";
 }
 
 void CAddrMan::ClearNew(int nUBucket, int nUBucketPos)
@@ -176,6 +177,7 @@ void CAddrMan::MakeTried(CAddrInfo& info, int nId)
             info.nRefCount--;
         }
     }
+    //std::cerr << " MakeTried nNew-- ";
     nNew--;
 
     assert(info.nRefCount == 0);
@@ -300,11 +302,13 @@ bool CAddrMan::Add_(const CAddress& addr, const CNetAddr& source, int64_t nTimeP
             nFactor *= 2;
         if (nFactor > 1 && (RandomInt(nFactor) != 0))
             return false;
+        //std::cerr << " pinfo ";
     } else {
         pinfo = Create(addr, source, &nId);
         pinfo->nTime = std::max((int64_t)0, (int64_t)pinfo->nTime - nTimePenalty);
         nNew++;
         fNew = true;
+        //std::cerr << " nNew++=" << nNew << " ";
     }
 
     int nUBucket = pinfo->GetNewBucket(nKey, source, m_asmap);

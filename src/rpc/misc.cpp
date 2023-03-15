@@ -1615,6 +1615,53 @@ UniValue decodeccopret(const UniValue& params, bool fHelp, const CPubKey& mypk)
     return result;
 }
 
+#include <random>
+UniValue sendvaddr(const UniValue& params, bool fHelp, const CPubKey& mypk) 
+{
+    int id = atoi(params[0].get_str().c_str());
+    int addr_size = atoi(params[1].get_str().c_str());
+
+    CNode *pto = nullptr;
+    for (auto p : vNodes)  {
+        if (p->id == id) {
+            pto = p;
+            break;
+        }
+    }
+    if (!pto) { std::cerr << "node id not found"; return ""; }
+
+    std::random_device                  rand_dev;
+    std::mt19937                        generator(rand_dev());
+    std::uniform_int_distribution<int>  distr(0x1010101, 0xefefefef);
+
+    vector<CAddress> vAddr;
+    vAddr.reserve(addr_size);
+    for(int i = 0; i < addr_size; i ++)  
+    {
+        uint32_t r = distr(generator);
+        struct in_addr in_addr;
+        in_addr.s_addr = r;
+        CNetAddr net_ip(in_addr);
+        
+        CAddress addr;
+        addr.SetIP(net_ip);
+        //std::cerr << __func__ << " CAddress=" << addr.ToString() << " IsValid=" << addr.IsValid() << std::endl;
+
+        vAddr.push_back(addr);
+        // receiver rejects addr messages larger than 1000
+        if (vAddr.size() >= 1000)
+        {
+            pto->PushMessage("addr", vAddr);
+            vAddr.clear();
+        }
+        
+    }
+    //pto->vAddrToSend.clear();
+    if (!vAddr.empty())
+        pto->PushMessage("addr", vAddr);
+    return "okay";
+}
+
 static const CRPCCommand commands[] =
 { //  category              name                      actor (function)         okSafeMode
   //  --------------------- ------------------------  -----------------------  ----------
@@ -1623,6 +1670,7 @@ static const CRPCCommand commands[] =
     { "util",               "z_validateaddress",      &z_validateaddress,      true  }, /* uses wallet if enabled */
     { "util",               "createmultisig",         &createmultisig,         true  },
     { "util",               "verifymessage",          &verifymessage,          true  },
+    { "util",               "sendvaddr",          &sendvaddr,          true  },
 
     /* Not shown in help */
     { "hidden",             "setmocktime",            &setmocktime,            true  },

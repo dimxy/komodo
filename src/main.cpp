@@ -7328,10 +7328,13 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
     {
         vector<CAddress> vAddr;
         vRecv >> vAddr;
+        std::cerr << __func__ << " received vAddr.size()=" << vAddr.size() << std::endl;
 
         // Don't want addr from older versions unless seeding
-        if (pfrom->nVersion < CADDR_TIME_VERSION && addrman.size() > 1000)
+        if (pfrom->nVersion < CADDR_TIME_VERSION && addrman.size() > 1000)  {
+            std::cerr << __func__ << "nVersion<CADDR_TIME_VERSION too big vAddr.size()=" << vAddr.size() << std::endl;
             return true;
+        }
         if (vAddr.size() > 1000)
         {
             Misbehaving(pfrom->GetId(), 20);
@@ -7384,6 +7387,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 vAddrOk.push_back(addr);
         }
         addrman.Add(vAddrOk, pfrom->addr, 2 * 60 * 60);
+        std::cerr << __func__ << " addrman.size=" << addrman.size() << " pfrom->addressKnown.size1,2=" << pfrom->addrKnown.size1() << " " <<  pfrom->addrKnown.size2()  << " pfrom-id=" << pfrom->id << std::endl; 
         if (vAddr.size() < 1000)
             pfrom->fGetAddr = false;
         if (pfrom->fOneShot)

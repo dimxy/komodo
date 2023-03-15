@@ -142,6 +142,8 @@ public:
     bool contains(const uint256& hash) const;
 
     void reset();
+    unsigned int size1() { return b1.vData.size(); }
+    unsigned int size2() { return b2.vData.size(); }
 
 private:
     unsigned int nBloomSize;
