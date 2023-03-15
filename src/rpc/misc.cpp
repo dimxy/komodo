@@ -1632,7 +1632,7 @@ UniValue sendvaddr(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
     std::random_device                  rand_dev;
     std::mt19937                        generator(rand_dev());
-    std::uniform_int_distribution<int>  distr(0x1010101, 0xefefefef);
+    std::uniform_int_distribution<uint32_t>  distr(0x1010101, 0xefefefef);
 
     vector<CAddress> vAddr;
     vAddr.reserve(addr_size);
