@@ -831,7 +831,7 @@ int32_t komodo_connectblock(bool fJustCheck, CBlockIndex *pindex,CBlock& block)
             return(-1);
         
         fprintf(stderr,"komodo_connectblock: unxexpected behaviour when fJustCheck == true, report blackjok3rtt plz ! \n");
-        /* this needed by gcc-8, it counts here that control reaches end of non-void function without this.
+        /* this needed by gcc-12, it counts here that control reaches end of non-void function without this.
            by default, we count that if control reached here -> the valid notarization isnt in position 1 or there are too many notarizations in this block.
         */
         return(-1); 

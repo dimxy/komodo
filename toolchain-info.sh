@@ -1,6 +1,6 @@
 #!/bin/bash
 
-tools=("gcc-8" "g++-8" "otool" "nm")
+tools=("gcc-12" "g++-12" "otool" "nm")
 
 echo "Platform: `uname -a`"
 echo "-------------------------------------"

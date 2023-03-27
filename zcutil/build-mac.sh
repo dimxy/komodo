@@ -1,6 +1,6 @@
 #!/bin/bash
-export CC=gcc-8
-export CXX=g++-8
+export CC=gcc-12
+export CXX=g++-12
 export LIBTOOL=libtool
 export AR=ar
 export RANLIB=ranlib
@@ -57,7 +57,7 @@ make "$@" -C ./depends/ V=1 NO_QT=1 NO_PROTON=1
 ./autogen.sh
 
 CPPFLAGS="-I$PREFIX/include -arch x86_64" LDFLAGS="-L$PREFIX/lib -arch x86_64 -Wl,-no_pie" \
-CXXFLAGS="-arch x86_64 -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/ -I$PREFIX/include -fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Werror -Wno-error=attributes -g -Wl,-undefined -Wl,dynamic_lookup" \
+CXXFLAGS="-arch x86_64 -I/usr/local/Cellar/gcc\@8/8.3.0/include/c++/8.3.0/ -I$PREFIX/include -fwrapv -fno-strict-aliasing -Wno-builtin-declaration-mismatch -Wno-deprecated-declarations -Werror -Wno-error=attributes -g -Wl,-undefined -Wl,dynamic_lookup" \
 ./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" "$DEBUGGING_ARG"
 
 make "$@" NO_GTEST=1 STATIC=1
