@@ -117,7 +117,9 @@ UniValue getpeerinfo(const UniValue& params, bool fHelp, const CPubKey& mypk)
             + HelpExampleRpc("getpeerinfo", "")
         );
 
+std::cerr << __func__ << " before LOCK(cs_main)" << std::endl;
     LOCK(cs_main);
+std::cerr << __func__ << " after LOCK(cs_main)" << std::endl;
 
     vector<CNodeStats> vstats;
     CopyNodeStats(vstats);

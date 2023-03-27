@@ -1315,29 +1315,53 @@ int64_t CWallet::IncOrderPosNext(CWalletDB *pwalletdb)
     return nRet;
 }
 
+int64_t t_list_acc = 0,
+        t_walldb = 0,
+        t_ord_ins = 0, t_ord_ins_2 = 0, t_ord_all = 0
+        ;
 CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, std::string strAccount)
 {
+    int64_t t_8 = GetTimeMillis();
+    int64_t t_9 = 0;
+
     AssertLockHeld(cs_wallet); // mapWallet
-    CWalletDB walletdb(strWalletFile);
+    int64_t t_2 = GetTimeMillis();
+    //CWalletDB walletdb(strWalletFile);
+    int64_t t_3 = GetTimeMillis();
+    t_walldb += t_3 - t_2;
 
     // First: get all CWalletTx and CAccountingEntry into a sorted-by-order multimap.
     TxItems txOrdered;
 
     // Note: maintaining indices in the database of (account,time) --> txid and (account, time) --> acentry
     // would make this much faster for applications that do this a lot.
+    int64_t t_4 = GetTimeMillis();
     for (map<uint256, CWalletTx>::iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
     {
         CWalletTx* wtx = &((*it).second);
         txOrdered.insert(make_pair(wtx->nOrderPos, TxPair(wtx, (CAccountingEntry*)0)));
         //fprintf(stderr,"ordered iter.%d %s\n",(int32_t)wtx->nOrderPos,wtx->GetHash().GetHex().c_str());
     }
+    int64_t t_5 = GetTimeMillis();
+    t_ord_ins += t_5 - t_4;
+
     acentries.clear();
-    walletdb.ListAccountCreditDebit(strAccount, acentries);
+    int64_t t_0 = GetTimeMillis();
+    //walletdb.ListAccountCreditDebit(strAccount, acentries);
+    int64_t t_1 = GetTimeMillis();
+    t_list_acc += t_1 - t_0;
+
+    int64_t t_6 = GetTimeMillis();
     BOOST_FOREACH(CAccountingEntry& entry, acentries)
     {
         txOrdered.insert(make_pair(entry.nOrderPos, TxPair((CWalletTx*)0, &entry)));
     }
+    int64_t t_7 = GetTimeMillis();
+    t_ord_ins_2 += t_7 - t_6;
 
+    t_9 = GetTimeMillis();
+    t_ord_all += t_9 - t_8;
+    std::cerr << __func__ << " t_ord_all=" << t_ord_all << " t_9=" << t_9 << " t_8=" << t_8 << std::endl;
     return txOrdered;
 }
 
@@ -1473,10 +1497,13 @@ void CWallet::UpdateSaplingNullifierNoteMapForBlock(const CBlock *pblock) {
     }
 }
 
+int64_t t_add_w_all = 0, t_add_w_not = 0, t_add_w_write = 0, t_add_w_loop = 0, 
+    t_add_w_lock = 0, t_add_w_ins = 0, t_add_w_upd = 0, t_add_w_inc = 0, t_add_w_add_spends = 0, t_add_w_ord = 0;
 bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletDB* pwalletdb)
 {
     uint256 hash = wtxIn.GetHash();
 
+    int64_t t_0 = GetTimeMillis();
     if (fFromLoadWallet)
     {
         mapWallet[hash] = wtxIn;
@@ -1486,6 +1513,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
     }
     else
     {
+        int64_t t_7 = GetTimeMillis();
         LOCK(cs_wallet);
         // Inserts only if not already there, returns tx inserted or tx found
         pair<map<uint256, CWalletTx>::iterator, bool> ret = mapWallet.insert(make_pair(hash, wtxIn));
@@ -1493,10 +1521,17 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
         wtx.BindWallet(this);
         UpdateNullifierNoteMapWithTx(wtx);
         bool fInsertedNew = ret.second;
+        int64_t t_8 = GetTimeMillis();
+        t_add_w_lock += t_8 - t_7;
+
+        int64_t t_12 = GetTimeMillis();
         if (fInsertedNew)
         {
             wtx.nTimeReceived = GetTime();
+            int64_t t_14 = GetTimeMillis();
             wtx.nOrderPos = IncOrderPosNext(pwalletdb);
+            int64_t t_15 = GetTimeMillis();
+            t_add_w_inc += t_15 - t_14;
 
             wtx.nTimeSmart = wtx.nTimeReceived;
             if (!wtxIn.hashBlock.IsNull())
@@ -1509,7 +1544,13 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
                         // Tolerate times up to the last timestamp in the wallet not more than 5 minutes into the future
                         int64_t latestTolerated = latestNow + 300;
                         std::list<CAccountingEntry> acentries;
+                        int64_t t_18 = GetTimeMillis();
                         TxItems txOrdered = OrderedTxItems(acentries);
+                        int64_t t_19 = GetTimeMillis();
+                        t_add_w_ord += t_19 - t_18;
+                        std::cerr << __func__ << " t_add_w_ord=" << t_add_w_ord << " t_19=" << t_19 << " t_18=" << t_18 << std::endl;
+
+                        int64_t t_5 = GetTimeMillis();
                         for (TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
                         {
                             CWalletTx *const pwtx = (*it).second.first;
@@ -1533,6 +1574,9 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
                                 break;
                             }
                         }
+                        int64_t t_6 = GetTimeMillis();
+                        t_add_w_loop += t_6 - t_5;
+
                     }
 
                     int64_t blocktime = mapBlockIndex[wtxIn.hashBlock]->GetBlockTime();
@@ -1543,10 +1587,17 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
                              wtxIn.GetHash().ToString(),
                              wtxIn.hashBlock.ToString());
             }
+            int64_t t_16 = GetTimeMillis();
             AddToSpends(hash);
+            int64_t t_17 = GetTimeMillis();
+            t_add_w_add_spends += t_17 - t_16;
         }
+        int64_t t_13 = GetTimeMillis();
+        t_add_w_ins += t_13 - t_12;
 
         bool fUpdated = false;
+        int64_t t_10 = GetTimeMillis();
+
         if (!fInsertedNew)
         {
             // Merge
@@ -1570,20 +1621,30 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
                 fUpdated = true;
             }
         }
+        int64_t t_11 = GetTimeMillis();
+        t_add_w_upd += t_11 - t_10;
+
 
         //// debug print
         LogPrintf("AddToWallet %s  %s%s\n", wtxIn.GetHash().ToString(), (fInsertedNew ? "new" : ""), (fUpdated ? "update" : ""));
 
         // Write to disk
+        int64_t t_3 = GetTimeMillis();
+
         if (fInsertedNew || fUpdated)
             if (!wtx.WriteToDisk(pwalletdb))
                 return false;
+        int64_t t_4 = GetTimeMillis();
+        t_add_w_write += t_4 - t_3;
 
         // Break debit/credit balance caches:
         wtx.MarkDirty();
 
         // Notify UI of new or updated transaction
+        int64_t t_1 = GetTimeMillis();
         NotifyTransactionChanged(this, hash, fInsertedNew ? CT_NEW : CT_UPDATED);
+        int64_t t_2 = GetTimeMillis();
+        t_add_w_not += t_2 - t_1;
 
         // notify an external script when a wallet transaction comes in or is updated
         std::string strCmd = GetArg("-walletnotify", "");
@@ -1595,6 +1656,8 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
         }
 
     }
+    int64_t t_e = GetTimeMillis();
+    t_add_w_all += t_e - t_0;
     return true;
 }
 
@@ -2781,8 +2844,11 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
 
     std::vector<uint256> myTxHashes;
 
+
     {
+        std::cerr << __func__ << " before LOCK2(cs_main, cs_wallet);" << std::endl;
         LOCK2(cs_main, cs_wallet);
+        std::cerr << __func__ << " after LOCK2(cs_main, cs_wallet);" << std::endl;
 
         // no need to read and scan block, if block was created before
         // our wallet birthday (as adjusted for block time variability)
@@ -2792,13 +2858,24 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
         ShowProgress(_("Rescanning..."), 0); // show rescan progress in GUI as dialog or on splashscreen, if -rescan on startup
         double dProgressStart = Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), pindex, false);
         double dProgressTip = Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), chainActive.Tip(), false);
+        int64_t t_all = 0;
+        int64_t t_read = 0, t_progress = 0, t_add = 0, t_assert = 0, t_wit = 0;
+        t_add_w_all = 0, t_add_w_not = 0, t_add_w_write = 0, t_add_w_loop = 0, t_add_w_lock = 0, 
+        t_add_w_add_spends = 0,
+        t_add_w_ins = t_add_w_upd = t_add_w_inc = t_walldb = t_ord_ins = t_list_acc = t_ord_ins_2 =
+        t_add_w_ord = 0, t_ord_all = 0;
         while (pindex)
         {
+            int64_t t_all_0 = GetTimeMillis();
+            std::cerr << __func__ << " scanning at height=" << pindex->nHeight << std::endl;
             if (pindex->nHeight % 100 == 0 && dProgressTip - dProgressStart > 0.0)
                 ShowProgress(_("Rescanning..."), std::max(1, std::min(99, (int)((Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), pindex, false) - dProgressStart) / (dProgressTip - dProgressStart) * 100))));
+            int64_t t_0 = GetTimeMillis();
 
             CBlock block;
+            int64_t t_read_0 = GetTimeMillis();
             ReadBlockFromDisk(block, pindex,1);
+            int64_t t_read_1 = GetTimeMillis();
             BOOST_FOREACH(CTransaction& tx, block.vtx)
             {
                 if (AddToWalletIfInvolvingMe(tx, &block, fUpdate)) {
@@ -2806,6 +2883,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                     ret++;
                 }
             }
+            int64_t t_2 = GetTimeMillis();
 
             SproutMerkleTree sproutTree;
             SaplingMerkleTree saplingTree;
@@ -2817,6 +2895,8 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                     assert(pcoinsTip->GetSaplingAnchorAt(pindex->pprev->hashFinalSaplingRoot, saplingTree));
                 }
             }
+            int64_t t_3 = GetTimeMillis();
+
             // Increment note witness caches
             ChainTip(pindex, &block, sproutTree, saplingTree, true);
 
@@ -2825,7 +2905,28 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
                 nNow = GetTime();
                 LogPrintf("Still rescanning. At block %d. Progress=%f\n", pindex->nHeight, Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), pindex));
             }
+            int64_t t_all_1 = GetTimeMillis();
+            t_all += t_all_1 - t_all_0;
+            t_read += t_read_1 - t_read_0;
+            t_progress += t_0 - t_all_0;
+            t_add += t_2 - t_read_1;
+            t_assert += t_3 - t_2;
+            t_wit += t_all_1 - t_3;
         }
+        std::cerr << __func__ << " t_all=" << t_all << " t_read=" << t_read << " t_progress=" << t_progress 
+            << " t_add=" << t_add << " t_assert=" << t_assert << " t_wit=" << t_wit 
+            << " t_add_w_all=" << t_add_w_all << " t_add_w_not=" <<  t_add_w_not << " t_add_w_write=" <<  t_add_w_write 
+            << " t_add_w_loop=" <<  t_add_w_loop 
+            << " t_add_w_lock=" <<  t_add_w_lock 
+            << " t_add_w_ins=" << t_add_w_ins << " t_add_w_upd=" << t_add_w_upd << " t_add_w_inc=" <<  t_add_w_inc
+            << " t_add_w_add_spends=" << t_add_w_add_spends
+            << " t_add_w_ord=" << t_add_w_ord
+            << " t_walldb=" << t_walldb 
+            << " t_ord_ins=" << t_ord_ins 
+            << " t_list_acc=" << t_list_acc
+            << " t_ord_ins_2=" << t_ord_ins_2 
+            << " t_ord_all=" << t_ord_all 
+            << std::endl;
 
         // After rescanning, persist Sapling note data that might have changed, e.g. nullifiers.
         // Do not flush the wallet here for performance reasons.

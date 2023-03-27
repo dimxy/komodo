@@ -183,9 +183,14 @@ UniValue importprivkey(const UniValue& params, bool fHelp, const CPubKey& mypk)
             + HelpExampleRpc("importprivkey", "\"mykey\", \"testing\", true, 1000")
         );
 
+    std::cerr << __func__ << " entering" << std::endl;
     LOCK2(cs_main, pwalletMain->cs_wallet);
+    std::cerr << __func__ << " LOCK2 done" << std::endl;
+
 
     EnsureWalletIsUnlocked();
+    std::cerr << __func__ << " WalletIsUnlocked" << std::endl;
+
 
     string strSecret = params[0].get_str();
     string strLabel = "";
@@ -225,6 +230,7 @@ UniValue importprivkey(const UniValue& params, bool fHelp, const CPubKey& mypk)
 
         // Don't throw error in case a key is already there
         if (pwalletMain->HaveKey(vchAddress)) {
+    std::cerr << __func__ << " exiting EncodeDestination" << std::endl;
             return EncodeDestination(vchAddress);
         }
 
@@ -240,7 +246,7 @@ UniValue importprivkey(const UniValue& params, bool fHelp, const CPubKey& mypk)
             pwalletMain->ScanForWalletTransactions(chainActive[height], true);
         }
     }
-
+    std::cerr << __func__ << " exiting" << std::endl;
     return EncodeDestination(vchAddress);
 }
 
