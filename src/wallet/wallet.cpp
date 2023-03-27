@@ -1326,7 +1326,7 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
 
     AssertLockHeld(cs_wallet); // mapWallet
     int64_t t_2 = GetTimeMillis();
-    //CWalletDB walletdb(strWalletFile);
+    CWalletDB walletdb(strWalletFile);
     int64_t t_3 = GetTimeMillis();
     t_walldb += t_3 - t_2;
 
@@ -1347,7 +1347,7 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
 
     acentries.clear();
     int64_t t_0 = GetTimeMillis();
-    //walletdb.ListAccountCreditDebit(strAccount, acentries);
+    walletdb.ListAccountCreditDebit(strAccount, acentries);
     int64_t t_1 = GetTimeMillis();
     t_list_acc += t_1 - t_0;
 
