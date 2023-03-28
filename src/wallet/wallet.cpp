@@ -1789,7 +1789,7 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
             if (!pwalletdbIn) 
                 delete pwalletdb;
 
-            return bAddResult
+            return bAddResult;
         }
     }
     return false;
