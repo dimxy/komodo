@@ -2875,7 +2875,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
         while (pindex)
         {
             int64_t t_all_0 = GetTimeMillis();
-            std::cerr << __func__ << " scanning at height=" << pindex->nHeight << std::endl;
+            //std::cerr << __func__ << " scanning at height=" << pindex->nHeight << std::endl;
             if (pindex->nHeight % 100 == 0 && dProgressTip - dProgressStart > 0.0)
                 ShowProgress(_("Rescanning..."), std::max(1, std::min(99, (int)((Checkpoints::GuessVerificationProgress(chainParams.Checkpoints(), pindex, false) - dProgressStart) / (dProgressTip - dProgressStart) * 100))));
             int64_t t_0 = GetTimeMillis();
