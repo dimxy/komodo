@@ -1348,7 +1348,7 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
     //std::cerr << __func__ << " pwalletdbIn is not null=" << (pwalletdbIn != nullptr) << std::endl;
     acentries.clear();
     int64_t t_0 = GetTimeMillis();
-    walletdb.ListAccountCreditDebit(strAccount, acentries);
+    pwalletdb->ListAccountCreditDebit(strAccount, acentries);
     int64_t t_1 = GetTimeMillis();
     t_list_acc += t_1 - t_0;
     if (!pwalletdbIn)
