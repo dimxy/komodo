@@ -1345,7 +1345,7 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
     t_ord_ins += t_5 - t_4;
 
     CWalletDB* pwalletdb = pwalletdbIn ? pwalletdbIn : new CWalletDB(strWalletFile);
-    //std::cerr << __func__ << " pwalletdbIn is not null=" << (pwalletdbIn != nullptr) << std::endl;
+    // std::cerr << __func__ << " pwalletdbIn is not null=" << (pwalletdbIn != nullptr) << std::endl;
     acentries.clear();
     int64_t t_0 = GetTimeMillis();
     pwalletdb->ListAccountCreditDebit(strAccount, acentries);
@@ -1706,7 +1706,7 @@ bool CWallet::UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx)
  * pblock is optional, but should be provided if the transaction is known to be in a block.
  * If fUpdate is true, existing transactions will be updated.
  */
-bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate)
+bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate, CWalletDB *pwalletdbIn = nullptr)
 {
     {
         AssertLockHeld(cs_wallet);
@@ -1783,9 +1783,13 @@ bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pbl
 
             // Do not flush the wallet here for performance reasons
             // this is safe, as in case of a crash, we rescan the necessary blocks on startup through our SetBestChain-mechanism
-            CWalletDB walletdb(strWalletFile, "r+", false);
+            // CWalletDB walletdb(strWalletFile, "r+", false);
+            CWalletDB* pwalletdb = pwalletdbIn ? pwalletdbIn : new CWalletDB(strWalletFile, "r+", false);
+            bool bAddResult = AddToWallet(wtx, false, pwalletdb);
+            if (!pwalletdbIn) 
+                delete pwalletdb;
 
-            return AddToWallet(wtx, false, &walletdb);
+            return bAddResult
         }
     }
     return false;
@@ -2851,6 +2855,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
     {
         std::cerr << __func__ << " before LOCK2(cs_main, cs_wallet);" << std::endl;
         LOCK2(cs_main, cs_wallet);
+        CWalletDB walletdb(strWalletFile, "r+", false);
         std::cerr << __func__ << " after LOCK2(cs_main, cs_wallet);" << std::endl;
 
         // no need to read and scan block, if block was created before
@@ -2881,7 +2886,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
             int64_t t_read_1 = GetTimeMillis();
             BOOST_FOREACH(CTransaction& tx, block.vtx)
             {
-                if (AddToWalletIfInvolvingMe(tx, &block, fUpdate)) {
+                if (AddToWalletIfInvolvingMe(tx, &block, fUpdate, &walletdb)) {
                     myTxHashes.push_back(tx.GetHash());
                     ret++;
                 }
