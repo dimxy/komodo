@@ -442,19 +442,22 @@ def validate_template(blocktemplate, schema=''):  # BIP 0022
     jsonschema.validate(instance=blocktemplate, schema=schema)
 
 
+# two or more nodes are in sync if they have same number of blocks
 def check_synced(*proxies):
-    for proxy in proxies:
+    while True:
         tries = 0
-        while True:
-            check = proxy.getinfo().get('synced')
-            proxy.ping()
-            if check:
-                print("Synced\n")
-                break
-            else:
-                print("Waiting for sync\nAttempt: ", tries + 1, "\n")
-                time.sleep(10)
-                tries += 1
+        blocks_set = set()
+        for proxy in proxies:
+            blocks = proxy.getinfo().get('blocks')
+            blocks_set.add(blocks)
+
+        if  len(blocks_set) == 1: # all have same 'blocks' value
+            print("Synced\n")
+            break
+        else:
+            print("Waiting for sync\nAttempt: ", tries + 1, "\n")
+            time.sleep(10)
+            tries += 1
             if tries > 120:  # up to 20 minutes
                 return False
     return True
