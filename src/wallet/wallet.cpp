@@ -1319,7 +1319,7 @@ int64_t t_list_acc = 0,
         t_walldb = 0,
         t_ord_ins = 0, t_ord_ins_2 = 0, t_ord_all = 0
         ;
-CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, std::string strAccount)
+CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries, std::string strAccount, CWalletDB *pwalletdbIn)
 {
     int64_t t_8 = GetTimeMillis();
     int64_t t_9 = 0;
@@ -1345,11 +1345,14 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
     int64_t t_5 = GetTimeMillis();
     t_ord_ins += t_5 - t_4;
 
+    CWalletDB* pwalletdb = pwalletdbIn ? pwalletdbIn : new CWalletDB(strWalletFile);
     acentries.clear();
     int64_t t_0 = GetTimeMillis();
     walletdb.ListAccountCreditDebit(strAccount, acentries);
     int64_t t_1 = GetTimeMillis();
     t_list_acc += t_1 - t_0;
+    if (!pwalletdbIn)
+        delete pwalletdb;
 
     int64_t t_6 = GetTimeMillis();
     BOOST_FOREACH(CAccountingEntry& entry, acentries)
@@ -1545,7 +1548,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
                         int64_t latestTolerated = latestNow + 300;
                         std::list<CAccountingEntry> acentries;
                         int64_t t_18 = GetTimeMillis();
-                        TxItems txOrdered = OrderedTxItems(acentries);
+                        TxItems txOrdered = OrderedTxItems(acentries, "", pwalletdb);
                         int64_t t_19 = GetTimeMillis();
                         t_add_w_ord += t_19 - t_18;
                         std::cerr << __func__ << " t_add_w_ord=" << t_add_w_ord << " t_19=" << t_19 << " t_18=" << t_18 << std::endl;
