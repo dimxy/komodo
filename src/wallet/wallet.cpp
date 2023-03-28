@@ -1364,7 +1364,7 @@ CWallet::TxItems CWallet::OrderedTxItems(std::list<CAccountingEntry>& acentries,
 
     t_9 = GetTimeMillis();
     t_ord_all += t_9 - t_8;
-    std::cerr << __func__ << " t_ord_all=" << t_ord_all << " t_9=" << t_9 << " t_8=" << t_8 << std::endl;
+    //std::cerr << __func__ << " t_ord_all=" << t_ord_all << " t_9=" << t_9 << " t_8=" << t_8 << std::endl;
     return txOrdered;
 }
 
@@ -1551,7 +1551,7 @@ bool CWallet::AddToWallet(const CWalletTx& wtxIn, bool fFromLoadWallet, CWalletD
                         TxItems txOrdered = OrderedTxItems(acentries, "", pwalletdb);
                         int64_t t_19 = GetTimeMillis();
                         t_add_w_ord += t_19 - t_18;
-                        std::cerr << __func__ << " t_add_w_ord=" << t_add_w_ord << " t_19=" << t_19 << " t_18=" << t_18 << std::endl;
+                        //std::cerr << __func__ << " t_add_w_ord=" << t_add_w_ord << " t_19=" << t_19 << " t_18=" << t_18 << std::endl;
 
                         int64_t t_5 = GetTimeMillis();
                         for (TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it)
