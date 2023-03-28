@@ -1706,7 +1706,7 @@ bool CWallet::UpdatedNoteData(const CWalletTx& wtxIn, CWalletTx& wtx)
  * pblock is optional, but should be provided if the transaction is known to be in a block.
  * If fUpdate is true, existing transactions will be updated.
  */
-bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate, CWalletDB *pwalletdbIn = nullptr)
+bool CWallet::AddToWalletIfInvolvingMe(const CTransaction& tx, const CBlock* pblock, bool fUpdate, CWalletDB *pwalletdbIn)
 {
     {
         AssertLockHeld(cs_wallet);
@@ -2938,7 +2938,7 @@ int CWallet::ScanForWalletTransactions(CBlockIndex* pindexStart, bool fUpdate)
 
         // After rescanning, persist Sapling note data that might have changed, e.g. nullifiers.
         // Do not flush the wallet here for performance reasons.
-        CWalletDB walletdb(strWalletFile, "r+", false);
+        // CWalletDB walletdb(strWalletFile, "r+", false);
         for (auto hash : myTxHashes) {
             CWalletTx wtx = mapWallet[hash];
             if (!wtx.mapSaplingNoteData.empty()) {
