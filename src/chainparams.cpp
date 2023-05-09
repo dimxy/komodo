@@ -29,9 +29,9 @@
 #include <boost/assign/list_of.hpp>
 
 #include "chainparamsseeds.h"
-#include "pow/tromp/equi_miner.h"
+//#include "pow/tromp/equi_miner.h"
 
-static std::vector<uint8_t> CreateEquiSolution(const CBlock &block, size_t n, size_t k) 
+/*static std::vector<uint8_t> CreateEquiSolution(const CBlock &block, size_t n, size_t k) 
 {
     crypto_generichash_blake2b_state state;
     EhInitialiseState(n, k, state);
@@ -72,7 +72,7 @@ static std::vector<uint8_t> CreateEquiSolution(const CBlock &block, size_t n, si
 
     }
     return std::vector<unsigned char>();
-}
+}*/
 
 
 static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const uint256& nNonce, const std::vector<unsigned char>& nSolution, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
@@ -102,6 +102,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
     return genesis;
 }
 
+/* unused
 static CBlock _CreateSolAndGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, const uint256& nNonce, size_t N, size_t K, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
     // To create a genesis block for a new chain which is Overwintered:
@@ -127,7 +128,7 @@ static CBlock _CreateSolAndGenesisBlock(const char* pszTimestamp, const CScript&
     genesis.hashMerkleRoot = genesis.BuildMerkleTree();
     genesis.nSolution = CreateEquiSolution(genesis, N, K);
     return genesis;
-}
+}*/
 
 /**
  * Build the genesis block. Note that the output of its generation
@@ -150,12 +151,12 @@ static CBlock CreateGenesisBlock(uint32_t nTime, const uint256& nNonce, const st
     return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nSolution, nBits, nVersion, genesisReward);
 }
 
-static CBlock CreateSolAndGenesisBlock(uint32_t nTime, const uint256& nNonce, size_t N, size_t K, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+/*static CBlock CreateSolAndGenesisBlock(uint32_t nTime, const uint256& nNonce, size_t N, size_t K, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
     const char* pszTimestamp = "Zcash0b9c4eef8b7cc417ee5001e3500984b6fea35683a7cac141a043c42064835d34";
     const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
     return _CreateSolAndGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, N, K, nBits, nVersion, genesisReward);
-}
+}*/
 
 /**
  * Main network
