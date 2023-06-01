@@ -1110,6 +1110,7 @@ unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& in
 bool ContextualCheckCoinbaseTransaction(int32_t slowflag,const CBlock *block,CBlockIndex * const previndex,const CTransaction& tx, const int nHeight,int32_t validateprices)
 {
     // if time locks are on, ensure that this coin base is time locked exactly as it should be
+    // this is not relevant for the KMD mainnet as ASSETCHAINS_TIMELOCKGTE changes the network magic
     if (((uint64_t)(tx.GetValueOut()) >= ASSETCHAINS_TIMELOCKGTE) || (komodo_ac_block_subsidy(nHeight) >= ASSETCHAINS_TIMELOCKGTE))
     {
         CScriptID scriptHash;
@@ -1401,6 +1402,7 @@ bool CheckTransaction(uint32_t tiptime,const CTransaction& tx, CValidationState 
     if (!CheckTransactionWithoutProofVerification(tiptime,tx, state)) {
         return false;
     } else {
+        // this code is unreachable after KOMODO_SAPLING_DEADLINE because CheckTransactionWithoutProofVerification() should fail if tx.vjoinsplit is non empty
         // Ensure that zk-SNARKs v|| y
         BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
             if (!joinsplit.Verify(*pzcashParams, verifier, tx.joinSplitPubKey)) {
@@ -2749,7 +2751,7 @@ namespace Consensus {
             assert(coins);
 
             if (coins->IsCoinBase()) {
-                // ensure that output of coinbases are not still time locked
+                // ensure that output of coinbases are not still time locked (not evaluated for the KMD Mainnet as this would change magic)
                 if (coins->TotalTxValue() >= ASSETCHAINS_TIMELOCKGTE)
                 {
                     uint64_t unlockTime = komodo_block_unlocktime(coins->nHeight);
@@ -4949,6 +4951,16 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
     return true;
 }
 
+/**
+ * Validates block's header (blocktime, version, equihash solution), with no access to the chain (non-contextual)
+ * futureblockp [out] if set to 0 that indicates blocktime is too far in future, otherwise if *futureblockp != 0 blocktime is acceptable 
+ * height checked block's height
+ * pindex pointer to checked block's index
+ * blockhdr checked block's header
+ * state validation state to indicate validation state, including error and DoS info 
+ * fCheckPOW request to perform PoW check
+ * returns false if block does not pass checks
+*/
 bool CheckBlockHeader(int32_t *futureblockp,int32_t height,CBlockIndex *pindex, const CBlockHeader& blockhdr, CValidationState& state, bool fCheckPOW)
 {
     // Check timestamp
@@ -5003,6 +5015,7 @@ bool CheckBlockHeader(int32_t *futureblockp,int32_t height,CBlockIndex *pindex, 
     if ( fCheckPOW )
     {
         if ( !CheckEquihashSolution(&blockhdr, Params()) )
+        // Note: duplicate of the check in komodo_checkPOW() 
             return state.DoS(100, error("CheckBlockHeader(): Equihash solution invalid"),REJECT_INVALID, "invalid-solution");
     }
     // Check proof of work matches claimed amount
@@ -5015,15 +5028,15 @@ bool CheckBlockHeader(int32_t *futureblockp,int32_t height,CBlockIndex *pindex, 
 int32_t komodo_checkPOW(int64_t stakeTxValue,int32_t slowflag,CBlock *pblock,int32_t height);
 
 /****
- * @brief various checks of block validity
+ * @brief various checks of block validity, may be called for easy checks only
  * @param[out] futureblockp pointer to the future block
  * @param[in] height the new height
  * @param[out] pindex the block index
  * @param[in] block the block to check
  * @param[out] state stores results
  * @param[in] verifier verification routine
- * @param[in] fCheckPOW pass true to check PoW
- * @param[in] fCheckMerkleRoot pass true to check merkle root
+ * @param[in] fCheckPOW pass true to check PoW, if false do only easy checks
+ * @param[in] fCheckMerkleRoot pass true to check merkle root, if false do only easy checks
  * @returns true on success, on error, state will contain info
  */
 bool CheckBlock(int32_t *futureblockp, int32_t height, CBlockIndex *pindex, const CBlock& block,
@@ -5062,7 +5075,7 @@ bool CheckBlock(int32_t *futureblockp, int32_t height, CBlockIndex *pindex, cons
     if ( height > nDecemberHardforkHeight && chainName.isKMD() ) // December 2019 hardfork
     {
         int32_t notaryid;
-        int32_t special = komodo_chosennotary(&notaryid,height,pubkey33,tiptime);
+        int32_t special = komodo_chosennotary(&notaryid,height,pubkey33,tiptime); // fill notaryid
         if (notaryid > 0 || ( notaryid == 0 && height > nS5HardforkHeight ) ) {
             CScript merkleroot = CScript();
             CBlock blockcopy = block; // block shouldn't be changed below, so let's make it's copy
@@ -5114,8 +5127,8 @@ bool CheckBlock(int32_t *futureblockp, int32_t height, CBlockIndex *pindex, cons
                              REJECT_INVALID, "bad-cb-multiple");
 
     // Check transactions
-    if ( ASSETCHAINS_CC != 0 && !fCheckPOW )
-        return true;
+    if ( ASSETCHAINS_CC != 0 && !fCheckPOW )  
+        return true; // if requested, for asset chains do only easy checks 
 
     CTransaction sTx;
     CTransaction *ptx = nullptr;
@@ -5469,8 +5482,10 @@ bool AcceptBlockHeader(int32_t *futureblockp,const CBlockHeader& block, CValidat
 uint256 Queued_reconsiderblock;
 
 /*****
- * @brief
- * @param futureblockp
+ * @brief Preliminarily accepting a new block by easy rules, just to store on disk. 
+ * Full validation will be done when the best chain with this block is activated
+ * @param futureblockp Note in this context this var is used not only to indicate that the blocktime is too far but also to prevent block invalidation.
+ * Also note that *futureblockp is initalised to 0 in the nested CheckBlockHeader() call before the first use.
  * @param block
  * @param state
  * @param ppindex
@@ -5496,7 +5511,7 @@ bool AcceptBlock(int32_t *futureblockp,CBlock& block, CValidationState& state, C
     if ( pindex == 0 )
     {
         LogPrintf("AcceptBlock null pindex\n");
-        *futureblockp = true;
+        *futureblockp = true;   // seems, here *futureblockp does not mean what it is named for but is set to true just to pass block invalidation
         return false;
     }
     // Try to process all requested blocks that we don't have, but only
@@ -5537,8 +5552,10 @@ bool AcceptBlock(int32_t *futureblockp,CBlock& block, CValidationState& state, C
         {
             fprintf(stderr,"saplinght.%d tipht.%d blockht.%d cmp.%d\n",saplinght,(int32_t)tmpptr->nHeight,pindex->nHeight,pindex->nHeight < 0 || (pindex->nHeight >= saplinght && pindex->nHeight < saplinght+50000) || (tmpptr->nHeight > saplinght-720 && tmpptr->nHeight < saplinght+720));
             if ( pindex->nHeight < 0 || (pindex->nHeight >= saplinght && pindex->nHeight < saplinght+50000) || (tmpptr->nHeight > saplinght-720 && tmpptr->nHeight < saplinght+720) )
-                *futureblockp = 1;
+                *futureblockp = 1;  // accept block not passed checks if its height or the tip's height is close to the sapling activation height 
         }
+        // *futureblockp is set to 0 in CheckBlockHeader if the block time is too far in future (over 300 sec from the current time)
+        // TODO: add this to non-consensus network rules
         if ( *futureblockp == 0 )
         {
             if (state.IsInvalid() && !state.CorruptionPossible()) {
@@ -5570,7 +5587,7 @@ bool AcceptBlock(int32_t *futureblockp,CBlock& block, CValidationState& state, C
         if (dbp == NULL)
             if (!WriteBlockToDisk(block, blockPos, chainparams.MessageStart()))
                 AbortNode(state, "Failed to write block");
-        if (!ReceivedBlockTransactions(block, state, pindex, blockPos))
+        if (!ReceivedBlockTransactions(block, state, pindex, blockPos)) // always true
             return error("AcceptBlock(): ReceivedBlockTransactions failed");
         if ( usetmp != 0 ) // not during initialdownload or if futureflag==0 and contextchecks ok
             pindex->nStatus |= BLOCK_IN_TMPFILE;
@@ -5581,8 +5598,17 @@ bool AcceptBlock(int32_t *futureblockp,CBlock& block, CValidationState& state, C
     if (fCheckForPruning)
         FlushStateToDisk(state, FLUSH_STATE_NONE); // we just allocated more disk space for block files
     if ( *futureblockp == 0 )
+    // Normally, if all checks are true, *futureblockp should be initalised to 0 in the nested CheckBlockHeader() call
+    // *futureblockp may be set to 1 if:
+    // either CheckBlock() or ContextualCheckBlock() failed and block height or the tip's height is close to the sapling activation height (see above in this function)
+    // CheckBlockHeader() failed in CheckBlock() because of blocktime in future over 60 sec but not far than 300 sec from the current time. 
+    // If the blocktime is more further in future then *futureblockp is 0 and this function returns ealier after CheckBlock returned false
+    // Looks like this effectively disables blocks with blocktime over 60 sec in future
         return true;
     LogPrintf("AcceptBlock block from future error\n");
+    // Actually it is not an error state here because *futureblockp is 1 
+    // and the calling code treats this as valid even if the return value is false
+    // so the error log is incorrect and should be disabled:
     return false;
 }
 

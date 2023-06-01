@@ -2033,7 +2033,7 @@ int32_t komodo_checkPOW(int64_t stakeTxValue, int32_t slowflag,CBlock *pblock,in
     }
 
 //fprintf(stderr,"komodo_checkPOW possible.%d slowflag.%d ht.%d notaryid.%d failed.%d\n",possible,slowflag,height,notaryid,failed);
-    if ( failed != 0 && possible == 0 && notaryid < 0 )
+    if ( failed != 0 && possible == 0 && notaryid < 0 ) // Note: for a valid pow block 'failed' never is 'true'
         return(-1);
     else return(0);
 }
