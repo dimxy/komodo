@@ -362,7 +362,7 @@ public:
         consensus.powAlternate = uint256S("0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f");
         consensus.nPowAveragingWindow = 17;
         assert(maxUint/UintToArith256(consensus.powLimit) >= consensus.nPowAveragingWindow);
-        consensus.nMaxFutureBlockTime = 7 * 60;
+        consensus.nMaxFutureBlockTime = 7 * 60; // Note: overriden by an actual rule of 300 sec
 
         vAlertPubKey = ParseHex("00");
         nDefaultPort = 17770;
