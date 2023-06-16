@@ -26,6 +26,54 @@ const std::string testwif("Usr24VoC3h4cSfSrFiGJkWLYwmkM1VnsBiMyWZvrF6QR5ZQ6Fbuu"
 const std::string testpk("034b082c5819b5bf8798a387630ad236a8e800dbce4c4e24a46f36dfddab3cbff5");
 const std::string testaddr("RXTUtWXgkepi8f2ohWLL9KhtGKRjBV48hT");
 
+boost::filesystem::path dataDir;
+void InitBlockDir() {
+    dataDir = GetTempPath() / strprintf("test_komodo_%li_%i", GetTime(), GetRand(100000));
+    if (!chainName.isKMD())
+        dataDir = dataDir / strprintf("_%s", chainName.symbol().c_str());
+    boost::filesystem::create_directories(dataDir);
+    mapArgs["-datadir"] = dataDir.string();
+}
+
+void CleanBlockDir() {
+    try {
+        boost::filesystem::remove_all(dataDir);
+    } catch(boost::filesystem::filesystem_error &ex) {} 
+}
+
+bool FindBlockPos(int32_t tmpflag,CValidationState &state, CDiskBlockPos &pos, unsigned int nAddSize, unsigned int nHeight, uint64_t nTime, bool fKnown);
+bool ReceivedBlockTransactions(const CBlock &block, CValidationState& state, CBlockIndex *pindexNew, const CDiskBlockPos& pos);
+
+static void TestWriteBlock(CBlock &block, CBlockIndex *pindex, int32_t nHeight)
+{
+    int32_t usetmp = 0;
+    CValidationState state;
+    const CChainParams& chainparams = Params();
+
+    // Write block to history file
+    try {
+        unsigned int nBlockSize = ::GetSerializeSize(block, SER_DISK, CLIENT_VERSION);
+        CDiskBlockPos* dbp = nullptr;
+        CDiskBlockPos blockPos;
+        if (dbp != NULL)
+            blockPos = *dbp;
+        bool r = FindBlockPos(usetmp,state, blockPos, nBlockSize+8, nHeight, block.GetBlockTime(), dbp != NULL);
+        EXPECT_TRUE(r);
+        if (!r) return;
+            
+        if (dbp == NULL)
+            EXPECT_TRUE(WriteBlockToDisk(block, blockPos, chainparams.MessageStart()));
+        ReceivedBlockTransactions(block, state, pindex, blockPos);
+        if ( usetmp != 0 ) // not during initialdownload or if futureflag==0 and contextchecks ok
+            pindex->nStatus |= BLOCK_IN_TMPFILE;
+    } catch (const std::runtime_error& e) {
+        std::cerr << __func__ << "could not WriteBlockToDisk" << std::endl;
+        return;
+    }
+}
+
+
+
 // Fake the input of transaction mtx0/0
 class FakeCoinsViewDB2 : public CCoinsView { // change name to FakeCoinsViewDB2 to avoid name conflict with same class name in different files (seems a bug in macos gcc)
 public:
@@ -123,6 +171,8 @@ protected:
 // some komodo consensus extensions
 TEST_F(KomodoFeatures, komodo_interest_validate) {
 
+    InitBlockDir();
+
     // Add a fake transaction to the wallet
     CMutableTransaction mtx0 = CreateNewContextualCMutableTransaction(Params().GetConsensus(), komodo_interest_height-1);
     CScript scriptPubKey = GetScriptForDestination(DecodeDestination(testaddr));
@@ -136,11 +186,15 @@ TEST_F(KomodoFeatures, komodo_interest_validate) {
     block.vtx.push_back(mtx0);
     block.hashMerkleRoot = block.BuildMerkleTree();
     auto blockHash = block.GetHash();
+
     CBlockIndex *pfakeIndex = new CBlockIndex(block);  // TODO: change back to auto if index is not cleaned
     pfakeIndex->pprev = nullptr;
     pfakeIndex->nHeight = komodo_interest_height-1;
     pfakeIndex->nTime = 1663755146;
-    mapBlockIndex.insert(std::make_pair(blockHash, pfakeIndex));
+
+    BlockMap::iterator pi = mapBlockIndex.insert(std::make_pair(blockHash, pfakeIndex)).first;
+    pfakeIndex->phashBlock = &((*pi).first);
+    TestWriteBlock(block, pfakeIndex, pfakeIndex->nHeight);
     chainActive.SetTip(pfakeIndex);
     EXPECT_TRUE(chainActive.Contains(pfakeIndex));
     EXPECT_EQ(komodo_interest_height-1, chainActive.Height());
@@ -216,6 +270,9 @@ TEST_F(KomodoFeatures, komodo_interest_validate) {
         CTransaction tx1(mtxSpend);
 
         LOCK( get_cs_main() );
+        std::cerr << __func__ << " tx1.vin[0].prevout.hash=" << tx1.vin[0].prevout.hash.GetHex() << std::endl;
+        std::cerr << __func__ << " fakeview.AccessCoins(hash)=" << (fakeview.AccessCoins(tx1.vin[0].prevout.hash) != nullptr) << std::endl;
+        std::cerr << __func__ << " pcoinsTip->AccessCoins(hash)=" << (pcoinsTip->AccessCoins(tx1.vin[0].prevout.hash) != nullptr) << std::endl;
         EXPECT_TRUE(AcceptToMemoryPool(pool, state1, tx1, false, &missingInputs));
     }
 
@@ -335,6 +392,8 @@ TEST_F(KomodoFeatures, komodo_interest_validate) {
             }
         }
     }
+
+    CleanBlockDir();
 }
 
 // check komodo_interestnew calculations
