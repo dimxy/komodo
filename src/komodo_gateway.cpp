@@ -134,6 +134,9 @@ int32_t komodo_check_deposit(int32_t height,const CBlock& block)
                     }
                 }  
             }
+
+            // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0014-transaction-does-not-spend-banned-transactions
+            // Seems this code duplicates the same check in CheckTransaction()
             int32_t n = block.vtx[i].vin.size();
             for (int32_t j=0; j<n; j++) // for each vin
             {
@@ -177,7 +180,7 @@ int32_t komodo_check_deposit(int32_t height,const CBlock& block)
         }
         if ( chainName.isKMD() )
         {
-            if ( overflow != 0 || total > COIN/10 )
+            if ( overflow != 0 || total > COIN/10 ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0002-second-and-next-coinbase-output-values-do-not-overflow
             {
                 if ( height >= activation )
                 {
@@ -186,20 +189,20 @@ int32_t komodo_check_deposit(int32_t height,const CBlock& block)
                     return(-1);
                 }
             }
-            else if ( block.nBits == KOMODO_MINDIFF_NBITS && total > 0 ) // to deal with fee stealing
+            else if ( block.nBits == KOMODO_MINDIFF_NBITS && total > 0 ) // to deal with fee stealing, https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0003-do-not-allow-total-of-second-and-next-coinbase-output-values-over-zero-for-min-diff-blocks
             {
                 fprintf(stderr,"notary mined ht.%d with extra %.8f\n",height,dstr(total));
                 if ( height > KOMODO_NOTARIES_HEIGHT1 )
                     return(-1);
             }
-            if ( strangeout != 0 || notmatched != 0 )
+            if ( strangeout != 0 || notmatched != 0 ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0004-no-strange-coinbase-outputs-for-block-with-possible-notary-proof
             {
                 if ( 0 && strcmp(NOTARY_PUBKEY.c_str(),"03b7621b44118017a16043f19b30cc8a4cfe068ac4e42417bae16ba460c80f3828") == 0 )
                     fprintf(stderr,">>>>>>>>>>>>> DUST ht.%d strangout.%d notmatched.%d <<<<<<<<<\n",height,strangeout,notmatched);
                 if ( height > 1000000 && strangeout != 0 )
                     return(-1);
             }
-            else if ( height > 814000 )
+            else if ( height > 814000 ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0005-if-notary-proof-is-invalid-then-coinbase-must-not-pay-to-notary
             {
                 uint8_t *script = (uint8_t *)&block.vtx[0].vout[0].scriptPubKey[0];
                 int32_t num;

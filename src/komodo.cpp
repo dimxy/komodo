@@ -518,6 +518,7 @@ int32_t komodo_voutupdate(bool fJustCheck,int32_t *isratificationp,int32_t notar
                         sp->SetLastNotarizedMoM(MoM);
                         sp->SetLastNotarizedMoMDepth(MoMdepth);
                     }
+                    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0006-update-last-notarisation-if-found-valid
                     komodo_stateupdate(height,0,0,0,zero,0,0,0,0,0,0,0,0,sp->LastNotarizedMoM(),sp->LastNotarizedMoMDepth());
                     printf("[%s] ht.%d NOTARIZED.%d %s.%s %sTXID.%s lens.(%d %d) MoM.%s %d\n",
                             chainName.symbol().c_str(),height,sp->LastNotarizedHeight(),

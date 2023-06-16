@@ -1168,7 +1168,7 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
     bool isSprout = !overwinterActive;
 
     // If Sprout rules apply, reject transactions which are intended for Overwinter and beyond
-    if (isSprout && tx.fOverwintered) {
+    if (isSprout && tx.fOverwintered) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0040-disable-overwinter-transactions-for-sprout-upgrade
         int32_t ht = Params().GetConsensus().vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight;
         return state.DoS((ht < 0 || nHeight < ht) ? 0 : dosLevel,error("ContextualCheckTransaction(): ht.%d activates.%d dosLevel.%d overwinter is not active yet",nHeight, Params().GetConsensus().vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight, dosLevel),REJECT_INVALID, "tx-overwinter-not-active");
         //return state.DoS(isInitBlockDownload() ? 0 : dosLevel,error("ContextualCheckTransaction(): ht.%d activates.%d dosLevel.%d overwinter is not active yet",nHeight, Params().GetConsensus().vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight, dosLevel),REJECT_INVALID, "tx-overwinter-not-active");
@@ -1176,13 +1176,13 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
 
     if (saplingActive) {
         // Reject transactions with valid version but missing overwintered flag
-        if (tx.nVersion >= SAPLING_MIN_TX_VERSION && !tx.fOverwintered) {
+        if (tx.nVersion >= SAPLING_MIN_TX_VERSION && !tx.fOverwintered) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0041-min-transaction-version-and-overwintered-flag-must-be-valid-for-sapling
             return state.DoS(dosLevel, error("ContextualCheckTransaction(): overwintered flag must be set"),
                             REJECT_INVALID, "tx-overwintered-flag-not-set");
         }
 
         // Reject transactions with non-Sapling version group ID
-        if (tx.fOverwintered && tx.nVersionGroupId != SAPLING_VERSION_GROUP_ID)
+        if (tx.fOverwintered && tx.nVersionGroupId != SAPLING_VERSION_GROUP_ID)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0042-transaction-overwintered-flag-and-version-groupid-must-be-valid-for-sapling
         {
             //return state.DoS(dosLevel, error("CheckTransaction(): invalid Sapling tx version"),REJECT_INVALID, "bad-sapling-tx-version-group-id");
             if ( 0 )
@@ -1196,25 +1196,25 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
         }
 
         // Reject transactions with invalid version
-        if (tx.fOverwintered && tx.nVersion < SAPLING_MIN_TX_VERSION ) {
+        if (tx.fOverwintered && tx.nVersion < SAPLING_MIN_TX_VERSION ) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0043-transaction-version-must-not-be-too-low-when-overwintered-flag-is-on-for-sapling
             return state.DoS(100, error("CheckTransaction(): Sapling version too low"),
                 REJECT_INVALID, "bad-tx-sapling-version-too-low");
         }
 
         // Reject transactions with invalid version
-        if (tx.fOverwintered && tx.nVersion > SAPLING_MAX_TX_VERSION ) {
+        if (tx.fOverwintered && tx.nVersion > SAPLING_MAX_TX_VERSION ) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0044-transaction-version-must-not-be-too-high-when-overwintered-flag-is-on-for-sapling
             return state.DoS(100, error("CheckTransaction(): Sapling version too high"),
                 REJECT_INVALID, "bad-tx-sapling-version-too-high");
         }
     } else if (overwinterActive) {
         // Reject transactions with valid version but missing overwinter flag
-        if (tx.nVersion >= OVERWINTER_MIN_TX_VERSION && !tx.fOverwintered) {
+        if (tx.nVersion >= OVERWINTER_MIN_TX_VERSION && !tx.fOverwintered) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0045-when-transaction-version-is-valid-overwintered-flag-must-be-on-for-overwinter
             return state.DoS(dosLevel, error("ContextualCheckTransaction(): overwinter flag must be set"),
                              REJECT_INVALID, "tx-overwinter-flag-not-set");
         }
 
         // Reject transactions with non-Overwinter version group ID
-        if (tx.fOverwintered && tx.nVersionGroupId != OVERWINTER_VERSION_GROUP_ID)
+        if (tx.fOverwintered && tx.nVersionGroupId != OVERWINTER_VERSION_GROUP_ID)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0046-when-transaction-overwintered-flag-is-on-transaction-version-groupid-must-be-valid-for-overwinter
         {
             //return state.DoS(dosLevel, error("CheckTransaction(): invalid Overwinter tx version"),REJECT_INVALID, "bad-overwinter-tx-version-group-id");
             return state.DoS(isInitBlockDownload() ? 0 : dosLevel,
@@ -1223,7 +1223,7 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
         }
 
         // Reject transactions with invalid version
-        if (tx.fOverwintered && tx.nVersion > OVERWINTER_MAX_TX_VERSION ) {
+        if (tx.fOverwintered && tx.nVersion > OVERWINTER_MAX_TX_VERSION ) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0047-when-transaction-overwintered-flag-is-on-transaction-version-must-be-valid-for-overwinter
             return state.DoS(100, error("CheckTransaction(): overwinter version too high"),
                              REJECT_INVALID, "bad-tx-overwinter-version-too-high");
         }
@@ -1234,7 +1234,7 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
     if (overwinterActive)
     {
         // Reject transactions intended for Sprout
-        if (!tx.fOverwintered)
+        if (!tx.fOverwintered)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0048-transaction-overwintered-flag-must-be-on-for-overwinter
         {
             int32_t ht = Params().GetConsensus().vUpgrades[Consensus::UPGRADE_OVERWINTER].nActivationHeight;
             fprintf(stderr,"overwinter is active tx.%s not, ht.%d vs %d\n",tx.GetHash().ToString().c_str(),nHeight,ht);
@@ -1242,7 +1242,7 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
         }
 
         // Check that all transactions are unexpired
-        if (IsExpiredTx(tx, nHeight)) {
+        if (IsExpiredTx(tx, nHeight)) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0049-transaction-must-not-expire-for-overwinter
             // Don't increase banscore if the transaction only just expired
             int expiredDosLevel = IsExpiredTx(tx, nHeight - 1) ? (dosLevel > 10 ? dosLevel : 10) : 0;
             //string strHex = EncodeHexTx(tx);
@@ -1254,7 +1254,7 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
     // Rules that apply before Sapling:
     if (!saplingActive) {
         // Size limits
-        if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > MAX_TX_SIZE_BEFORE_SAPLING)
+        if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > MAX_TX_SIZE_BEFORE_SAPLING)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0050-if-sapling-not-active-transaction-size-must-be-within-limits
             return state.DoS(100, error("ContextualCheckTransaction(): size limits failed"),
                             REJECT_INVALID, "bad-txns-oversize");
     }
@@ -1264,7 +1264,7 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
     if (!tx.IsMint() &&
         (!tx.vjoinsplit.empty() ||
          !tx.vShieldedSpend.empty() ||
-         !tx.vShieldedOutput.empty()))
+         !tx.vShieldedOutput.empty()))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0051-if-private-transfers-not-empty-signature-hash-must-be-valid
     {
         auto consensusBranchId = CurrentEpochBranchId(nHeight, Params().GetConsensus());
         // Empty output script.
@@ -1278,7 +1278,7 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
 
     }
 
-    if (!(tx.IsMint() || tx.vjoinsplit.empty()))
+    if (!(tx.IsMint() || tx.vjoinsplit.empty()))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0052-if-joinsplit-signature-must-be-valid
     {
         BOOST_STATIC_ASSERT(crypto_sign_PUBLICKEYBYTES == 32);
 
@@ -1306,7 +1306,7 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
     {
         auto ctx = librustzcash_sapling_verification_ctx_init();
 
-        for (const SpendDescription &spend : tx.vShieldedSpend) {
+        for (const SpendDescription &spend : tx.vShieldedSpend) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0001-sapling-spend-description-valid
             if (!librustzcash_sapling_check_spend(
                 ctx,
                 spend.cv.begin(),
@@ -1324,7 +1324,7 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
             }
         }
 
-        for (const OutputDescription &output : tx.vShieldedOutput) {
+        for (const OutputDescription &output : tx.vShieldedOutput) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0002-sapling-output-descriptions-valid
             if (!librustzcash_sapling_check_output(
                 ctx,
                 output.cv.begin(),
@@ -1344,7 +1344,7 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
             tx.valueBalance,
             tx.bindingSig.begin(),
             dataToBeSigned.begin()
-        ))
+        ))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0003-sapling-binding-signature-valid
         {
             librustzcash_sapling_verification_ctx_free(ctx);
             return state.DoS(100, error("ContextualCheckTransaction(): Sapling binding signature invalid"),
@@ -1362,6 +1362,7 @@ bool CheckTransaction(uint32_t tiptime,const CTransaction& tx, CValidationState 
     if (chainName.isKMD())
     {
         // check for banned transaction ids
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0014-transaction-does-not-spend-banned-transactions
         static uint256 array[64]; 
         static int32_t numbanned;
         static int32_t indallvouts;
@@ -1442,20 +1443,25 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
      *        0 <= tx.nVersion < OVERWINTER_MIN_TX_VERSION
      *        OVERWINTER_MAX_TX_VERSION < tx.nVersion <= INT32_MAX
      */
-    if (!tx.fOverwintered && tx.nVersion < SPROUT_MIN_TX_VERSION) {
+    if (!tx.fOverwintered && tx.nVersion < SPROUT_MIN_TX_VERSION) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0015-no-overwinter-transaction-version-is-not-too-low
         return state.DoS(100, error("CheckTransaction(): version too low"),
                          REJECT_INVALID, "bad-txns-version-too-low");
     }
     else if (tx.fOverwintered) {
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0016-overwinter-transaction-version-is-not-too-low
         if (tx.nVersion < OVERWINTER_MIN_TX_VERSION) {
             return state.DoS(100, error("CheckTransaction(): overwinter version too low"),
                              REJECT_INVALID, "bad-tx-overwinter-version-too-low");
         }
+
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0017-overwinter-transaction-version-group-id-is-valid
         if (tx.nVersionGroupId != OVERWINTER_VERSION_GROUP_ID &&
                 tx.nVersionGroupId != SAPLING_VERSION_GROUP_ID) {
             return state.DoS(100, error("CheckTransaction(): unknown tx version group id"),
                              REJECT_INVALID, "bad-tx-version-group-id");
         }
+
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0018-transaction-expiry-height-is-not-too-high
         if (tx.nExpiryHeight >= TX_EXPIRY_HEIGHT_THRESHOLD) {
             return state.DoS(100, error("CheckTransaction(): expiry height is too high"),
                              REJECT_INVALID, "bad-tx-expiry-height-too-high");
@@ -1464,19 +1470,19 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
 
     // Transactions containing empty `vin` must have either non-empty
     // `vjoinsplit` or non-empty `vShieldedSpend`.
-    if (tx.vin.empty() && tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) 
+    if (tx.vin.empty() && tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0019-transaction-cannot-have-empty-vins-and-private-spends
         return state.DoS(10, error("CheckTransaction(): vin empty"),
                          REJECT_INVALID, "bad-txns-vin-empty");
 
     // Transactions containing empty `vout` must have either non-empty
     // `vjoinsplit` or non-empty `vShieldedOutput`.
-    if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.vShieldedOutput.empty())
+    if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.vShieldedOutput.empty()) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0020-transaction-cannot-have-empty-vouts-and-private-spends
         return state.DoS(10, error("CheckTransaction(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
 
     // Size limits
     BOOST_STATIC_ASSERT(MAX_TX_SIZE_AFTER_SAPLING > MAX_TX_SIZE_BEFORE_SAPLING); // sanity
-    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > MAX_TX_SIZE_AFTER_SAPLING)
+    if (::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION) > MAX_TX_SIZE_AFTER_SAPLING) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0021-transaction-size-limits-after-sapling
         return state.DoS(100, error("CheckTransaction(): size limits failed"),
                          REJECT_INVALID, "bad-txns-oversize");
 
@@ -1485,10 +1491,10 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
     int32_t iscoinbase = tx.IsCoinBase();
     BOOST_FOREACH(const CTxOut& txout, tx.vout)
     {
-        if (txout.nValue < 0)
+        if (txout.nValue < 0) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0022-transaction-output-value-is-not-negative
             return state.DoS(100, error("CheckTransaction(): txout.nValue negative"),
                              REJECT_INVALID, "bad-txns-vout-negative");
-        if (txout.nValue > MAX_MONEY)
+        if (txout.nValue > MAX_MONEY) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0023-transaction-output-value-is-not-over-max_money
         {
             fprintf(stderr,"%.8f > max %.8f\n",(double)txout.nValue/COIN,(double)MAX_MONEY/COIN);
             return state.DoS(100, error("CheckTransaction(): txout.nValue too high"),REJECT_INVALID, "bad-txns-vout-toolarge");
@@ -1509,20 +1515,20 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
                 }
             }
         }
-        if ( txout.scriptPubKey.size() > IGUANA_MAXSCRIPTSIZE )
+        if ( txout.scriptPubKey.size() > IGUANA_MAXSCRIPTSIZE ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0024-transaction-output-script-pubkey-size-is-not-over-iguana_maxscriptsize
             return state.DoS(100, error("CheckTransaction(): txout.scriptPubKey.size() too big"),REJECT_INVALID, "bad-txns-opret-too-big");
         nValueOut += txout.nValue;
-        if (!MoneyRange(nValueOut))
+        if (!MoneyRange(nValueOut)) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0025-transaction-total-output-value-is-within-money-range
             return state.DoS(100, error("CheckTransaction(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
 
     // Check for non-zero valueBalance when there are no Sapling inputs or outputs
-    if (tx.vShieldedSpend.empty() && tx.vShieldedOutput.empty() && tx.valueBalance != 0) {
+    if (tx.vShieldedSpend.empty() && tx.vShieldedOutput.empty() && tx.valueBalance != 0) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0026-transaction-valuebalance-should-be-zero-if-vshieldedspend-and-vshieldedoutput-are-empty
         return state.DoS(100, error("CheckTransaction(): tx.valueBalance has no sources or sinks"),
                             REJECT_INVALID, "bad-txns-valuebalance-nonzero");
     }
-    if ( acpublic != 0 && (tx.vShieldedSpend.empty() == 0 || tx.vShieldedOutput.empty() == 0) )
+    if ( acpublic != 0 && (tx.vShieldedSpend.empty() == 0 || tx.vShieldedOutput.empty() == 0) ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0027-disable-sapling-shielded-spends-and-outputs-for-public-chain
     {
         return state.DoS(100, error("CheckTransaction(): this is a public chain, no sapling allowed"),
                          REJECT_INVALID, "bad-txns-acpublic-chain");
@@ -1542,7 +1548,7 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
     }
 
     // Check for overflow valueBalance
-    if (tx.valueBalance > MAX_MONEY || tx.valueBalance < -MAX_MONEY) {
+    if (tx.valueBalance > MAX_MONEY || tx.valueBalance < -MAX_MONEY) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0028-transaction-valuebalance-must-be-within-max_money
         return state.DoS(100, error("CheckTransaction(): abs(tx.valueBalance) too large"),
                             REJECT_INVALID, "bad-txns-valuebalance-toolarge");
     }
@@ -1551,7 +1557,7 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
         // NB: negative valueBalance "takes" money from the transparent value pool just as outputs do
         nValueOut += -tx.valueBalance;
 
-        if (!MoneyRange(nValueOut)) {
+        if (!MoneyRange(nValueOut)) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0029-transaction-total-output-value-is-within-money-range-with-account-of-valuebalance
             return state.DoS(100, error("CheckTransaction(): txout total out of range"),
                                 REJECT_INVALID, "bad-txns-txouttotal-toolarge");
         }
@@ -1560,12 +1566,12 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
     // Ensure that joinsplit values are well-formed
     BOOST_FOREACH(const JSDescription& joinsplit, tx.vjoinsplit)
     {
-        if ( acpublic != 0 )
+        if ( acpublic != 0 ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0030-disable-sprout-non-empty-joinsplits-for-public-chains
         {
             return state.DoS(100, error("CheckTransaction(): this is a public chain, no privacy allowed"),
                              REJECT_INVALID, "bad-txns-acpublic-chain");
         }
-        if ( tiptime >= KOMODO_SAPLING_DEADLINE )
+        if ( tiptime >= KOMODO_SAPLING_DEADLINE ) // seems duplicate for https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0030-disable-sprout-non-empty-joinsplits-for-public-chains
         {
             return state.DoS(100, error("CheckTransaction(): no more sprout after deadline"),
                              REJECT_INVALID, "bad-txns-sprout-expired");
@@ -1662,6 +1668,7 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
     }
 
     // Check for duplicate inputs
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0031-transaction-does-not-have-duplicate-inputs
     set<COutPoint> vInOutPoints;
     BOOST_FOREACH(const CTxIn& txin, tx.vin)
     {
@@ -1715,12 +1722,13 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
             return state.DoS(100, error("CheckTransaction(): coinbase has output descriptions"),
                              REJECT_INVALID, "bad-cb-has-output-description");
 
-        if (tx.vin[0].scriptSig.size() < 2 || tx.vin[0].scriptSig.size() > 100)
+        if (tx.vin[0].scriptSig.size() < 2 || tx.vin[0].scriptSig.size() > 100) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0032-minted-transaction-input-0-scriptsig-size-is-valid
             return state.DoS(100, error("CheckTransaction(): coinbase script size"),
                              REJECT_INVALID, "bad-cb-length");
     }
     else
     {
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0033-non-minted-transaction-inputs-are-not-null
         BOOST_FOREACH(const CTxIn& txin, tx.vin)
         if (txin.prevout.IsNull())
             return state.DoS(10, error("CheckTransaction(): prevout is null"),
@@ -1803,19 +1811,19 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         return state.DoS(0, error("%s: komodo_validate_interest failed txid.%s", __func__, tx.GetHash().ToString()), REJECT_INVALID, "komodo-interest-invalid");
     }
     
-    if (!CheckTransaction(tiptime,tx, state, verifier, 0, 0))
+    if (!CheckTransaction(tiptime,tx, state, verifier, 0, 0))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0003-evaluate-transaction-rules
     {
         return error("AcceptToMemoryPool: CheckTransaction failed");
     }
     
     // DoS level set to 10 to be more forgiving.
     // Check transaction contextually against the set of consensus rules which apply in the next block to be mined.
-    if (!ContextualCheckTransaction(0,0,0,tx, state, nextBlockHeight, (dosLevel == -1) ? 10 : dosLevel))
+    if (!ContextualCheckTransaction(0,0,0,tx, state, nextBlockHeight, (dosLevel == -1) ? 10 : dosLevel))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0004-evaluate-contextual-transaction-rules
     {
         return error("AcceptToMemoryPool: ContextualCheckTransaction failed");
     }
     // Coinbase is only valid in a block, not as a loose transaction
-    if (tx.IsCoinBase())
+    if (tx.IsCoinBase())  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0005-do-not-allow-coinbase-in-mempool
     {
         fprintf(stderr,"AcceptToMemoryPool coinbase as individual tx\n");
         return state.DoS(100, error("AcceptToMemoryPool: coinbase as individual tx"),REJECT_INVALID, "coinbase");
@@ -1823,7 +1831,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     
     // Rather not work on nonstandard transactions (unless -testnet/-regtest)
     string reason;
-    if (Params().RequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
+    if (Params().RequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0006-do-not-allow-non-standard-transactions-in-mempool
     {
         return state.DoS(0,error("AcceptToMemoryPool: nonstandard transaction: %s", reason),REJECT_NONSTANDARD, reason);
     }
@@ -1831,13 +1839,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Only accept nLockTime-using transactions that can be mined in the next
     // block; we don't want our mempool filled up with transactions that can't
     // be mined yet.
-    if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))
+    if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0007-check-if-transaction-is-final
     {
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
     }
     // is it already in the memory pool?
     uint256 hash = tx.GetHash();
-    if (pool.exists(hash))
+    if (pool.exists(hash))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0008-transaction-does-not-exist-already-in-mempool
     {
         return state.Invalid(false, REJECT_DUPLICATE, "already in mempool");
     }
@@ -1848,13 +1856,13 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         for (unsigned int i = 0; i < tx.vin.size(); i++)
         {
             COutPoint outpoint = tx.vin[i].prevout;
-            if (pool.mapNextTx.count(outpoint))
+            if (pool.mapNextTx.count(outpoint))     // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0009-disable-transaction-replacement-in-mempool
             {
                 // Disable replacement feature for now
                 return state.Invalid(false, REJECT_INVALID, "mempool conflict");
             }
         }
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) {
+        BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0010-transaction-sprout-nullifiers-do-not-exist-already
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 if (pool.nullifierExists(nf, SPROUT)) {
                     fprintf(stderr,"pool.mapNullifiers.count\n");
@@ -1862,7 +1870,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 }
             }
         }
-        for (const SpendDescription &spendDescription : tx.vShieldedSpend) {
+        for (const SpendDescription &spendDescription : tx.vShieldedSpend) {  https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0011-transaction-sapling-nullifiers-do-not-exist-already
             if (pool.nullifierExists(spendDescription.nullifier, SAPLING)) {
                 return false;
             }
@@ -1879,7 +1887,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             view.SetBackend(viewMemPool);
 
             // do we already have it?
-            if (view.HaveCoins(hash))
+            if (view.HaveCoins(hash))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0012-transaction-does-not-exist-in-chain-and-mempool
             {
                 return state.Invalid(false, REJECT_DUPLICATE, "already have coins");
             }
@@ -1895,7 +1903,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 // do all inputs exist?
                 // Note that this does not check for the presence of actual outputs (see the next check for that),
                 // and only helps with filling in pfMissingInputs (to determine missing vs spent).
-                BOOST_FOREACH(const CTxIn txin, tx.vin)
+                BOOST_FOREACH(const CTxIn txin, tx.vin)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0013-previous-outputs-exist-in-chain-or-mempool
                 {
                     if (!view.HaveCoins(txin.prevout.hash))
                     {
@@ -1909,14 +1917,14 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                     }
                 }
                 // are the actual inputs available?
-                if (!view.HaveInputs(tx))
+                if (!view.HaveInputs(tx))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0014-previous-outputs-are-not-spent-already-in-chain-or-mempool
                 {
                     return state.Invalid(error("AcceptToMemoryPool: inputs already spent"),REJECT_DUPLICATE, "bad-txns-inputs-spent");
                 }
             }
             
             // are the joinsplit's requirements met?
-            if (!view.HaveJoinSplitRequirements(tx))
+            if (!view.HaveJoinSplitRequirements(tx))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0015-sprout-and-sapling-transaction-spends-valid
             {
                 return state.Invalid(error("AcceptToMemoryPool: joinsplit requirements not met"),REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
             }
@@ -1929,7 +1937,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             view.SetBackend(dummy);
         }
         // Check for non-standard pay-to-script-hash in inputs
-        if (Params().RequireStandard() && !AreInputsStandard(tx, view, consensusBranchId))
+        if (Params().RequireStandard() && !AreInputsStandard(tx, view, consensusBranchId))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0016-do-not-allow-non-standard-transaction-inputs
             return error("AcceptToMemoryPool: reject nonstandard transaction input");
         
         // Check that the transaction doesn't have an excessive number of
@@ -1939,7 +1947,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // merely non-standard transaction.
         unsigned int nSigOps = GetLegacySigOpCount(tx);
         nSigOps += GetP2SHSigOpCount(tx, view);
-        if (nSigOps > MAX_STANDARD_TX_SIGOPS)
+        if (nSigOps > MAX_STANDARD_TX_SIGOPS)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0017-transaction-legacy-signature-count-does-not-exceed-max_block_sigops
         {
             fprintf(stderr,"accept failure.4\n");
             return state.DoS(1, error("AcceptToMemoryPool: too many sigops %s, %d > %d", hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
@@ -1948,6 +1956,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         CAmount nValueOut = tx.GetValueOut();
         CAmount nFees = nValueIn-nValueOut;
         double dPriority = view.GetPriority(tx, chainActive.Height());
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0018-transaction-total-output-value-within-komodo-limits:
         if ( nValueOut > 777777*COIN && KOMODO_VALUETOOBIG(nValueOut - 777777*COIN) != 0 ) // some room for blockreward and txfees
             return state.DoS(100, error("AcceptToMemoryPool: GetValueOut too big"),REJECT_INVALID,"tx valueout is too big");
   
@@ -1977,7 +1986,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         } else {
             // Don't accept it if it can't get into a block
             CAmount txMinFee = GetMinRelayFee(tx, nSize, true);
-            if (fLimitFree && nFees < txMinFee)
+            if (fLimitFree && nFees < txMinFee)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0019-if-transaction-does-not-fit-priority-size-it-has-minimum-tx-fee
             {
                 //fprintf(stderr,"accept failure.5\n");
                 return state.DoS(0, error("AcceptToMemoryPool: not enough fees %s, %d < %d",hash.ToString(), nFees, txMinFee),REJECT_INSUFFICIENTFEE, "insufficient fee");
@@ -1985,6 +1994,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
         
         // Require that free transactions have sufficient priority to be mined in the next block.
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0020-low-fee-transaction-has-sufficient-calculated-priority
         if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(view.GetPriority(tx, chainActive.Height() + 1))) {
             fprintf(stderr,"accept failure.6\n");
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "insufficient priority");
@@ -1993,6 +2003,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // Continuously rate-limit free (really, very-low-fee) transactions
         // This mitigates 'penny-flooding' -- sending thousands of free transactions just to
         // be annoying or make others' transactions take longer to confirm.
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0021-low-fee-transaction-rate-constrained
         if (fLimitFree && nFees < ::minRelayTxFee.GetFee(nSize) && !tx.IsCoinImport())
         {
             static CCriticalSection csFreeLimiter;
@@ -2016,6 +2027,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             dFreeCount += nSize;
         }
         
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0022-transactions-with-absurd-fee-rejected
         if (!tx.IsCoinImport() && fRejectAbsurdFee && nFees > ::minRelayTxFee.GetFee(nSize) * 10000 && nFees > nValueOut/19)
         {
             string errmsg = strprintf("absurdly high fees %s, %d > %d",
@@ -2052,6 +2064,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             KOMODO_CONNECTING = (1<<30) + (int32_t)chainActive.Tip()->nHeight + 1;
         }
 
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0023-evaluate-contextual-transaction-inputs-rules
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0024-evaluate-mandatory-transaction-scripts
         if (!ContextualCheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true, txdata, Params().GetConsensus(), consensusBranchId))
         {
             if ( komodoConnectingSet ) // undo what we did
@@ -2733,13 +2747,15 @@ int GetSpendHeight(const CCoinsViewCache& inputs)
 namespace Consensus {
     bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, const Consensus::Params& consensusParams)
     {
+        // Seems a duplicate - see another ref to 'kmd-0057'
         // This doesn't trigger the DoS code on purpose; if it did, it would make it easier
         // for an attacker to attempt to split the network.
-        if (!inputs.HaveInputs(tx))
+        if (!inputs.HaveInputs(tx)) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0057-transaction-must-have-inputs-in-chain
             return state.Invalid(error("CheckInputs(): %s inputs unavailable", tx.GetHash().ToString()));
 
+        // Seems a duplicate call - see another ref to 'kmd-zk-0004'
         // are the JoinSplit's requirements met?
-        if (!inputs.HaveJoinSplitRequirements(tx))
+        if (!inputs.HaveJoinSplitRequirements(tx))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0004-sprout-and-sapling-transaction-spends-valid
             return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", tx.GetHash().ToString()));
 
         CAmount nValueIn = 0;
@@ -2763,7 +2779,7 @@ namespace Consensus {
                 }
 
                 // Ensure that coinbases are matured, no DoS as retry may work later
-                if (nSpendHeight - coins->nHeight < ::Params().CoinbaseMaturity()) {
+                if (nSpendHeight - coins->nHeight < ::Params().CoinbaseMaturity()) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0060-validate-coinbase-maturity
                     return state.Invalid(
                                          error("CheckInputs(): tried to spend coinbase at depth %d/%d", nSpendHeight - coins->nHeight, (int32_t)::Params().CoinbaseMaturity()),
                                          REJECT_INVALID, "bad-txns-premature-spend-of-coinbase");
@@ -2773,7 +2789,7 @@ namespace Consensus {
                 // Disabled on regtest
                 if (fCoinbaseEnforcedProtectionEnabled &&
                     consensusParams.fCoinbaseMustBeProtected &&
-                    !tx.vout.empty()) {
+                    !tx.vout.empty()) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0061-protect-coinbase-if-enabled
                     return state.DoS(100,
                                      error("CheckInputs(): tried to spend coinbase with transparent outputs"),
                                      REJECT_INVALID, "bad-txns-coinbase-spend-has-transparent-outputs");
@@ -2790,23 +2806,23 @@ namespace Consensus {
                     int64_t interest; int32_t txheight; uint32_t locktime;
                     if ( (interest= komodo_accrued_interest(&txheight,&locktime,prevout.hash,prevout.n,0,coins->vout[prevout.n].nValue,(int32_t)nSpendHeight-1)) != 0 )
                     {
-                        nValueIn += interest;
+                        nValueIn += interest;   // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0059-add-komodo-interest-to-transaction-input-value
                     }
                 }
             }
 #endif
-            if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))
+            if (!MoneyRange(coins->vout[prevout.n].nValue) || !MoneyRange(nValueIn))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0062-transaction-input-value-with-interest-within-money-range
                 return state.DoS(100, error("CheckInputs(): txin values out of range"),
                                  REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
         }
 
         nValueIn += tx.GetShieldedValueIn();
-        if (!MoneyRange(nValueIn))
+        if (!MoneyRange(nValueIn))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0063-transaction-input-value-with-interest-and-shielded-value-within-money-range
             return state.DoS(100, error("CheckInputs(): shielded input to transparent value pool out of range"),
                              REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-        if (nValueIn < tx.GetValueOut())
+        if (nValueIn < tx.GetValueOut())    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0064-transaction-input-value-not-less-output-value
         {
             fprintf(stderr,"spentheight.%d valuein %s vs %s error\n",nSpendHeight,FormatMoney(nValueIn).c_str(), FormatMoney(tx.GetValueOut()).c_str());
             return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s) diff %.8f",
@@ -2814,11 +2830,11 @@ namespace Consensus {
         }
         // Tally transaction fees
         CAmount nTxFee = nValueIn - tx.GetValueOut();
-        if (nTxFee < 0)
+        if (nTxFee < 0) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0065-transaction-fee-is-not-negative
             return state.DoS(100, error("CheckInputs(): %s nTxFee < 0", tx.GetHash().ToString()),
                              REJECT_INVALID, "bad-txns-fee-negative");
         nFees += nTxFee;
-        if (!MoneyRange(nFees))
+        if (!MoneyRange(nFees))     // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0066-transaction-fee-within-money-range
             return state.DoS(100, error("CheckInputs(): nFees out of range"),
                              REJECT_INVALID, "bad-txns-fee-outofrange");
         return true;
@@ -2860,7 +2876,7 @@ bool ContextualCheckInputs(
                 assert(coins);
 
                 // Verify signature
-                CScriptCheck check(*coins, tx, i, flags, cacheStore, consensusBranchId, &txdata);
+                CScriptCheck check(*coins, tx, i, flags, cacheStore, consensusBranchId, &txdata);  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0069-execute-standard-script
                 if (pvChecks) {
                     pvChecks->push_back(CScriptCheck());
                     check.swap(pvChecks->back());
@@ -3343,13 +3359,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     const CChainParams& chainparams = Params();
     if ( KOMODO_NSPV_SUPERLITE )
         return(true);
-    if ( KOMODO_STOPAT != 0 && pindex->nHeight > KOMODO_STOPAT )
+    if ( KOMODO_STOPAT != 0 && pindex->nHeight > KOMODO_STOPAT )  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-run-0001-do-not-add-blocks-after-komodo_stopat
         return(false);
     AssertLockHeld(cs_main);
     bool fExpensiveChecks = true;
     if (fCheckpointsEnabled) {
         CBlockIndex *pindexLastCheckpoint = Checkpoints::GetLastCheckpoint(chainparams.Checkpoints());
-        if (pindexLastCheckpoint && pindexLastCheckpoint->GetAncestor(pindex->nHeight) == pindex) {
+        if (pindexLastCheckpoint && pindexLastCheckpoint->GetAncestor(pindex->nHeight) == pindex) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0082-disable-expensive-checks
             // This block is an ancestor of a checkpoint: disable script checks
             fExpensiveChecks = false;
         }
@@ -3369,7 +3385,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if ( !ContextualCheckBlock(1,block, state, pindex->pprev) )
         {
             fprintf(stderr,"ContextualCheckBlock failed ht.%d\n",(int32_t)pindex->nHeight);
-            if ( pindex->nTime > 1547510400 )
+            if ( pindex->nTime > 1547510400 )  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0053-contextual-block-rules-are-active-after-time-1547510400
                 return false;
             fprintf(stderr,"grandfathered exception, until jan 15th 2019\n");
         } else pindex->nStatus |= BLOCK_VALID_CONTEXT;
@@ -3420,7 +3436,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }
     // verify that the view's current state corresponds to the previous block
     uint256 hashPrevBlock = pindex->pprev == NULL ? uint256() : pindex->pprev->GetBlockHash();
-    if ( hashPrevBlock != view.GetBestBlock() )
+    if ( hashPrevBlock != view.GetBestBlock() )  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0054-when-best-chain-activated-previous-block-hash-must-point-to-current-best-block
     {
         fprintf(stderr,"ConnectBlock(): hashPrevBlock != view.GetBestBlock()\n");
         return state.DoS(1, error("ConnectBlock(): hashPrevBlock != view.GetBestBlock()"),
@@ -3447,11 +3463,13 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     // unless those are already completely spent.
     BOOST_FOREACH(const CTransaction& tx, block.vtx) {
         const CCoins* coins = view.AccessCoins(tx.GetHash());
-        if (coins && !coins->IsPruned())
+        if (coins && !coins->IsPruned())    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0055-do-not-allow-to-overwrite-older-transactions
             return state.DoS(100, error("ConnectBlock(): tried to overwrite transaction"),
                              REJECT_INVALID, "bad-txns-BIP30");
     }
 
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0067-script_verify_p2sh-enabled
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0068-script_verify_checklocktimeverify-enabled
     unsigned int flags = SCRIPT_VERIFY_P2SH | SCRIPT_VERIFY_CHECKLOCKTIMEVERIFY;
 
     // DERSIG (BIP66) is also always enforced, but does not have a flag.
@@ -3516,19 +3534,19 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         const uint256 txhash = tx.GetHash();
         nInputs += tx.vin.size();
         nSigOps += GetLegacySigOpCount(tx);
-        if (nSigOps > MAX_BLOCK_SIGOPS)
+        if (nSigOps > MAX_BLOCK_SIGOPS)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0056-legacy-sigops-count-must-not-exceed-max_block_sigops
             return state.DoS(100, error("ConnectBlock(): too many sigops"),
                              REJECT_INVALID, "bad-blk-sigops");
         if (!tx.IsMint())
         {
-            if (!view.HaveInputs(tx))
+            if (!view.HaveInputs(tx))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0057-transaction-must-have-inputs-in-chain
             {
                 fprintf(stderr, "Connect Block missing inputs tx_number.%d \nvin txid.%s vout.%d \n",i,tx.vin[0].prevout.hash.ToString().c_str(),tx.vin[0].prevout.n);
                 return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
                                  REJECT_INVALID, "bad-txns-inputs-missingorspent");
             }
             // are the JoinSplit's requirements met?
-            if (!view.HaveJoinSplitRequirements(tx))
+            if (!view.HaveJoinSplitRequirements(tx))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0004-sprout-and-sapling-transaction-spends-valid
                 return state.DoS(100, error("ConnectBlock(): JoinSplit requirements not met"),
                                  REJECT_INVALID, "bad-txns-joinsplit-requirements-not-met");
 
@@ -3568,7 +3586,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             // this is to prevent a "rogue miner" from creating
             // an incredibly-expensive-to-validate block.
             nSigOps += GetP2SHSigOpCount(tx, view);
-            if (nSigOps > MAX_BLOCK_SIGOPS)
+            if (nSigOps > MAX_BLOCK_SIGOPS)     // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0056-legacy-sigops-count-must-not-exceed-max_block_sigops
                 return state.DoS(100, error("ConnectBlock(): too many sigops"),
                                  REJECT_INVALID, "bad-blk-sigops");
         }
@@ -3576,7 +3594,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         txdata.emplace_back(tx);
 
         valueout = tx.GetValueOut();
-        if ( KOMODO_VALUETOOBIG(valueout) != 0 )
+        if ( KOMODO_VALUETOOBIG(valueout) != 0 )    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0058-komodo-transaction-output-value-valid
         {
             fprintf(stderr,"valueout %.8f too big\n",(double)valueout/COIN);
             return state.DoS(100, error("ConnectBlock(): GetValueOut too big"),REJECT_INVALID,"tx valueout is too big");
@@ -3584,7 +3602,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         if (!tx.IsCoinBase())
         {
             nFees += (stakeTxValue= view.GetValueIn(chainActive.Tip()->nHeight,interest,tx) - valueout);
-            sum += interest;
+            sum += interest;    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0059-add-komodo-interest-to-transaction-input-value
 
             std::vector<CScriptCheck> vChecks;
             if (!ContextualCheckInputs(tx, state, view, fExpensiveChecks, flags, false, txdata[i], chainparams.GetConsensus(), consensusBranchId, nScriptCheckThreads ? &vChecks : NULL))
@@ -3652,7 +3670,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     // If Sapling is active, block.hashFinalSaplingRoot must be the
     // same as the root of the Sapling tree
     if (NetworkUpgradeActive(pindex->nHeight, chainparams.GetConsensus(), Consensus::UPGRADE_SAPLING)) {
-        if (block.hashFinalSaplingRoot != sapling_tree.root()) {
+        if (block.hashFinalSaplingRoot != sapling_tree.root()) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0070-block-header-final-sapling-tree-root-hash-is-valid
             return state.DoS(100,
                          error("ConnectBlock(): block's hashFinalSaplingRoot is incorrect"),
                                REJECT_INVALID, "bad-sapling-root-in-block");
@@ -3663,7 +3681,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     blockReward += nFees + sum;
     if ( chainName.isKMD() && pindex->nHeight >= KOMODO_NOTARIES_HEIGHT2)
-        blockReward -= sum;
+        blockReward -= sum;  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0071-remove-komodo-interest-from-block-reward
 
     if ( ASSETCHAINS_COMMISSION != 0 || ASSETCHAINS_FOUNDERS_REWARD != 0 ) //ASSETCHAINS_OVERRIDE_PUBKEY33[0] != 0 &&
     {
@@ -3681,8 +3699,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         return state.DoS(100, error("ConnectBlock(): coinbase for block 1 pays wrong amount (actual=%d vs correct=%d)", block.vtx[0].GetValueOut(), blockReward),
                             REJECT_INVALID, "bad-cb-amount");
     }
-    if ( block.vtx[0].GetValueOut() > blockReward+KOMODO_EXTRASATOSHI )
-    {
+    if ( block.vtx[0].GetValueOut() > blockReward+KOMODO_EXTRASATOSHI )  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0072-coinbase-does-not-pay-too-much
+    {        
         if ( !chainName.isKMD() || pindex->nHeight >= KOMODO_NOTARIES_HEIGHT1 || block.vtx[0].vout[0].nValue > blockReward )
         {
             return state.DoS(100,
@@ -3992,7 +4010,7 @@ bool static DisconnectTip(CValidationState &state, bool fBare = false) {
     {
         int32_t notarizedht,prevMoMheight; uint256 notarizedhash,txid;
         notarizedht = komodo_notarized_height(&prevMoMheight,&notarizedhash,&txid);
-        if ( block.GetHash() == notarizedhash )
+        if ( block.GetHash() == notarizedhash )  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0008-disable-to-disconnect-block-if-its-hash-equals-to-last-notarised-block-hash
         {
             fprintf(stderr,"DisconnectTip trying to disconnect notarized block at ht.%d\n",(int32_t)pindexDelete->nHeight);
             return state.DoS(100, error("AcceptBlock(): DisconnectTip trying to disconnect notarized blockht.%d",(int32_t)pindexDelete->nHeight),
@@ -4189,7 +4207,7 @@ bool ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *pblock)
         if (!rv) {
             if (state.IsInvalid())
             {
-                InvalidBlockFound(pindexNew, state);
+                InvalidBlockFound(pindexNew, state); // TODO check if this is consensus important
             }
             return error("ConnectTip(): ConnectBlock %s failed", pindexNew->GetBlockHash().ToString());
         }
@@ -4233,7 +4251,7 @@ bool ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *pblock)
     // Update cached incremental witnesses
     GetMainSignals().ChainTip(pindexNew, pblock, oldSproutTree, oldSaplingTree, true);
 
-    EnforceNodeDeprecation(pindexNew->nHeight);
+    EnforceNodeDeprecation(pindexNew->nHeight);  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-run-0002-chain-deprecates-at-height
 
     int64_t nTime6 = GetTimeMicros(); nTimePostConnect += nTime6 - nTime5; nTimeTotal += nTime6 - nTime1;
     LogPrint("bench", "  - Connect postprocess: %.2fms [%.2fs]\n", (nTime6 - nTime5) * 0.001, nTimePostConnect * 0.000001);
@@ -4343,6 +4361,7 @@ static bool ActivateBestChainStep(bool fSkipdpow, CValidationState &state, CBloc
     // stay on the same chain tip! 
     int32_t notarizedht,prevMoMheight; uint256 notarizedhash,txid;
     notarizedht = komodo_notarized_height(&prevMoMheight,&notarizedhash,&txid);
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0007-prevent-forks-below-last-notarised-height
     if ( !fSkipdpow && pindexFork != 0 && pindexOldTip->nHeight > notarizedht && pindexFork->nHeight < notarizedht )
     {
         LogPrintf("pindexOldTip->nHeight.%d > notarizedht %d && pindexFork->nHeight.%d is < notarizedht %d, so ignore it\n",(int32_t)pindexOldTip->nHeight,notarizedht,(int32_t)pindexFork->nHeight,notarizedht);
@@ -4383,7 +4402,7 @@ static bool ActivateBestChainStep(bool fSkipdpow, CValidationState &state, CBloc
     //   our genesis block. In practice this (probably) won't happen because of checks elsewhere.
     auto reorgLength = pindexOldTip ? pindexOldTip->nHeight - (pindexFork ? pindexFork->nHeight : -1) : 0;
     assert(MAX_REORG_LENGTH > 0);//, "We must be able to reorg some distance");
-    if ( reorgLength > MAX_REORG_LENGTH)
+    if ( reorgLength > MAX_REORG_LENGTH) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0073-prevent-chain-reorganisation-over-99-blocks
     {
         auto msg = strprintf(_(
                                "A block chain reorganization has been detected that would roll back %d blocks! "
@@ -4412,7 +4431,7 @@ static bool ActivateBestChainStep(bool fSkipdpow, CValidationState &state, CBloc
             return false;
         fBlocksDisconnected = true;
     }
-    if ( KOMODO_REWIND != 0 )
+    if ( KOMODO_REWIND != 0 )   // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0081-execute-komodo_rewind
     {
         CBlockIndex *tipindex;
         fprintf(stderr,">>>>>>>>>>> rewind start ht.%d -> KOMODO_REWIND.%d\n",chainActive.Tip()->nHeight,KOMODO_REWIND);
@@ -4988,7 +5007,7 @@ bool CheckBlockHeader(int32_t *futureblockp,int32_t height,CBlockIndex *pindex, 
             return false;
         }
     }
-    else if (blockhdr.GetBlockTime() > GetTime() + 60)
+    else if (blockhdr.GetBlockTime() > GetTime() + 60) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0007-block-too-far-in-future
     {
         /*CBlockIndex *tipindex;
         //fprintf(stderr,"ht.%d future block %u vs time.%u + 60\n",height,(uint32_t)blockhdr.GetBlockTime(),(uint32_t)GetAdjustedTime());
@@ -5002,20 +5021,22 @@ bool CheckBlockHeader(int32_t *futureblockp,int32_t height,CBlockIndex *pindex, 
         else*/
         {
             if (blockhdr.GetBlockTime() < GetTime() + 300)
-                *futureblockp = 1;
-            //LogPrintf("CheckBlockHeader block from future %d error",blockhdr.GetBlockTime() - GetAdjustedTime());
+                *futureblockp = 1; 
+            else {
+                LogPrintf("CheckBlockHeader block from future %d sec error\n", blockhdr.GetBlockTime() - GetTime());
+            }
             return false; //state.Invalid(error("CheckBlockHeader(): block timestamp too far in the future"),REJECT_INVALID, "time-too-new");
         }
     }
     // Check block version
-    if (height > 0 && blockhdr.nVersion < MIN_BLOCK_VERSION)
+    if (height > 0 && blockhdr.nVersion < MIN_BLOCK_VERSION) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0008-block-version-too-low
         return state.DoS(100, error("CheckBlockHeader(): block version too low"),REJECT_INVALID, "version-too-low");
 
     // Check Equihash solution is valid
     if ( fCheckPOW )
     {
-        if ( !CheckEquihashSolution(&blockhdr, Params()) )
         // Note: duplicate of the check in komodo_checkPOW() 
+        if ( !CheckEquihashSolution(&blockhdr, Params()) )  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0003-2-check-equihash-solution
             return state.DoS(100, error("CheckBlockHeader(): Equihash solution invalid"),REJECT_INVALID, "invalid-solution");
     }
     // Check proof of work matches claimed amount
@@ -5050,9 +5071,9 @@ bool CheckBlock(int32_t *futureblockp, int32_t height, CBlockIndex *pindex, cons
     // Check that the header is valid (particularly PoW).  This is mostly redundant with the call in AcceptBlockHeader.
     if (!CheckBlockHeader(futureblockp,height,pindex,block,state,fCheckPOW))
     {
-        if ( *futureblockp == 0 )
+        if ( *futureblockp == 0 ) // part of kmd-0007 rule implementation
         {
-            LogPrintf("CheckBlock header error");
+            LogPrintf("CheckBlock header error\n");
             return false;
         }
     }
@@ -5080,7 +5101,9 @@ bool CheckBlock(int32_t *futureblockp, int32_t height, CBlockIndex *pindex, cons
             CScript merkleroot = CScript();
             CBlock blockcopy = block; // block shouldn't be changed below, so let's make it's copy
             CBlock *pblockcopy = (CBlock *)&blockcopy;
-            if (!komodo_checkopret(pblockcopy, merkleroot)) {
+
+            // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0001-check-special-block-opreturn
+            if (!komodo_checkopret(pblockcopy, merkleroot)) { 
                 fprintf(stderr, "failed or missing merkleroot expected.%s != merkleroot.%s\n", 
                         komodo_makeopret(pblockcopy, false).ToString().c_str(), merkleroot.ToString().c_str());
                 return state.DoS(100, error("CheckBlock: failed or missing merkleroot opret in easy-mined"),
@@ -5094,14 +5117,14 @@ bool CheckBlock(int32_t *futureblockp, int32_t height, CBlockIndex *pindex, cons
     {
         bool mutated;
         uint256 hashMerkleRoot2 = block.BuildMerkleTree(&mutated);
-        if (block.hashMerkleRoot != hashMerkleRoot2)
+        if (block.hashMerkleRoot != hashMerkleRoot2) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0009-check-merkle-root
             return state.DoS(100, error("CheckBlock: hashMerkleRoot mismatch"),
                              REJECT_INVALID, "bad-txnmrklroot", true);
 
         // Check for merkle tree malleability (CVE-2012-2459): repeating sequences
         // of transactions in a block without affecting the merkle root of a block,
         // while still invalidating it.
-        if (mutated)
+        if (mutated) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0010-check-merkle-tree-malleability
             return state.DoS(100, error("CheckBlock: duplicate transaction"),
                              REJECT_INVALID, "bad-txns-duplicate", true);
     }
@@ -5111,16 +5134,19 @@ bool CheckBlock(int32_t *futureblockp, int32_t height, CBlockIndex *pindex, cons
     // because we receive the wrong transactions for it.
 
     // Size limits
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0011-block-size-limits
     if (block.vtx.empty() || block.vtx.size() > MAX_BLOCK_SIZE(height) 
             || ::GetSerializeSize(block, SER_NETWORK, PROTOCOL_VERSION) > MAX_BLOCK_SIZE(height))
         return state.DoS(100, error("CheckBlock: size limits failed"),
                          REJECT_INVALID, "bad-blk-length");
 
     // First transaction must be coinbase, the rest must not be
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0012-first-transaction-in-block-is-coinbase
     if (block.vtx.empty() || !block.vtx[0].IsCoinBase())
         return state.DoS(100, error("CheckBlock: first tx is not coinbase"),
                          REJECT_INVALID, "bad-cb-missing");
 
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0013-second-transaction-and-next-in-block-are-not-coinbase
     for (unsigned int i = 1; i < block.vtx.size(); i++)
         if (block.vtx[i].IsCoinBase())
             return state.DoS(100, error("CheckBlock: more than one coinbase"),
@@ -5199,6 +5225,7 @@ bool CheckBlock(int32_t *futureblockp, int32_t height, CBlockIndex *pindex, cons
     {
         nSigOps += GetLegacySigOpCount(tx);
     }
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0034-transaction-legacy-signature-count-does-not-exceed-max_block_sigops
     if (nSigOps > MAX_BLOCK_SIGOPS)
         return state.DoS(100, error("CheckBlock: out-of-bounds SigOpCount"),
                          REJECT_INVALID, "bad-blk-sigops", true);
@@ -5242,6 +5269,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     int nHeight = pindexPrev->nHeight+1;
 
     // Check proof of work
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0074-header-nbits-field-valid
     if ( (!chainName.isKMD() || nHeight < 235300 || nHeight > 236000) && block.nBits != GetNextWorkRequired(pindexPrev, &block, consensusParams))
     {
         cout << block.nBits << " block.nBits vs. calc " << GetNextWorkRequired(pindexPrev, &block, consensusParams) <<
@@ -5253,7 +5281,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     // Check timestamp against prev
     if ( ASSETCHAINS_ADAPTIVEPOW <= 0 || nHeight < 30 )
     {
-        if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast() )
+        if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast() ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0075-blocktime-not-too-early
         {
             fprintf(stderr,"ht.%d too early %u vs %u\n",(int32_t)nHeight,(uint32_t)block.GetBlockTime(),(uint32_t)pindexPrev->GetMedianTimePast());
             return state.Invalid(error("%s: block's timestamp is too early", __func__),
@@ -5271,7 +5299,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     }
 
     // Check that timestamp is not too far in the future
-    if (block.GetBlockTime() > GetTime() + consensusParams.nMaxFutureBlockTime)
+    if (block.GetBlockTime() > GetTime() + consensusParams.nMaxFutureBlockTime)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0076-blocktime-not-too-far-in-future-2
     {
         return state.Invalid(error("%s: block timestamp too far in the future", __func__),
                         REJECT_INVALID, "time-too-new");
@@ -5280,7 +5308,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     if (fCheckpointsEnabled)
     {
         // Check that the block chain matches the known block chain up to a checkpoint
-        if (!Checkpoints::CheckBlock(chainParams.Checkpoints(), nHeight, hash))
+        if (!Checkpoints::CheckBlock(chainParams.Checkpoints(), nHeight, hash))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0077-block-hash-validated-by-built-in-checkpoint
         {
             /*CBlockIndex *heightblock = chainActive[nHeight];
             if ( heightblock != 0 && heightblock->GetBlockHash() == hash )
@@ -5293,7 +5321,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
         // Don't accept any forks from the main chain prior to last checkpoint
         CBlockIndex* pcheckpoint = Checkpoints::GetLastCheckpoint(chainParams.Checkpoints());
         int32_t notarized_height;
-        if ( nHeight == 1 && chainActive.Tip() != 0 && chainActive.Tip()->nHeight > 1 )
+        if ( nHeight == 1 && chainActive.Tip() != 0 && chainActive.Tip()->nHeight > 1 ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0078-do-not-allow-to-change-block-of-height-1
         {
             CBlockIndex *heightblock = chainActive[nHeight];
             if ( heightblock != 0 && heightblock->GetBlockHash() == hash )
@@ -5302,9 +5330,9 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
         }
         if ( nHeight != 0 )
         {
-            if ( pcheckpoint != 0 && nHeight < pcheckpoint->nHeight )
+            if ( pcheckpoint != 0 && nHeight < pcheckpoint->nHeight )  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0079-invalidate-block-of-height-less-than-last-checkpoint-height
                 return state.DoS(1, error("%s: forked chain older than last checkpoint (height %d) vs %d", __func__, nHeight,pcheckpoint->nHeight));
-            if ( !komodo_checkpoint(&notarized_height,nHeight,hash) )
+            if ( !komodo_checkpoint(&notarized_height,nHeight,hash) )  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0009-invalidate-block-connected-below-last-notarised-height
             {
                 CBlockIndex *heightblock = chainActive[nHeight];
                 if ( heightblock != 0 && heightblock->GetBlockHash() == hash )
@@ -5316,7 +5344,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
         }
     }
     // Reject block.nVersion < 4 blocks
-    if (block.nVersion < 4)
+    if (block.nVersion < 4)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0080-block-version-is-not-less-than-4
         return state.Invalid(error("%s : rejected nVersion<4 block", __func__),
                              REJECT_OBSOLETE, "bad-version");
 
@@ -5334,7 +5362,7 @@ bool ContextualCheckBlock(int32_t slowflag,const CBlock& block, CValidationState
 
     /* HF22 - check interest validation against pindexPrev->GetMedianTimePast() + 777 */
     if (chainName.isKMD() &&
-        consensusParams.nHF22Height != boost::none && txheight > consensusParams.nHF22Height.get()
+        consensusParams.nHF22Height != boost::none && txheight > consensusParams.nHF22Height.get() // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0036-fix-komodo-limit-lock-time-calculation
     ) {
         if (pindexPrev) {
             uint32_t cmptime_old = cmptime;
@@ -5350,7 +5378,7 @@ bool ContextualCheckBlock(int32_t slowflag,const CBlock& block, CValidationState
         const CTransaction& tx = block.vtx[i];
 
         // Interest validation
-        if (!komodo_validate_interest(tx, txheight, cmptime))
+        if (!komodo_validate_interest(tx, txheight, cmptime)) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0037-transaction-lock-time-is-within-komodo-limits
         {
             fprintf(stderr, "validate interest failed for txnum.%i tx.%s\n", i, tx.ToString().c_str());
             return state.DoS(0, error("%s: komodo_validate_interest failed", __func__), REJECT_INVALID, "komodo-interest-invalid");
@@ -5365,7 +5393,7 @@ bool ContextualCheckBlock(int32_t slowflag,const CBlock& block, CValidationState
         int64_t nLockTimeCutoff = (nLockTimeFlags & LOCKTIME_MEDIAN_TIME_PAST)
         ? pindexPrev->GetMedianTimePast()
         : block.GetBlockTime();
-        if (!IsFinalTx(tx, nHeight, nLockTimeCutoff)) {
+        if (!IsFinalTx(tx, nHeight, nLockTimeCutoff)) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0038-transaction-is-final
             return state.DoS(10, error("%s: contains a non-final transaction", __func__), REJECT_INVALID, "bad-txns-nonfinal");
         }
     }
@@ -5378,7 +5406,7 @@ bool ContextualCheckBlock(int32_t slowflag,const CBlock& block, CValidationState
     {
         CScript expect = CScript() << nHeight;
         if (block.vtx[0].vin[0].scriptSig.size() < expect.size() ||
-            !std::equal(expect.begin(), expect.end(), block.vtx[0].vin[0].scriptSig.begin())) {
+            !std::equal(expect.begin(), expect.end(), block.vtx[0].vin[0].scriptSig.begin())) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0039-coinbase-input-scriptsig-is-valid
             return state.DoS(100, error("%s: block height mismatch in coinbase", __func__), REJECT_INVALID, "bad-cb-height");
         }
     }
@@ -5405,6 +5433,8 @@ bool AcceptBlockHeader(int32_t *futureblockp,const CBlockHeader& block, CValidat
         if ( pindex != 0 && (pindex->nStatus & BLOCK_FAILED_MASK) != 0 )
         {
             if ( ASSETCHAINS_CC == 0 )//&& (ASSETCHAINS_PRIVATE == 0 || KOMODO_INSYNC >= Params().GetConsensus().vUpgrades[Consensus::UPGRADE_SAPLING].nActivationHeight) )
+                // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0005-fail-known-block-with-block_failed_mask-set
+                // TODO: not sure this is a consensus rule, check
                 return state.Invalid(error("%s: block is marked invalid", __func__), 0, "duplicate");
             else
             {
@@ -5421,11 +5451,11 @@ bool AcceptBlockHeader(int32_t *futureblockp,const CBlockHeader& block, CValidat
 
         //if ( pindex == 0 )
         //    fprintf(stderr,"accepthdr %s already known but no pindex\n",hash.ToString().c_str());
-        return true;
+        return true; // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0006-already-known-block-is-accepted
     }
     if (!CheckBlockHeader(futureblockp,*ppindex!=0?(*ppindex)->nHeight:0,*ppindex, block, state,0))
     {
-        if ( *futureblockp == 0 )
+        if ( *futureblockp == 0 ) // part of kmd-0007 rule implementation
         {
             LogPrintf("AcceptBlockHeader CheckBlockHeader error\n");
             return false;
@@ -5597,18 +5627,19 @@ bool AcceptBlock(int32_t *futureblockp,CBlock& block, CValidationState& state, C
 
     if (fCheckForPruning)
         FlushStateToDisk(state, FLUSH_STATE_NONE); // we just allocated more disk space for block files
-    if ( *futureblockp == 0 )
+
     // Normally, if all checks are true, *futureblockp should be initalised to 0 in the nested CheckBlockHeader() call
     // *futureblockp may be set to 1 if:
     // either CheckBlock() or ContextualCheckBlock() failed and block height or the tip's height is close to the sapling activation height (see above in this function)
     // CheckBlockHeader() failed in CheckBlock() because of blocktime in future over 60 sec but not far than 300 sec from the current time. 
     // If the blocktime is more further in future then *futureblockp is 0 and this function returns ealier after CheckBlock returned false
     // Looks like this effectively disables blocks with blocktime over 60 sec in future
+    if ( *futureblockp == 0 )   
         return true;
-    LogPrintf("AcceptBlock block from future error\n");
     // Actually it is not an error state here because *futureblockp is 1 
     // and the calling code treats this as valid even if the return value is false
     // so the error log is incorrect and should be disabled:
+    // LogPrintf("AcceptBlock block from future error\n");
     return false;
 }
 
@@ -5738,7 +5769,7 @@ bool ProcessNewBlock(bool from_miner, int32_t height, CValidationState &state, C
         {
             checked = false;
         }
-        if (!checked && futureblock == 0)
+        if (!checked && futureblock == 0)  // part of kmd-0007 rule implementation
         {
             if ( pfrom != nullptr )
             {
@@ -5820,7 +5851,7 @@ uint64_t CalculateCurrentUsage()
 bool PruneOneBlockFile(bool tempfile, const int fileNumber)
 {
     uint256 notarized_hash,notarized_desttxid; int32_t prevMoMheight,notarized_height;
-    notarized_height = komodo_notarized_height(&prevMoMheight,&notarized_hash,&notarized_desttxid);
+    notarized_height = komodo_notarized_height(&prevMoMheight,&notarized_hash,&notarized_desttxid); // TODO add rule
     //fprintf(stderr, "pruneblockfile.%i\n",fileNumber); sleep(15);
     for (BlockMap::iterator it = mapBlockIndex.begin(); it != mapBlockIndex.end(); ++it) 
     {

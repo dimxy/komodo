@@ -1846,7 +1846,7 @@ int32_t komodo_checkPOW(int64_t stakeTxValue, int32_t slowflag,CBlock *pblock,in
     uint256 hash,merkleroot; arith_uint256 bnTarget,bhash; bool fNegative,fOverflow; uint8_t *script,pubkey33[33],pubkeys[64][33]; int32_t i,scriptlen,possible,PoSperc,is_PoSblock=0,n,failed = 0,notaryid = -1; int64_t checktoshis,value; CBlockIndex *pprev;
     if ( KOMODO_TEST_ASSETCHAIN_SKIP_POW == 0 && Params().NetworkIDString() == "regtest" )
         KOMODO_TEST_ASSETCHAIN_SKIP_POW = 1;
-    if ( !CheckEquihashSolution(pblock, Params()) )
+    if ( !CheckEquihashSolution(pblock, Params()) ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0003-check-equihash-solution
     {
         fprintf(stderr,"komodo_checkPOW slowflag.%d ht.%d CheckEquihashSolution failed\n",slowflag,height);
         return(-1);
@@ -1865,7 +1865,7 @@ int32_t komodo_checkPOW(int64_t stakeTxValue, int32_t slowflag,CBlock *pblock,in
         BlockMap::const_iterator it = mapBlockIndex.find(pblock->hashPrevBlock);
         if ( it != mapBlockIndex.end() && (pprev= it->second) != 0 )
             height = pprev->nHeight + 1;
-        if ( height == 0 )
+        if ( height == 0 ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0004-for-height-0-pow-is-not-checked
             return(0);
     }
     if ( ( !chainName.isKMD() || height > 792000) && bhash > bnTarget )

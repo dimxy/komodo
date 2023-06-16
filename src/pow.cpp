@@ -634,6 +634,7 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
         height = komodo_currentheight() + 1;
         //fprintf(stderr,"set height to %d\n",height);
     }
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0010-notary-special-block-is-valid
     if ( height > 34000 && chainName.isKMD() ) // 0 -> non-special notary
     {
         special = komodo_chosennotary(&notaryid,height,pubkey33,tiptime);
@@ -667,7 +668,7 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
             }
 
             /* hf22 rule applied to stale blocks */
-            if (params.nHF22Height != boost::none) {
+            if (params.nHF22Height != boost::none) {    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0011-notary-second-special-block-is-allowed
 
                 const uint32_t nHeightAfterGAPSecondBlockAllowed = params.nHF22Height.get();
                 const uint32_t nMaxGAPAllowed = params.nMaxFutureBlockTime + 1;
@@ -741,7 +742,7 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
         }
     }
     arith_uint256 bnLimit = (height <= 1 || ASSETCHAINS_ALGO == ASSETCHAINS_EQUIHASH) ? UintToArith256(params.powLimit) : UintToArith256(params.powAlternate);
-    if (fNegative || bnTarget == 0 || fOverflow || bnTarget > bnLimit)
+    if (fNegative || bnTarget == 0 || fOverflow || bnTarget > bnLimit) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0001-target-is-valid
         return error("CheckProofOfWork(): nBits below minimum work");
     if ( ASSETCHAINS_STAKED != 0 )
     {
@@ -749,7 +750,7 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
         bnTarget.SetCompact(KOMODO_MINDIFF_NBITS,&fNegative,&fOverflow);
     }
     // Check proof of work matches claimed amount
-    if ( UintToArith256(hash = blkHeader.GetHash()) > bnTarget )
+    if ( UintToArith256(hash = blkHeader.GetHash()) > bnTarget ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0002-block-hash-is-below-target
     {
         if ( KOMODO_LOADINGBLOCKS )
             return true;
