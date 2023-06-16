@@ -750,7 +750,9 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
         bnTarget.SetCompact(KOMODO_MINDIFF_NBITS,&fNegative,&fOverflow);
     }
     // Check proof of work matches claimed amount
-    if ( UintToArith256(hash = blkHeader.GetHash()) > bnTarget ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0002-block-hash-is-below-target
+    if ( UintToArith256(hash = blkHeader.GetHash()) > bnTarget ) // Note that this code is duplicated by the same rule in komodo_checkPoW: 
+                                                                 // if CheckProofOfWork returns false then komodo_checkPoW is called and checks the difficulty again.
+                                                                 // See https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0002-block-hash-is-not-over-target in komodo_checkPoW
     {
         if ( KOMODO_LOADINGBLOCKS )
             return true;

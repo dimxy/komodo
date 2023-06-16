@@ -5765,7 +5765,7 @@ bool ProcessNewBlock(bool from_miner, int32_t height, CValidationState &state, C
         checked = CheckBlock(&futureblock,height!=0?height:komodo_block2height(pblock),0,*pblock, state, verifier,0);
         bool fRequested = MarkBlockAsReceived(hash);
         fRequested |= fForceProcessing;
-        if ( checked && komodo_checkPOW(0,0,pblock,height) < 0 )
+        if ( checked && komodo_checkPOW(0,0,pblock,height) < 0 ) // duplicate call to the same function made in CheckBlock()
         {
             checked = false;
         }

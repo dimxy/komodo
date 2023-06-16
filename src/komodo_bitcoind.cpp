@@ -1868,7 +1868,7 @@ int32_t komodo_checkPOW(int64_t stakeTxValue, int32_t slowflag,CBlock *pblock,in
         if ( height == 0 ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0004-for-height-0-pow-is-not-checked
             return(0);
     }
-    if ( ( !chainName.isKMD() || height > 792000) && bhash > bnTarget )
+    if ( ( !chainName.isKMD() || height > 792000) && bhash > bnTarget )  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0002-block-hash-is-not-over-target
     {
         failed = 1;
         if ( height > 0 && chainName.isKMD() ) // for the fast case
