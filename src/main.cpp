@@ -1470,13 +1470,13 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
 
     // Transactions containing empty `vin` must have either non-empty
     // `vjoinsplit` or non-empty `vShieldedSpend`.
-    if (tx.vin.empty() && tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0019-transaction-cannot-have-empty-vins-and-private-spends
+    if (tx.vin.empty() && tx.vjoinsplit.empty() && tx.vShieldedSpend.empty()) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0019-transaction-cannot-have-empty-transparent-inputs-and-private-spends
         return state.DoS(10, error("CheckTransaction(): vin empty"),
                          REJECT_INVALID, "bad-txns-vin-empty");
 
     // Transactions containing empty `vout` must have either non-empty
     // `vjoinsplit` or non-empty `vShieldedOutput`.
-    if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.vShieldedOutput.empty()) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0020-transaction-cannot-have-empty-vouts-and-private-spends
+    if (tx.vout.empty() && tx.vjoinsplit.empty() && tx.vShieldedOutput.empty()) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0020-transaction-cannot-have-empty-transparent-and-private-outputs
         return state.DoS(10, error("CheckTransaction(): vout empty"),
                          REJECT_INVALID, "bad-txns-vout-empty");
 

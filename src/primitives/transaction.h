@@ -699,7 +699,7 @@ public:
         return IsCoinImport() || IsCoinBase();
     }
 
-    bool IsCoinBase() const
+    bool IsCoinBase() const  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0084-check-if-transaction-is-coinbase
     {
         return (vin.size() == 1 && vin[0].prevout.IsNull());
     }
