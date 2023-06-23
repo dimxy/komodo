@@ -1518,7 +1518,7 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
         if ( txout.scriptPubKey.size() > IGUANA_MAXSCRIPTSIZE ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0024-transaction-output-script-pubkey-size-is-not-over-iguana_maxscriptsize
             return state.DoS(100, error("CheckTransaction(): txout.scriptPubKey.size() too big"),REJECT_INVALID, "bad-txns-opret-too-big");
         nValueOut += txout.nValue;
-        if (!MoneyRange(nValueOut)) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0025-transaction-total-output-value-is-within-money-range
+        if (!MoneyRange(nValueOut)) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0025-transaction-total-transparent-output-value-is-within-money-range
             return state.DoS(100, error("CheckTransaction(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
     }
@@ -1602,7 +1602,7 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
         }
 
         nValueOut += joinsplit.vpub_old;
-        if (!MoneyRange(nValueOut)) {
+        if (!MoneyRange(nValueOut)) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0085-transaction-total-output-with-account-of-sprout-value-within-money-range
             return state.DoS(100, error("CheckTransaction(): txout total out of range"),
                              REJECT_INVALID, "bad-txns-txouttotal-toolarge");
         }
