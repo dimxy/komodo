@@ -2432,7 +2432,7 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex,bool checkPOW)
 CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 {
     int32_t numhalvings,i; uint64_t numerator; CAmount nSubsidy = 3 * COIN;
-    if ( chainName.isKMD() )
+    if ( chainName.isKMD() )  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0090-calculate-komodo-subsidy
     {
         if ( nHeight == 1 )
             return(100000000 * COIN); // ICO allocation
