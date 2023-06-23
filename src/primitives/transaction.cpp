@@ -301,7 +301,7 @@ CAmount CTransaction::GetValueOut() const
         // NB: negative valueBalance "takes" money from the transparent value pool just as outputs do
         nValueOut += -valueBalance;
 
-        if (!MoneyRange(-valueBalance) || !MoneyRange(nValueOut)) {
+        if (!MoneyRange(-valueBalance) || !MoneyRange(nValueOut)) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0086-transaction-sprout-value-balance-is-within-money-range
             throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
         }
     }
@@ -311,7 +311,7 @@ CAmount CTransaction::GetValueOut() const
         // NB: vpub_old "takes" money from the transparent value pool just as outputs do
         nValueOut += it->vpub_old;
 
-        if (!MoneyRange(it->vpub_old) || !MoneyRange(nValueOut))
+        if (!MoneyRange(it->vpub_old) || !MoneyRange(nValueOut))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0087-transaction-sprout-pub-value-is-within-money-range
             throw std::runtime_error("CTransaction::GetValueOut(): value out of range");
     }
     return nValueOut;
@@ -326,7 +326,7 @@ CAmount CTransaction::GetShieldedValueIn() const
         // NB: positive valueBalance "gives" money to the transparent value pool just as inputs do
         nValue += valueBalance;
 
-        if (!MoneyRange(valueBalance) || !MoneyRange(nValue)) {
+        if (!MoneyRange(valueBalance) || !MoneyRange(nValue)) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0088-transaction-sapling-value-balance-is-within-money-range
             throw std::runtime_error("CTransaction::GetShieldedValueIn(): value out of range");
         }
     }
@@ -336,7 +336,7 @@ CAmount CTransaction::GetShieldedValueIn() const
         // NB: vpub_new "gives" money to the transparent value pool just as inputs do
         nValue += it->vpub_new;
         
-        if (!MoneyRange(it->vpub_new) || !MoneyRange(nValue))
+        if (!MoneyRange(it->vpub_new) || !MoneyRange(nValue))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0089-transaction-sapling-pub-value-is-within-money-range
             throw std::runtime_error("CTransaction::GetShieldedValueIn(): value out of range");
     }
     
