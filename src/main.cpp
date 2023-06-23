@@ -1576,6 +1576,8 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
             return state.DoS(100, error("CheckTransaction(): no more sprout after deadline"),
                              REJECT_INVALID, "bad-txns-sprout-expired");
         }
+
+        https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0091-transaction-sprout-vpub_old-and-vpub_new-must-be-within-money-range
         if (joinsplit.vpub_old < 0) {
             return state.DoS(100, error("CheckTransaction(): joinsplit.vpub_old negative"),
                              REJECT_INVALID, "bad-txns-vpub_old-negative");
@@ -1596,6 +1598,7 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
                              REJECT_INVALID, "bad-txns-vpub_new-toolarge");
         }
 
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0092-transaction-sprout-vpub_old-and-vpub_new-cannot-be-both-non-zero
         if (joinsplit.vpub_new != 0 && joinsplit.vpub_old != 0) {
             return state.DoS(100, error("CheckTransaction(): joinsplit.vpub_new and joinsplit.vpub_old both nonzero"),
                              REJECT_INVALID, "bad-txns-vpubs-both-nonzero");
@@ -1805,6 +1808,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
     }
     auto verifier = libzcash::ProofVerifier::Strict();
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0025-transaction-locktime-is-within-komodo-limits-for-mempool
     if (chainName.isKMD() && chainActive.Tip() != nullptr
             && !komodo_validate_interest(tx, chainActive.Tip()->nHeight + 1, chainActive.Tip()->GetMedianTimePast() + 777))
     {
