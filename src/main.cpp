@@ -1800,7 +1800,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     if (NetworkUpgradeActive(nextBlockHeight, Params().GetConsensus(), Consensus::UPGRADE_OVERWINTER)) {
         limit = 0;
     }
-    if (limit > 0) {
+    if (limit > 0) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0001-transaction-inputs-quantity-within-limits
         size_t n = tx.vin.size();
         if (n > limit) {
             LogPrint("mempool", "Dropping txid %s : too many transparent inputs %zu > limit %zu\n", tx.GetHash().ToString(), n, limit );
@@ -1808,7 +1808,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
     }
     auto verifier = libzcash::ProofVerifier::Strict();
-    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0025-transaction-locktime-is-within-komodo-limits-for-mempool
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0002-transaction-locktime-is-within-komodo-limits-for-mempool
     if (chainName.isKMD() && chainActive.Tip() != nullptr
             && !komodo_validate_interest(tx, chainActive.Tip()->nHeight + 1, chainActive.Tip()->GetMedianTimePast() + 777))
     {
