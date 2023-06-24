@@ -1849,7 +1849,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     }
     // is it already in the memory pool?
     uint256 hash = tx.GetHash();
-    if (pool.exists(hash))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0008-transaction-does-not-exist-already-in-mempool
+    if (pool.exists(hash))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0008-transaction-already-exists-in-mempool
     {
         return state.Invalid(false, REJECT_DUPLICATE, "already in mempool");
     }
