@@ -1306,7 +1306,7 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
     {
         auto ctx = librustzcash_sapling_verification_ctx_init();
 
-        for (const SpendDescription &spend : tx.vShieldedSpend) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0001-sapling-spend-description-valid
+        for (const SpendDescription &spend : tx.vShieldedSpend) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0001-sapling-spend-descriptions-valid
             if (!librustzcash_sapling_check_spend(
                 ctx,
                 spend.cv.begin(),
