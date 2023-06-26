@@ -1278,7 +1278,8 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
 
     }
 
-    if (!(tx.IsMint() || tx.vjoinsplit.empty()))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0052-if-joinsplit-signature-must-be-valid
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0003-joinsplit-signature-must-be-valid
+    if (!(tx.IsMint() || tx.vjoinsplit.empty()))
     {
         BOOST_STATIC_ASSERT(crypto_sign_PUBLICKEYBYTES == 32);
 
@@ -1306,7 +1307,8 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
     {
         auto ctx = librustzcash_sapling_verification_ctx_init();
 
-        for (const SpendDescription &spend : tx.vShieldedSpend) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0001-sapling-spend-descriptions-valid
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0001-sapling-spend-descriptions-valid
+        for (const SpendDescription &spend : tx.vShieldedSpend) {
             if (!librustzcash_sapling_check_spend(
                 ctx,
                 spend.cv.begin(),
@@ -1324,7 +1326,8 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
             }
         }
 
-        for (const OutputDescription &output : tx.vShieldedOutput) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0002-sapling-output-descriptions-valid
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0002-sapling-output-descriptions-valid
+        for (const OutputDescription &output : tx.vShieldedOutput) {
             if (!librustzcash_sapling_check_output(
                 ctx,
                 output.cv.begin(),
@@ -1339,12 +1342,13 @@ bool ContextualCheckTransaction(int32_t slowflag,const CBlock *block, CBlockInde
             }
         }
 
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0004-sapling-binding-signature-valid
         if (!librustzcash_sapling_final_check(
             ctx,
             tx.valueBalance,
             tx.bindingSig.begin(),
             dataToBeSigned.begin()
-        ))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0003-sapling-binding-signature-valid
+        ))
         {
             librustzcash_sapling_verification_ctx_free(ctx);
             return state.DoS(100, error("ContextualCheckTransaction(): Sapling binding signature invalid"),
@@ -1866,7 +1870,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 return state.Invalid(false, REJECT_INVALID, "mempool conflict");
             }
         }
-        BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0010-transaction-sprout-nullifiers-do-not-exist-already
+        BOOST_FOREACH(const JSDescription &joinsplit, tx.vjoinsplit) { // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0010-transaction-sprout-nullifiers-do-not-exist-already-in-mempool
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 if (pool.nullifierExists(nf, SPROUT)) {
                     fprintf(stderr,"pool.mapNullifiers.count\n");
@@ -1874,7 +1878,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 }
             }
         }
-        for (const SpendDescription &spendDescription : tx.vShieldedSpend) {  https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0011-transaction-sapling-nullifiers-do-not-exist-already
+        for (const SpendDescription &spendDescription : tx.vShieldedSpend) {  https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0011-transaction-sapling-nullifiers-do-not-exist-already-in-mempool
             if (pool.nullifierExists(spendDescription.nullifier, SAPLING)) {
                 return false;
             }
@@ -2757,9 +2761,10 @@ namespace Consensus {
         if (!inputs.HaveInputs(tx)) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0057-transaction-must-have-inputs-in-chain
             return state.Invalid(error("CheckInputs(): %s inputs unavailable", tx.GetHash().ToString()));
 
-        // Seems a duplicate call - see another ref to 'kmd-zk-0004'
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0005-sprout-and-sapling-transaction-spends-valid
+        // Seems a duplicate call - see another ref to 'kmd-zk-0005'
         // are the JoinSplit's requirements met?
-        if (!inputs.HaveJoinSplitRequirements(tx))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0004-sprout-and-sapling-transaction-spends-valid
+        if (!inputs.HaveJoinSplitRequirements(tx))  
             return state.Invalid(error("CheckInputs(): %s JoinSplit requirements not met", tx.GetHash().ToString()));
 
         CAmount nValueIn = 0;
@@ -3549,8 +3554,9 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 return state.DoS(100, error("ConnectBlock(): inputs missing/spent"),
                                  REJECT_INVALID, "bad-txns-inputs-missingorspent");
             }
+            // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0005-sprout-and-sapling-transaction-spends-valid
             // are the JoinSplit's requirements met?
-            if (!view.HaveJoinSplitRequirements(tx))  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-zk-0004-sprout-and-sapling-transaction-spends-valid
+            if (!view.HaveJoinSplitRequirements(tx))
                 return state.DoS(100, error("ConnectBlock(): JoinSplit requirements not met"),
                                  REJECT_INVALID, "bad-txns-joinsplit-requirements-not-met");
 
