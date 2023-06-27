@@ -237,6 +237,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
         return true;
     }
 
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0100-cryptoconditions-scriptpubkey-well-formed
     if (IsCryptoConditionsEnabled()) {
         // Shortcut for pay-to-crypto-condition
         CScript ccSubScript = CScript();
