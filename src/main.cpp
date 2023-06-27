@@ -1716,15 +1716,19 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
 
     if (tx.IsMint())
     {
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0101-coinbase-cannot-have-joinsplits
         // There should be no joinsplits in a coinbase transaction
         if (tx.vjoinsplit.size() > 0)
             return state.DoS(100, error("CheckTransaction(): coinbase has joinsplits"),
                              REJECT_INVALID, "bad-cb-has-joinsplits");
 
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0102-coinbase-cannot-have-shieldedspends
         // A coinbase transaction cannot have spend descriptions or output descriptions
         if (tx.vShieldedSpend.size() > 0)
             return state.DoS(100, error("CheckTransaction(): coinbase has spend descriptions"),
                              REJECT_INVALID, "bad-cb-has-spend-description");
+
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0103-coinbase-cannot-have-shieldedoutputs
         if (tx.vShieldedOutput.size() > 0)
             return state.DoS(100, error("CheckTransaction(): coinbase has output descriptions"),
                              REJECT_INVALID, "bad-cb-has-output-description");
