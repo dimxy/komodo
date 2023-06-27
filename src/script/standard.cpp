@@ -217,7 +217,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
 
     // Shortcut for pay-to-script-hash, which are more constrained than the other types:
     // it is always OP_HASH160 20 [20 byte hash] OP_EQUAL
-    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0095-paytoscripthash-script-well-formed
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0095-paytoscripthash-scriptpubkey-well-formed
     if (scriptPubKey.IsPayToScriptHash())
     {
         typeRet = TX_SCRIPTHASH;
@@ -231,7 +231,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
     // So long as script passes the IsUnspendable() test and all but the first
     // byte passes the IsPushOnly() test we don't care what exactly is in the
     // script.
-    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0097-opreturn-script-well-formed
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0097-opreturn-scriptpubkey-well-formed
     if (scriptPubKey.size() >= 1 && scriptPubKey[0] == OP_RETURN && scriptPubKey.IsPushOnly(scriptPubKey.begin()+1)) {
         typeRet = TX_NULL_DATA;
         return true;
@@ -277,14 +277,14 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
     }
 
     std::vector<unsigned char> data;
-    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0093-paytopubkey-script-well-formed
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0093-paytopubkey-scriptpubkey-well-formed
     if (MatchPayToPubkey(scriptPubKey, data)) {  
         typeRet = TX_PUBKEY;
         vSolutionsRet.push_back(std::move(data));
         return true;
     }
 
-    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0094-paytopubkeyhash-script-well-formed
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0094-paytopubkeyhash-scriptpubkey-well-formed
     if (MatchPayToPubkeyHash(scriptPubKey, data)) {
         typeRet = TX_PUBKEYHASH;
         vSolutionsRet.push_back(std::move(data));
@@ -293,7 +293,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
 
     unsigned int required;
     std::vector<std::vector<unsigned char>> keys;
-    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0096-multisig-script-well-formed
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0096-multisig-scriptpubkey-well-formed
     if (MatchMultisig(scriptPubKey, required, keys)) {
         typeRet = TX_MULTISIG;
         vSolutionsRet.push_back({static_cast<unsigned char>(required)}); // safe as required is in range 1..16
@@ -303,7 +303,7 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, std::vector<std::v
     }
 
     vSolutionsRet.clear();
-    typeRet = TX_NONSTANDARD;  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0098-non-standard-scripts-disabled
+    typeRet = TX_NONSTANDARD;  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0098-non-standard-scriptpubkey-disabled
     return false;
 }
 
