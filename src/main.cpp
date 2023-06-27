@@ -868,7 +868,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
         // future-proofing. That's also enough to spend a 20-of-20
         // CHECKMULTISIG scriptPubKey, though such a scriptPubKey is not
         // considered standard)
-        if (txin.scriptSig.size() > 1650) {
+        if (txin.scriptSig.size() > 1650) {  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0025-max-input-script-size
             reason = "scriptsig-size";
             return false;
         }
@@ -891,7 +891,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
 
         if (whichType == TX_NULL_DATA)
         {
-            if ( txout.scriptPubKey.size() > IGUANA_MAXSCRIPTSIZE )
+            if ( txout.scriptPubKey.size() > IGUANA_MAXSCRIPTSIZE )  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0027-opreturn-size-no-more-than-iguana_maxscriptsize
             {
                 reason = "opreturn too big";
                 return(false);
@@ -910,7 +910,7 @@ bool IsStandardTx(const CTransaction& tx, string& reason, const int nHeight)
     }
 
     // only one OP_RETURN txout is permitted
-    if (nDataOut > 1) {
+    if (nDataOut > 1) {   // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0026-only-one-opreturn
         reason = "multi-op-return";
         return false;
     }
@@ -1575,7 +1575,7 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
             return state.DoS(100, error("CheckTransaction(): this is a public chain, no privacy allowed"),
                              REJECT_INVALID, "bad-txns-acpublic-chain");
         }
-        if ( tiptime >= KOMODO_SAPLING_DEADLINE ) // seems duplicate for https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0030-disable-sprout-non-empty-joinsplits-for-public-chains
+        if ( tiptime >= KOMODO_SAPLING_DEADLINE ) // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0099-disable-sprout-joinsplits-for-all-chains
         {
             return state.DoS(100, error("CheckTransaction(): no more sprout after deadline"),
                              REJECT_INVALID, "bad-txns-sprout-expired");
@@ -1955,7 +1955,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // merely non-standard transaction.
         unsigned int nSigOps = GetLegacySigOpCount(tx);
         nSigOps += GetP2SHSigOpCount(tx, view);
-        if (nSigOps > MAX_STANDARD_TX_SIGOPS)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0017-transaction-legacy-signature-count-does-not-exceed-max_block_sigops
+        if (nSigOps > MAX_STANDARD_TX_SIGOPS)  // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0017-transaction-legacy-signature-count-does-not-exceed-max_standard_tx_sigops        
         {
             fprintf(stderr,"accept failure.4\n");
             return state.DoS(1, error("AcceptToMemoryPool: too many sigops %s, %d > %d", hash.ToString(), nSigOps, MAX_STANDARD_TX_SIGOPS),REJECT_NONSTANDARD, "bad-txns-too-many-sigops");
