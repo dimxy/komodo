@@ -1581,7 +1581,7 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
                              REJECT_INVALID, "bad-txns-sprout-expired");
         }
 
-        https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0091-transaction-sprout-vpub_old-and-vpub_new-must-be-within-money-range
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0091-transaction-sprout-vpub_old-and-vpub_new-must-be-within-money-range
         if (joinsplit.vpub_old < 0) {
             return state.DoS(100, error("CheckTransaction(): joinsplit.vpub_old negative"),
                              REJECT_INVALID, "bad-txns-vpub_old-negative");
@@ -1651,6 +1651,7 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
     // but we do know what the joinsplits claim to add
     // to the value pool.
     {
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0106-sprout-input-value-and-transaction-total-input-value-within-money-range
         CAmount nValueIn = 0;
         for (std::vector<JSDescription>::const_iterator it(tx.vjoinsplit.begin()); it != tx.vjoinsplit.end(); ++it)
         {
@@ -1663,9 +1664,11 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
         }
 
         // Also check for Sapling
+        // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0107-sapling-value-balance-non-negative-and-transaction-total-input-value-within-money-range
         if (tx.valueBalance >= 0) {
             // NB: positive valueBalance "adds" money to the transparent value pool, just as inputs do
             nValueIn += tx.valueBalance;
+
 
             if (!MoneyRange(nValueIn)) {
                 return state.DoS(100, error("CheckTransaction(): txin total out of range"),
@@ -1685,6 +1688,7 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
         vInOutPoints.insert(txin.prevout);
     }
 
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0104-duplicate-sprout-nullifiers-in-transaction
     // Check for duplicate joinsplit nullifiers in this transaction
     {
         set<uint256> vJoinSplitNullifiers;
@@ -1701,6 +1705,7 @@ bool CheckTransactionWithoutProofVerification(uint32_t tiptime,const CTransactio
         }
     }
 
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0105-duplicate-sapling-nullifiers-in-transaction
     // Check for duplicate sapling nullifiers in this transaction
     {
         set<uint256> vSaplingNullifiers;
@@ -2835,7 +2840,7 @@ namespace Consensus {
             return state.DoS(100, error("CheckInputs(): shielded input to transparent value pool out of range"),
                              REJECT_INVALID, "bad-txns-inputvalues-outofrange");
 
-        if (nValueIn < tx.GetValueOut())    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0064-transaction-input-value-not-less-output-value
+        if (nValueIn < tx.GetValueOut())    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0064-transaction-input-value-not-less-than-output-value
         {
             fprintf(stderr,"spentheight.%d valuein %s vs %s error\n",nSpendHeight,FormatMoney(nValueIn).c_str(), FormatMoney(tx.GetValueOut()).c_str());
             return state.DoS(100, error("CheckInputs(): %s value in (%s) < value out (%s) diff %.8f",
@@ -4111,6 +4116,7 @@ bool static DisconnectTip(CValidationState &state, bool fBare = false) {
     return true;
 }
 
+// https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-0083-activate-sapling-network-upgrade
 int32_t komodo_activate_sapling(CBlockIndex *pindex)
 {
     uint32_t blocktime,prevtime; CBlockIndex *prev; int32_t i,transition=0,height,prevht;
@@ -4242,10 +4248,13 @@ bool ConnectTip(CValidationState &state, CBlockIndex *pindexNew, CBlock *pblock)
     }
     int64_t nTime5 = GetTimeMicros(); nTimeChainState += nTime5 - nTime4;
     LogPrint("bench", "  - Writing chainstate: %.2fms [%.2fs]\n", (nTime5 - nTime4) * 0.001, nTimeChainState * 0.000001);
+    
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0028-remove-transactions-added-in-block
     // Remove conflicting transactions from the mempool.
     list<CTransaction> txConflicted;
     mempool.removeForBlock(pblock->vtx, pindexNew->nHeight, txConflicted, !IsInitialBlockDownload());
 
+    // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-mem-0029-remove-expired-transactions
     // Remove transactions that expire at new block height from mempool
     mempool.removeExpired(pindexNew->nHeight);
 
