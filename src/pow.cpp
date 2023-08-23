@@ -737,6 +737,7 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
 
             if ( (flag != 0 || special2 > 0) && special2 != -2 )
             {
+                // https://github.com/dimxy/komodo/wiki/Komodo-Consensus-Specification-Draft#kmd-dpow-0012-notary-special-block-difficulty-must-be-over-komodo_mindiff_nbits
                 bnTarget.SetCompact(KOMODO_MINDIFF_NBITS,&fNegative,&fOverflow);
             }
         }
