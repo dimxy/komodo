@@ -2486,6 +2486,11 @@ bool IsInitialBlockDownload()
     {
         return true;
     }
+    if (false && ptr->nChainWork < UintToArith256(chainParams.GetConsensus().nMinimumChainWork))   // MinimumChainWork disabled
+    {
+        fprintf(stderr,"nChainWork insufficient in IsInitialDownload\n");
+        return true;
+    }
     bool state = ((chainActive.Height() < ptr->nHeight - 24*60) ||
              ptr->GetBlockTime() < (GetTime() - nMaxTipAge));
     if ( KOMODO_INSYNC != 0 )
