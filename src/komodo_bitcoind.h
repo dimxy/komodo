@@ -2031,7 +2031,7 @@ bool verusCheckPOSBlock(int32_t slowflag, CBlock *pblock, int32_t height)
                 if (!validHash || posHash > target)
                 {
                     validHash = false;
-                    printf("ERROR: invalid nonce value for PoS block\nnNonce: %s\nrawHash: %s\nposHash: %s\nvalue: %lu\n",
+                    printf("ERROR: invalid nonce value for PoS block\nnNonce: %s\nrawHash: %s\nposHash: %s\nvalue: %llu\n",
                             pblock->nNonce.GetHex().c_str(), rawHash.GetHex().c_str(), posHash.GetHex().c_str(), value);
                 }
             }
@@ -2152,7 +2152,7 @@ bool verusCheckPOSBlock(int32_t slowflag, CBlock *pblock, int32_t height)
                     }
                     else
                     {
-                        printf("ERROR: malformed nonce value for PoS block\nnNonce: %s\nrawHash: %s\nposHash: %s\nvalue: %lu\n",
+                        printf("ERROR: malformed nonce value for PoS block\nnNonce: %s\nrawHash: %s\nposHash: %s\nvalue: %llu\n",
                             pblock->nNonce.GetHex().c_str(), rawHash.GetHex().c_str(), posHash.GetHex().c_str(), value);
                     }
                 }
@@ -2678,7 +2678,7 @@ int32_t komodo_checkPOW(int64_t stakeTxValue, int32_t slowflag,CBlock *pblock,in
         if ( slowflag == 0 && pblock->vtx[0].vout.size() > 1 )
         {
             // Check the notarisation tx is to the crypto address.
-            if ( !komodo_is_notarytx(pblock->vtx[1]) == 1 )
+            if ( !komodo_is_notarytx(pblock->vtx[1]))
             {
                 //fprintf(stderr, "notarisation is not to crypto address ht.%i\n",height);
                 LOGSTREAM(LOG_KOMODOBITCOIND, CCLOG_ERROR, stream << "[" << ASSETCHAINS_SYMBOL << ":" << height << "]" << " notarisation is not to crypto address ht." << height << std::endl);

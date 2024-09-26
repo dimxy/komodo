@@ -223,7 +223,7 @@ static bool AssetsValidateInternal(struct CCcontract_info *cpAssets, Eval* eval,
             //vout.1: vin.2 back to users pubkey
             //vout.2: normal output for change (if any)
             //vout.n-1: opreturn [EVAL_ASSETS] ['o']
-            if (assetoshis = AssetValidateBuyvin(cpAssets, eval, vin_unit_price, vinorigpubkey, origCCaddrDummy, origNormalAddr, tx, assetid) == 0)
+            if ((assetoshis = AssetValidateBuyvin(cpAssets, eval, vin_unit_price, vinorigpubkey, origCCaddrDummy, origNormalAddr, tx, assetid)) == 0)
                 return(false);
             else if( ConstrainVout(tx.vout[0], 0, origNormalAddr, assetoshis) == false )
                 return eval->Invalid("invalid refund for cancelbuy");

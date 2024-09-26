@@ -1,5 +1,4 @@
 /******************************************************************************
-/******************************************************************************
  * Copyright © 2014-2019 The SuperNET Developers.                             *
  *                                                                            *
  * See the AUTHORS, DEVELOPER-AGREEMENT and LICENSE files at                  *
@@ -2202,7 +2201,7 @@ static bool check_stake_tx(bool isLocked, const CTransaction &tx, std::string &e
             char coinaddr[KOMODO_ADDRESS_BUFSIZE];
             Getscriptaddress(coinaddr, tx.vout[0].scriptPubKey);
             // make map key to sort vout sums (actually only 1 vout)
-            std::string scoinaddr = coinaddr + isLocked ? createtxid.ToString() : "";  // for LCL utxos add createtxid to the key to ensure that LCL utxo not sent to another loop
+            std::string scoinaddr = coinaddr + (isLocked ? createtxid.ToString() : "");  // for LCL utxos add createtxid to the key to ensure that LCL utxo not sent to another loop
             vout_amounts[scoinaddr] += tx.vout[0].nValue;
         }
     }
@@ -2227,7 +2226,7 @@ static bool check_stake_tx(bool isLocked, const CTransaction &tx, std::string &e
                     char coinaddr[KOMODO_ADDRESS_BUFSIZE];
                     Getscriptaddress(coinaddr, vintx.vout[n].scriptPubKey);
                     // make map key to sort vin sums
-                    std::string scoinaddr = coinaddr + isLocked ? createtxid.ToString() : "";  // for LCL utxos add createtxid to the key to ensure that LCL utxo not sent to another loop
+                    std::string scoinaddr = coinaddr + (isLocked ? createtxid.ToString() : "");  // for LCL utxos add createtxid to the key to ensure that LCL utxo not sent to another loop
                     vin_amounts[scoinaddr] += vintx.vout[n].nValue;
                 }
             }

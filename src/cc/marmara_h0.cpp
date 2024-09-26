@@ -1,5 +1,4 @@
 /******************************************************************************
-/******************************************************************************
  * Copyright © 2014-2019 The SuperNET Developers.                             *
  *                                                                            *
  * See the AUTHORS, DEVELOPER-AGREEMENT and LICENSE files at                  *
@@ -1143,7 +1142,7 @@ static bool check_settlement_tx(const CTransaction &settletx, std::string &error
                 CTransaction vintx;
                 uint256 hashBlock;
 
-                if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock) /*&& !hashBlock.IsNull()*//*)
+                if (myGetTransaction(tx.vin[i].prevout.hash, vintx, hashBlock) // && !hashBlock.IsNull())
                 {
                     CPubKey pk_in_opret;
                     if (IsMarmaraLockedInLoopVout(vintx, tx.vin[i].prevout.n, pk_in_opret))   // if vin added by AddMarmaraCCInputs
