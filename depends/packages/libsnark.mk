@@ -14,7 +14,7 @@ define $(package)_set_vars
   $(package)_build_env+=CXXFLAGS="$($(package)_cxxflags) -DBINARY_OUTPUT -DSTATICLIB -DNO_PT_COMPRESSION=1 "
 endef
 define $(package)_build_cmds
-	$(MAKE) lib DEPINST=$(host_prefix) CURVE=ALT_BN128 MULTICORE=1 NO_PROCPS=1 NO_GTEST=1 NO_DOCS=1 STATIC=1 NO_SUPERCOP=1 FEATUREFLAGS=-DMONTGOMERY_OUTPUT OPTFLAGS="-O2 -march=x86-64 -g "
+	$(MAKE) lib DEPINST=$(host_prefix) CURVE=ALT_BN128 MULTICORE=0 NO_PROCPS=1 NO_GTEST=1 NO_DOCS=1 STATIC=1 NO_SUPERCOP=1 FEATUREFLAGS=-DMONTGOMERY_OUTPUT OPTFLAGS="-O2 -march=x86-64 -g "
 endef
 else ifeq ($(host_os),mingw32)
 define $(package)_build_cmds
