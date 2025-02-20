@@ -1816,6 +1816,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     if (chainName.isKMD() && chainActive.Tip() != nullptr
             && !komodo_validate_interest(tx, chainActive.Tip()->nHeight + 1, chainActive.Tip()->GetMedianTimePast() + 777))
     {
+        error("AcceptToMemoryPool komodo_validate_interest failed txid.%s \n", tx.GetHash().ToString().c_str());
         return state.DoS(0, error("%s: komodo_validate_interest failed txid.%s", __func__, tx.GetHash().ToString()), REJECT_INVALID, "komodo-interest-invalid");
     }
     
@@ -1833,7 +1834,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // Coinbase is only valid in a block, not as a loose transaction
     if (tx.IsCoinBase())
     {
-        fprintf(stderr,"AcceptToMemoryPool coinbase as individual tx\n");
+        error("AcceptToMemoryPool coinbase as individual tx\n");
         return state.DoS(100, error("AcceptToMemoryPool: coinbase as individual tx"),REJECT_INVALID, "coinbase");
     }
     
@@ -1841,6 +1842,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     string reason;
     if (Params().RequireStandard() && !IsStandardTx(tx, reason, nextBlockHeight))
     {
+        error("AcceptToMemoryPool: nonstandard transaction %s\n", reason);
         return state.DoS(0,error("AcceptToMemoryPool: nonstandard transaction: %s", reason),REJECT_NONSTANDARD, reason);
     }
     
@@ -1849,12 +1851,14 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
     // be mined yet.
     if (!CheckFinalTx(tx, STANDARD_LOCKTIME_VERIFY_FLAGS))
     {
+        error("AcceptToMemoryPool: non-final %s\n", tx.GetHash().ToString().c_str());
         return state.DoS(0, false, REJECT_NONSTANDARD, "non-final");
     }
     // is it already in the memory pool?
     uint256 hash = tx.GetHash();
     if (pool.exists(hash))
     {
+        error("AcceptToMemoryPool already in mempool tx %s\n", tx.GetHash().ToString().c_str());
         return state.Invalid(false, REJECT_DUPLICATE, "already in mempool");
     }
 
@@ -1867,6 +1871,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             if (pool.mapNextTx.count(outpoint))
             {
                 // Disable replacement feature for now
+                error("AcceptToMemoryPool mempool conflict %s\n", tx.GetHash().ToString().c_str());
                 return state.Invalid(false, REJECT_INVALID, "mempool conflict");
             }
         }
@@ -1874,12 +1879,14 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             BOOST_FOREACH(const uint256 &nf, joinsplit.nullifiers) {
                 if (pool.nullifierExists(nf, SPROUT)) {
                     fprintf(stderr,"pool.mapNullifiers.count\n");
+                    error("AcceptToMemoryPool pool.nullifierExist SPROUT false %s\n", tx.GetHash().ToString().c_str());
                     return false;
                 }
             }
         }
         for (const SpendDescription &spendDescription : tx.vShieldedSpend) {
             if (pool.nullifierExists(spendDescription.nullifier, SAPLING)) {
+                error("AcceptToMemoryPool nullifierExists SAPLING false %s\n", tx.GetHash().ToString().c_str());
                 return false;
             }
         }
@@ -1897,6 +1904,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             // do we already have it?
             if (view.HaveCoins(hash))
             {
+                error("AcceptToMemoryPool already have coins %s\n", tx.GetHash().ToString().c_str());
                 return state.Invalid(false, REJECT_DUPLICATE, "already have coins");
             }
 
@@ -1917,6 +1925,8 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                     {
                         if (pfMissingInputs)
                             *pfMissingInputs = true;
+
+                        error("AcceptToMemoryPool !HaveCoins %s pfMissingInputs=%d\n", tx.GetHash().ToString().c_str(), pfMissingInputs);
                         return false; 
                         /*
                             https://github.com/zcash/zcash/blob/master/src/main.cpp#L1490
@@ -1927,6 +1937,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                 // are the actual inputs available?
                 if (!view.HaveInputs(tx))
                 {
+                    error("AcceptToMemoryPool inputs already spent %s\n", tx.GetHash().ToString().c_str());
                     return state.Invalid(error("AcceptToMemoryPool: inputs already spent"),REJECT_DUPLICATE, "bad-txns-inputs-spent");
                 }
             }
@@ -1934,6 +1945,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
             // are the joinsplit's requirements met?
             if (!view.HaveJoinSplitRequirements(tx))
             {
+                error("AcceptToMemoryPool joinsplit requirements not met %s\n", tx.GetHash().ToString().c_str());
                 return state.Invalid(error("AcceptToMemoryPool: joinsplit requirements not met"),REJECT_DUPLICATE, "bad-txns-joinsplit-requirements-not-met");
             }
             
@@ -1946,7 +1958,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         }
         // Check for non-standard pay-to-script-hash in inputs
         if (Params().RequireStandard() && !AreInputsStandard(tx, view, consensusBranchId))
-            return error("AcceptToMemoryPool: reject nonstandard transaction input");
+            return error("AcceptToMemoryPool: reject nonstandard transaction input %s", tx.GetHash().ToString().c_str());
         
         // Check that the transaction doesn't have an excessive number of
         // sigops, making it impossible to mine. Since the coinbase transaction
@@ -2003,6 +2015,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
         // Require that free transactions have sufficient priority to be mined in the next block.
         if (GetBoolArg("-relaypriority", false) && nFees < ::minRelayTxFee.GetFee(nSize) && !AllowFree(view.GetPriority(tx, chainActive.Height() + 1))) {
             fprintf(stderr,"accept failure.6\n");
+            error("AcceptToMemoryPool insufficient priority %s\n", tx.GetHash().ToString().c_str());
             return state.DoS(0, false, REJECT_INSUFFICIENTFEE, "insufficient priority");
         }
         
@@ -2038,6 +2051,7 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransa
                                       hash.ToString(),
                                       nFees, ::minRelayTxFee.GetFee(nSize) * 10000);
             LogPrint("mempool", errmsg.c_str());
+            error("AcceptToMemoryPool %s %s\n", errmsg.c_str(), tx.GetHash().ToString().c_str());
             return state.Error("AcceptToMemoryPool: " + errmsg);
         }
 
