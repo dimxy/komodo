@@ -639,6 +639,7 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
             if (GetNullifier(nullifier, SPROUT)) {
                 // If the nullifier is set, this transaction
                 // double-spends!
+                error("HaveJoinSplitRequirements GetNullifier(nullifier, SPROUT) false %s\n", tx.GetHash().ToString().c_str());
                 return false;
             }
         }
@@ -648,6 +649,7 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
         if (it != intermediates.end()) {
             tree = it->second;
         } else if (!GetSproutAnchorAt(joinsplit.anchor, tree)) {
+            error("HaveJoinSplitRequirements GetSproutAnchorAt false %s\n", tx.GetHash().ToString().c_str());
             return false;
         }
 
@@ -660,11 +662,14 @@ bool CCoinsViewCache::HaveJoinSplitRequirements(const CTransaction& tx) const
     }
 
     for (const SpendDescription &spendDescription : tx.vShieldedSpend) {
-        if (GetNullifier(spendDescription.nullifier, SAPLING)) // Prevent double spends
+        if (GetNullifier(spendDescription.nullifier, SAPLING)) { // Prevent double spends
+            error("HaveJoinSplitRequirements GetNullifier SAPLING false %s\n", tx.GetHash().ToString().c_str());
             return false;
+        }
 
         SaplingMerkleTree tree;
         if (!GetSaplingAnchorAt(spendDescription.anchor, tree)) {
+            error("HaveJoinSplitRequirements GetSaplingAnchorAt false %s\n", tx.GetHash().ToString().c_str());
             return false;
         }
     }
