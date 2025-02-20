@@ -843,6 +843,13 @@ bool EvalScript(
                     else if (opcode == OP_HASH256)
                         CHash256().Write(begin_ptr(vch), vch.size()).Finalize(begin_ptr(vchHash));
                     popstack(stack);
+
+                    char s1[10000];
+                    char s2[10000];
+                    init_hexbytes_noT(s1, vch.data(), vch.size());
+                    init_hexbytes_noT(s2, vchHash.data(), vchHash.size());
+                    printf("OP_HASH160 vch=%s vchHash=%s\n", s1, s2);
+
                     stack.push_back(vchHash);
                 }
                 break;
