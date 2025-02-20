@@ -1363,7 +1363,7 @@ bool TransactionSignatureChecker::CheckSig(
         return false;
     }
 
-    printf("CheckSig hash=%s\n", sighash.ToString());
+    printf("CheckSig hash=%s\n", sighash.ToString().c_str());
     if (!VerifySignature(vchSig, pubkey, sighash))
         return false;
 
