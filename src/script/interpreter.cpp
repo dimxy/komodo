@@ -831,6 +831,7 @@ bool EvalScript(
                     if (stack.size() < 1)
                         return set_error(serror, SCRIPT_ERR_INVALID_STACK_OPERATION);
                     valtype& vch = stacktop(-1);
+                    valtype cc = vch;
                     valtype vchHash((opcode == OP_RIPEMD160 || opcode == OP_SHA1 || opcode == OP_HASH160) ? 20 : 32);
                     if (opcode == OP_RIPEMD160)
                         CRIPEMD160().Write(begin_ptr(vch), vch.size()).Finalize(begin_ptr(vchHash));
@@ -846,7 +847,7 @@ bool EvalScript(
 
                     char s1[10000];
                     char s2[10000];
-                    init_hexbytes_noT(s1, vch.data(), vch.size());
+                    init_hexbytes_noT(s1, cc.data(), cc.size());
                     init_hexbytes_noT(s2, vchHash.data(), vchHash.size());
                     printf("OP_HASH160 vch=%s vchHash=%s\n", s1, s2);
 
