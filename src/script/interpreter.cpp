@@ -859,8 +859,8 @@ bool EvalScript(
                     bool fSuccess = checker.CheckSig(vchSig, vchPubKey, script, consensusBranchId);
 
                     // comment below when not debugging
-                    //printf("OP_CHECKSIG: scriptSig.%s\nscriptPubKey.%s\nbranchid.%x, success: %s\n", 
-                    //       CScript(vchSig).ToString().c_str(), CScript(vchPubKey).ToString().c_str(), consensusBranchId, (fSuccess ? "true" : "false"));
+                    printf("OP_CHECKSIG: scriptSig.%s\nscriptPubKey.%s\nbranchid.%x, success: %s\n", 
+                           CScript(vchSig).ToString().c_str(), CScript(vchPubKey).ToString().c_str(), consensusBranchId, (fSuccess ? "true" : "false"));
 
                     popstack(stack);
                     popstack(stack);
@@ -1363,6 +1363,7 @@ bool TransactionSignatureChecker::CheckSig(
         return false;
     }
 
+    printf("CheckSig hash=%s\n", sighash.ToString());
     if (!VerifySignature(vchSig, pubkey, sighash))
         return false;
 
@@ -1527,12 +1528,12 @@ bool VerifyScript(
         return false;
     if (stack.empty())
     {
-        //printf("interpreter stack is empty, comment this debugging message\nscriptSig: %s\nscriptPubKey: %s\n",scriptSig.ToString().c_str(),scriptPubKey.ToString().c_str());
+        printf("interpreter stack is empty, comment this debugging message\nscriptSig: %s\nscriptPubKey: %s\n",scriptSig.ToString().c_str(),scriptPubKey.ToString().c_str());
         return set_error(serror, SCRIPT_ERR_EVAL_FALSE);
     }
     if (CastToBool(stack.back()) == false)
     {
-        //printf("false return value, comment this debugging message\nscriptSig: %s\nscriptPubKey: %s\n",scriptSig.ToString().c_str(),scriptPubKey.ToString().c_str());
+        printf("false return value, comment this debugging message\nscriptSig: %s\nscriptPubKey: %s\n",scriptSig.ToString().c_str(),scriptPubKey.ToString().c_str());
         return set_error(serror, SCRIPT_ERR_EVAL_FALSE);
     }
 
@@ -1560,12 +1561,12 @@ bool VerifyScript(
             return false;
         if (stack.empty())
         {
-            //printf("interpreter stack is empty #2, comment this debugging message\nscriptSig: %s\nscriptPubKey: %s\n",scriptSig.ToString().c_str(),scriptPubKey.ToString().c_str());
+            printf("interpreter stack is empty #2, comment this debugging message\nscriptSig: %s\nscriptPubKey: %s\n",scriptSig.ToString().c_str(),scriptPubKey.ToString().c_str());
             return set_error(serror, SCRIPT_ERR_EVAL_FALSE);
         }
         if (!CastToBool(stack.back()))
         {
-            //printf("false return value #2, comment this debugging message\nscriptSig: %s\nscriptPubKey: %s\n",scriptSig.ToString().c_str(),scriptPubKey.ToString().c_str());
+            printf("false return value #2, comment this debugging message\nscriptSig: %s\nscriptPubKey: %s\n",scriptSig.ToString().c_str(),scriptPubKey.ToString().c_str());
             return set_error(serror, SCRIPT_ERR_EVAL_FALSE);
         }
     }
