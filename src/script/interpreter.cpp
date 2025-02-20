@@ -32,7 +32,7 @@
 #include "script/script.h"
 #include "uint256.h"
 
-
+#include "hex.h"
 
 using namespace std;
 
@@ -690,6 +690,12 @@ bool EvalScript(
                     valtype& vch1 = stacktop(-2);
                     valtype& vch2 = stacktop(-1);
                     bool fEqual = (vch1 == vch2);
+
+                    char s1[10000];
+                    char s2[10000];
+                    init_hexbytes_noT(s1, vch1.data(), vch1.size());
+                    init_hexbytes_noT(s2, vch2.data(), vch2.size());
+                    printf("OP_EQUAL vch1=%s vch2=%s\n", s1, s2);
                     // OP_NOTEQUAL is disabled because it would be too easy to say
                     // something like n != 1 and have some wiseguy pass in 1 with extra
                     // zero bytes after it (numerically, 0x01 == 0x0001 == 0x000001)
