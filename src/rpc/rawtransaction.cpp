@@ -199,6 +199,8 @@ void TxToJSONExpanded(const CTransaction& tx, const uint256 hashBlock, UniValue&
         entry.push_back(Pair("expiryheight", (int64_t)tx.nExpiryHeight));
     }
     UniValue vin(UniValue::VARR);
+    CAmount valueIn = 0;
+    CAmount total_interest = 0;
     BOOST_FOREACH(const CTxIn& txin, tx.vin) {
         UniValue in(UniValue::VOBJ);
         if (tx.IsCoinBase())
@@ -235,6 +237,13 @@ void TxToJSONExpanded(const CTransaction& tx, const uint256 hashBlock, UniValue&
                 {
                     if (ExtractDestination(tx.vout[txin.prevout.n].scriptPubKey, address))
                         in.push_back(Pair("address", CBitcoinAddress(address).ToString()));
+                    in.push_back(Pair("value", tx.vout[txin.prevout.n].nValue));
+                    valueIn += tx.vout[txin.prevout.n].nValue;
+
+                    int64_t interest; int32_t txheight; uint32_t locktime;
+                    interest = komodo_accrued_interest(&txheight, &locktime, txin.prevout.hash, txin.prevout.n, 0, tx.vout[txin.prevout.n].nValue, nHeight);
+                    in.push_back(Pair("interest", interest));
+                    total_interest += interest;
                 }
             }
             UniValue o(UniValue::VOBJ);
@@ -263,6 +272,7 @@ void TxToJSONExpanded(const CTransaction& tx, const uint256 hashBlock, UniValue&
     BlockMap::iterator it = mapBlockIndex.find(pcoinsTip->GetBestBlock());
     CBlockIndex *tipindex,*pindex = it->second;
     uint64_t interest;
+    CAmount valueOut = 0;
     UniValue vout(UniValue::VARR);
     for (unsigned int i = 0; i < tx.vout.size(); i++)
     {
@@ -276,6 +286,7 @@ void TxToJSONExpanded(const CTransaction& tx, const uint256 hashBlock, UniValue&
             out.push_back(Pair("interest", ValueFromAmount(interest)));
         }
         out.push_back(Pair("valueSat", txout.nValue)); // [+] Decker
+        valueOut += txout.nValue;
         out.push_back(Pair("n", (int64_t)i));
         UniValue o(UniValue::VOBJ);
         ScriptPubKeyToJSON(txout.scriptPubKey, o, true);
@@ -315,6 +326,11 @@ void TxToJSONExpanded(const CTransaction& tx, const uint256 hashBlock, UniValue&
             entry.push_back(Pair("bindingSig", HexStr(tx.bindingSig.begin(), tx.bindingSig.end())));
         }
     }
+
+    entry.push_back(Pair("totalInput", valueIn));
+    entry.push_back(Pair("totalInterest", total_interest));
+    entry.push_back(Pair("totalOutput", valueOut));
+    entry.push_back(Pair("txFee", valueIn + total_interest - valueOut));
 
     if (!hashBlock.IsNull()) {
         entry.push_back(Pair("blockhash", hashBlock.GetHex()));
