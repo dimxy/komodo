@@ -762,9 +762,40 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             txNew.vout[0].nValue += 5000;
         pblock->vtx[0] = txNew;
 
-        // add additional txns
+        // add miner txns
         for (auto tx : *addtxns) {
+            unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
+            // Legacy limits on sigOps:
+            unsigned int nTxSigOps = GetLegacySigOpCount(tx);
+            if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS-1)
+            {
+                CCLogPrintF("miner", CCLOG_DEBUG1, "%s A nBlockSigOps %d + %d nTxSigOps >= %d MAX_BLOCK_SIGOPS-1, skipping settle tx %s\n", __func__, (int32_t)nBlockSigOps,(int32_t)nTxSigOps,(int32_t)MAX_BLOCK_SIGOPS, tx.GetHash().GetHex().c_str());
+                continue;
+            }
+            if (!view.HaveInputs(tx))
+            {
+                LOGSTREAMFN("miner", CCLOG_DEBUG1, stream << "dont have inputs, skipping settle tx=" << tx.GetHash().GetHex() << std::endl);
+                continue;
+            }
+            CAmount nTxFees = view.GetValueIn(chainActive.LastTip()->GetHeight(),&interest,tx,chainActive.LastTip()->nTime)-tx.GetValueOut();
+            nTxSigOps += GetP2SHSigOpCount(tx, view);
+            if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS-1)
+            {
+                CCLogPrintF("miner", CCLOG_DEBUG1, "%s B nBlockSigOps %d + %d nTxSigOps >= %d MAX_BLOCK_SIGOPS-1, skipping settle tx %s\n", __func__, (int32_t)nBlockSigOps,(int32_t)nTxSigOps,(int32_t)MAX_BLOCK_SIGOPS, tx.GetHash().GetHex().c_str());
+                continue;
+            }
+            if (nBlockSize + nTxSize >= nBlockMaxSize-512) // room for extra autotx
+            {
+                CCLogPrintF("miner", CCLOG_DEBUG1, "%s nBlockSize %d + %d nTxSize >= %d nBlockMaxSize, skipping settle tx %s\n", __func__, (int32_t)nBlockSize,(int32_t)nTxSize,(int32_t)nBlockMaxSize, tx.GetHash().GetHex().c_str());
+                continue;
+            }
             pblock->vtx.push_back(tx);
+            pblocktemplate->vTxFees.push_back(nTxFees);
+            pblocktemplate->vTxSigOps.push_back(nTxSigOps);
+            nBlockSize += nTxSize;
+            ++nBlockTx;
+            nBlockSigOps += nTxSigOps;
+            nFees += nTxFees;
         }
 
         if (ASSETCHAINS_MARMARA && nHeight > 0 && (nHeight & 1) == 0) 
