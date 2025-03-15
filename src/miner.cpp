@@ -55,6 +55,7 @@
 #include "sodium.h"
 
 #include "notaries_staked.h"
+#include "util.h"
 
 #include <boost/thread.hpp>
 #include <boost/tuple/tuple.hpp>
@@ -187,7 +188,7 @@ int32_t komodo_waituntilelegible(uint32_t blocktime, int32_t stakeHeight, uint32
     return(1);
 }
 
-CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32_t gpucount, bool isStake)
+CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32_t gpucount, bool isStake, vector<CTransaction> *addtxns)
 {
     CScript scriptPubKeyIn(_scriptPubKeyIn);
 
@@ -761,6 +762,11 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             txNew.vout[0].nValue += 5000;
         pblock->vtx[0] = txNew;
 
+        // add additional txns
+        for (auto tx : *addtxns) {
+            pblock->vtx.push_back(tx);
+        }
+
         if (ASSETCHAINS_MARMARA && nHeight > 0 && (nHeight & 1) == 0) 
         {  // add marmara coinbase opret for activated coins (for even blocks)
             // MarmaraCreatePoSCoinbaseScriptPubKey(txNew, nHeight, pk, isStake, pblock->vtx.back());
@@ -1036,6 +1042,7 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
 CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey, int32_t nHeight, int32_t gpucount, bool isStake)
 {
     CPubKey pubkey; CScript scriptPubKey; uint8_t *script,*ptr; int32_t i,len;
+    std::vector<CTransaction> minersTransactions;
     if ( nHeight == 1 && ASSETCHAINS_COMMISSION != 0 && ASSETCHAINS_SCRIPTPUB[ASSETCHAINS_SCRIPTPUB.back()] != 49 && ASSETCHAINS_SCRIPTPUB[ASSETCHAINS_SCRIPTPUB.back()-1] != 51 )
     {
         if ( ASSETCHAINS_OVERRIDE_PUBKEY33[0] != 0 )
@@ -1080,7 +1087,11 @@ CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey, int32_t nHeight, 
         // create marmara activated coins spk for even blocks
         scriptPubKey = MarmaraCreateDefaultCoinbaseScriptPubKey(nHeight, pubkey);   
     }
-    return CreateNewBlock(pubkey, scriptPubKey, gpucount, isStake);
+    if(ASSETCHAINS_MARMARA != 0 && GetBoolArg("-ac_autosettle", true))   
+    {
+        MarmaraRunAutoSettlement(nHeight, minersTransactions);        // run Marmara autosettlement, returns settlement transactions
+    }
+    return CreateNewBlock(pubkey, scriptPubKey, gpucount, isStake, &minersTransactions);
 }
 
 void komodo_sendmessage(int32_t minpeers,int32_t maxpeers,const char *message,std::vector<uint8_t> payload)

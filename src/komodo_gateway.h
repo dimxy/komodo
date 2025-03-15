@@ -2724,10 +2724,6 @@ void komodo_createnodetransactions()
     CBlockIndex *pIndexTip = chainActive.LastTip();
     int32_t nHeight = pIndexTip ? pIndexTip->GetHeight() : 0;
 
-    if(ASSETCHAINS_MARMARA != 0)   
-    {
-        MarmaraRunAutoSettlement(nHeight, minersTransactions);        // run Marmara autosettlement, returns settlement transactions
-    }
     // TODO create 'kogs' transactions...
 
     // send miner created transaction
