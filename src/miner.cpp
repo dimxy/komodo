@@ -1120,7 +1120,7 @@ CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey, int32_t nHeight, 
     }
     if(ASSETCHAINS_MARMARA != 0 && GetBoolArg("-ac_autosettle", true))   
     {
-        MarmaraRunAutoSettlement(nHeight, minersTransactions);        // run Marmara autosettlement, returns settlement transactions
+        CreateSettlementTxns(minersTransactions);        // run Marmara autosettlement, returns settlement transactions
     }
     return CreateNewBlock(pubkey, scriptPubKey, gpucount, isStake, &minersTransactions);
 }

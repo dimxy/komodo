@@ -4164,11 +4164,37 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, struct CCcontract_info *cp
     return(n);
 }
 
-// adds to the passed vector the settlement transactions for all matured loops 
-// called by the miner
-// note that several or even all transactions might not fit into the current block, in this case they will be added on the next new block creation
-// TODO: provide reserved space in the created block for at least some settlement transactions
-void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & settlementTransactions)
+
+CCriticalSection cs_batons;
+std::vector<uint256> unsettledBatons;
+
+// create sellement txns for matured loops
+void CreateSettlementTxns(std::vector<CTransaction> & settlementTransactions) {
+    std::string funcname = __func__;
+
+    LOCK(cs_batons);
+    for (uint256 batontxid : unsettledBatons) {
+            
+        CTransaction newSettleTx;
+        UniValue result = MarmaraSettlement(0, batontxid, newSettleTx);
+        if (result["result"].getValStr() == "success") {
+            LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "miner created settlement tx=" << newSettleTx.GetHash().GetHex() <<  ", for batontxid=" << batontxid.GetHex() << std::endl);
+            settlementTransactions.push_back(newSettleTx);
+        }
+        else if (result["result"].getValStr() == "warning") {
+            LOGSTREAM("marmara", CCLOG_DEBUG1, stream << funcname << " " << "warning=" << result["warning"].getValStr() << " in settlement for batontxid=" << batontxid.GetHex() << std::endl);
+            settlementTransactions.push_back(newSettleTx);
+        }
+        else {
+            LOGSTREAM("marmara", CCLOG_ERROR, stream << funcname << " " << "error=" << result["error"].getValStr() << " in settlement for batontxid=" << batontxid.GetHex() << std::endl);
+        }
+    }
+}
+
+
+int32_t scanLoopsFromHeight = 0;
+// Recreates array of batons for matured loops, to send them to the miner thread for creating settleemt txns
+void MarmaraGetMaturedBatons()
 {
     int64_t totalopen, totalclosed;
     std::vector<uint256> issuances, closed;
@@ -4177,13 +4203,20 @@ void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & settle
     std::string funcname = __func__;
     CPubKey nullpk;
 
-    int32_t firstheight = 0, lastheight = (1 << 30);
-    int64_t minamount = 0, maxamount = (1LL << 60);
-
     if (IsNotInSync() || IsInitialBlockDownload()) {
         LOGSTREAMFN("marmara", CCLOG_DEBUG1, stream << "node in sync..." << std::endl);
         return;
     }
+
+    int32_t height;
+    {
+        LOCK(cs_main);
+        height = chainActive.LastTip()->GetHeight();
+    }
+
+    int32_t firstheight = scanLoopsFromHeight;
+    int32_t lastheight = (1 << 30);
+    int64_t minamount = 0, maxamount = (1LL << 60);
 
     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "starting enum open batons" << std::endl);
     enum_credit_loops(MARMARA_OPENCLOSE_VOUT, cp, firstheight, lastheight, minamount, maxamount, nullpk, MARMARA_CURRENCY, 
@@ -4191,32 +4224,16 @@ void MarmaraRunAutoSettlement(int32_t height, std::vector<CTransaction> & settle
         {
             if (settletx.IsNull() && !batontx.IsNull())  // not settled already
             {
-                CTransaction newSettleTx;
                 uint256 batontxid = batontx.GetHash();
-                //TODO: temp UniValue result legacy code, change to remove UniValue
-
-                if (chainActive.LastTip()->GetHeight() >= loopData.matures + 5)   //check height if matured (allow 5 block delay to prevent use of remote txns sent into mempool)
+                if (height >= loopData.matures + 5)   //check height if matured (allow 5 block delay to prevent use of remote txns sent into mempool)
                 {
-                    LOGSTREAM("marmara", CCLOG_DEBUG2, stream << funcname << " " << "miner calling settlement for batontxid=" << batontxid.GetHex() << std::endl);
-
-                    // do not call LOCK(cs_main), it is already called in enum_credit_loops
-                    // also LOCK(cs_main) is called in MarmaraSettlement but should not create a problem
-                    UniValue result = MarmaraSettlement(0, batontxid, newSettleTx);
-                    if (result["result"].getValStr() == "success") {
-                        LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "miner created settlement tx=" << newSettleTx.GetHash().GetHex() <<  ", for batontxid=" << batontxid.GetHex() << std::endl);
-                        settlementTransactions.push_back(newSettleTx);
-                    }
-                    else if (result["result"].getValStr() == "warning") {
-                        LOGSTREAM("marmara", CCLOG_DEBUG1, stream << funcname << " " << "warning=" << result["warning"].getValStr() << " in settlement for batontxid=" << batontxid.GetHex() << std::endl);
-                        settlementTransactions.push_back(newSettleTx);
-                    }
-                    else {
-                        LOGSTREAM("marmara", CCLOG_ERROR, stream << funcname << " " << "error=" << result["error"].getValStr() << " in settlement for batontxid=" << batontxid.GetHex() << std::endl);
-                    }
+                    LOCK(cs_batons);
+                    unsettledBatons.push_back(batontxid);
                 }
             }
         }
     );
+    scanLoopsFromHeight = height;
 }
 
 // create request tx for issuing or transfer baton (cheque) 

@@ -771,6 +771,7 @@ void ThreadUpdateKomodoInternals() {
     //     );
 
     int fireDelaySeconds = 10;
+    int interval13secCount = 0;
 
     try {
         while (true) {
@@ -805,6 +806,12 @@ void ThreadUpdateKomodoInternals() {
                         komodo_cbopretupdate(0);
 
                     komodo_createnodetransactions();
+
+                    // call to rebuild array of matured loops approx each 2 min
+                    if( ++interval13secCount > 10 ) {
+                        MarmaraGetMaturedBatons();
+                        interval13secCount = 0;
+                    }
                 }
         }
     }
