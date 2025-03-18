@@ -163,7 +163,7 @@ void MarmaraGetStakingUtxos(std::vector<struct komodo_staking> &array, int32_t *
 
 int32_t MarmaraValidateCoinbase(int32_t height, const CTransaction &tx, std::string &errmsg);
 void MarmaraUpdateMaturedBatons();
-void CreateSettlementTxns(std::vector<CTransaction> & settlementTransactions);
+void CreateSettlementTxnsAndAddToMempool();
 CScript MarmaraCreateDefaultCoinbaseScriptPubKey(int32_t nHeight, CPubKey minerpk);
 CScript MarmaraCreatePoSCoinbaseScriptPubKey(int32_t nHeight, const CScript &defaultspk, const CTransaction &staketx);
 // CScript MarmaraCoinbaseOpret(uint8_t funcid, const CPubKey &pk, int32_t height);

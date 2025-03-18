@@ -762,42 +762,6 @@ CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& _scriptPubKeyIn, int32
             txNew.vout[0].nValue += 5000;
         pblock->vtx[0] = txNew;
 
-        // add miner txns
-        for (auto tx : *addtxns) {
-            unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-            // Legacy limits on sigOps:
-            unsigned int nTxSigOps = GetLegacySigOpCount(tx);
-            if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS-1)
-            {
-                CCLogPrintF("miner", CCLOG_DEBUG1, "%s A nBlockSigOps %d + %d nTxSigOps >= %d MAX_BLOCK_SIGOPS-1, skipping settle tx %s\n", __func__, (int32_t)nBlockSigOps,(int32_t)nTxSigOps,(int32_t)MAX_BLOCK_SIGOPS, tx.GetHash().GetHex().c_str());
-                continue;
-            }
-            if (!view.HaveInputs(tx))
-            {
-                LOGSTREAMFN("miner", CCLOG_DEBUG1, stream << "dont have inputs, skipping settle tx=" << tx.GetHash().GetHex() << std::endl);
-                continue;
-            }
-            CAmount nTxFees = view.GetValueIn(chainActive.LastTip()->GetHeight(),&interest,tx,chainActive.LastTip()->nTime)-tx.GetValueOut();
-            nTxSigOps += GetP2SHSigOpCount(tx, view);
-            if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS-1)
-            {
-                CCLogPrintF("miner", CCLOG_DEBUG1, "%s B nBlockSigOps %d + %d nTxSigOps >= %d MAX_BLOCK_SIGOPS-1, skipping settle tx %s\n", __func__, (int32_t)nBlockSigOps,(int32_t)nTxSigOps,(int32_t)MAX_BLOCK_SIGOPS, tx.GetHash().GetHex().c_str());
-                continue;
-            }
-            if (nBlockSize + nTxSize >= nBlockMaxSize-512) // room for extra autotx
-            {
-                CCLogPrintF("miner", CCLOG_DEBUG1, "%s nBlockSize %d + %d nTxSize >= %d nBlockMaxSize, skipping settle tx %s\n", __func__, (int32_t)nBlockSize,(int32_t)nTxSize,(int32_t)nBlockMaxSize, tx.GetHash().GetHex().c_str());
-                continue;
-            }
-            pblock->vtx.push_back(tx);
-            pblocktemplate->vTxFees.push_back(nTxFees);
-            pblocktemplate->vTxSigOps.push_back(nTxSigOps);
-            nBlockSize += nTxSize;
-            ++nBlockTx;
-            nBlockSigOps += nTxSigOps;
-            nFees += nTxFees;
-        }
-
         if (ASSETCHAINS_MARMARA && nHeight > 0 && (nHeight & 1) == 0) 
         {  // add marmara coinbase opret for activated coins (for even blocks)
             // MarmaraCreatePoSCoinbaseScriptPubKey(txNew, nHeight, pk, isStake, pblock->vtx.back());
@@ -1073,7 +1037,6 @@ void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& 
 CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey, int32_t nHeight, int32_t gpucount, bool isStake)
 {
     CPubKey pubkey; CScript scriptPubKey; uint8_t *script,*ptr; int32_t i,len;
-    std::vector<CTransaction> minersTransactions;
     if ( nHeight == 1 && ASSETCHAINS_COMMISSION != 0 && ASSETCHAINS_SCRIPTPUB[ASSETCHAINS_SCRIPTPUB.back()] != 49 && ASSETCHAINS_SCRIPTPUB[ASSETCHAINS_SCRIPTPUB.back()-1] != 51 )
     {
         if ( ASSETCHAINS_OVERRIDE_PUBKEY33[0] != 0 )
@@ -1120,9 +1083,9 @@ CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey, int32_t nHeight, 
     }
     if(ASSETCHAINS_MARMARA != 0 && GetBoolArg("-ac_autosettle", true))   
     {
-        CreateSettlementTxns(minersTransactions);        // run Marmara autosettlement, returns settlement transactions
+        CreateSettlementTxnsAndAddToMempool();        // run Marmara autosettlement
     }
-    return CreateNewBlock(pubkey, scriptPubKey, gpucount, isStake, &minersTransactions);
+    return CreateNewBlock(pubkey, scriptPubKey, gpucount, isStake);
 }
 
 void komodo_sendmessage(int32_t minpeers,int32_t maxpeers,const char *message,std::vector<uint8_t> payload)

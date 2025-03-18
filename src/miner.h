@@ -44,7 +44,7 @@ struct CBlockTemplate
 #define KOMODO_MAXGPUCOUNT 65
 
 /** Generate a new block, without valid proof-of-work */
-CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& scriptPubKeyIn, int32_t gpucount, bool isStake = 0, std::vector<CTransaction> *addtxns = nullptr);
+CBlockTemplate* CreateNewBlock(CPubKey _pk,const CScript& scriptPubKeyIn, int32_t gpucount, bool isStake = 0);
 #ifdef ENABLE_WALLET
 boost::optional<CScript> GetMinerScriptPubKey(CReserveKey& reservekey);
 CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey, int32_t nHeight, int32_t gpucount, bool isStake = false);

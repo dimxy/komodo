@@ -4169,7 +4169,7 @@ CCriticalSection cs_loopIds;
 std::set<uint256> unsettledLoopIds;
 
 // create sellement txns for matured loops
-void CreateSettlementTxns(std::vector<CTransaction> & settlementTransactions) {
+void CreateSettlementTxnsAndAddToMempool() {
     std::string funcname = __func__;
     CValidationState state;
     bool fMissingInputs;
@@ -4181,6 +4181,7 @@ void CreateSettlementTxns(std::vector<CTransaction> & settlementTransactions) {
         UniValue result = MarmaraSettlement(0, createtxid, newSettleTx);
         if (result["result"].getValStr() == "success") {
             LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "miner created settlement tx=" << newSettleTx.GetHash().GetHex() <<  ", for createtxid=" << createtxid.GetHex() << std::endl);
+            LOCK(cs_main);
             if (AcceptToMemoryPool(mempool, state, newSettleTx, false, &fMissingInputs, false)) {
                 unsettledLoopIds.erase(createtxid);
             } else {
@@ -4189,6 +4190,7 @@ void CreateSettlementTxns(std::vector<CTransaction> & settlementTransactions) {
         }
         else if (result["result"].getValStr() == "warning") {
             LOGSTREAM("marmara", CCLOG_DEBUG1, stream << funcname << " " << "warning=" << result["warning"].getValStr() << " in settlement for createtxid=" << createtxid.GetHex() << std::endl);
+            LOCK(cs_main);
             if (AcceptToMemoryPool(mempool, state, newSettleTx, false, &fMissingInputs, false)) {
                 unsettledLoopIds.erase(createtxid);
             } else {
@@ -4202,7 +4204,6 @@ void CreateSettlementTxns(std::vector<CTransaction> & settlementTransactions) {
 }
 
 
-int32_t scanLoopsFromHeight = 0;
 // Recreates array of batons for matured loops, to send them to the miner thread for creating settleemt txns
 void MarmaraUpdateMaturedBatons()
 {
@@ -4224,9 +4225,10 @@ void MarmaraUpdateMaturedBatons()
         height = chainActive.LastTip()->GetHeight();
     }
 
-    int32_t firstheight = scanLoopsFromHeight;
+    int32_t firstheight = 0;
     int32_t lastheight = (1 << 30);
-    int64_t minamount = 0, maxamount = (1LL << 60);
+    int64_t minamount = 0;
+    int64_t maxamount = (1LL << 60);
 
     LOGSTREAMFN("marmara", CCLOG_DEBUG2, stream << "starting enum open batons" << std::endl);
     enum_credit_loops(MARMARA_OPENCLOSE_VOUT, cp, firstheight, lastheight, minamount, maxamount, nullpk, MARMARA_CURRENCY, 
@@ -4243,7 +4245,6 @@ void MarmaraUpdateMaturedBatons()
             }
         }
     );
-    scanLoopsFromHeight = height;
 }
 
 // create request tx for issuing or transfer baton (cheque) 
