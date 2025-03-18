@@ -4181,14 +4181,17 @@ void CreateSettlementTxns(std::vector<CTransaction> & settlementTransactions) {
         UniValue result = MarmaraSettlement(0, createtxid, newSettleTx);
         if (result["result"].getValStr() == "success") {
             LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "miner created settlement tx=" << newSettleTx.GetHash().GetHex() <<  ", for createtxid=" << createtxid.GetHex() << std::endl);
-            if (!AcceptToMemoryPool(mempool, state, newSettleTx, false, &fMissingInputs, false)) {
+            if (AcceptToMemoryPool(mempool, state, newSettleTx, false, &fMissingInputs, false)) {
+                unsettledLoopIds.erase(createtxid);
+            } else {
                 LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "settlement tx not accepted to mempool txid=" << newSettleTx.GetHash().GetHex() << std::endl);
             }
         }
         else if (result["result"].getValStr() == "warning") {
             LOGSTREAM("marmara", CCLOG_DEBUG1, stream << funcname << " " << "warning=" << result["warning"].getValStr() << " in settlement for createtxid=" << createtxid.GetHex() << std::endl);
-
-            if (!AcceptToMemoryPool(mempool, state, newSettleTx, false, &fMissingInputs, false)) {
+            if (AcceptToMemoryPool(mempool, state, newSettleTx, false, &fMissingInputs, false)) {
+                unsettledLoopIds.erase(createtxid);
+            } else {
                 LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "settlement tx not accepted to mempool txid=" << newSettleTx.GetHash().GetHex() << std::endl);
             }
         }
@@ -4237,11 +4240,6 @@ void MarmaraUpdateMaturedBatons()
                     LOCK(cs_loopIds);
                     unsettledLoopIds.insert(issuancetx.GetHash());
                 }
-            } else {
-                // remove settled
-                LOCK(cs_loopIds);
-                unsettledLoopIds.erase(issuancetx.GetHash());
-                LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "loopids: removed settled loopid=" << issuancetx.GetHash().GetHex() << std::endl);
             }
         }
     );
