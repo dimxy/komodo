@@ -4171,6 +4171,8 @@ std::set<uint256> unsettledLoopIds;
 // create sellement txns for matured loops
 void CreateSettlementTxns(std::vector<CTransaction> & settlementTransactions) {
     std::string funcname = __func__;
+    CValidationState state;
+    bool fMissingInputs;
 
     LOCK(cs_loopIds);
     for (uint256 createtxid : unsettledLoopIds) {
@@ -4179,11 +4181,16 @@ void CreateSettlementTxns(std::vector<CTransaction> & settlementTransactions) {
         UniValue result = MarmaraSettlement(0, createtxid, newSettleTx);
         if (result["result"].getValStr() == "success") {
             LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "miner created settlement tx=" << newSettleTx.GetHash().GetHex() <<  ", for createtxid=" << createtxid.GetHex() << std::endl);
-            settlementTransactions.push_back(newSettleTx);
+            if (!AcceptToMemoryPool(mempool, state, newSettleTx, false, &fMissingInputs, false)) {
+                LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "settlement tx not accepted to mempool txid=" << newSettleTx.GetHash().GetHex() << std::endl);
+            }
         }
         else if (result["result"].getValStr() == "warning") {
             LOGSTREAM("marmara", CCLOG_DEBUG1, stream << funcname << " " << "warning=" << result["warning"].getValStr() << " in settlement for createtxid=" << createtxid.GetHex() << std::endl);
-            settlementTransactions.push_back(newSettleTx);
+
+            if (!AcceptToMemoryPool(mempool, state, newSettleTx, false, &fMissingInputs, false)) {
+                LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "settlement tx not accepted to mempool txid=" << newSettleTx.GetHash().GetHex() << std::endl);
+            }
         }
         else {
             LOGSTREAM("marmara", CCLOG_ERROR, stream << funcname << " " << "error=" << result["error"].getValStr() << " in settlement for createtxid=" << createtxid.GetHex() << std::endl);
