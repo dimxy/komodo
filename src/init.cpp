@@ -809,7 +809,7 @@ void ThreadUpdateKomodoInternals() {
 
                     // call to rebuild array of matured loops approx each 2 min
                     if( ++interval13secCount > 10 ) {
-                        MarmaraGetMaturedBatons();
+                        MarmaraUpdateMaturedBatons();
                         interval13secCount = 0;
                     }
                 }

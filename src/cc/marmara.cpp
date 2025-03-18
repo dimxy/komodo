@@ -4165,28 +4165,28 @@ static int32_t enum_credit_loops(int32_t nVoutMarker, struct CCcontract_info *cp
 }
 
 
-CCriticalSection cs_batons;
-std::vector<uint256> unsettledBatons;
+CCriticalSection cs_loopIds;
+std::set<uint256> unsettledLoopIds;
 
 // create sellement txns for matured loops
 void CreateSettlementTxns(std::vector<CTransaction> & settlementTransactions) {
     std::string funcname = __func__;
 
-    LOCK(cs_batons);
-    for (uint256 batontxid : unsettledBatons) {
+    LOCK(cs_loopIds);
+    for (uint256 createtxid : unsettledLoopIds) {
             
         CTransaction newSettleTx;
-        UniValue result = MarmaraSettlement(0, batontxid, newSettleTx);
+        UniValue result = MarmaraSettlement(0, createtxid, newSettleTx);
         if (result["result"].getValStr() == "success") {
-            LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "miner created settlement tx=" << newSettleTx.GetHash().GetHex() <<  ", for batontxid=" << batontxid.GetHex() << std::endl);
+            LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "miner created settlement tx=" << newSettleTx.GetHash().GetHex() <<  ", for createtxid=" << createtxid.GetHex() << std::endl);
             settlementTransactions.push_back(newSettleTx);
         }
         else if (result["result"].getValStr() == "warning") {
-            LOGSTREAM("marmara", CCLOG_DEBUG1, stream << funcname << " " << "warning=" << result["warning"].getValStr() << " in settlement for batontxid=" << batontxid.GetHex() << std::endl);
+            LOGSTREAM("marmara", CCLOG_DEBUG1, stream << funcname << " " << "warning=" << result["warning"].getValStr() << " in settlement for createtxid=" << createtxid.GetHex() << std::endl);
             settlementTransactions.push_back(newSettleTx);
         }
         else {
-            LOGSTREAM("marmara", CCLOG_ERROR, stream << funcname << " " << "error=" << result["error"].getValStr() << " in settlement for batontxid=" << batontxid.GetHex() << std::endl);
+            LOGSTREAM("marmara", CCLOG_ERROR, stream << funcname << " " << "error=" << result["error"].getValStr() << " in settlement for createtxid=" << createtxid.GetHex() << std::endl);
         }
     }
 }
@@ -4194,7 +4194,7 @@ void CreateSettlementTxns(std::vector<CTransaction> & settlementTransactions) {
 
 int32_t scanLoopsFromHeight = 0;
 // Recreates array of batons for matured loops, to send them to the miner thread for creating settleemt txns
-void MarmaraGetMaturedBatons()
+void MarmaraUpdateMaturedBatons()
 {
     int64_t totalopen, totalclosed;
     std::vector<uint256> issuances, closed;
@@ -4224,12 +4224,17 @@ void MarmaraGetMaturedBatons()
         {
             if (settletx.IsNull() && !batontx.IsNull())  // not settled already
             {
-                uint256 batontxid = batontx.GetHash();
                 if (height >= loopData.matures + 5)   //check height if matured (allow 5 block delay to prevent use of remote txns sent into mempool)
                 {
-                    LOCK(cs_batons);
-                    unsettledBatons.push_back(batontxid);
+                    LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "loopids: adding mature loopid=" << issuancetx.GetHash().GetHex() << std::endl);
+                    LOCK(cs_loopIds);
+                    unsettledLoopIds.insert(issuancetx.GetHash());
                 }
+            } else {
+                // remove settled
+                LOCK(cs_loopIds);
+                unsettledLoopIds.erase(issuancetx.GetHash());
+                LOGSTREAM("marmara", CCLOG_INFO, stream << funcname << " " << "loopids: removed settled loopid=" << issuancetx.GetHash().GetHex() << std::endl);
             }
         }
     );
