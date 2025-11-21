@@ -112,6 +112,7 @@ bool fPruneMode = false;
 bool fIsBareMultisigStd = true;
 bool fCheckBlockIndex = false;
 bool fCheckpointsEnabled = true;
+bool fSyncCheckpointsEnabled = true;
 bool fCoinbaseEnforcedProtectionEnabled = true;
 size_t nCoinCacheUsage = 5000 * 300;
 uint64_t nPruneTarget = 0;
@@ -649,6 +650,7 @@ CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& loc
 
 CCoinsViewCache *pcoinsTip = nullptr;
 CBlockTreeDB *pblocktree = nullptr;
+CCheckpointsDB *psyncCheckpointsDB = nullptr;
 
 // Komodo globals
 
@@ -5372,9 +5374,11 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
         }
     }
 
-    // Gulden: check that the block satisfies synchronized checkpoint
-    if (!Checkpoints::CheckSync(hash, pindexPrev))
-        return state.DoS(100, error("%s: rejected by sync checkpoint lock-in at %d", __func__, nHeight), REJECT_CHECKPOINT, "sync checkpoint mismatch");
+    if (fSyncCheckpointsEnabled) {
+        // Gulden: check that the block satisfies synchronized checkpoint
+        if (!Checkpoints::CheckSync(hash, pindexPrev))
+            return state.DoS(100, error("%s: rejected by sync checkpoint lock-in at %d", __func__, nHeight), REJECT_CHECKPOINT, "sync checkpoint mismatch");
+    }
 
     // Reject block.nVersion < 4 blocks
     if (block.nVersion < 4)
@@ -5812,15 +5816,17 @@ bool ProcessNewBlock(bool from_miner, int32_t height, CValidationState &state, C
     if (futureblock == 0 && !ActivateBestChain(false, state, pblock))
         return error("%s: ActivateBestChain failed", __func__);
 
-    if (!IsInitialBlockDownload())
-    {
-        // Gulden: if responsible for sync-checkpoint send it
-        if (!CSyncCheckpoint::strMasterPrivKey.empty())
-            Checkpoints::SendSyncCheckpoint(Checkpoints::AutoSelectSyncCheckpoint());
+    if (fSyncCheckpointsEnabled) {
+        if (!IsInitialBlockDownload())
+        {
+            // Gulden: if responsible for sync-checkpoint send it
+            if (!CSyncCheckpoint::strMasterPrivKey.empty())
+                Checkpoints::SendSyncCheckpoint(Checkpoints::AutoSelectSyncCheckpoint());
+        }
+        
+        // Gulden: check pending sync-checkpoint
+        Checkpoints::AcceptPendingSyncCheckpoint();
     }
-    
-    // Gulden: check pending sync-checkpoint
-    Checkpoints::AcceptPendingSyncCheckpoint();
 
     return true;
 }
@@ -6301,10 +6307,13 @@ bool static LoadBlockIndexDB()
         progress = (longestchain > 0 ) ? (double) chainActive.Height() / longestchain : 0.5;
     }
 
-    // Gulden: load hashSyncCheckpoint
-    CCheckpointsDB CheckpointsDB;
-    CheckpointsDB.ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint);
-    LogPrintf("LoadBlockIndexDB(): using synchronized checkpoint %s\n", Checkpoints::hashSyncCheckpoint.ToString().c_str());
+    if (fSyncCheckpointsEnabled) {
+        if (psyncCheckpointsDB) {
+            // Gulden: load hashSyncCheckpoint
+            psyncCheckpointsDB->ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint);
+            LogPrintf("LoadBlockIndexDB(): using synchronized checkpoint %s\n", Checkpoints::hashSyncCheckpoint.ToString().c_str());
+        }
+    }
 
     LogPrintf("%s: hashBestChain=%s height=%d date=%s progress=%f\n", __func__,
               chainActive.Tip()->GetBlockHash().ToString(), chainActive.Height(),
@@ -6678,19 +6687,22 @@ bool InitBlockIndex()
             if (!ActivateBestChain(true, state, &block))
                 return error("LoadBlockIndex(): genesis block cannot be activated");
 
-            // Gulden: initialize synchronized checkpoint
-            CCheckpointsDB CheckpointsDB;
-            if (!CheckpointsDB.WriteSyncCheckpoint(Params().GenesisBlock().GetHash()))
-                return error("LoadBlockIndex() : failed to init sync checkpoint");
-            std::string strPubKey;
-            std::string strPubKeyComp = GetBoolArg("-testnet", false) ? CSyncCheckpoint::strMasterPubKeyTestnet : CSyncCheckpoint::strMasterPubKey;
-            if (!CheckpointsDB.ReadCheckpointPubKey(strPubKey) || strPubKey != strPubKeyComp)
-            {
-                // write checkpoint master key to db
-                if (!CheckpointsDB.WriteCheckpointPubKey(strPubKeyComp))
-                    return error("LoadBlockIndex() : failed to write new checkpoint master key to db");
-                if (!Checkpoints::ResetSyncCheckpoint())
-                    return error("LoadBlockIndex() : failed to reset sync-checkpoint");
+            if (fSyncCheckpointsEnabled) {
+                // Gulden: initialize synchronized checkpoint
+                if (psyncCheckpointsDB) {
+                    if (!psyncCheckpointsDB->WriteSyncCheckpoint(Params().GenesisBlock().GetHash()))
+                        return error("LoadBlockIndex() : failed to init sync checkpoint");
+                    std::string strPubKey;
+                    std::string strPubKeyComp = GetBoolArg("-testnet", false) ? CSyncCheckpoint::strMasterPubKeyTestnet : CSyncCheckpoint::strMasterPubKey;
+                    if (!psyncCheckpointsDB->ReadCheckpointPubKey(strPubKey) || strPubKey != strPubKeyComp)
+                    {
+                        // write checkpoint master key to db
+                        if (!psyncCheckpointsDB->WriteCheckpointPubKey(strPubKeyComp))
+                            return error("LoadBlockIndex() : failed to write new checkpoint master key to db");
+                        if (!Checkpoints::ResetSyncCheckpoint())
+                            return error("LoadBlockIndex() : failed to reset sync-checkpoint");
+                    }
+                }
             }
 
             // Force a chainstate write so that when we VerifyDB in a moment, it doesn't check stale data

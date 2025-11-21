@@ -280,6 +280,8 @@ void Shutdown()
         pblocktree = nullptr;
         delete pnotarisations;
         pnotarisations = nullptr;
+        delete psyncCheckpointsDB;
+        psyncCheckpointsDB = nullptr;
     }
 #ifdef ENABLE_WALLET
     if (pwalletMain)
@@ -500,6 +502,7 @@ std::string HelpMessage(HelpMessageMode mode)
     if (showDebug)
     {
         strUsage += HelpMessageOpt("-checkpoints", strprintf("Disable expensive verification for known chain history (default: %u)", 1));
+        strUsage += HelpMessageOpt("-synccheckpoints", strprintf("Enable synchronized checkpoints signed by set of master keys (default: %u)", 0));
         strUsage += HelpMessageOpt("-dblogsize=<n>", strprintf("Flush database activity from memory pool to disk log every <n> megabytes (default: %u)", 100));
         strUsage += HelpMessageOpt("-disablesafemode", strprintf("Disable safemode, override a real safe mode event (default: %u)", 0));
         strUsage += HelpMessageOpt("-testsafemode", strprintf("Force safe mode (default: %u)", 0));
@@ -925,12 +928,16 @@ bool AttemptDatabaseOpen(size_t nBlockTreeDBCache, bool dbCompression, size_t db
         delete pcoinscatcher;
         delete pblocktree;
         delete pnotarisations;
+        delete psyncCheckpointsDB;
 
         pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex, dbCompression, dbMaxOpenFiles);
         pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex);
         pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
         pcoinsTip = new CCoinsViewCache(pcoinscatcher);
         pnotarisations = new NotarisationDB(100*1024*1024, false, fReindex);
+        if (fSyncCheckpointsEnabled) {
+            psyncCheckpointsDB = new CCheckpointsDB();
+        }
 
         if (fReindex) {
             boost::filesystem::remove(GetDataDir() / KOMODO_STATE_FILENAME);
@@ -1248,6 +1255,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
     fCheckBlockIndex = GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
     fCheckpointsEnabled = GetBoolArg("-checkpoints", true);
+    fSyncCheckpointsEnabled = GetBoolArg("-synccheckpoints", false);
 
     // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
     nScriptCheckThreads = GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);

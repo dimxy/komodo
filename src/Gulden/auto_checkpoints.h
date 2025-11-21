@@ -8,6 +8,7 @@
 #include <map>
 #include "net.h"
 #include "util.h"
+#include "txdb.h"
 
 class uint256;
 class CBlockIndex;
@@ -79,4 +80,6 @@ public:
 	bool CheckSignature();
 	bool ProcessSyncCheckpoint(CNode* pfrom);
 };
+
+extern CCheckpointsDB *psyncCheckpointsDB;
 #endif
