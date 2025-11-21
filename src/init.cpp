@@ -1351,6 +1351,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     //Gulden - generate private/public key pair for alert of checkpoint system
     if (mapArgs.count("-genkeypair"))
     {
+        if (!ECC_initialized()) {
+            return InitError(_("ECC not initialized\n"));
+        }
         CKey key;
         key.MakeNewKey(false);
 
@@ -1365,6 +1368,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     //Gulden - private key for auto checkpoint system.
     if (mapArgs.count("-checkpointkey"))
     {
+        if (!ECC_initialized()) {
+            return InitError(_("ECC not initialized\n"));
+        }
         std::string sKey=mapArgs["-checkpointkey"];
         if (!Checkpoints::SetCheckpointPrivKey(sKey))
             return InitError(_("Unable to sign checkpoint, wrong checkpointkey?\n"));
