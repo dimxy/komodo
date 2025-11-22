@@ -1256,6 +1256,9 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     fCheckBlockIndex = GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
     fCheckpointsEnabled = GetBoolArg("-checkpoints", true);
     fSyncCheckpointsEnabled = GetBoolArg("-synccheckpoints", false);
+    if (fSyncCheckpointsEnabled) {
+        LogPrintf("Sync checkpoints enabled\n");
+    }
 
     // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
     nScriptCheckThreads = GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
@@ -1383,7 +1386,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         if (!Checkpoints::SetCheckpointPrivKey(sKey))
             return InitError(_("Unable to sign checkpoint, wrong checkpointkey?\n"));
         else
-            LogPrintf("Checkpoint server enabled\n");
+            LogPrintf("Checkpoint key set\n");
     }
 
     std::string strWalletFile = GetArg("-wallet", "wallet.dat");

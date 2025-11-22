@@ -115,6 +115,7 @@ namespace Checkpoints
 	// Save the current auto sync checkpoint to disk
 	bool WriteSyncCheckpoint(const uint256& hashCheckpoint)
 	{
+		assert(psyncCheckpointsDB);
 		if (!psyncCheckpointsDB->WriteSyncCheckpoint(hashCheckpoint))
 		{
 			return error("WriteSyncCheckpoint(): failed to write to db sync checkpoint %s", hashCheckpoint.ToString().c_str());

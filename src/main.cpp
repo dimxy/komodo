@@ -8187,16 +8187,18 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == "checkpoint")
     {
-        CSyncCheckpoint checkpoint;
-        vRecv >> checkpoint;
+        if (fSyncCheckpointsEnabled) {
+            CSyncCheckpoint checkpoint;
+            vRecv >> checkpoint;
 
-        if (checkpoint.ProcessSyncCheckpoint(pfrom))
-        {
-            // Relay
-            pfrom->hashCheckpointKnown = checkpoint.hashCheckpoint;
-            LOCK(cs_vNodes);
-            BOOST_FOREACH(CNode* pnode, vNodes)
-                checkpoint.RelayTo(pnode);
+            if (checkpoint.ProcessSyncCheckpoint(pfrom))
+            {
+                // Relay
+                pfrom->hashCheckpointKnown = checkpoint.hashCheckpoint;
+                LOCK(cs_vNodes);
+                BOOST_FOREACH(CNode* pnode, vNodes)
+                    checkpoint.RelayTo(pnode);
+            }
         }
     }
 
