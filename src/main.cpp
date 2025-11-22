@@ -8103,6 +8103,17 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == "block" && !fImporting && !fReindex) // Ignore blocks received while importing
     {
+        {
+            // TODO: test code
+            LOCK(cs_main);
+            int haltAt = GetArg("-haltat", 0);
+            if (chainActive.Height() == haltAt) {
+                StartShutdown();
+                return true;
+            }
+        }
+
+
         CBlock block;
         vRecv >> block;
 
