@@ -5372,12 +5372,12 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
                             nHeight, notarized_height));
             }
         }
-    }
 
-    if (fSyncCheckpointsEnabled) {
-        // Gulden: check that the block satisfies synchronized checkpoint
-        if (!Checkpoints::CheckSync(hash, pindexPrev))
-            return state.DoS(100, error("%s: rejected by sync checkpoint lock-in at %d", __func__, nHeight), REJECT_CHECKPOINT, "sync checkpoint mismatch");
+        if (fSyncCheckpointsEnabled) {
+            // Gulden: check that the block satisfies synchronized checkpoint
+            if (!Checkpoints::CheckSync(hash, pindexPrev))
+                return state.DoS(100, error("%s: rejected by sync checkpoint lock-in at %d", __func__, nHeight), REJECT_CHECKPOINT, "sync checkpoint mismatch");
+        }
     }
 
     // Reject block.nVersion < 4 blocks
