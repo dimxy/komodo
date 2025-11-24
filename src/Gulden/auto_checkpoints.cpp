@@ -247,7 +247,7 @@ namespace Checkpoints
 	// Reset synchronized checkpoint to last hardened checkpoint (to be used if checkpoint key is changed for whatever reason - e.g. a stalled chain)
 	bool ResetSyncCheckpoint()
 	{
-		LOCK(cs_hashSyncCheckpoint);
+		LOCK2(cs_main, cs_hashSyncCheckpoint);
 
 		const CChainParams& chainparams = Params();
 		const uint256& hash = GetLastCheckpoint(chainparams.Checkpoints())->GetBlockHash();
