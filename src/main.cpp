@@ -8107,7 +8107,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             // TODO: test code
             LOCK(cs_main);
             int haltAt = GetArg("-haltat", 0);
-            if (chainActive.Height() == haltAt) {
+            if (haltAt > 0 && chainActive.Height() == haltAt) {
                 StartShutdown();
                 return true;
             }
