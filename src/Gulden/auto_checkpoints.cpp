@@ -278,6 +278,7 @@ namespace Checkpoints
 		return false;
 	}
 
+	// Not used
 	void AskForPendingSyncCheckpoint(CNode* pfrom)
 	{
 		LOCK(cs_hashSyncCheckpoint);
@@ -303,6 +304,9 @@ namespace Checkpoints
 		// Search backwards AUTO_CHECKPOINT_DEPTH blocks
 		for(int i=0;i<AUTO_CHECKPOINT_DEPTH;i++)
 		{
+			if (!pindex->pprev) {
+				break;
+			}
 			pindex = pindex->pprev;
 		}
 
