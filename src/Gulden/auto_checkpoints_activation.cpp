@@ -19,11 +19,20 @@ namespace Checkpoints
         boost::optional<SyncChkParams> testnet_params;
 
         CSyncCheckpointActivation() {
-            mainnet_params = boost::none;
+            mainnet_params = SyncChkParams { 0, {
+                // TODO: fix testkeys
+                "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad", 
+                "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"
+            }};
             testnet_params = boost::none;
 
             asset_chains = {
-                { "GULDEN", { 0, {"02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad", "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}}} // test chain
+                // test chain
+                { "GULDEN", { 0, {
+                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
+                }}
+                // TODO: add asset chains
             };
         }
 
@@ -131,6 +140,9 @@ namespace Checkpoints
                 return error("%s() : failed to init sync checkpoint DB", __func__);          
             if (!psyncCheckpointsDB->WriteCheckpointPubKeys(syncChkParams.masterPubKeys))
                 return error("%s() : failed to write new checkpoint master keys to db", __func__);  
+            if (!psyncCheckpointsDB->ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint)) {
+                return error("%s() : failed to read sync checkpoint DB", __func__);  
+            }  
             LogPrintf("%s(): sync checkpoint DB initialized\n", __func__);
         }
 
