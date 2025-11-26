@@ -121,7 +121,7 @@ namespace Checkpoints
                     CKey privkey;
                     if (pwalletMain->GetKey(pubkey.GetID(), privkey)) {
                         if (SetCheckpointPrivKey(privkey)) {
-                            LogPrintf("Sync checkpoint master key set for pubkey %s", sPubkey.c_str());
+                            LogPrintf("Sync checkpoint master key set for pubkey %s\n", sPubkey.c_str());
                             break; // Use first available privkey
                         }
                     }
