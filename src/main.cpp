@@ -8050,6 +8050,12 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 Misbehaving(pfrom->GetId(), 20);
                 return error("non-continuous headers sequence");
             }
+
+            int haltAt = GetArg("-haltat", 0);
+            if (pindexLast && pindexLast->nHeight >= haltAt) {
+                return error("halt headers");
+            }
+
             int32_t futureblock;
             if (!AcceptBlockHeader(&futureblock,header, state, &pindexLast)) {
                 int nDoS;
