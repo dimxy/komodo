@@ -6692,16 +6692,6 @@ bool InitBlockIndex()
             if (!ActivateBestChain(true, state, &block))
                 return error("LoadBlockIndex(): genesis block cannot be activated");
 
-            Checkpoints::SyncChkParams syncChkParams;
-            if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams)) {
-                // Gulden: initialize new synchronized checkpoint db at db init, if sync checkpoints are active already 
-                if (!psyncCheckpointsDB)
-                    psyncCheckpointsDB = new CCheckpointsDB();
-                if (!psyncCheckpointsDB->WriteSyncCheckpoint(Params().GenesisBlock().GetHash()))
-                    return error("%s() : failed to init sync checkpoint", __func__);
-                LogPrintf("%s(): sync checkpoint DB initialized\n", __func__);
-            }
-
             // Force a chainstate write so that when we VerifyDB in a moment, it doesn't check stale data
             if ( KOMODO_NSPV_FULLNODE )
                 return FlushStateToDisk(state, FLUSH_STATE_ALWAYS);
