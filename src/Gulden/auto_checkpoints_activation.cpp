@@ -114,9 +114,9 @@ namespace Checkpoints
     static void TryInitMasterKey(const SyncChkParams &syncChkParams)
     {
         if (!IsMasterKeySet()) {
-            LOCK(pwalletMain->cs_wallet);
-            for (const auto &sPubkey : syncChkParams.masterPubKeys) {
-                if (pwalletMain) {
+            if (pwalletMain) {
+                LOCK(pwalletMain->cs_wallet);
+                for (const auto &sPubkey : syncChkParams.masterPubKeys) {
                     CPubKey pubkey(ParseHex(sPubkey));
                     CKey privkey;
                     if (pwalletMain->GetKey(pubkey.GetID(), privkey)) {
