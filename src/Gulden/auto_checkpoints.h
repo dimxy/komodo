@@ -6,6 +6,10 @@
 #define  GULDEN_AUTO_CHECKPOINT_H
 
 #include <map>
+#include <vector>
+#include <string>
+#include "core_io.h"
+#include "key.h"
 #include "net.h"
 #include "util.h"
 #include "txdb.h"
@@ -13,6 +17,16 @@
 class uint256;
 class CBlockIndex;
 class CSyncCheckpoint;
+
+// Komodo added
+namespace Checkpoints
+{
+    // Asset or KMD chain sync checkpoint activation params
+    struct SyncChkParams {
+        int64_t activeAt;
+        std::vector<std::string> masterPubKeys;
+    };
+}
 
 namespace Checkpoints
 {
@@ -32,8 +46,8 @@ namespace Checkpoints
 	extern bool WantedByPendingSyncCheckpoint(uint256 hashBlock);
 	extern bool ResetSyncCheckpoint();
 	extern void AskForPendingSyncCheckpoint(CNode* pfrom);
-	extern bool SetCheckpointPrivKey(std::string strPrivKey);
-	extern bool SendSyncCheckpoint(uint256 hashCheckpoint);
+	extern bool SetCheckpointPrivKey(CKey privKey);
+	extern bool SendSyncCheckpoint(uint256 hashCheckpoint, const SyncChkParams &syncChkParamsOut);
 	extern bool IsSyncCheckpointTooOld(unsigned int nSeconds);
 }
 
@@ -58,9 +72,7 @@ public:
 class CSyncCheckpoint : public CUnsignedSyncCheckpoint
 {
 public:
-	static const std::string strMasterPubKey;
-	static const std::string strMasterPubKeyTestnet;
-	static std::string strMasterPrivKey;
+	static CKey masterKey;
 
 	std::vector<unsigned char> vchMsg;
 	std::vector<unsigned char> vchSig;
@@ -77,9 +89,20 @@ public:
 	bool IsNull() const;
 	uint256 GetHash() const;
 	bool RelayTo(CNode* pnode) const;
-	bool CheckSignature();
-	bool ProcessSyncCheckpoint(CNode* pfrom);
+	bool CheckSignature(const std::vector<std::string> &sPubkeys);
+	bool ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std::string> &sPubkeys);
+	static std::vector<CPubKey> ParseMasterPubkeys(const std::vector<std::string> &sPubkeys);
 };
 
 extern CCheckpointsDB *psyncCheckpointsDB;
+
+// Komodo added
+namespace Checkpoints
+{
+	extern bool TryInitSyncCheckpoint(const SyncChkParams &syncChkParams);
+	extern bool IsMasterKeySet();
+	extern bool IsSyncCheckpointUpgradeActive(SyncChkParams &syncChkParamsOut);
+	extern bool IsSyncCheckpointUpgradeActive();
+}
+
 #endif

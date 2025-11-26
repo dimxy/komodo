@@ -795,12 +795,12 @@ bool CCheckpointsDB::WriteSyncCheckpoint(uint256 hashCheckpoint)
     return db.Write(string("hashSyncCheckpoint"), hashCheckpoint);
 }
 
-bool CCheckpointsDB::ReadCheckpointPubKey(std::string& strPubKey)
+bool CCheckpointsDB::ReadCheckpointPubKeys(std::vector<std::string>& strPubKeys)
 {
-    return db.Read(string("SyncCheckpointPubKey"), strPubKey);
+    return db.Read(string("SyncCheckpointPubKeys"), strPubKeys);
 }
 
-bool CCheckpointsDB::WriteCheckpointPubKey(std::string& strPubKey)
+bool CCheckpointsDB::WriteCheckpointPubKeys(const std::vector<std::string>& strPubKeys)
 {
-    return db.Write(string("SyncCheckpointPubKey"), strPubKey);
+    return db.Write(string("SyncCheckpointPubKeys"), strPubKeys);
 }

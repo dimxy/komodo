@@ -314,7 +314,7 @@ namespace Checkpoints
 	}
 
 	// Set the private key with which to broadcast checkpoints [Checkpoint server only]
-	bool SetCheckpointPrivKey(std::string strPrivKey)
+	bool SetCheckpointPrivKey(CKey privKey)
 	{
 		// Test signing a sync-checkpoint with genesis block
 		CSyncCheckpoint checkpoint;
@@ -323,21 +323,23 @@ namespace Checkpoints
 		sMsg << (CUnsignedSyncCheckpoint)checkpoint;
 		checkpoint.vchMsg = std::vector<unsigned char>(sMsg.begin(), sMsg.end());
 
-		std::vector<unsigned char> vchPrivKey = ParseHex(strPrivKey);
-		CKey key;
-		key.SetPrivKey(CPrivKey(vchPrivKey.begin(), vchPrivKey.end()), false);
-		if (!key.Sign(Hash(checkpoint.vchMsg.begin(), checkpoint.vchMsg.end()), checkpoint.vchSig))
+		if (!privKey.Sign(Hash(checkpoint.vchMsg.begin(), checkpoint.vchMsg.end()), checkpoint.vchSig))
 		{
 			return false;
 		}
 
 		// Test signing successful, proceed
-		CSyncCheckpoint::strMasterPrivKey = strPrivKey;
+		CSyncCheckpoint::masterKey = privKey;
 		return true;
 	}
 
+	bool IsMasterKeySet()
+	{
+		return CSyncCheckpoint::masterKey.IsValid();
+	}
+
 	// Broadcast a new checkpoint to the network [Checkpoint server only]
-	bool SendSyncCheckpoint(uint256 hashCheckpoint)
+	bool SendSyncCheckpoint(uint256 hashCheckpoint, const SyncChkParams &syncChkParams)
 	{
 		CSyncCheckpoint checkpoint;
 		checkpoint.hashCheckpoint = hashCheckpoint;
@@ -345,21 +347,17 @@ namespace Checkpoints
 		sMsg << (CUnsignedSyncCheckpoint)checkpoint;
 		checkpoint.vchMsg = std::vector<unsigned char>(sMsg.begin(), sMsg.end());
 
-		if (CSyncCheckpoint::strMasterPrivKey.empty())
+		if (!IsMasterKeySet())
 		{
 			return error("SendSyncCheckpoint: Checkpoint master key unavailable.");
 		}
 
-		std::vector<unsigned char> vchPrivKey = ParseHex(CSyncCheckpoint::strMasterPrivKey);
-		CKey key;
-		key.SetPrivKey(CPrivKey(vchPrivKey.begin(), vchPrivKey.end()), false); // if key is not correct openssl may crash
-
-		if (!key.Sign(Hash(checkpoint.vchMsg.begin(), checkpoint.vchMsg.end()), checkpoint.vchSig))
+		if (!CSyncCheckpoint::masterKey.Sign(Hash(checkpoint.vchMsg.begin(), checkpoint.vchMsg.end()), checkpoint.vchSig))
 		{
 			return error("SendSyncCheckpoint: Unable to sign checkpoint, check private key?");
 		}
 
-		if(!checkpoint.ProcessSyncCheckpoint(NULL))
+		if(!checkpoint.ProcessSyncCheckpoint(NULL, syncChkParams.masterPubKeys))
 		{
 			LogPrintf("WARNING: SendSyncCheckpoint: Failed to process checkpoint.\n");
 			return false;
@@ -395,35 +393,40 @@ namespace Checkpoints
 	}
 }
 
-//Gulden checkpoint key public signature
-const std::string CSyncCheckpoint::strMasterPubKey		= "04cf0c4e9be8421b9c7e83dc5a361a16a0cd784d027a9213cf9c6ce9599c5d5450dc80e3fdbfa80523216cda9eb3eff8b97f05f8823ded47067a661bc1f6f7780e";
-const std::string CSyncCheckpoint::strMasterPubKeyTestnet  	= "04cf0c4e9be8421b9c7e83dc5a361a16a0cd784d027a9213cf9c6ce9599c5d5450dc80e3fdbfa80523216cda9eb3eff8b97f05f8823ded47067a661bc1f6f7780e";
-
-std::string CSyncCheckpoint::strMasterPrivKey = "";
+CKey CSyncCheckpoint::masterKey;
 
 // ppcoin: verify signature of sync-checkpoint message
-bool CSyncCheckpoint::CheckSignature()
+bool CSyncCheckpoint::CheckSignature(const std::vector<std::string> &sPubkeys)
 {
-	CPubKey key(ParseHex(GetBoolArg("-testnet", false) ? CSyncCheckpoint::strMasterPubKeyTestnet : CSyncCheckpoint::strMasterPubKey));
-	if (!key.IsValid())
-	{
-		return error("CSyncCheckpoint::CheckSignature() : SetPubKey failed");
+	std::vector<CPubKey> pubkeys = CSyncCheckpoint::ParseMasterPubkeys(sPubkeys);
+	for (const auto &pubkey : pubkeys) {
+		if (pubkey.IsValid())
+		{
+			if (pubkey.Verify(Hash(vchMsg.begin(), vchMsg.end()), vchSig))
+			{
+				// Now unserialize the data
+				CDataStream sMsg(vchMsg, SER_NETWORK, PROTOCOL_VERSION);
+				sMsg >> *(CUnsignedSyncCheckpoint*)this;
+				return true;
+			}
+		}
 	}
-	if (!key.Verify(Hash(vchMsg.begin(), vchMsg.end()), vchSig))
-	{
-		return error("CSyncCheckpoint::CheckSignature() : verify signature failed");
-	}
+ 	return error("CSyncCheckpoint::CheckSignature() : verify signature failed");
+}
 
-	// Now unserialize the data
-	CDataStream sMsg(vchMsg, SER_NETWORK, PROTOCOL_VERSION);
-	sMsg >> *(CUnsignedSyncCheckpoint*)this;
-	return true;
+std::vector<CPubKey> CSyncCheckpoint::ParseMasterPubkeys(const std::vector<std::string> &sPubkeys) {
+	std::vector<CPubKey> pubkeys;
+	for (const auto &sPubkey : sPubkeys) {
+		CPubKey pubkey(ParseHex(sPubkey));
+		pubkeys.push_back(pubkey);
+	}
+	return pubkeys;
 }
 
 // ppcoin: process synchronized checkpoint
-bool CSyncCheckpoint::ProcessSyncCheckpoint(CNode* pfrom)
+bool CSyncCheckpoint::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std::string> &sPubkeys)
 {
-	if (!CheckSignature())
+	if (!CheckSignature(sPubkeys))
 	{
 		return false;
 	}

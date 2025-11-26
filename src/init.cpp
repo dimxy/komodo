@@ -935,9 +935,7 @@ bool AttemptDatabaseOpen(size_t nBlockTreeDBCache, bool dbCompression, size_t db
         pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
         pcoinsTip = new CCoinsViewCache(pcoinscatcher);
         pnotarisations = new NotarisationDB(100*1024*1024, false, fReindex);
-        if (fSyncCheckpointsEnabled) {
-            psyncCheckpointsDB = new CCheckpointsDB();
-        }
+
 
         if (fReindex) {
             boost::filesystem::remove(GetDataDir() / KOMODO_STATE_FILENAME);
@@ -1255,10 +1253,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     }
     fCheckBlockIndex = GetBoolArg("-checkblockindex", chainparams.DefaultConsistencyChecks());
     fCheckpointsEnabled = GetBoolArg("-checkpoints", true);
-    fSyncCheckpointsEnabled = GetBoolArg("-synccheckpoints", false);
-    if (fSyncCheckpointsEnabled) {
-        LogPrintf("Sync checkpoints enabled\n");
-    }
 
     // -par=0 means autodetect, but nScriptCheckThreads==0 means no concurrency
     nScriptCheckThreads = GetArg("-par", DEFAULT_SCRIPTCHECK_THREADS);
@@ -1374,19 +1368,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         vchPubKey.Decompress();
         printf("PublicKey %s\n", HexStr(vchPubKey.begin(), vchPubKey.end()).c_str());
         return false;
-    }
-
-    //Gulden - private key for auto checkpoint system.
-    if (mapArgs.count("-checkpointkey"))
-    {
-        if (!ECC_initialized()) {
-            return InitError(_("ECC not initialized\n"));
-        }
-        std::string sKey=mapArgs["-checkpointkey"];
-        if (!Checkpoints::SetCheckpointPrivKey(sKey))
-            return InitError(_("Unable to sign checkpoint, wrong checkpointkey?\n"));
-        else
-            LogPrintf("Checkpoint key set\n");
     }
 
     std::string strWalletFile = GetArg("-wallet", "wallet.dat");

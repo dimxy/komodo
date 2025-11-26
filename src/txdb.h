@@ -103,8 +103,8 @@ public:
     CCheckpointsDB();
     bool ReadSyncCheckpoint(uint256& hashCheckpoint);
     bool WriteSyncCheckpoint(uint256 hashCheckpoint);
-    bool ReadCheckpointPubKey(std::string& strPubKey);
-    bool WriteCheckpointPubKey(std::string& strPubKey);
+    bool ReadCheckpointPubKeys(std::vector<std::string>& strPubKeys);
+    bool WriteCheckpointPubKeys(const std::vector<std::string>& strPubKeys);
 };
 
 /** 
