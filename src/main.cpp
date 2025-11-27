@@ -8012,7 +8012,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         for (auto hdr : headers) {
             LogPrintf("%s ", hdr.GetHash().ToString().c_str());
         }
-        LogPrintf("%s\n");
+        LogPrintf("\n");
 
         LOCK(cs_main);
 
@@ -8441,6 +8441,7 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         if (pto->nVersion == 0)
             return true;
 
+        LogPrintf("SendMessages for node %d.. enterred\n", pto->id);
         //
         // Message: ping
         //
@@ -8650,10 +8651,13 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         //
         static uint256 zero;
         vector<CInv> vGetData;
+        LogPrintf("SendMessages about to download blocks pto->fClient=%d fFetch=%d IsInitialBlockDownload()=%d state.nBlocksInFlight=%d\n", 
+            pto->fClient, fFetch, IsInitialBlockDownload(), state.nBlocksInFlight);
         if (!pto->fDisconnect && !pto->fClient && (fFetch || !IsInitialBlockDownload()) && state.nBlocksInFlight < MAX_BLOCKS_IN_TRANSIT_PER_PEER) {
             vector<CBlockIndex*> vToDownload;
             NodeId staller = -1;
             FindNextBlocksToDownload(pto->GetId(), MAX_BLOCKS_IN_TRANSIT_PER_PEER - state.nBlocksInFlight, vToDownload, staller);
+            LogPrintf("SendMessages vToDownload.size()=%d\n", vToDownload.size());
             BOOST_FOREACH(CBlockIndex *pindex, vToDownload) {
                 vGetData.push_back(CInv(MSG_BLOCK, pindex->GetBlockHash()));
                 MarkBlockAsInFlight(pto->GetId(), pindex->GetBlockHash(), consensusParams, pindex);
