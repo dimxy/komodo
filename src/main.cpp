@@ -7158,7 +7158,7 @@ void static ProcessGetData(CNode* pfrom)
                             //hash = block.GetHash();
                             //for (z=31; z>=0; z--)
                             //    fprintf(stderr,"%02x",((uint8_t *)&hash)[z]);
-                            //fprintf(stderr," send block %d\n",komodo_block2height(&block));
+                            LogPrintf("sending block %s to %d in resp to inv (test)\n", block.GetHash().ToString().c_str(), pfrom->id);
                             pfrom->PushMessage("block", block);
                         }
                         else // MSG_FILTERED_BLOCK)
@@ -7730,7 +7730,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                         // later (within the same cs_main lock, though).
                         MarkBlockAsInFlight(pfrom->GetId(), inv.hash, chainparams.GetConsensus());
                     }
-                    LogPrint("net", "getheaders (%d) %s to peer=%d\n", pindexBestHeader->nHeight, inv.hash.ToString(), pfrom->id);
+                    LogPrint("net", "getheaders (%d) %s to peer=%d\n", pindexBestHeader->nHeight, inv.hash.ToString().c_str(), pfrom->id);
                 }
             }
 
@@ -7812,7 +7812,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         if (chainActive.Tip() != 0 && chainActive.Tip()->nHeight > 100000 && IsInitialBlockDownload())
         {
-            //fprintf(stderr,"dont process getheaders during initial download\n");
+            LogPrintf("dont process getheaders during initial download IBT=%d\n", IsInitialBlockDownload());
             return true;
         }
         CBlockIndex* pindex = NULL;
@@ -7838,7 +7838,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         // we must use CNetworkBlockHeader, as CBlockHeader won't include the 0x00 nTx count at the end for compatibility
         vector<CNetworkBlockHeader> vHeaders;
         int nLimit = MAX_HEADERS_RESULTS;
-        LogPrint("net", "getheaders %d to %s from peer=%d\n", (pindex ? pindex->nHeight : -1), hashStop.ToString(), pfrom->id);
+        LogPrint("net", "getheaders %d to %s from peer=%d\n", (pindex ? pindex->nHeight : -1), hashStop.ToString().c_str(), pfrom->id);
         //if ( pfrom->lasthdrsreq >= chainActive.Height()-MAX_HEADERS_RESULTS || pfrom->lasthdrsreq != (int32_t)(pindex ? pindex->nHeight : -1) )// no need to ever suppress this
         {
             pfrom->lasthdrsreq = (int32_t)(pindex ? pindex->nHeight : -1);
@@ -8007,6 +8007,12 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             vRecv >> headers[n];
             ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
         }
+
+        LogPrintf("received headers: ");
+        for (auto hdr : headers) {
+            LogPrintf("%s ", hdr.GetHash().ToString().c_str());
+        }
+        LogPrintf("%s\n");
 
         LOCK(cs_main);
 
