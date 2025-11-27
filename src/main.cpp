@@ -8651,8 +8651,9 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         //
         static uint256 zero;
         vector<CInv> vGetData;
+        // TODO: test
         //LogPrintf("SendMessages about to download blocks pto->fClient=%d fFetch=%d IsInitialBlockDownload()=%d state.nBlocksInFlight=%d\n", 
-            pto->fClient, fFetch, IsInitialBlockDownload(), state.nBlocksInFlight);
+        //    pto->fClient, fFetch, IsInitialBlockDownload(), state.nBlocksInFlight);
         if (!pto->fDisconnect && !pto->fClient && (fFetch || !IsInitialBlockDownload()) && state.nBlocksInFlight < MAX_BLOCKS_IN_TRANSIT_PER_PEER) {
             vector<CBlockIndex*> vToDownload;
             NodeId staller = -1;
