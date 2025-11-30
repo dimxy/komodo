@@ -7183,7 +7183,7 @@ void static ProcessGetData(CNode* pfrom)
                             // no response
                         }
                     }
-                    // Trigger the peer node to send a getblocks request for the next batch of inventory
+                    // Trigger the peer node to send a getblocks (correction: getheaders) request for the next batch of inventory
                     if (inv.hash == pfrom->hashContinue)
                     {
                         // Bypass PushInventory, this must send even if redundant,
