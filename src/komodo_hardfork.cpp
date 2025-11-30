@@ -22,6 +22,9 @@ const int32_t nS8HardforkHeight = 4125988;  // dPoW Season 8, Fri Oct 4 2024 (es
 
 const int32_t nKIP0003Activation = nS8HardforkHeight;
 
+const uint32_t nSyncChkPointTimestamp = 5000000; //TODO fix
+const int32_t nSyncChkPointHeight = 1796027054; // TODO fix (now 30 Nov 2026)
+
 // Era array of pubkeys. Add extra seasons to bottom as requried, after adding appropriate info above. 
 const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =
 {
