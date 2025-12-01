@@ -81,7 +81,7 @@ namespace Checkpoints
                 }},
 
                 // test chain
-                { "GULDEN", { 0, {
+                { "GULDEN", { nSyncChkPointTimestamp, {
                     "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }}
@@ -126,6 +126,7 @@ namespace Checkpoints
     static bool GetSyncCheckpointActivationParams(SyncChkParams &syncChkParams, int nHeight) {
         AssertLockHeld(cs_main);
 
+        LogPrintf("%s nHeight=%d %s\n", __func__, nHeight, chainName.ToString());
         if (chainName.ToString().empty()) {
             return false; //not initialised yet
         }
@@ -140,15 +141,20 @@ namespace Checkpoints
                 }
             }
         } else if (!CSyncCheckpointActivation::GetAssetParams(chainName.ToString(), syncChkParams)) {
+            LogPrintf("%s GetAssetParams false chainName=%d\n", __func__, chainName.ToString());
             return false;
         }
         if (syncChkParams.activeAt < LOCKTIME_THRESHOLD) { // height or timestamp
+            LogPrintf("%s activeAt < LOCKTIME_THRESHOLD activeAt %lld \n", __func__, syncChkParams.activeAt);
             if (nHeight > syncChkParams.activeAt) { // same 'greater' comparison as for komodo seasons
+                LogPrintf("%s timestamp > syncChkParams.activeAt true\n", __func__);
                 return true;
             }
         } else {
             int64_t timestamp = komodo_heightstamp(nHeight);
+            LogPrintf("%s activeAt not < LOCKTIME_THRESHOLD activeAt %lld timestamp=%lld\n", __func__, syncChkParams.activeAt, timestamp);
             if (timestamp > syncChkParams.activeAt) { // same 'greater' comparison as for komodo seasons
+                LogPrintf("%s timestamp > syncChkParams.activeAt true\n", __func__);
                 return true;
             }
         }
