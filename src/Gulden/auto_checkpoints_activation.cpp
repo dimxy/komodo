@@ -123,7 +123,7 @@ namespace Checkpoints
 
 
     // Is Gulden sync checkpoints active for this chain and height or timestamp
-    static bool GetSyncCheckpointActivationParams(SyncChkParams &syncChkParams, int nHeight) {
+    static bool GetSyncCheckpointActivationParams(SyncChkParams &syncChkParams, int nHeight, int64_t timestamp) {
         AssertLockHeld(cs_main);
 
         LogPrintf("%s nHeight=%d %s\n", __func__, nHeight, chainName.ToString());
@@ -151,7 +151,6 @@ namespace Checkpoints
                 return true;
             }
         } else {
-            int64_t timestamp = komodo_heightstamp(nHeight);
             LogPrintf("%s activeAt not < LOCKTIME_THRESHOLD activeAt %lld timestamp=%lld\n", __func__, syncChkParams.activeAt, timestamp);
             if (timestamp > syncChkParams.activeAt) { // same 'greater' comparison as for komodo seasons
                 LogPrintf("%s timestamp > syncChkParams.activeAt true\n", __func__);
@@ -161,12 +160,12 @@ namespace Checkpoints
         return false;
     }
 
-    bool IsSyncCheckpointUpgradeActive(SyncChkParams &syncChkParamsOut, int nHeight) {
-        return GetSyncCheckpointActivationParams(syncChkParamsOut, nHeight);
+    bool IsSyncCheckpointUpgradeActive(SyncChkParams &syncChkParamsOut, int nHeight, int64_t timestamp) {
+        return GetSyncCheckpointActivationParams(syncChkParamsOut, nHeight, timestamp);
     }
-    bool IsSyncCheckpointUpgradeActive(int nHeight) {
+    bool IsSyncCheckpointUpgradeActive(int nHeight, int64_t timestamp) {
         SyncChkParams syncChkParamsOut;
-        return GetSyncCheckpointActivationParams(syncChkParamsOut, nHeight);
+        return GetSyncCheckpointActivationParams(syncChkParamsOut, nHeight, timestamp);
     }
 
     // Try to find the private key for the master pubkey in the wallet

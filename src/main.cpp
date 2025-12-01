@@ -4364,8 +4364,10 @@ static bool ActivateBestChainStep(bool fSkipdpow, CValidationState &state, CBloc
     // stay on the same chain tip! 
     int32_t notarizedht,prevMoMheight; uint256 notarizedhash,txid;
     notarizedht = komodo_notarized_height(&prevMoMheight,&notarizedhash,&txid);
-    bool isDpowActive = !IsSunsettingActive(chainActive.Height());
-    LogPrintf("%s isDpowActive=%d height=%s\n", __func__, isDpowActive, chainActive.Height());
+    int nHeight = chainActive.Height();
+    int64_t timestamp = komodo_heightstamp(nHeight);
+    bool isDpowActive = !IsSunsettingActive(nHeight, timestamp);
+    LogPrintf("%s isDpowActive=%d height=%d timestamp=%lld\n", __func__, isDpowActive, nHeight, timestamp);
     if ( isDpowActive && !fSkipdpow && pindexFork != 0 && pindexOldTip->nHeight > notarizedht && pindexFork->nHeight < notarizedht )
     {
         LogPrintf("pindexOldTip->nHeight.%d > notarizedht %d && pindexFork->nHeight.%d is < notarizedht %d, so ignore it\n",(int32_t)pindexOldTip->nHeight,notarizedht,(int32_t)pindexFork->nHeight,notarizedht);
@@ -5367,7 +5369,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
             
             // sync checkpoint
             Checkpoints::SyncChkParams syncChkParams;
-            if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight)) {
+            if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, block.GetBlockTime())) {
                 if (!TryInitSyncCheckpoint(syncChkParams))
                     return error("%s() : failed to initialize sync checkpoint", __func__);  
                 // Gulden: check that the block satisfies synchronized checkpoint
@@ -5375,8 +5377,8 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
                     return state.DoS(100, error("%s: rejected by sync checkpoint lock-in at %d", __func__, nHeight), REJECT_CHECKPOINT, "sync checkpoint mismatch");
             }
 
-            if (!IsSunsettingActive(nHeight)) {
-                LogPrintf("%s dpow is active, height=%d\n", __func__, nHeight);
+            if (!IsSunsettingActive(nHeight, block.GetBlockTime())) {
+                LogPrintf("%s dpow is active, height=%d timestamp=%lld\n", __func__, nHeight, block.GetBlockTime());
                 if ( !komodo_checkpoint(&notarized_height,nHeight,hash) )
                 {
                     CBlockIndex *heightblock = chainActive[nHeight];
@@ -5387,7 +5389,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
                                 nHeight, notarized_height));
                 }
             } else {
-                LogPrintf("%s dpow is sunsetting, height=%d\n", __func__, nHeight);
+                LogPrintf("%s dpow is sunsetting, height=%d timestamp=%lld\n", __func__, nHeight, block.GetBlockTime());
             }
         }
     }
@@ -5829,7 +5831,7 @@ bool ProcessNewBlock(bool from_miner, int32_t height, CValidationState &state, C
         return error("%s: ActivateBestChain failed", __func__);
 
     Checkpoints::SyncChkParams syncChkParams;
-    if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, height)) {
+    if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, height, pblock->GetBlockTime())) {
         if (!TryInitSyncCheckpoint(syncChkParams))
             return error("%s() : failed to initialize sync checkpoint", __func__);  
         if (!IsInitialBlockDownload())
@@ -6323,7 +6325,9 @@ bool static LoadBlockIndexDB()
     }
 
     Checkpoints::SyncChkParams syncChkParams;
-    if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, chainActive.Height())) {
+    int nHeight = chainActive.Height();
+    int64_t timestamp = komodo_heightstamp(nHeight);
+    if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, timestamp)) {
         if (!Checkpoints::OpenSyncCheckpointAtStartup(syncChkParams)) {
             return error("%s() : failed to init sync checkpoint DB", __func__);
         }
@@ -8204,7 +8208,9 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
     {
         LOCK(cs_main);
         Checkpoints::SyncChkParams syncChkParams;
-        if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, chainActive.Height())) {
+        int nHeight = chainActive.Height();
+        int64_t timestamp = komodo_heightstamp(nHeight);
+        if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, timestamp)) {
             if (!TryInitSyncCheckpoint(syncChkParams))
                 return error("%s() : failed to initialize sync checkpoint", __func__);  
 
@@ -8787,13 +8793,12 @@ CMutableTransaction CreateNewContextualCMutableTransaction(const Consensus::Para
     return mtx;
 }
 
-bool IsSunsettingActive(int nHeight) {
+bool IsSunsettingActive(int nHeight, int64_t timestamp) {
     AssertLockHeld(cs_main);
 
     if (chainName.isKMD()) {
         return nHeight > nSunsettingHeight;
     } else {
-        int64_t timestamp = komodo_heightstamp(nHeight);
         return timestamp > nSunsettingTimestamp;
     }
 }
