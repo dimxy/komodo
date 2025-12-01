@@ -5365,6 +5365,16 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
             if ( pcheckpoint != 0 && nHeight < pcheckpoint->nHeight )
                 return state.DoS(1, error("%s: forked chain older than last checkpoint (height %d) vs %d", __func__, nHeight,pcheckpoint->nHeight));
             
+            // sync checkpoint
+            Checkpoints::SyncChkParams syncChkParams;
+            if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight)) {
+                if (!TryInitSyncCheckpoint(syncChkParams))
+                    return error("%s() : failed to initialize sync checkpoint", __func__);  
+                // Gulden: check that the block satisfies synchronized checkpoint
+                if (!Checkpoints::CheckSync(hash, pindexPrev))
+                    return state.DoS(100, error("%s: rejected by sync checkpoint lock-in at %d", __func__, nHeight), REJECT_CHECKPOINT, "sync checkpoint mismatch");
+            }
+
             if (!IsSunsettingActive(nHeight)) {
                 LogPrintf("%s dpow is active, height=%d\n", __func__, nHeight);
                 if ( !komodo_checkpoint(&notarized_height,nHeight,hash) )
@@ -5378,16 +5388,6 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
                 }
             } else {
                 LogPrintf("%s dpow is sunsetting, height=%d\n", __func__, nHeight);
-            }
-
-            // sync checkpoint
-            Checkpoints::SyncChkParams syncChkParams;
-            if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight)) {
-                if (!TryInitSyncCheckpoint(syncChkParams))
-                    return error("%s() : failed to initialize sync checkpoint", __func__);  
-                // Gulden: check that the block satisfies synchronized checkpoint
-                if (!Checkpoints::CheckSync(hash, pindexPrev))
-                    return state.DoS(100, error("%s: rejected by sync checkpoint lock-in at %d", __func__, nHeight), REJECT_CHECKPOINT, "sync checkpoint mismatch");
             }
         }
     }
