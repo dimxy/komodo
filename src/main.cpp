@@ -5834,7 +5834,7 @@ bool ProcessNewBlock(bool from_miner, int32_t height, CValidationState &state, C
     Checkpoints::SyncChkParams syncChkParams;
     int nHeightActiv = height != 0 ? height : komodo_block2height(pblock);
     LogPrintf("%s calling IsSyncCheckpointUpgradeActive nHeightActiv=%d pblock->GetBlockTime()=%d\n", __func__, nHeightActiv, pblock->GetBlockTime());
-    if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, height, pblock->GetBlockTime())) {
+    if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeightActiv, pblock->GetBlockTime())) {
         if (!TryInitSyncCheckpoint(syncChkParams))
             return error("%s() : failed to initialize sync checkpoint", __func__);  
         if (!IsInitialBlockDownload())
