@@ -4364,10 +4364,10 @@ static bool ActivateBestChainStep(bool fSkipdpow, CValidationState &state, CBloc
     // stay on the same chain tip! 
     int32_t notarizedht,prevMoMheight; uint256 notarizedhash,txid;
     notarizedht = komodo_notarized_height(&prevMoMheight,&notarizedhash,&txid);
-    int nHeight = chainActive.Height();
-    int64_t timestamp = komodo_heightstamp(nHeight);
-    bool isDpowActive = !IsSunsettingActive(nHeight, timestamp);
-    LogPrintf("%s isDpowActive=%d height=%d timestamp=%lld\n", __func__, isDpowActive, nHeight, timestamp);
+    int nHeightTip = chainActive.Height();
+    int64_t timestamp = komodo_heightstamp(nHeightTip);
+    bool isDpowActive = !IsSunsettingActive(nHeightTip, timestamp);
+    LogPrintf("%s isDpowActive=%d height=%d timestamp=%lld\n", __func__, isDpowActive, nHeightTip, timestamp);
     if ( isDpowActive && !fSkipdpow && pindexFork != 0 && pindexOldTip->nHeight > notarizedht && pindexFork->nHeight < notarizedht )
     {
         LogPrintf("pindexOldTip->nHeight.%d > notarizedht %d && pindexFork->nHeight.%d is < notarizedht %d, so ignore it\n",(int32_t)pindexOldTip->nHeight,notarizedht,(int32_t)pindexFork->nHeight,notarizedht);
