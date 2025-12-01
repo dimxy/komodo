@@ -1429,6 +1429,7 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp, const CPubKey& my
 
     int nHeight = chainActive.Height();
     int64_t timestamp = komodo_heightstamp(nHeight);
+    LogPrintf("%s calling IsSyncCheckpointUpgradeActive nHeight=%d timestamp=%d\n", __func__, nHeight, timestamp);
     if (Checkpoints::IsSyncCheckpointUpgradeActive(nHeight, timestamp)) {
         CBlockIndex *psyncCheckpoint = Checkpoints::GetLastSyncCheckpoint();
         UniValue blockinfo(UniValue::VOBJ);
