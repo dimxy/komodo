@@ -22,61 +22,61 @@ namespace Checkpoints
         CSyncCheckpointActivation() {
             mainnet_params = SyncChkParams { nSyncChkPointHeight, {
                 // TODO: fix testkeys
-                "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad", 
+                "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956", 
                 "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"
             }};
             testnet_params = boost::none;
 
             asset_chains = {
                 { "CCL", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
                 { "CLC", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
                 { "GLEEC", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
                 { "ILN", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
                 { "KOIN", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
                 { "PIRATE", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
                 { "THC", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
                 { "BCZERO", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
                 { "RAPH", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
                 { "MDX", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
 
 
                 // test chains:
                 { "DOC", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
                 { "MARTY", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
+                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
                     "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
                 }},
 
