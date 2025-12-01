@@ -25,6 +25,8 @@ const int32_t nKIP0003Activation = nS8HardforkHeight;
 const int32_t nSyncChkPointHeight = 4721973; // TODO fix (now 1 Dec 2025)
 const uint32_t nSyncChkPointTimestamp = 1764581409; //TODO fix (now 1 Dec 2025)
 
+const int32_t nSunsettingHeight = 5000000; // TODO fix
+const uint32_t nSunsettingTimestamp = 1796103821; // TODO fix, now Dec 01 2026
 
 // Era array of pubkeys. Add extra seasons to bottom as requried, after adding appropriate info above. 
 const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =

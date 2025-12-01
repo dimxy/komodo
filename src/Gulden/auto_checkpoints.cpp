@@ -89,6 +89,7 @@ namespace Checkpoints
 				hashInvalidCheckpoint = hashCheckpoint;
 				return error("ValidateSyncCheckpoint: new sync-checkpoint %s is conflicting with current sync-checkpoint %s", hashCheckpoint.ToString().c_str(), hashSyncCheckpoint.ToString().c_str());
 			}
+			LogPrintf("%s Warning: checkpoint is old: new checkpoint height=%d, existing checkpoint height=%d (possibly reorg)\n", __func__, pindexCheckpointRecv->nHeight, pindexSyncCheckpoint->nHeight);
 			return false; // ignore older checkpoint
 		}
 

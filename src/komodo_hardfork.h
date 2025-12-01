@@ -53,3 +53,6 @@ extern const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2];
 
 extern const uint32_t nSyncChkPointTimestamp;
 extern const int32_t nSyncChkPointHeight;
+
+extern const int32_t nSunsettingHeight;
+extern const uint32_t nSunsettingTimestamp;

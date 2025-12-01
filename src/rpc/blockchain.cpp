@@ -1427,7 +1427,7 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp, const CPubKey& my
     pcoinsTip->GetSproutAnchorAt(pcoinsTip->GetBestAnchor(SPROUT), tree);
     obj.push_back(Pair("commitments",           static_cast<uint64_t>(tree.size())));
 
-    if (Checkpoints::IsSyncCheckpointUpgradeActive()) {
+    if (Checkpoints::IsSyncCheckpointUpgradeActive(chainActive.Height())) {
         CBlockIndex *psyncCheckpoint = Checkpoints::GetLastSyncCheckpoint();
         UniValue blockinfo(UniValue::VOBJ);
         if (psyncCheckpoint) {
