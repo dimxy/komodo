@@ -5369,6 +5369,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
             
             // sync checkpoint
             Checkpoints::SyncChkParams syncChkParams;
+            LogPrintf("%s calling IsSyncCheckpointUpgradeActive nHeight=%d block.GetBlockTime()=%d\n", __func__, nHeight, block.GetBlockTime());
             if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, block.GetBlockTime())) {
                 if (!TryInitSyncCheckpoint(syncChkParams))
                     return error("%s() : failed to initialize sync checkpoint", __func__);  
@@ -5831,6 +5832,7 @@ bool ProcessNewBlock(bool from_miner, int32_t height, CValidationState &state, C
         return error("%s: ActivateBestChain failed", __func__);
 
     Checkpoints::SyncChkParams syncChkParams;
+    LogPrintf("%s calling IsSyncCheckpointUpgradeActive height=%d pblock->GetBlockTime()=%d\n", __func__, height, pblock->GetBlockTime());
     if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, height, pblock->GetBlockTime())) {
         if (!TryInitSyncCheckpoint(syncChkParams))
             return error("%s() : failed to initialize sync checkpoint", __func__);  
@@ -6327,6 +6329,7 @@ bool static LoadBlockIndexDB()
     Checkpoints::SyncChkParams syncChkParams;
     int nHeight = chainActive.Height();
     int64_t timestamp = komodo_heightstamp(nHeight);
+    LogPrintf("%s calling IsSyncCheckpointUpgradeActive nHeight=%d timestamp=%d\n", __func__, nHeight, timestamp);
     if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, timestamp)) {
         if (!Checkpoints::OpenSyncCheckpointAtStartup(syncChkParams)) {
             return error("%s() : failed to init sync checkpoint DB", __func__);
@@ -8210,6 +8213,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
         Checkpoints::SyncChkParams syncChkParams;
         int nHeight = chainActive.Height();
         int64_t timestamp = komodo_heightstamp(nHeight);
+        LogPrintf("%s calling IsSyncCheckpointUpgradeActive nHeight=%d timestamp=%d\n", __func__, nHeight, timestamp);
         if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, timestamp)) {
             if (!TryInitSyncCheckpoint(syncChkParams))
                 return error("%s() : failed to initialize sync checkpoint", __func__);  
