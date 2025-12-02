@@ -145,15 +145,13 @@ namespace Checkpoints
             return false;
         }
         if (syncChkParams.activeAt < LOCKTIME_THRESHOLD) { // height or timestamp
-            LogPrintf("%s activeAt < LOCKTIME_THRESHOLD activeAt %lld \n", __func__, syncChkParams.activeAt);
             if (nHeight > syncChkParams.activeAt) { // same 'greater' comparison as for komodo seasons
-                LogPrintf("%s timestamp > syncChkParams.activeAt true\n", __func__);
+                LogPrintf("%s nHeight %d > syncChkParams.activeAt %lld true\n", __func__, nHeight, syncChkParams.activeAt);
                 return true;
             }
         } else {
-            LogPrintf("%s activeAt not < LOCKTIME_THRESHOLD activeAt %lld timestamp=%lld\n", __func__, syncChkParams.activeAt, timestamp);
             if (timestamp > syncChkParams.activeAt) { // same 'greater' comparison as for komodo seasons
-                LogPrintf("%s timestamp > syncChkParams.activeAt true\n", __func__);
+                LogPrintf("%s timestamp %lld > syncChkParams.activeAt %lld true\n", __func__, timestamp, syncChkParams.activeAt);
                 return true;
             }
         }
@@ -192,24 +190,21 @@ namespace Checkpoints
     // Try to init checkpoint DB if upgrade activated after loading block index
     // and get master key from wallet
     bool TryInitSyncCheckpoint(const SyncChkParams &syncChkParams) 
-    {
-        if (!Checkpoints::WriteSyncCheckpoint(Params().GenesisBlock().GetHash())) {
-            return error("%s() : failed to init sync checkpoint file", __func__);    
-        }      
-        if (!Checkpoints::WriteCheckpointPubKeys(syncChkParams.masterPubKeys)) {
-            return error("%s() : failed to write new checkpoint master keys", __func__);  
+    {    
+        LOCK(cs_hashSyncCheckpoint);
+        if (!fMasterPubkeysSaved) {
+            if (!Checkpoints::WriteCheckpointPubKeys(syncChkParams.masterPubKeys)) {
+                return error("%s() : failed to write new checkpoint master keys", __func__);  
+            }
+            LogPrintf("%s(): sync checkpoint master keys saved\n", __func__);
+            fMasterPubkeysSaved = true;
         }
-        if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint)) {
-            return error("%s() : failed to read sync checkpoint file", __func__);  
-        }  
-        LogPrintf("%s(): sync checkpoint file initialized\n", __func__);
-
-        TryInitMasterKey(syncChkParams);
         return true;
     }
 
     bool OpenSyncCheckpointAtStartup(const SyncChkParams &syncChkParams) 
     {
+        LOCK(cs_hashSyncCheckpoint);
         // Gulden: load hashSyncCheckpoint (must be in db already)
         if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint)) {
             if (!Checkpoints::WriteSyncCheckpoint(Params().GenesisBlock().GetHash())) {

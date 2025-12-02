@@ -27,6 +27,7 @@ namespace Checkpoints
         int64_t activeAt;
         std::vector<std::string> masterPubKeys;
     };
+	extern bool fMasterPubkeysSaved;
 }
 
 namespace Checkpoints

@@ -6332,9 +6332,9 @@ bool static LoadBlockIndexDB()
     LogPrintf("%s calling IsSyncCheckpointUpgradeActive nHeight=%d timestamp=%d\n", __func__, nHeight, timestamp);
     if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, timestamp)) {
         if (!Checkpoints::OpenSyncCheckpointAtStartup(syncChkParams)) {
-            return error("%s() : failed to init sync checkpoint DB", __func__);
+            return error("%s() : failed to init sync checkpoint file", __func__);
         }
-        LogPrintf("%s(): sync checkpoint DB initialized\n", __func__);
+        LogPrintf("%s(): sync checkpoint file initialized\n", __func__);
     }
     LogPrintf("%s(): chainName %s\n", __func__, chainName.ToString());
 

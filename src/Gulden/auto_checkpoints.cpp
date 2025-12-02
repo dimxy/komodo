@@ -39,7 +39,7 @@ namespace Checkpoints
 	CSyncCheckpoint checkpointMessagePending;
 	uint256 hashInvalidCheckpoint = uint256();
 	CCriticalSection cs_hashSyncCheckpoint;
-
+	bool fMasterPubkeysSaved;
 
 	// Get the highest auto synchronized checkpoint that we have received
 	CBlockIndex* GetLastSyncCheckpoint()
@@ -308,7 +308,7 @@ namespace Checkpoints
 	// Set the private key with which to broadcast checkpoints [Checkpoint server only]
 	bool SetCheckpointPrivKey(CKey privKey)
 	{
-		// Test signing a sync-checkpoint with genesis block
+		// Test signing a sync-checkpoint with empty hash
 		CSyncCheckpoint checkpoint;
 		checkpoint.hashCheckpoint = uint256();
 		CDataStream sMsg(SER_NETWORK, PROTOCOL_VERSION);
