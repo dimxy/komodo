@@ -476,9 +476,9 @@ namespace Checkpoints
         {
             fs::ifstream checkpointFile( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR_PKS );
 			strPubKeysOut.clear();
-			while(!checkpointFile.eof()) {
+			while(checkpointFile.good()) {
 				std::string strPk;
-            	checkpointFile >> strPk;
+            	std::getline(checkpointFile, strPk);
 				if (strPk.empty()) {
 					break;
 				}
