@@ -649,7 +649,6 @@ CBlockIndex* FindForkInGlobalIndex(const CChain& chain, const CBlockLocator& loc
 
 CCoinsViewCache *pcoinsTip = nullptr;
 CBlockTreeDB *pblocktree = nullptr;
-CCheckpointsDB *psyncCheckpointsDB = nullptr;
 
 // Komodo globals
 

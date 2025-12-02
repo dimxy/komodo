@@ -780,27 +780,3 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
     return true;
 }
 
-CCheckpointsDB::CCheckpointsDB() : db(GetDataDir() / "sync_checkpoints", 2, false, false)
-{
-	
-}
-
-bool CCheckpointsDB::ReadSyncCheckpoint(uint256& hashCheckpoint)
-{
-    return db.Read(string("hashSyncCheckpoint"), hashCheckpoint);
-}
-
-bool CCheckpointsDB::WriteSyncCheckpoint(uint256 hashCheckpoint)
-{
-    return db.Write(string("hashSyncCheckpoint"), hashCheckpoint);
-}
-
-bool CCheckpointsDB::ReadCheckpointPubKeys(std::vector<std::string>& strPubKeys)
-{
-    return db.Read(string("SyncCheckpointPubKeys"), strPubKeys);
-}
-
-bool CCheckpointsDB::WriteCheckpointPubKeys(const std::vector<std::string>& strPubKeys)
-{
-    return db.Write(string("SyncCheckpointPubKeys"), strPubKeys);
-}

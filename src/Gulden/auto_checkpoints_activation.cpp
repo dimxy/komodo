@@ -191,18 +191,18 @@ namespace Checkpoints
 
     // Try to init checkpoint DB if upgrade activated after loading block index
     // and get master key from wallet
-    bool TryInitSyncCheckpoint(const SyncChkParams &syncChkParams) {
-        if (!psyncCheckpointsDB) {
-            psyncCheckpointsDB = new CCheckpointsDB();
-            if (!psyncCheckpointsDB->WriteSyncCheckpoint(Params().GenesisBlock().GetHash()))
-                return error("%s() : failed to init sync checkpoint DB", __func__);          
-            if (!psyncCheckpointsDB->WriteCheckpointPubKeys(syncChkParams.masterPubKeys))
-                return error("%s() : failed to write new checkpoint master keys to db", __func__);  
-            if (!psyncCheckpointsDB->ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint)) {
-                return error("%s() : failed to read sync checkpoint DB", __func__);  
-            }  
-            LogPrintf("%s(): sync checkpoint DB initialized\n", __func__);
+    bool TryInitSyncCheckpoint(const SyncChkParams &syncChkParams) 
+    {
+        if (!Checkpoints::WriteSyncCheckpoint(Params().GenesisBlock().GetHash())) {
+            return error("%s() : failed to init sync checkpoint file", __func__);    
+        }      
+        if (!Checkpoints::WriteCheckpointPubKeys(syncChkParams.masterPubKeys)) {
+            return error("%s() : failed to write new checkpoint master keys", __func__);  
         }
+        if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint)) {
+            return error("%s() : failed to read sync checkpoint file", __func__);  
+        }  
+        LogPrintf("%s(): sync checkpoint file initialized\n", __func__);
 
         TryInitMasterKey(syncChkParams);
         return true;
@@ -210,26 +210,26 @@ namespace Checkpoints
 
     bool OpenSyncCheckpointAtStartup(const SyncChkParams &syncChkParams) 
     {
-        if (!psyncCheckpointsDB)
-            psyncCheckpointsDB = new CCheckpointsDB();
-
         // Gulden: load hashSyncCheckpoint (must be in db already)
-        if (!psyncCheckpointsDB->ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint)) {
-            if (!psyncCheckpointsDB->WriteSyncCheckpoint(Params().GenesisBlock().GetHash()))
-                return error("%s() : failed to init sync checkpoint DB", __func__);
-            if (!psyncCheckpointsDB->ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint)) {
-                return error("%s() : failed to read sync checkpoint DB", __func__);  
+        if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint)) {
+            if (!Checkpoints::WriteSyncCheckpoint(Params().GenesisBlock().GetHash())) {
+                return error("%s() : failed to init sync checkpoint file", __func__);
+            }
+            if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint)) {
+                return error("%s() : failed to read sync checkpoint file", __func__);  
             }    
         }
         LogPrintf("%s(): using synchronized checkpoint %s\n", __func__, Checkpoints::hashSyncCheckpoint.ToString().c_str());
 
         std::vector<std::string> strPubKeys;
-        if (!psyncCheckpointsDB->ReadCheckpointPubKeys(strPubKeys) || strPubKeys != syncChkParams.masterPubKeys) {
+        if (!Checkpoints::ReadCheckpointPubKeys(strPubKeys) || strPubKeys != syncChkParams.masterPubKeys) {
             // write new checkpoint master keys to db
-            if (!psyncCheckpointsDB->WriteCheckpointPubKeys(syncChkParams.masterPubKeys))
-                return error("%s() : failed to write new checkpoint master keys to db", __func__);
-            if (!Checkpoints::ResetSyncCheckpoint())
+            if (!Checkpoints::WriteCheckpointPubKeys(syncChkParams.masterPubKeys)) {
+                return error("%s() : failed to write new checkpoint master keys", __func__);
+            }
+            if (!Checkpoints::ResetSyncCheckpoint()) {
                 return error("%s() : failed to reset sync-checkpoint", __func__);
+            }
         }
 
         TryInitMasterKey(syncChkParams);

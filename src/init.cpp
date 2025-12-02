@@ -280,8 +280,6 @@ void Shutdown()
         pblocktree = nullptr;
         delete pnotarisations;
         pnotarisations = nullptr;
-        delete psyncCheckpointsDB;
-        psyncCheckpointsDB = nullptr;
     }
 #ifdef ENABLE_WALLET
     if (pwalletMain)
@@ -928,7 +926,6 @@ bool AttemptDatabaseOpen(size_t nBlockTreeDBCache, bool dbCompression, size_t db
         delete pcoinscatcher;
         delete pblocktree;
         delete pnotarisations;
-        delete psyncCheckpointsDB;
 
         pblocktree = new CBlockTreeDB(nBlockTreeDBCache, false, fReindex, dbCompression, dbMaxOpenFiles);
         pcoinsdbview = new CCoinsViewDB(nCoinDBCache, false, fReindex);

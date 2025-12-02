@@ -1635,7 +1635,6 @@ static const CRPCCommand commands[] =
     { "util",               "verifymessage",          &verifymessage,          true  },
     { "util",               "getcheckpoint",          &getcheckpoint,          true  },
 
-
     /* Not shown in help */
     { "hidden",             "setmocktime",            &setmocktime,            true  },
 };

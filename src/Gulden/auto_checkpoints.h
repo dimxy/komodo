@@ -13,6 +13,7 @@
 #include "net.h"
 #include "util.h"
 #include "txdb.h"
+#include "fs.h"
 
 class uint256;
 class CBlockIndex;
@@ -49,6 +50,10 @@ namespace Checkpoints
 	extern bool SetCheckpointPrivKey(CKey privKey);
 	extern bool SendSyncCheckpoint(uint256 hashCheckpoint, const SyncChkParams &syncChkParamsOut);
 	extern bool IsSyncCheckpointTooOld(unsigned int nSeconds);
+	extern bool ReadSyncCheckpoint(uint256& hashCheckpoint);
+	extern bool WriteSyncCheckpoint(const uint256& hashCheckpoint);
+	extern bool ReadCheckpointPubKeys(std::vector<std::string>& strPubKeysOut);
+	extern bool WriteCheckpointPubKeys(const std::vector<std::string>& strPubKeys);
 }
 
 class CUnsignedSyncCheckpoint
@@ -93,8 +98,6 @@ public:
 	bool ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std::string> &sPubkeys);
 	static std::vector<CPubKey> ParseMasterPubkeys(const std::vector<std::string> &sPubkeys);
 };
-
-extern CCheckpointsDB *psyncCheckpointsDB;
 
 // Komodo added
 namespace Checkpoints

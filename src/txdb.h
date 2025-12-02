@@ -94,18 +94,6 @@ public:
     bool GetStats(CCoinsStats &stats) const;
 };
 
-//Gulden - Checkpointing
-class CCheckpointsDB
-{
-protected:
-    CDBWrapper db;
-public:
-    CCheckpointsDB();
-    bool ReadSyncCheckpoint(uint256& hashCheckpoint);
-    bool WriteSyncCheckpoint(uint256 hashCheckpoint);
-    bool ReadCheckpointPubKeys(std::vector<std::string>& strPubKeys);
-    bool WriteCheckpointPubKeys(const std::vector<std::string>& strPubKeys);
-};
 
 /** 
  * Access to the block database (blocks/index/)

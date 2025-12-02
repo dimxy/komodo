@@ -16,15 +16,19 @@
 #include "timedata.h"
 
 #include <stdint.h>
-
 #include <boost/foreach.hpp>
-
 
 // Automatic checkpoint system.
 // Based on the checkpoint system developed initially by peercoin, however modified to work for Gulden.
+// Adapted for Komodo as replacement for dPoW being sunset.
 
 // How many blocks back the checkpoint should run
 #define AUTO_CHECKPOINT_DEPTH 4
+const std::string SYNC_CHKPT_DIR = "sync_checkpoint";
+const std::string SYNC_CHKPT_NEW = "new_checkpoint";
+const std::string SYNC_CHKPT_CURR = "curr_checkpoint";
+const std::string SYNC_CHKPT_NEW_PKS = "new_pubkeys";
+const std::string SYNC_CHKPT_CURR_PKS = "curr_pubkeys";
 
 // ppcoin: synchronized checkpoint (centrally broadcasted)
 namespace Checkpoints
@@ -112,19 +116,6 @@ namespace Checkpoints
 
 		return true;
 	}
-
-	// Save the current auto sync checkpoint to disk
-	bool WriteSyncCheckpoint(const uint256& hashCheckpoint)
-	{
-		assert(psyncCheckpointsDB);
-		if (!psyncCheckpointsDB->WriteSyncCheckpoint(hashCheckpoint))
-		{
-			return error("WriteSyncCheckpoint(): failed to write to db sync checkpoint %s", hashCheckpoint.ToString().c_str());
-		}
-		Checkpoints::hashSyncCheckpoint = hashCheckpoint;
-		return true;
-	}
-
 
 	bool AcceptPendingSyncCheckpoint()
 	{
@@ -392,6 +383,138 @@ namespace Checkpoints
 		const CBlockIndex* pindexSync = mapBlockIndex[hashSyncCheckpoint];
 		return (pindexSync->GetBlockTime() + nSeconds < GetTime()); // TODO: was GetAdjustedTime
 	}
+
+	std::set<uint256> badBlocks = {};
+
+	// Read the current auto sync checkpoint from disk
+    bool ReadSyncCheckpoint(uint256& hashCheckpoint)
+    {
+        if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
+            return false;
+
+        try
+        {
+            fs::ifstream checkpointFile( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR );
+            std::string temp;
+            checkpointFile >> temp;
+            hashCheckpoint = uint256S(temp);
+            
+            // Some code to help peers that missed a fork recover.
+            if (badBlocks.find(hashCheckpoint) != badBlocks.end())
+            {
+                hashCheckpoint = uint256();
+            }
+            bool anyBad = false;
+            for (const auto& badHash : badBlocks)
+            {
+                if (mapBlockIndex.count(badHash))
+                {
+                    if (!(mapBlockIndex[badHash]->nStatus & BLOCK_FAILED_MASK))
+                    {
+                        anyBad = true;
+                        CValidationState state;
+                        CBlockIndex* pblockindex = mapBlockIndex[badHash];
+                        InvalidateBlock(state, pblockindex);
+                    }
+                }
+            }
+            if (anyBad)
+            {
+                hashCheckpoint = uint256();
+                // Clear all the bans so that we can find peers again.
+                CNode::ClearBanned();
+            }
+            checkpointFile.close();
+        }
+        catch (...)
+        {
+            return false;
+        }
+        hashSyncCheckpoint = hashCheckpoint;
+
+        return true;
+    }
+
+    // Save the current auto sync checkpoint to disk
+    bool WriteSyncCheckpoint(const uint256& hashCheckpoint)
+    {
+        try
+        {
+            //First write to a new file, then overwrite the checkpoint file with a move operation
+            //This ensures that the operation happens in an atomic-like fashion and cannot leave us with a corrupted checkpoint file (on most sane filesystems at least)
+            //NB! We do not bother to force a disk flush - checkpoints come frequently and it doesn't matter if we are slightly out of date.
+            if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
+            {
+                if( !fs::create_directory(GetDataDir() / SYNC_CHKPT_DIR) )
+                    return false;
+            }
+
+            fs::ofstream checkpointFile( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_NEW );
+            checkpointFile << hashCheckpoint.ToString();
+            checkpointFile.close();
+
+            fs::rename( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_NEW, GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR );
+        }
+        catch (...)
+        {
+            return false;
+        }
+        hashSyncCheckpoint = hashCheckpoint;
+        return true;
+    }
+
+	bool ReadCheckpointPubKeys(std::vector<std::string>& strPubKeysOut)
+    {
+        if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
+            return false;
+
+        try
+        {
+            fs::ifstream checkpointFile( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR_PKS );
+			strPubKeysOut.clear();
+			while(!checkpointFile.eof()) {
+				std::string strPk;
+            	checkpointFile >> strPk;
+				strPubKeysOut.push_back(strPk);
+			}
+            checkpointFile.close();
+        }
+        catch (...)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool WriteCheckpointPubKeys(const std::vector<std::string>& strPubKeys)
+    {
+        try
+        {
+            //First write to a new file, then overwrite the checkpoint file with a move operation
+            //This ensures that the operation happens in an atomic-like fashion and cannot leave us with a corrupted checkpoint file (on most sane filesystems at least)
+            //NB! We do not bother to force a disk flush - checkpoints come frequently and it doesn't matter if we are slightly out of date.
+            if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
+            {
+                if( !fs::create_directory(GetDataDir() / SYNC_CHKPT_DIR) )
+                    return false;
+            }
+
+            fs::ofstream checkpointFile( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_NEW_PKS );
+			for (auto const &strPk : strPubKeys) {
+            	checkpointFile << strPk;
+			}
+            checkpointFile.close();
+
+            fs::rename( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_NEW_PKS, GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR_PKS );
+        }
+        catch (...)
+        {
+            return false;
+        }
+
+        return true;
+    }
 }
 
 CKey CSyncCheckpoint::masterKey;
