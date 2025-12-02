@@ -182,13 +182,14 @@ namespace Checkpoints
 		assert(mapBlockIndex.count(hashSyncCheckpoint));
 		const CBlockIndex* pindexSync = mapBlockIndex[hashSyncCheckpoint];
 
-		LogPrintf("%s: nHeight %d pindexSync->nHeight %d hashSyncCheckpoint=%s\n", __func__, nHeight, pindexSync->nHeight, hashSyncCheckpoint.ToString());
+		LogPrintf("%s: nHeight %d hashBlock %s pindexSync->nHeight %d hashSyncCheckpoint=%s\n", __func__, nHeight, hashBlock.ToString(), pindexSync->nHeight, hashSyncCheckpoint.ToString());
 		if (nHeight > pindexSync->nHeight)
 		{
 			// trace back to same height as sync-checkpoint
 			const CBlockIndex* pindex = pindexPrev;
 			while (pindex->nHeight > pindexSync->nHeight)
 			{
+				LogPrintf("%s: pindex->nHeight=%d pindex->GetBlockHash()=%s\n", __func__, pindex->nHeight, pindex->GetBlockHash().ToString());
 				if (!(pindex = pindex->pprev))
 				{
 					return error("CheckSync: pprev null - block index structure failure");

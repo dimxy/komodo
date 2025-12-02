@@ -5383,7 +5383,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
                 {
                     CBlockIndex *heightblock = chainActive[nHeight];
                     if ( heightblock != 0 && heightblock->GetBlockHash() == hash )
-                        return true; // will not do sync checkpoint validation if dpow okay
+                        return true;
                     else 
                         return state.DoS(1, error("%s: forked chain %d older than last notarized (height %d) vs %d", __func__,
                                 nHeight, notarized_height));
