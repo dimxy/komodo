@@ -192,12 +192,13 @@ namespace Checkpoints
     bool TryInitSyncCheckpoint(const SyncChkParams &syncChkParams) 
     {    
         LOCK(cs_hashSyncCheckpoint);
-        if (!fMasterPubkeysSaved) {
+        if (!fTryInitDone) {
             if (!Checkpoints::WriteCheckpointPubKeys(syncChkParams.masterPubKeys)) {
                 return error("%s() : failed to write new checkpoint master keys", __func__);  
             }
-            LogPrintf("%s(): sync checkpoint master keys saved\n", __func__);
-            fMasterPubkeysSaved = true;
+            LogPrintf("%s(): sync checkpoint try init done\n", __func__);
+            TryInitMasterKey(syncChkParams);
+            fTryInitDone = true;
         }
         return true;
     }
@@ -226,8 +227,6 @@ namespace Checkpoints
                 return error("%s() : failed to reset sync-checkpoint", __func__);
             }
         }
-
-        TryInitMasterKey(syncChkParams);
         return true;
     }
 }

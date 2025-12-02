@@ -27,7 +27,7 @@ namespace Checkpoints
         int64_t activeAt;
         std::vector<std::string> masterPubKeys;
     };
-	extern bool fMasterPubkeysSaved;
+	extern bool fTryInitDone;
 }
 
 namespace Checkpoints
@@ -40,6 +40,7 @@ namespace Checkpoints
 	extern CCriticalSection cs_hashSyncCheckpoint;
 	extern CBlockIndex* GetLastSyncCheckpoint();
 	extern bool ValidateSyncCheckpoint(uint256 hashCheckpoint);
+	extern bool ReadSyncCheckpoint(uint256& hashCheckpoint);
 	extern bool WriteSyncCheckpoint(const uint256& hashCheckpoint);
 	extern bool AcceptPendingSyncCheckpoint();
 	extern uint256 AutoSelectSyncCheckpoint();
@@ -51,8 +52,6 @@ namespace Checkpoints
 	extern bool SetCheckpointPrivKey(CKey privKey);
 	extern bool SendSyncCheckpoint(uint256 hashCheckpoint, const SyncChkParams &syncChkParamsOut);
 	extern bool IsSyncCheckpointTooOld(unsigned int nSeconds);
-	extern bool ReadSyncCheckpoint(uint256& hashCheckpoint);
-	extern bool WriteSyncCheckpoint(const uint256& hashCheckpoint);
 	extern bool ReadCheckpointPubKeys(std::vector<std::string>& strPubKeysOut);
 	extern bool WriteCheckpointPubKeys(const std::vector<std::string>& strPubKeys);
 }

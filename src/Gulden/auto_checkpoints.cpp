@@ -39,7 +39,7 @@ namespace Checkpoints
 	CSyncCheckpoint checkpointMessagePending;
 	uint256 hashInvalidCheckpoint = uint256();
 	CCriticalSection cs_hashSyncCheckpoint;
-	bool fMasterPubkeysSaved;
+	bool fTryInitDone;
 
 	// Get the highest auto synchronized checkpoint that we have received
 	CBlockIndex* GetLastSyncCheckpoint()
