@@ -174,6 +174,7 @@ namespace Checkpoints
 		LOCK(cs_hashSyncCheckpoint);
 		if (hashSyncCheckpoint==uint256())
 		{
+			LogPrintf("%s: hashSyncCheckpoint is null, true\n", __func__);
             return true;
 		}
 
@@ -181,6 +182,7 @@ namespace Checkpoints
 		assert(mapBlockIndex.count(hashSyncCheckpoint));
 		const CBlockIndex* pindexSync = mapBlockIndex[hashSyncCheckpoint];
 
+		LogPrintf("%s: nHeight %d pindexSync->nHeight %d hashSyncCheckpoint=%s\n", __func__, nHeight, pindexSync->nHeight, hashSyncCheckpoint.ToString());
 		if (nHeight > pindexSync->nHeight)
 		{
 			// trace back to same height as sync-checkpoint
@@ -192,6 +194,7 @@ namespace Checkpoints
 					return error("CheckSync: pprev null - block index structure failure");
 				}
 			}
+			LogPrintf("%s: pindex->nHeight=%d pindexSync->nHeight=%d pindex->GetBlockHash()=%s\n", __func__, pindex->nHeight, pindexSync->nHeight, pindex->GetBlockHash().ToString());
 			if (pindex->nHeight < pindexSync->nHeight || pindex->GetBlockHash() != hashSyncCheckpoint)
 			{
 				return false; // only descendant of sync-checkpoint can pass check
@@ -205,6 +208,7 @@ namespace Checkpoints
 		{
 			return false; // lower height than sync-checkpoint
 		}
+		LogPrintf("%s: returning true\n", __func__);
 		return true;
 	}
 
@@ -505,7 +509,7 @@ namespace Checkpoints
 
             fs::ofstream checkpointFile( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_NEW_PKS );
 			for (auto const &strPk : strPubKeys) {
-            	checkpointFile << strPk;
+            	checkpointFile << strPk << '\n';
 			}
             checkpointFile.close();
 

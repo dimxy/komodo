@@ -126,7 +126,7 @@ namespace Checkpoints
     static bool GetSyncCheckpointActivationParams(SyncChkParams &syncChkParams, int nHeight, int64_t timestamp) {
         AssertLockHeld(cs_main);
 
-        LogPrintf("%s nHeight=%d %s\n", __func__, nHeight, chainName.ToString());
+        //LogPrintf("%s nHeight=%d %s\n", __func__, nHeight, chainName.ToString());
         if (chainName.ToString().empty()) {
             return false; //not initialised yet
         }
@@ -146,12 +146,12 @@ namespace Checkpoints
         }
         if (syncChkParams.activeAt < LOCKTIME_THRESHOLD) { // height or timestamp
             if (nHeight > syncChkParams.activeAt) { // same 'greater' comparison as for komodo seasons
-                LogPrintf("%s nHeight %d > syncChkParams.activeAt %lld true\n", __func__, nHeight, syncChkParams.activeAt);
+                //LogPrintf("%s nHeight %d > syncChkParams.activeAt %lld true\n", __func__, nHeight, syncChkParams.activeAt);
                 return true;
             }
         } else {
             if (timestamp > syncChkParams.activeAt) { // same 'greater' comparison as for komodo seasons
-                LogPrintf("%s timestamp %lld > syncChkParams.activeAt %lld true\n", __func__, timestamp, syncChkParams.activeAt);
+                //LogPrintf("%s timestamp %lld > syncChkParams.activeAt %lld true\n", __func__, timestamp, syncChkParams.activeAt);
                 return true;
             }
         }
@@ -219,6 +219,16 @@ namespace Checkpoints
 
         std::vector<std::string> strPubKeys;
         if (!Checkpoints::ReadCheckpointPubKeys(strPubKeys) || strPubKeys != syncChkParams.masterPubKeys) {
+            LogPrintf("%s(): strPubKeys:", __func__);
+            for (const auto &pk:  strPubKeys) {
+                LogPrintf(" [%s]", pk);
+            }
+            LogPrintf("\n");
+            LogPrintf("%s(): masterPubKeys:", __func__);
+            for (const auto &pk:  syncChkParams.masterPubKeys) {
+                LogPrintf(" [%s]", pk);
+            }
+            LogPrintf("\n");
             // write new checkpoint master keys to db
             if (!Checkpoints::WriteCheckpointPubKeys(syncChkParams.masterPubKeys)) {
                 return error("%s() : failed to write new checkpoint master keys", __func__);
