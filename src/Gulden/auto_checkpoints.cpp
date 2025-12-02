@@ -475,6 +475,9 @@ namespace Checkpoints
 			while(!checkpointFile.eof()) {
 				std::string strPk;
             	checkpointFile >> strPk;
+				if (strPk.empty()) {
+					break;
+				}
 				strPubKeysOut.push_back(strPk);
 			}
             checkpointFile.close();
