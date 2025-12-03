@@ -174,7 +174,7 @@ namespace Checkpoints
 		LOCK(cs_hashSyncCheckpoint);
 		if (hashSyncCheckpoint==uint256())
 		{
-			LogPrintf("%s: hashSyncCheckpoint is null, true\n", __func__);
+			LogPrint("chk", "%s: hashSyncCheckpoint is null, true\n", __func__);
             return true;
 		}
 
@@ -182,20 +182,20 @@ namespace Checkpoints
 		assert(mapBlockIndex.count(hashSyncCheckpoint));
 		const CBlockIndex* pindexSync = mapBlockIndex[hashSyncCheckpoint];
 
-		LogPrintf("%s: nHeight %d hashBlock %s pindexSync->nHeight %d hashSyncCheckpoint=%s\n", __func__, nHeight, hashBlock.ToString(), pindexSync->nHeight, hashSyncCheckpoint.ToString());
+		LogPrint("chk", "%s: nHeight %d hashBlock %s pindexSync->nHeight %d hashSyncCheckpoint=%s\n", __func__, nHeight, hashBlock.ToString(), pindexSync->nHeight, hashSyncCheckpoint.ToString());
 		if (nHeight > pindexSync->nHeight)
 		{
 			// trace back to same height as sync-checkpoint
 			const CBlockIndex* pindex = pindexPrev;
 			while (pindex->nHeight > pindexSync->nHeight)
 			{
-				LogPrintf("%s: pindex->nHeight=%d pindex->GetBlockHash()=%s\n", __func__, pindex->nHeight, pindex->GetBlockHash().ToString());
+				LogPrint("chk", "%s: pindex->nHeight=%d pindex->GetBlockHash()=%s\n", __func__, pindex->nHeight, pindex->GetBlockHash().ToString());
 				if (!(pindex = pindex->pprev))
 				{
 					return error("CheckSync: pprev null - block index structure failure");
 				}
 			}
-			LogPrintf("%s: pindex->nHeight=%d pindexSync->nHeight=%d pindex->GetBlockHash()=%s\n", __func__, pindex->nHeight, pindexSync->nHeight, pindex->GetBlockHash().ToString());
+			LogPrint("chk", "%s: pindex->nHeight=%d pindexSync->nHeight=%d pindex->GetBlockHash()=%s\n", __func__, pindex->nHeight, pindexSync->nHeight, pindex->GetBlockHash().ToString());
 			if (pindex->nHeight < pindexSync->nHeight || pindex->GetBlockHash() != hashSyncCheckpoint)
 			{
 				return false; // only descendant of sync-checkpoint can pass check
@@ -209,7 +209,7 @@ namespace Checkpoints
 		{
 			return false; // lower height than sync-checkpoint
 		}
-		LogPrintf("%s: returning true\n", __func__);
+		LogPrint("chk", "%s: returning true\n", __func__);
 		return true;
 	}
 
@@ -361,7 +361,7 @@ namespace Checkpoints
 		}
 		else
 		{
-			LogPrintf("SendSyncCheckpoint: SUCCESS.\n");
+			LogPrint("chk", "SendSyncCheckpoint: SUCCESS.\n");
 		}
 
 		// Relay checkpoint
@@ -574,6 +574,7 @@ bool CSyncCheckpoint::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std:
 		// Ask this guy to fill in what we're missing
 		if (pfrom)
 		{
+			LogPrint("chk", "%s getheaders (%d) to peer=%d\n", __func__, (chainActive.Tip() ? chainActive.Tip()->nHeight : 0), pfrom->id);
 			pfrom->PushMessage("getheaders", chainActive.GetLocator(chainActive.Tip()), uint256());
 		}
 		return false;
@@ -610,7 +611,7 @@ bool CSyncCheckpoint::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std:
 	Checkpoints::checkpointMessage = *this;
 	Checkpoints::hashPendingCheckpoint = uint256();
 	Checkpoints::checkpointMessagePending.SetNull();
-	LogPrintf("ProcessSyncCheckpoint: sync-checkpoint at %s\n", hashCheckpoint.ToString().c_str());
+	LogPrint("chk", "ProcessSyncCheckpoint: sync-checkpoint at %s\n", hashCheckpoint.ToString().c_str());
 	return true;
 }
 

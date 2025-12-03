@@ -7176,7 +7176,7 @@ void static ProcessGetData(CNode* pfrom)
                             //hash = block.GetHash();
                             //for (z=31; z>=0; z--)
                             //    fprintf(stderr,"%02x",((uint8_t *)&hash)[z]);
-                            LogPrint("net1", "sending block %s to %d in resp to inv\n", block.GetHash().ToString(), pfrom->id);
+                            LogPrint("net1", "sending block %s to %d in resp to getdata\n", block.GetHash().ToString(), pfrom->id);
                             pfrom->PushMessage("block", block);
                         }
                         else // MSG_FILTERED_BLOCK)
