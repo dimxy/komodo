@@ -25,7 +25,7 @@
 #include "utlist.h"
 
 #define GENESIS_NBITS 0x1f00ffff
-#define KOMODO_MINRATIFY ((height < 90000) ? 7 : 11)
+#define KOMODO_MINRATIFY 1 // ((height < 90000) ? 7 : 11)
 #define KOMODO_NOTARIES_HARDCODED 180000 // DONT CHANGE Below this height notaries were hardcoded
 #define KOMODO_MAXBLOCKS 250000 // DONT CHANGE
 

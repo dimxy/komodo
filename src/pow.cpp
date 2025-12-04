@@ -617,6 +617,7 @@ bool isSecondBlockAllowed(int32_t notaryid, uint32_t blocktime, uint32_t thresho
     return false;
 }
 
+bool fTestDpow = true;
 bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t height, const Consensus::Params& params)
 {
     uint256 hash;
@@ -634,7 +635,7 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
         height = komodo_currentheight() + 1;
         //fprintf(stderr,"set height to %d\n",height);
     }
-    if ( height > 34000 && chainName.isKMD() ) // 0 -> non-special notary
+    if ( (fTestDpow || height > 34000) && chainName.isKMD() ) // 0 -> non-special notary
     {
         special = komodo_chosennotary(&notaryid,height,pubkey33,tiptime);
         for (i=0; i<33; i++)
@@ -649,20 +650,25 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
         }
         flag = komodo_eligiblenotary(pubkeys,mids,blocktimes,&nonzpkeys,height);
         special2 = komodo_is_special(pubkeys,mids,blocktimes,height,pubkey33,blkHeader.nTime);
+        LogPrint("dpow", "%s komodo_eligiblenotary=%d special=%d special2=%d notaryid=%d\n", __func__, flag, special, special2, notaryid);
         if ( notaryid >= 0 )
         {
-            if ( height > 10000 && height < 80000 && (special != 0 || special2 > 0) )
+            if ( !fTestDpow && height > 10000 && height < 80000 && (special != 0 || special2 > 0) )
                 flag = 1;
-            else if ( height >= 80000 && height < 108000 && special2 > 0 )
+            else if ( !fTestDpow && height >= 80000 && height < 108000 && special2 > 0 )
                 flag = 1;
-            else if ( height >= 108000 && special2 > 0 )
-                flag = (height > 1000000 || (height % KOMODO_ELECTION_GAP) > 64 || (height % KOMODO_ELECTION_GAP) == 0);
+            else if ( (fTestDpow || height >= 108000) && special2 > 0 ) {
+                flag = fTestDpow || (height > 1000000 || (height % KOMODO_ELECTION_GAP) > 64 || (height % KOMODO_ELECTION_GAP) == 0);
+                LogPrint("dpow", "%s special2 %d > 0 flag=%d\n", __func__, special2, flag);
+            }
             else if ( height == 790833 )
                 flag = 1;
             else if ( special2 < 0 )
             {
-                if ( height > 792000 )
+                if ( fTestDpow || height > 792000 ) {
+                    LogPrint("dpow", "%s special2 %d < 0 flag=0\n", __func__, special2);
                     flag = 0;
+                }
                 else fprintf(stderr,"ht.%d notaryid.%d special.%d flag.%d special2.%d\n",height,notaryid,special,flag,special2);
             }
 
@@ -736,6 +742,7 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
 
             if ( (flag != 0 || special2 > 0) && special2 != -2 )
             {
+                LogPrint("dpow", "%s bnTarget set to KOMODO_MINDIFF_NBITS flag=%d special2=%d notaryid=%d\n", __func__, flag, special2, notaryid);
                 bnTarget.SetCompact(KOMODO_MINDIFF_NBITS,&fNegative,&fOverflow);
             }
         }
@@ -754,7 +761,7 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
         if ( KOMODO_LOADINGBLOCKS )
             return true;
 
-        if ( !chainName.isKMD() || height > 792000 )
+        if ( !chainName.isKMD() || (height > 792000 || fTestDpow))
         {
             //if ( 0 && height > 792000 )
             if ( Params().NetworkIDString() != "regtest" )
@@ -771,6 +778,21 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
                 for (i=0; i<33; i++)
                     fprintf(stderr,"%02x",origpubkey33[i]);
                 fprintf(stderr," <- origpubkey\n");
+
+                LogPrint("dpow", "%s", __func__);
+                for (i=31; i>=0; i--)
+                    LogPrint("dpow", "%02x",((uint8_t *)&hash)[i]);
+                LogPrint("dpow", " hash vs ");
+                for (i=31; i>=0; i--)
+                    LogPrint("dpow", "%02x",((uint8_t *)&bnTarget)[i]);
+                LogPrint("dpow", " ht.%d special.%d special2.%d flag.%d notaryid.%d mod.%d error\n",height,special,special2,flag,notaryid,(height % 35));
+                for (i=0; i<33; i++)
+                    LogPrint("dpow", "%02x",pubkey33[i]);
+                LogPrint("dpow", " <- pubkey\n");
+                for (i=0; i<33; i++)
+                    LogPrint("dpow", "%02x",origpubkey33[i]);
+                LogPrint("dpow", " <- origpubkey\n");
+
             }
             return false;
         }

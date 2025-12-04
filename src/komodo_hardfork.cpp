@@ -31,6 +31,7 @@ const uint32_t nSunsettingTimestamp = 1796103821; // TODO fix, now Dec 01 2026
 // Era array of pubkeys. Add extra seasons to bottom as requried, after adding appropriate info above. 
 const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =
 {
+/*
     {
         { "0_jl777_testA", "03b7621b44118017a16043f19b30cc8a4cfe068ac4e42417bae16ba460c80f3828" },
         { "0_jl777_testB", "02ebfc784a4ba768aad88d44d1045d240d47b26e248cafaf1c5169a42d7a61d344" },
@@ -564,6 +565,7 @@ const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =
         {"dragonhound_NA", "0306476ea5fb67aec667172a9bb30646dbff195b84c30ac958175af9b475987802"},
         {"dragonhound_DEV", "02f9a7b49282885cd03969f1f5478287497bc8edfceee9eac676053c107c5fcdaf"}
    },
+*/
    {
         // Season 8
         {"alright_DEV", "028548847b3bbccff37c9b47bc4154183304902773d514b792ec2adc91e600e3b9"}, // 0

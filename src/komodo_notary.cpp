@@ -284,6 +284,7 @@ void komodo_notarysinit(int32_t origheight,uint8_t pubkeys[64][33],int32_t num)
         hwmheight = origheight;
 }
 
+extern bool fTestDpow;
 int32_t komodo_chosennotary(int32_t *notaryidp,int32_t height,uint8_t *pubkey33,uint32_t timestamp)
 {
     // -1 if not notary, 0 if notary, 1 if special notary
@@ -297,7 +298,7 @@ int32_t komodo_chosennotary(int32_t *notaryidp,int32_t height,uint8_t *pubkey33,
         printf("komodo_chosennotary ht.%d illegal\n",height);
         return(-1);
     }
-    if ( height >= KOMODO_NOTARIES_HARDCODED || !chainName.isKMD() )
+    if ( fTestDpow || height >= KOMODO_NOTARIES_HARDCODED || !chainName.isKMD() )
     {
         if ( (*notaryidp= komodo_electednotary(&numnotaries,pubkey33,height,timestamp)) >= 0 && numnotaries != 0 )
         {
@@ -305,7 +306,7 @@ int32_t komodo_chosennotary(int32_t *notaryidp,int32_t height,uint8_t *pubkey33,
             return(modval);
         }
     }
-    if ( height >= 250000 )
+    if ( height >= 250000 || fTestDpow)
         return(-1);
     if ( Pubkeys == nullptr )
         komodo_init(0);
