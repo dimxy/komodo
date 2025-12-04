@@ -120,6 +120,7 @@ int32_t komodo_isnotaryvout(char *coinaddr,uint32_t tiptime) // from ac_private 
     return(0);
 }
 
+extern bool fTestDpow;
 /***
  * @brief Given a height or timestamp, get the appropriate notary keys
  * @param[out] pubkeys the results
@@ -144,7 +145,7 @@ int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestam
         if ( chainName.isKMD() )
         {
             // This is KMD, use block heights to determine the KMD notary season.. 
-            if ( height >= KOMODO_NOTARIES_HARDCODED )
+            if (fTestDpow || height >= KOMODO_NOTARIES_HARDCODED )
                 kmd_season = getkmdseason(height);
         }
         else 
@@ -298,7 +299,7 @@ int32_t komodo_chosennotary(int32_t *notaryidp,int32_t height,uint8_t *pubkey33,
         printf("komodo_chosennotary ht.%d illegal\n",height);
         return(-1);
     }
-    if ( fTestDpow || height >= KOMODO_NOTARIES_HARDCODED || !chainName.isKMD() )
+    if ( (fTestDpow || height >= KOMODO_NOTARIES_HARDCODED) || !chainName.isKMD() )
     {
         if ( (*notaryidp= komodo_electednotary(&numnotaries,pubkey33,height,timestamp)) >= 0 && numnotaries != 0 )
         {
