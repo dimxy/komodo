@@ -188,10 +188,12 @@ public:
         vFixedSeeds.clear();
         vSeeds.clear();
 
+        /*
         vSeeds.push_back(CDNSSeedData("komodoseeds.org", "kmd.komodoseeds.org")); // decker
         vSeeds.push_back(CDNSSeedData("kmd.sh", "seeds1.kmd.sh")); // decker
         vSeeds.push_back(CDNSSeedData("cipig.net", "kmdseed.cipig.net")); // cipig
         vSeeds.push_back(CDNSSeedData("lordofthechains.com", "kmdseeds.lordofthechains.com")); // gcharang
+        */
 
         /*
         vSeeds.push_back(CDNSSeedData("komodoseeds.com", "kmd.komodoseeds.com"));
@@ -228,7 +230,7 @@ public:
             boost::assign::map_list_of
 
             (0, consensus.hashGenesisBlock)
-                (	99996,	uint256S("0x00001d43f3cd902b726650d79f1d3376076aec3aa83d6ec8609b37e088f02ca4"))
+            /*    (	99996,	uint256S("0x00001d43f3cd902b726650d79f1d3376076aec3aa83d6ec8609b37e088f02ca4"))
                 (	199996,	uint256S("0x000000b3c719380fbe28d4003407e1f90a7d97f6341eecb8616338eaafd36185"))
                 (	299989,	uint256S("0x00000041a4c5bf30567db423184ec20075dbce6d151d46b31e035f6684acdd18"))
                 (	399980,	uint256S("0x000000065a274c81e3a195ab3c4d790e7fdeaded326b99c340d7c55198c194d7"))
@@ -271,7 +273,7 @@ public:
             22693459,       // * total number of transactions between genesis and last checkpoint (1708625280)
                             //   (the tx=... number in the SetBestChain debug.log lines)
             2777            // * estimated number of transactions per day after checkpoint
-                            //   total number of tx / (checkpoint block height / (24 * 24))
+                            //   total number of tx / (checkpoint block height / (24 * 24))*/
         };
 
         genesisNotaries = { 
