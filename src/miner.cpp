@@ -147,6 +147,7 @@ void UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParams, 
 extern CCriticalSection cs_metrics;
 uint32_t Mining_start,Mining_height;
 int32_t My_notaryid = -1;
+extern bool fTestDpow;
 
 int32_t komodo_waituntilelegible(uint32_t blocktime, int32_t stakeHeight, uint32_t delay)
 {
@@ -844,7 +845,7 @@ CBlockTemplate* CreateNewBlock(const CPubKey _pk, const CScript& _scriptPubKeyIn
             }
             pblock->vtx[0] = txNew;
 
-            if ( Mining_height > nDecemberHardforkHeight ) //December 2019 hardfork
+            if (fTestDpow || Mining_height > nDecemberHardforkHeight ) //December 2019 hardfork
                 opret = komodo_makeopret(pblock, true);
             else
                 opret.clear();
@@ -858,10 +859,12 @@ CBlockTemplate* CreateNewBlock(const CPubKey _pk, const CScript& _scriptPubKeyIn
                 nFees += txfees;
                 pblocktemplate->vTxFees[0] = -nFees;
                 fprintf(stderr,"added notaryvin includes proof.%d\n", opret.size() > 0);
+                LogPrint("dpow", "added notaryvin includes proof.%d IS_KOMODO_NOTARY=%d\n", opret.size(), IS_KOMODO_NOTARY);
             }
             else
             {
                 fprintf(stderr,"error adding notaryvin, need to create 0.0001 utxos\n");
+                LogPrint("dpow","error adding notaryvin, need to create 0.0001 utxos, IS_KOMODO_NOTARY=%d\n", IS_KOMODO_NOTARY);
                 if ( chainName.isKMD() ||  (!chainName.isKMD() && !isStake) )
                 {
                     LEAVE_CRITICAL_SECTION(cs_main);
