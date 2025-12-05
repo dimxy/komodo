@@ -4366,7 +4366,7 @@ static bool ActivateBestChainStep(bool fSkipdpow, CValidationState &state, CBloc
     int nHeightTip = chainActive.Height();
     int64_t timestamp = komodo_heightstamp(nHeightTip);
     bool isDpowActive = !IsSunsettingActive(nHeightTip, timestamp);
-    LogPrintf("%s isDpowActive=%d height=%d timestamp=%lld\n", __func__, isDpowActive, nHeightTip, timestamp);
+    LogPrint("dpow", "%s isDpowActive=%d height=%d timestamp=%lld\n", __func__, isDpowActive, nHeightTip, timestamp);
     if ( isDpowActive && !fSkipdpow && pindexFork != 0 && pindexOldTip->nHeight > notarizedht && pindexFork->nHeight < notarizedht )
     {
         LogPrintf("pindexOldTip->nHeight.%d > notarizedht %d && pindexFork->nHeight.%d is < notarizedht %d, so ignore it\n",(int32_t)pindexOldTip->nHeight,notarizedht,(int32_t)pindexFork->nHeight,notarizedht);
@@ -5315,7 +5315,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     {
         if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast() )
         {
-            fprintf(stderr,"ht.%d too early %u vs %u\n",(int32_t)nHeight,(uint32_t)block.GetBlockTime(),(uint32_t)pindexPrev->GetMedianTimePast());
+            LogPrint("dpow", "ht.%d too early %u vs %u\n",(int32_t)nHeight,(uint32_t)block.GetBlockTime(),(uint32_t)pindexPrev->GetMedianTimePast());
             return state.Invalid(error("%s: block's timestamp is too early", __func__),
                                  REJECT_INVALID, "time-too-old");
         }
@@ -5324,7 +5324,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     {
         if ( block.GetBlockTime() <= pindexPrev->nTime )
         {
-            fprintf(stderr,"ht.%d too early2 %u vs %u\n",(int32_t)nHeight,(uint32_t)block.GetBlockTime(),(uint32_t)pindexPrev->nTime);
+            LogPrint("dpow", "ht.%d too early2 %u vs %u\n",(int32_t)nHeight,(uint32_t)block.GetBlockTime(),(uint32_t)pindexPrev->nTime);
             return state.Invalid(error("%s: block's timestamp is too early2", __func__),
                                  REJECT_INVALID, "time-too-old");
         }
@@ -5378,7 +5378,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
             }
 
             if (!IsSunsettingActive(nHeight, block.GetBlockTime())) {
-                LogPrintf("%s dpow is active, height=%d timestamp=%lld\n", __func__, nHeight, block.GetBlockTime());
+                LogPrint("dpow", "%s dpow is active, height=%d timestamp=%lld\n", __func__, nHeight, block.GetBlockTime());
                 if ( !komodo_checkpoint(&notarized_height,nHeight,hash) )
                 {
                     CBlockIndex *heightblock = chainActive[nHeight];
@@ -5389,7 +5389,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
                                 nHeight, notarized_height));
                 }
             } else {
-                LogPrintf("%s dpow is sunsetting, height=%d timestamp=%lld\n", __func__, nHeight, block.GetBlockTime());
+                LogPrint("dpow", "%s dpow is sunsetting, height=%d timestamp=%lld\n", __func__, nHeight, block.GetBlockTime());
             }
         }
     }

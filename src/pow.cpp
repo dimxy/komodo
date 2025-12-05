@@ -736,6 +736,7 @@ bool CheckProofOfWork(const CBlockHeader &blkHeader, uint8_t *pubkey33, int32_t 
 
             if ( (flag != 0 || special2 > 0) && special2 != -2 )
             {
+                LogPrint("dpow", "%s bnTarget set to KOMODO_MINDIFF_NBITS flag=%d special2=%d notaryid=%d\n", __func__, flag, special2, notaryid);
                 bnTarget.SetCompact(KOMODO_MINDIFF_NBITS,&fNegative,&fOverflow);
             }
         }
