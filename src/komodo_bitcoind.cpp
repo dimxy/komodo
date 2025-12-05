@@ -21,6 +21,7 @@
 #include "rpc/net.h"
 #include "init.h"
 
+extern bool fTestDpow;
 
 /************************************************************************
  *
@@ -870,7 +871,7 @@ int32_t komodo_eligiblenotary(uint8_t pubkeys[66][33],int32_t *mids,uint32_t blo
                 duplicate++;
         }
     }
-    if ( i == 66 && duplicate == 0 && (height > 186233 || *nonzpkeysp > 0) )
+    if ( i == 66 && duplicate == 0 && ((fTestDpow || height > 186233) || *nonzpkeysp > 0) )
         return(1);
     else return(0);
 }
@@ -904,11 +905,11 @@ int32_t komodo_minerids(uint8_t *minerids,int32_t height,int32_t width)
     return(nonz);
 }
 
-extern bool fTestDpow;
 int32_t komodo_is_special(uint8_t pubkeys[66][33],int32_t mids[66],uint32_t blocktimes[66],int32_t height,uint8_t pubkey33[33],uint32_t blocktime)
 {
     int32_t i,j,notaryid=0,minerid,limit,nid; uint8_t destpubkey33[33];
     komodo_chosennotary(&notaryid,height,pubkey33,blocktimes[0]);
+    LogPrint("dpow", "%s komodo_chosennotary returned: notaryid.%d height=%d pubkey33=%s, blocktimes[0]=%d\n", __func__, notaryid, height, HexStr(pubkey33, pubkey33+33).c_str(), blocktimes[0]);
     if ( fTestDpow || height >= 82000 )
     {
         if ( notaryid >= 0 )
@@ -922,18 +923,22 @@ int32_t komodo_is_special(uint8_t pubkeys[66][33],int32_t mids[66],uint32_t bloc
                         for (j=0; j<66; j++)
                             fprintf(stderr,"%d ",mids[j]);
                         fprintf(stderr,"ht.%d repeat notaryid.%d in mids[%d]\n",height,notaryid,i);
-                        LogPrint("dpow", "ht.%d repeat notaryid.%d in mids[%d]\n",height,notaryid,i);
+                        LogPrint("dpow", "%s ht.%d repeat notaryid.%d in mids[%d]\n", __func__, height,notaryid,i);
                         return(-1);
-                    } else break;
+                    } 
+                    else 
+                        break;
                 }
             }
             if ( blocktime != 0 && blocktimes[1] != 0 && blocktime < blocktimes[1]+57 )
             {
-                if ( height > 807000 )
+                if ( height > 807000 || fTestDpow)
                     return(-2);
             }
             return(1);
-        } else return(0);
+        } 
+        else 
+            return(0);
     }
     else
     {
