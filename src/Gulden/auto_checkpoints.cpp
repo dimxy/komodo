@@ -394,6 +394,8 @@ namespace Checkpoints
 	// Read the current auto sync checkpoint from disk
     bool ReadSyncCheckpoint(uint256& hashCheckpoint)
     {
+		AssertLockHeld(cs_hashSyncCheckpoint);
+		
         if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
             return false;
 
@@ -452,12 +454,15 @@ namespace Checkpoints
 			return error("%s: Serialize or I/O error - %s", __func__, e.what());
 		}
         hashSyncCheckpoint = hashCheckpoint;
+		LogPrint("chk", "%s read checkpoint %s\n", __func__, hashCheckpoint.ToString());
         return true;
     }
 
     // Save the current auto sync checkpoint to disk
     bool WriteSyncCheckpoint(const uint256& hashCheckpoint)
     {
+		AssertLockHeld(cs_hashSyncCheckpoint);
+
 		//First write to a new file, then overwrite the checkpoint file with a move operation
 		//This ensures that the operation happens in an atomic-like fashion and cannot leave us with a corrupted checkpoint file (on most sane filesystems at least)
 		//NB! We do not bother to force a disk flush - checkpoints come frequently and it doesn't matter if we are slightly out of date.
@@ -487,6 +492,7 @@ namespace Checkpoints
 			return error("%s: Serialize or I/O error - %s", __func__, e.what());
 		}
         hashSyncCheckpoint = hashCheckpoint;
+		LogPrint("chk", "%s written checkpoint %s\n", __func__, hashCheckpoint.ToString());
         return true;
     }
 
@@ -519,7 +525,7 @@ namespace Checkpoints
 				return error("%s: Invalid network magic number in %s", __func__, SYNC_CHKPT_CURR_PKS.c_str());
 
 			strPubKeysOut.clear();
-			while(ssPubkeys.eof()) {
+			while(!ssPubkeys.eof()) {
 				std::string pubkey;
 				ssPubkeys >> pubkey;
 				strPubKeysOut.push_back(pubkey);
