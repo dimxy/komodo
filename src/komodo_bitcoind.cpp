@@ -920,10 +920,10 @@ int32_t komodo_is_special(uint8_t pubkeys[66][33],int32_t mids[66],uint32_t bloc
                 {
                     if ( fTestDpow || height > 792000 )
                     {
+                        LogPrint("dpow", "%s mids:", __func__);
                         for (j=0; j<66; j++)
-                            fprintf(stderr,"%d ",mids[j]);
-                        fprintf(stderr,"ht.%d repeat notaryid.%d in mids[%d]\n",height,notaryid,i);
-                        LogPrint("dpow", "%s ht.%d repeat notaryid.%d in mids[%d]\n", __func__, height,notaryid,i);
+                            LogPrint("dpow","%d ",mids[j]);
+                        LogPrint("dpow", " ht.%d repeat notaryid.%d in mids[%d]\n", height, notaryid, i);
                         return(-1);
                     } 
                     else 
