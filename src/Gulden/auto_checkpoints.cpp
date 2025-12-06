@@ -397,13 +397,31 @@ namespace Checkpoints
         if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
             return false;
 
-        try
-        {
-            fs::ifstream checkpointFile( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR );
-            std::string temp;
-            checkpointFile >> temp;
-            hashCheckpoint = uint256S(temp);
-            
+		try {
+			fs::path checkpointFilePath = GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR;
+			
+			// use file size to size memory buffer
+			uint32_t fileSize = fs::file_size(checkpointFilePath);
+			std::vector<unsigned char> vchData;
+			vchData.resize(fileSize);
+
+			FILE *file = fopen(checkpointFilePath.string().c_str(), "rb");
+			CAutoFile checkpointFile(file, SER_DISK, CLIENT_VERSION);
+			if (checkpointFile.IsNull())
+				return error("%s: Failed to open file %s", __func__, SYNC_CHKPT_CURR.c_str());
+			checkpointFile.read((char *)&vchData[0], fileSize);
+			checkpointFile.fclose();
+
+			CDataStream ssCheckpoint(vchData, SER_DISK, CLIENT_VERSION);
+
+			// verify magic matches
+			unsigned char magic[4];
+			ssCheckpoint >> FLATDATA(magic);
+			if (memcmp(magic, Params().MessageStart(), sizeof(magic)))
+				return error("%s: Invalid network magic number in %s", __func__, SYNC_CHKPT_CURR.c_str());
+
+			ssCheckpoint >> hashCheckpoint;
+
             // Some code to help peers that missed a fork recover.
             if (badBlocks.find(hashCheckpoint) != badBlocks.end())
             {
@@ -429,41 +447,45 @@ namespace Checkpoints
                 // Clear all the bans so that we can find peers again.
                 CNode::ClearBanned();
             }
-            checkpointFile.close();
         }
-        catch (...)
-        {
-            return false;
-        }
+		catch (const std::exception& e) {
+			return error("%s: Serialize or I/O error - %s", __func__, e.what());
+		}
         hashSyncCheckpoint = hashCheckpoint;
-
         return true;
     }
 
     // Save the current auto sync checkpoint to disk
     bool WriteSyncCheckpoint(const uint256& hashCheckpoint)
     {
-        try
-        {
-            //First write to a new file, then overwrite the checkpoint file with a move operation
-            //This ensures that the operation happens in an atomic-like fashion and cannot leave us with a corrupted checkpoint file (on most sane filesystems at least)
-            //NB! We do not bother to force a disk flush - checkpoints come frequently and it doesn't matter if we are slightly out of date.
-            if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
-            {
-                if( !fs::create_directory(GetDataDir() / SYNC_CHKPT_DIR) )
-                    return false;
-            }
+		//First write to a new file, then overwrite the checkpoint file with a move operation
+		//This ensures that the operation happens in an atomic-like fashion and cannot leave us with a corrupted checkpoint file (on most sane filesystems at least)
+		//NB! We do not bother to force a disk flush - checkpoints come frequently and it doesn't matter if we are slightly out of date.
+		if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
+		{
+			if( !fs::create_directory(GetDataDir() / SYNC_CHKPT_DIR) )
+				return false;
+		}
 
-            fs::ofstream checkpointFile( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_NEW );
-            checkpointFile << hashCheckpoint.ToString();
-            checkpointFile.close();
+		try 
+		{
+			fs::path checkpointFilePath = GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_NEW;
 
-            fs::rename( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_NEW, GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR );
-        }
-        catch (...)
-        {
-            return false;
-        }
+			FILE *file = fopen(checkpointFilePath.string().c_str(), "wb");
+			CAutoFile checkpointFile(file, SER_DISK, CLIENT_VERSION);
+			if (checkpointFile.IsNull())
+				return error("%s: Failed to open file %s", __func__, SYNC_CHKPT_NEW.c_str());
+
+			CDataStream ssCheckpoint(SER_DISK, CLIENT_VERSION);
+			ssCheckpoint << FLATDATA(Params().MessageStart());
+			ssCheckpoint << hashCheckpoint;
+			checkpointFile << ssCheckpoint;
+			checkpointFile.fclose();
+			fs::rename( checkpointFilePath, GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR );
+		}
+		catch (const std::exception& e) {
+			return error("%s: Serialize or I/O error - %s", __func__, e.what());
+		}
         hashSyncCheckpoint = hashCheckpoint;
         return true;
     }
@@ -473,54 +495,76 @@ namespace Checkpoints
         if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
             return false;
 
-        try
-        {
-            fs::ifstream checkpointFile( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR_PKS );
+		try {
+			fs::path pubkeyFilePath = GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR_PKS;
+			
+			// use file size to size memory buffer
+			uint32_t fileSize = fs::file_size(pubkeyFilePath);
+			std::vector<unsigned char> vchData;
+			vchData.resize(fileSize);
+
+			FILE *file = fopen(pubkeyFilePath.string().c_str(), "rb");
+			CAutoFile pubkeyFile(file, SER_DISK, CLIENT_VERSION);
+			if (pubkeyFile.IsNull())
+				return error("%s: Failed to open file %s", __func__, SYNC_CHKPT_CURR_PKS.c_str());
+			pubkeyFile.read((char *)&vchData[0], fileSize);
+			pubkeyFile.fclose();
+
+			CDataStream ssPubkeys(vchData, SER_DISK, CLIENT_VERSION);
+
+			// verify magic matches
+			unsigned char magic[4];
+			ssPubkeys >> FLATDATA(magic);
+			if (memcmp(magic, Params().MessageStart(), sizeof(magic)))
+				return error("%s: Invalid network magic number in %s", __func__, SYNC_CHKPT_CURR_PKS.c_str());
+
 			strPubKeysOut.clear();
-			while(checkpointFile.good()) {
-				std::string strPk;
-            	std::getline(checkpointFile, strPk);
-				if (strPk.empty()) {
-					break;
-				}
-				strPubKeysOut.push_back(strPk);
+			while(ssPubkeys.eof()) {
+				std::string pubkey;
+				ssPubkeys >> pubkey;
+				strPubKeysOut.push_back(pubkey);
 			}
-            checkpointFile.close();
         }
-        catch (...)
-        {
-            return false;
-        }
+		catch (const std::exception& e) {
+			return error("%s: Serialize or I/O error - %s", __func__, e.what());
+		}
 
         return true;
     }
 
     bool WriteCheckpointPubKeys(const std::vector<std::string>& strPubKeys)
     {
-        try
-        {
-            //First write to a new file, then overwrite the checkpoint file with a move operation
-            //This ensures that the operation happens in an atomic-like fashion and cannot leave us with a corrupted checkpoint file (on most sane filesystems at least)
-            //NB! We do not bother to force a disk flush - checkpoints come frequently and it doesn't matter if we are slightly out of date.
-            if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
-            {
-                if( !fs::create_directory(GetDataDir() / SYNC_CHKPT_DIR) )
-                    return false;
-            }
 
-            fs::ofstream checkpointFile( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_NEW_PKS );
-			for (auto const &strPk : strPubKeys) {
-            	checkpointFile << strPk << '\n';
+		//First write to a new file, then overwrite the checkpoint file with a move operation
+		//This ensures that the operation happens in an atomic-like fashion and cannot leave us with a corrupted checkpoint file (on most sane filesystems at least)
+		//NB! We do not bother to force a disk flush - checkpoints come frequently and it doesn't matter if we are slightly out of date.
+		if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
+		{
+			if( !fs::create_directory(GetDataDir() / SYNC_CHKPT_DIR) )
+				return error("%s: could not create %s dir", __func__, SYNC_CHKPT_DIR.c_str());
+		}
+		
+		try 
+		{
+			fs::path pubkeyFilePath = GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_NEW_PKS;
+
+			FILE *file = fopen(pubkeyFilePath.string().c_str(), "wb");
+			CAutoFile pubkeyFile(file, SER_DISK, CLIENT_VERSION);
+			if (pubkeyFile.IsNull())
+				return error("%s: Failed to open file %s", __func__, SYNC_CHKPT_NEW_PKS.c_str());
+
+			CDataStream ssPubkeys(SER_DISK, CLIENT_VERSION);
+			ssPubkeys << FLATDATA(Params().MessageStart());
+			for (auto const &pubkey : strPubKeys) {
+				ssPubkeys << pubkey;
 			}
-            checkpointFile.close();
-
-            fs::rename( GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_NEW_PKS, GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR_PKS );
-        }
-        catch (...)
-        {
-            return false;
-        }
-
+			pubkeyFile << ssPubkeys;
+			pubkeyFile.fclose();
+			fs::rename( pubkeyFilePath, GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR_PKS );
+		}
+		catch (const std::exception& e) {
+			return error("%s: Serialize or I/O error - %s", __func__, e.what());
+		}
         return true;
     }
 }
