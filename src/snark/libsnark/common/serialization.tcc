@@ -15,6 +15,7 @@
 #define SERIALIZATION_TCC_
 
 #include <cassert>
+#include <cstdint>
 #include <sstream>
 #include "common/utils.hpp"
 #include "common/assert_except.hpp"

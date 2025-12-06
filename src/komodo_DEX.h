@@ -2553,8 +2553,8 @@ UniValue komodo_DEXsubscribe(int32_t &cmpflag,char *origfname,int32_t priority,u
         result.push_back(Pair((char *)"filesize",(int64_t)amountA));
         result.push_back(Pair((char *)"fragments",(int64_t)amountB));
         result.push_back(Pair((char *)"numlocators",(int64_t)(newlen-sizeof(uint64_t))/sizeof(uint64_t)));
-        sprintf(locatorfname,"%s.%s.locators",fname,str);
-        sprintf(fullfname,"%s.%s",fname,str);
+        snprintf(locatorfname, sizeof(locatorfname), "%s.%s.locators", fname, str);
+        snprintf(fullfname, sizeof(fullfname), "%s.%s", fname, str);
         //fprintf(stderr,"orig %s fname %s locator %s full %s num.%d\n",origfname,fname,locatorfname,fullfname,num);
         if ( amountB*sizeof(uint64_t)+sizeof(uint64_t) == newlen )
         {
@@ -2662,7 +2662,7 @@ UniValue komodo_DEXsubscribe(int32_t &cmpflag,char *origfname,int32_t priority,u
 UniValue komodo_DEXpublish(char *fname,int32_t priority,int32_t sliceid)
 {
     static uint8_t locators[KOMODO_DEX_MAXPACKETSIZE];
-    UniValue result(UniValue::VOBJ); FILE *fp,*oldfp=0; uint64_t locator,filesize=0,volA,offset0=0,prevoffset0; long fsize; int32_t i,rlen,rescan=0,n,cmpflag,numprev,oldn=0,numlocators=0,changed=0,mult; bits256 filehash; uint8_t buf[KOMODO_DEX_FILEBUFSIZE],oldbuf[KOMODO_DEX_FILEBUFSIZE],zeros[sizeof(uint64_t)]; char bufstr[sizeof(buf)*2+1],pubkeystr[67],str[65],fname2[512],volAstr[16],volBstr[16],locatorfname[512],oldfname[512],*hexstr;
+    UniValue result(UniValue::VOBJ); FILE *fp,*oldfp=0; uint64_t locator,filesize=0,volA,offset0=0,prevoffset0; long fsize; int32_t i,rlen,rescan=0,n,cmpflag,numprev,oldn=0,numlocators=0,changed=0,mult; bits256 filehash; uint8_t buf[KOMODO_DEX_FILEBUFSIZE],oldbuf[KOMODO_DEX_FILEBUFSIZE],zeros[sizeof(uint64_t)]; char bufstr[sizeof(buf)*2+1],pubkeystr[67],str[65],fname2[512],volAstr[32],volBstr[32],locatorfname[512],oldfname[512],*hexstr;
     DEX_progress = 0;
     if ( sliceid < 0 )
     {
@@ -2680,7 +2680,7 @@ UniValue komodo_DEXpublish(char *fname,int32_t priority,int32_t sliceid)
         offset0 = ((uint64_t)sliceid - 1) * mult;
         sprintf(oldfname,"%s.%llu.%s",fname,(long long)offset0,pubkeystr);
     } else sprintf(oldfname,"%s.%s",fname,pubkeystr);
-    sprintf(locatorfname,"%s.locators",oldfname);
+    snprintf(locatorfname, sizeof(locatorfname), "%s.locators", oldfname);
     if ( (fp= fopen(oldfname,"rb")) == 0 )
         rescan = 1;
     else fclose(fp), fp = 0;
@@ -2843,11 +2843,11 @@ UniValue komodo_DEXpublish(char *fname,int32_t priority,int32_t sliceid)
         }
         else
         {
-            sprintf(str,"%llu",(long long)offset0);
+            snprintf(str, sizeof(str), "%llu", (long long)offset0);
             komodo_DEXbroadcast(0,'Q',hexstr,priority+KOMODO_DEX_VIPLEVEL,fname,str,pubkeystr,volAstr,volBstr);
-            sprintf(fname2,"%s.%llu",fname,(long long)offset0);
+            snprintf(fname2, sizeof(fname2), "%s.%llu", fname, (long long)offset0);
             bits256_str(hexstr,filehash);
-            sprintf(volAstr,"%llu",(long long)offset0);
+            snprintf(volAstr, sizeof(volAstr), "%llu", (long long)offset0);
             komodo_DEXbroadcast(0,'Q',hexstr,priority+KOMODO_DEX_VIPLEVEL,(char *)"slices",fname,pubkeystr,volAstr,volBstr);
             //fprintf(stderr,"broadcast fname.(%s) (%s) filehash.(%s)\n",fname,hexstr,bits256_str(str,filehash));
         }

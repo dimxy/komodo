@@ -1,0 +1,2 @@
+libcurl4-gnutls-dev
+software-properties-common

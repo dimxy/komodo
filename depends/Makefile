@@ -1,12 +1,13 @@
 .NOTPARALLEL :
 
 SOURCES_PATH ?= $(BASEDIR)/sources
-WORK_PATH = $(BASEDIR)/work
 BASE_CACHE ?= $(BASEDIR)/built
+WORK_PATH = $(BASEDIR)/work
 SDK_PATH ?= $(BASEDIR)/SDKs
 NO_WALLET ?=
 NO_UPNP ?=
-FALLBACK_DOWNLOAD_PATH ?= https://media.githubusercontent.com/media/DigitalPrice/depends-sources/main/
+FALLBACK_DOWNLOAD_PATH ?= https://supernet/depends-sources
+#PRIORITY_DOWNLOAD_PATH ?= https://download.z.cash/depends-sources
 
 BUILD ?= $(shell ./config.guess)
 HOST ?= $(BUILD)
@@ -29,9 +30,9 @@ else
 release_type=release
 endif
 
-base_build_dir=$(BASEDIR)/build
-base_staging_dir=$(BASEDIR)/staging
-base_download_dir=$(BASEDIR)/download
+base_build_dir=$(BASEDIR)/work/build
+base_staging_dir=$(BASEDIR)/work/staging
+base_download_dir=$(BASEDIR)/work/download
 canonical_host:=$(shell ./config.sub $(HOST))
 build:=$(shell ./config.sub $(BUILD))
 
@@ -55,12 +56,14 @@ host_os:=$(strip $(host_os))
 ifeq ($(host_os),)
 host_os=$(full_host_os)
 endif
-
+$(info ********* host_os is set to: $(host_os) *********)
 $(host_arch)_$(host_os)_prefix=$(BASEDIR)/$(host)
 $(host_arch)_$(host_os)_host=$(host)
 host_prefix=$($(host_arch)_$(host_os)_prefix)
+$(info host_prefix is set to: $(host_prefix))
 build_prefix=$(host_prefix)/native
 build_host=$(build)
+
 
 AT_$(V):=
 AT_:=@
@@ -78,6 +81,7 @@ wallet_packages_$(NO_WALLET) = $(wallet_packages)
 proton_packages_$(NO_PROTON) = $(proton_packages)
 
 packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(rust_packages) $(proton_packages_) $(wallet_packages_)
+$(info ********* build_host is set to: $(build_host) *********)
 native_packages += $($(host_arch)_$(host_os)_native_packages) $($(host_os)_native_packages)
 all_packages = $(packages) $(native_packages)
 
@@ -150,15 +154,14 @@ clean:
 
 install: check-packages $(host_prefix)/share/config.site
 
-
 download-one: check-sources $(all_sources)
 
 download-osx:
 	@$(MAKE) -s HOST=x86_64-apple-darwin11 download-one
 download-linux:
-	@$(MAKE) -s HOST=x86_64-unknown-linux-gnu download-one
+	@$(MAKE) -s HOST=x86_64-pc-linux-gnu download-one
 download-win:
 	@$(MAKE) -s HOST=x86_64-w64-mingw32 download-one
 download: download-osx download-linux download-win
 
-.PHONY: install cached download-one download-osx download-linux download-win download check-packages check-sources
+.PHONY: install cached clean clean-all download-one download-osx download-linux download-win download check-packages check-sources

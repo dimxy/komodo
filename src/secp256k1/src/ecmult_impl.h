@@ -1503,6 +1503,7 @@ static size_t secp256k1_pippenger_max_points(secp256k1_scratch *scratch) {
     secp256k1_gej tmpj;
     
     secp256k1_scalar_set_int(&szero, 0);
+    secp256k1_gej_set_infinity(&tmpj);
     /* r = inp_g_sc*G */
     secp256k1_gej_set_infinity(r);
     secp256k1_ecmult(ctx, r, &tmpj, &szero, inp_g_sc);

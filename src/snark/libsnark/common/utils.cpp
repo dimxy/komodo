@@ -19,7 +19,7 @@ size_t log2(size_t n)
 /* returns ceil(log2(n)), so UINT64_C(1)<<log2(n) is the smallest power of 2,
    that is not less than n. */
 {
-    uint64_t r = ((n & (n-1)) == 0 ? 0 : 1); // add 1 if n is not power of 2
+    unsigned long long r = ((n & (n-1)) == 0 ? 0 : 1); // add 1 if n is not power of 2
 
     while (n > 1)
     {
@@ -30,10 +30,10 @@ size_t log2(size_t n)
     return r;
 }
 
-uint64_t bitreverse(uint64_t n, const uint64_t l)
+unsigned long long bitreverse(unsigned long long n, const unsigned long long l)
 {
-    uint64_t r = 0;
-    for (uint64_t k = 0; k < l; ++k)
+    unsigned long long r = 0;
+    for (unsigned long long k = 0; k < l; ++k)
     {
         r = (r << 1) | (n & 1);
         n >>= 1;
@@ -41,12 +41,12 @@ uint64_t bitreverse(uint64_t n, const uint64_t l)
     return r;
 }
 
-bit_vector int_list_to_bits(const std::initializer_list<uint64_t> &l, const size_t wordsize)
+bit_vector int_list_to_bits(const std::initializer_list<unsigned long long> &l, const size_t wordsize)
 {
     bit_vector res(wordsize*l.size());
-    for (uint64_t i = 0; i < l.size(); ++i)
+    for (unsigned long long i = 0; i < l.size(); ++i)
     {
-        for (uint64_t j = 0; j < wordsize; ++j)
+        for (unsigned long long j = 0; j < wordsize; ++j)
         {
             res[i*wordsize + j] = (*(l.begin()+i) & (UINT64_C(1)<<(wordsize-1-j)));
         }
@@ -61,14 +61,14 @@ int64_t div_ceil(int64_t x, int64_t y)
 
 bool is_little_endian()
 {
-    uint64_t a = 0x12345678;
+    unsigned long long a = 0x12345678;
     unsigned char *c = (unsigned char*)(&a);
     return (*c = 0x78);
 }
 
 std::string FORMAT(const std::string &prefix, const char* format, ...)
 {
-    const static uint64_t MAX_FMT = 256;
+    const static unsigned long long MAX_FMT = 256;
     char buf[MAX_FMT];
     va_list args;
     va_start(args, format);
@@ -81,7 +81,7 @@ std::string FORMAT(const std::string &prefix, const char* format, ...)
 void serialize_bit_vector(std::ostream &out, const bit_vector &v)
 {
     out << v.size() << "\n";
-    for (uint64_t i = 0; i < v.size(); ++i)
+    for (unsigned long long i = 0; i < v.size(); ++i)
     {
         out << v[i] << "\n";
     }
@@ -89,10 +89,10 @@ void serialize_bit_vector(std::ostream &out, const bit_vector &v)
 
 void deserialize_bit_vector(std::istream &in, bit_vector &v)
 {
-    uint64_t size;
+    unsigned long long size;
     in >> size;
     v.resize(size);
-    for (uint64_t i = 0; i < size; ++i)
+    for (unsigned long long i = 0; i < size; ++i)
     {
         bool b;
         in >> b;

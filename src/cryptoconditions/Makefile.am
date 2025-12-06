@@ -1,6 +1,8 @@
 noinst_LIBRARIES=libcryptoconditions_core.a
 SUBDIRS = src/include/secp256k1
 
+AM_CFLAGS = -fPIE
+
 # optimisation off to allow better gdb/lldb
 # CFLAGS = -g -O0
 

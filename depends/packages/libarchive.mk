@@ -1,15 +1,17 @@
-package=libcurl
-$(package)_version=8.4.0
-$(package)_dependencies=openssl
-$(package)_download_path=https://curl.haxx.se/download
-$(package)_file_name=curl-$($(package)_version).tar.gz
-$(package)_sha256_hash=816e41809c043ff285e8c0f06a75a1fa250211bbfb2dc0a037eeef39f1a9e427
-$(package)_config_opts=--with-openssl --disable-shared --enable-static --prefix=$(host_prefix)
-$(package)_config_opts_linux=--host=$(HOST)
-$(package)_config_opts_mingw32=--enable-mingw --host=x86_64-w64-mingw32
-$(package)_config_opts_darwin=--without-libidn2 --without-zstd --without-nghttp2 --without-librtmp --without-brotli
+package=libarchive
+$(package)_version=3.7.7
+$(package)_download_path=https://github.com/libarchive/libarchive/releases/download/v$($(package)_version)
+$(package)_file_name=$(package)-$($(package)_version).tar.gz
+$(package)_download_file=$(package)-$($(package)_version).tar.gz
+$(package)_config_opts=--with-sysroot=$(host_prefix)/lib
+$(package)_config_opts_linux=--disable-bsdtar --disable-bsdcpio --disable-shared --enable-static --prefix=$(host_prefix) --host=$(HOST)
+$(package)_config_opts_mingw32=--disable-bsdtar --disable-bsdcpio --disable-shared --enable-static --prefix=$(host_prefix) --host=x86_64-w64-mingw32
+$(package)_config_opts_darwin=--without-zstd --without-lz4 --disable-bsdtar --disable-bsdcpio --disable-shared --enable-static --prefix=$(host_prefix)
+$(package)_sha256_hash=4cc540a3e9a1eebdefa1045d2e4184831100667e6d7d5b315bb1cbc951f8ddff
 $(package)_cflags_darwin=-mmacos-version-min=$(OSX_MIN_VERSION)
 $(package)_conf_tool=./configure
+
+$(package)_dependencies=zlib
 
 ifeq ($(build_os),darwin)
 define $(package)_set_vars
@@ -28,7 +30,7 @@ define $(package)_config_cmds
   echo '=== config for $(package):' && \
   echo '$($(package)_config_env) $($(package)_conf_tool) $($(package)_config_opts)' && \
   echo '=== ' && \
-  $($(package)_config_env) $($(package)_conf_tool) $($(package)_config_opts) 
+  $($(package)_config_env) $($(package)_conf_tool) $($(package)_config_opts)
 endef
 
 ifeq ($(build_os),darwin)
@@ -37,7 +39,7 @@ define $(package)_build_cmds
 endef
 else
 define $(package)_build_cmds
-  $(MAKE)
+  $(MAKE) CPPFLAGS="-I$(host_prefix)/include -fPIC"
 endef
 endif
 

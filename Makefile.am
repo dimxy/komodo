@@ -345,5 +345,35 @@ DISTCHECK_CONFIGURE_FLAGS = --enable-man
 clean-local:
 	rm -rf test_bitcoin.coverage/ zcash-gtest.coverage/ total.coverage/
 
-clean-all: clean-local
+clean-all:
+	find . -name "*.o" -delete
+	find . -name "*.lo" -delete
+	find . -name "*.la" -delete
+	find . -name ".deps" -type d -exec rm -rf {} +
+	find . -name ".libs" -type d -exec rm -rf {} +
+	find . -name "Makefile" -delete
+	find . -name "config.log" -delete
+	find . -name "config.status" -delete
+	find . -name "autom4te.cache" -type d -exec rm -rf {} +
+	find . -name "*.gcda" -delete
+	find . -name "*.gcno" -delete
+	find . -name "*~" -delete
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "*.o" -delete
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "*.lo" -delete
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "*.la" -delete
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name ".deps" -type d -exec rm -rf {} +
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name ".libs" -type d -exec rm -rf {} +
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "Makefile" -delete
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "config.log" -delete
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "config.status" -delete
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "autom4te.cache" -type d -exec rm -rf {} +
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "*.gcda" -delete
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "*.gcno" -delete
+	find $(top_srcdir) -name "*~" -delete
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "config.h" -delete
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "stamp-h1" -delete
+	find $(top_srcdir) -path $(top_srcdir)/depends -prune -o -name "libtool" -delete
+	find . -name "leveldb" -type d -exec rm -rf {} +
+	find . -name "snark" -type d -exec rm -rf {} +
+	rm -f libzcashconsensus.pc
 	$(MAKE) -C src clean-all

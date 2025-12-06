@@ -1,0 +1,22 @@
+diff --git a/c/src/ssl/openssl.c b/c/src/ssl/openssl.c
+index 0ee5411..488c8bb 100644
+--- a/c/src/ssl/openssl.c
++++ b/c/src/ssl/openssl.c
+@@ -351,6 +351,8 @@ static int verify_callback(int preverify_ok, X509_STORE_CTX *ctx)
+   }
+   return preverify_ok;
+ }
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+ 
+ // This was introduced in v1.1
+ #if OPENSSL_VERSION_NUMBER < 0x10100000
+@@ -551,6 +553,8 @@ static bool pni_init_ssl_domain( pn_ssl_domain_t * domain, pn_ssl_mode_t mode )
+   return true;
+ }
+ 
++#pragma GCC diagnostic pop
++
+ pn_ssl_domain_t *pn_ssl_domain( pn_ssl_mode_t mode )
+ {
+   pn_ssl_domain_t *domain = (pn_ssl_domain_t *) calloc(1, sizeof(pn_ssl_domain_t));

@@ -1,0 +1,23 @@
+name: Build and Cache Dependencies
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up depends cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: depends/x86_64-pc-linux-gnu
+          key: ${{ runner.os }}-x86_64-pc-linux-gnu-${{ hashFiles('depends/packages/**') }}
+
+      - name: Run Make
+        run: |
+          cd depends
+          make -j$(nproc)

@@ -1,15 +1,22 @@
 package=libevent
-$(package)_version=2.1.12-stable
-$(package)_download_path=https://github.com/libevent/libevent/releases/download/release-$($(package)_version)/
+$(package)_version=2.1.12
+$(package)_download_path=https://github.com/libevent/libevent/archive/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=92e6de1be9ec176428fd2367677e61ceffc2ee1cb119035037a27d346b0403bb
+$(package)_download_file=release-$($(package)_version)-stable.tar.gz
+$(package)_sha256_hash=7180a979aaa7000e1264da484f712d403fcf7679b1e9212c4e3d09f5c93efc24
+$(package)_patches=0001-fix-windows-getaddrinfo.patch 0002-fix-gcc-warnings.patch
+
+define $(package)_preprocess_cmds
+   patch -p1 < $($(package)_patch_dir)/0001-fix-windows-getaddrinfo.patch && \
+   patch -p1 < $($(package)_patch_dir)/0002-fix-gcc-warnings.patch && \
+  ./autogen.sh
+endef
 
 # When building for Windows, we set _WIN32_WINNT to target the same Windows
 # version as we do in configure. Due to quirks in libevents build system, this
 # is also required to enable support for ipv6. See #19375.
 define $(package)_set_vars
-  $(package)_config_opts=--disable-shared --disable-openssl --disable-libevent-regress --disable-samples
-  $(package)_config_opts += --disable-dependency-tracking --enable-option-checking
+  $(package)_config_opts=--disable-shared --disable-openssl --disable-libevent-regress
   $(package)_config_opts_release=--disable-debug-mode
   $(package)_config_opts_linux=--with-pic
   $(package)_cppflags_mingw32=-D_WIN32_WINNT=0x0601
@@ -28,7 +35,4 @@ define $(package)_stage_cmds
 endef
 
 define $(package)_postprocess_cmds
-  rm lib/*.la && \
-  rm include/ev*.h && \
-  rm include/event2/*_compat.h
 endef
