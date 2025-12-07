@@ -1,0 +1,11 @@
+--- a/lib/connect.c
++++ b/lib/connect.c
+@@ -694,7 +694,6 @@
+   for(i = 0; i < sizeof(ctx->baller)/sizeof(ctx->baller[0]); i++) {
+     struct eyeballer *baller = ctx->baller[i];
+-    CURL_TRC_CF(data, cf, "%s assess started=%d, result=%d",
+-                baller?baller->name:NULL,
++    CURL_TRC_CF(data, cf, "assess started=%d, result=%d",
+                 baller?baller->has_started:0,
+                 baller?baller->result:0);
+     if(baller && baller->has_started && baller->result) {

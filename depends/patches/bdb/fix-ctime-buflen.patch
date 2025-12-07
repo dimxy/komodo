@@ -1,0 +1,11 @@
+--- db-6.2.23/src/dbinc/os.h	2025-12-07 08:23:43.163329346 -0600
++++ db-6.2.23/src/dbinc/os.h.modified	2025-12-07 08:23:43.160373136 -0600
+@@ -156,7 +156,7 @@
+ };
+ 
+ /* Standard buffer size for ctime/ctime_r function calls. */
+-#define	CTIME_BUFLEN	26
++#define	CTIME_BUFLEN	64
+ 
+ /*
+  * VxWorks requires we cast (const char *) variables to (char *) in order to
