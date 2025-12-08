@@ -5367,8 +5367,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
                 return state.DoS(1, error("%s: forked chain older than last checkpoint (height %d) vs %d", __func__, nHeight,pcheckpoint->nHeight));
             
             // sync checkpoint
-            Checkpoints::SyncChkParams syncChkParams;
-            //LogPrintt("%s calling IsSyncCheckpointUpgradeActive nHeight=%d block.GetBlockTime()=%d\n", __func__, nHeight, block.GetBlockTime());
+            Checkpoints::CSyncChkParams syncChkParams;
             if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, block.GetBlockTime())) {
                 if (!TryInitSyncCheckpoint(syncChkParams))
                     return error("%s() : failed to initialize sync checkpoint", __func__);  
@@ -5830,9 +5829,8 @@ bool ProcessNewBlock(bool from_miner, int32_t height, CValidationState &state, C
     if (futureblock == 0 && !ActivateBestChain(false, state, pblock))
         return error("%s: ActivateBestChain failed", __func__);
 
-    Checkpoints::SyncChkParams syncChkParams;
+    Checkpoints::CSyncChkParams syncChkParams;
     int nHeightActiv = height != 0 ? height : komodo_block2height(pblock);
-    //LogPrintf("%s calling IsSyncCheckpointUpgradeActive nHeightActiv=%d pblock->GetBlockTime()=%d\n", __func__, nHeightActiv, pblock->GetBlockTime());
     if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeightActiv, pblock->GetBlockTime())) {
         if (!TryInitSyncCheckpoint(syncChkParams))
             return error("%s() : failed to initialize sync checkpoint", __func__);  
@@ -5842,7 +5840,8 @@ bool ProcessNewBlock(bool from_miner, int32_t height, CValidationState &state, C
             if (Checkpoints::IsMasterKeySet())
                 Checkpoints::SendSyncCheckpoint(Checkpoints::AutoSelectSyncCheckpoint(), syncChkParams);
         }
-        
+
+        LOCK2(cs_main, Checkpoints::cs_hashSyncCheckpoint);
         // Gulden: check pending sync-checkpoint
         Checkpoints::AcceptPendingSyncCheckpoint();
     }
@@ -6326,10 +6325,9 @@ bool static LoadBlockIndexDB()
         progress = (longestchain > 0 ) ? (double) chainActive.Height() / longestchain : 0.5;
     }
 
-    Checkpoints::SyncChkParams syncChkParams;
+    Checkpoints::CSyncChkParams syncChkParams;
     int nHeight = chainActive.Height();
     int64_t timestamp = komodo_heightstamp(nHeight);
-    //LogPrintf("%s calling IsSyncCheckpointUpgradeActive nHeight=%d timestamp=%d\n", __func__, nHeight, timestamp);
     if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, timestamp)) {
         if (!Checkpoints::OpenSyncCheckpointAtStartup(syncChkParams)) {
             return error("%s() : failed to init sync checkpoint file", __func__);
@@ -8210,15 +8208,14 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
     else if (strCommand == "checkpoint")
     {
         LOCK(cs_main);
-        Checkpoints::SyncChkParams syncChkParams;
+        Checkpoints::CSyncChkParams syncChkParams;
         int nHeight = chainActive.Height();
         int64_t timestamp = komodo_heightstamp(nHeight);
-        //LogPrintf("%s calling IsSyncCheckpointUpgradeActive nHeight=%d timestamp=%d\n", __func__, nHeight, timestamp);
         if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, timestamp)) {
             if (!TryInitSyncCheckpoint(syncChkParams))
                 return error("%s() : failed to initialize sync checkpoint", __func__);  
 
-            CSyncCheckpoint checkpoint;
+            CSyncChkptMessage checkpoint;
             vRecv >> checkpoint;
 
             if (checkpoint.ProcessSyncCheckpoint(pfrom, syncChkParams.masterPubKeys))

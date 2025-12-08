@@ -15,12 +15,12 @@ using namespace std;
 namespace Checkpoints
 {
     struct CSyncCheckpointActivation {
-        map<string, SyncChkParams> asset_chains;
-        boost::optional<SyncChkParams> mainnet_params;
-        boost::optional<SyncChkParams> testnet_params;
+        map<string, CSyncChkParams> asset_chains;
+        boost::optional<CSyncChkParams> mainnet_params;
+        boost::optional<CSyncChkParams> testnet_params;
 
         CSyncCheckpointActivation() {
-            mainnet_params = SyncChkParams { nSyncChkPointHeight, {
+            mainnet_params = CSyncChkParams { nSyncChkPointHeight, {
                 // TODO: fix testkeys
                 "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956", 
                 "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"
@@ -89,14 +89,14 @@ namespace Checkpoints
             };
         }
 
-        static bool GetAssetParams(const string &chain, SyncChkParams &syncChkParams);
-        static bool GetMainnetParams(SyncChkParams &syncChkParams);
-        static bool GetTestnetParams(SyncChkParams &syncChkParams);
+        static bool GetAssetParams(const string &chain, CSyncChkParams &syncChkParams);
+        static bool GetMainnetParams(CSyncChkParams &syncChkParams);
+        static bool GetTestnetParams(CSyncChkParams &syncChkParams);
     };
 
     static CSyncCheckpointActivation syncChkActivation;
 
-    bool CSyncCheckpointActivation::GetAssetParams(const string &chain, SyncChkParams &syncChkParamsOut)
+    bool CSyncCheckpointActivation::GetAssetParams(const string &chain, CSyncChkParams &syncChkParamsOut)
     {
         if (syncChkActivation.asset_chains.find(chain) != syncChkActivation.asset_chains.end()) {
             syncChkParamsOut = syncChkActivation.asset_chains[chain];
@@ -104,7 +104,7 @@ namespace Checkpoints
         }
         return false;
     }
-    bool CSyncCheckpointActivation::GetMainnetParams(SyncChkParams &syncChkParamsOut)
+    bool CSyncCheckpointActivation::GetMainnetParams(CSyncChkParams &syncChkParamsOut)
     {
         if (syncChkActivation.mainnet_params) {
             syncChkParamsOut = *syncChkActivation.mainnet_params;
@@ -112,7 +112,7 @@ namespace Checkpoints
         }
         return false;
     }
-    bool CSyncCheckpointActivation::GetTestnetParams(SyncChkParams &syncChkParamsOut)
+    bool CSyncCheckpointActivation::GetTestnetParams(CSyncChkParams &syncChkParamsOut)
     {
         if (syncChkActivation.testnet_params) {
             syncChkParamsOut = *syncChkActivation.testnet_params;
@@ -123,10 +123,9 @@ namespace Checkpoints
 
 
     // Is Gulden sync checkpoints active for this chain and height or timestamp
-    static bool GetSyncCheckpointActivationParams(SyncChkParams &syncChkParams, int nHeight, int64_t timestamp) {
+    static bool GetSyncCheckpointActivationParams(CSyncChkParams &syncChkParams, int nHeight, int64_t timestamp) {
         AssertLockHeld(cs_main);
 
-        //LogPrintf("%s nHeight=%d %s\n", __func__, nHeight, chainName.ToString());
         if (chainName.ToString().empty()) {
             return false; //not initialised yet
         }
@@ -141,33 +140,33 @@ namespace Checkpoints
                 }
             }
         } else if (!CSyncCheckpointActivation::GetAssetParams(chainName.ToString(), syncChkParams)) {
-            LogPrintf("%s GetAssetParams false chainName=%d\n", __func__, chainName.ToString());
+            LogPrint("chk", "%s GetAssetParams false chainName=%s\n", __func__, chainName.ToString());
             return false;
         }
         if (syncChkParams.activeAt < LOCKTIME_THRESHOLD) { // height or timestamp
             if (nHeight > syncChkParams.activeAt) { // same 'greater' comparison as for komodo seasons
-                //LogPrintf("%s nHeight %d > syncChkParams.activeAt %lld true\n", __func__, nHeight, syncChkParams.activeAt);
+                LogPrint("chk", "%s nHeight %d > syncChkParams.activeAt %lld sync checkpoint is active\n", __func__, nHeight, syncChkParams.activeAt);
                 return true;
             }
         } else {
             if (timestamp > syncChkParams.activeAt) { // same 'greater' comparison as for komodo seasons
-                //LogPrintf("%s timestamp %lld > syncChkParams.activeAt %lld true\n", __func__, timestamp, syncChkParams.activeAt);
+                LogPrintf("chk", "%s timestamp %lld > syncChkParams.activeAt %lld sync checkpoint is active\n", __func__, timestamp, syncChkParams.activeAt);
                 return true;
             }
         }
         return false;
     }
 
-    bool IsSyncCheckpointUpgradeActive(SyncChkParams &syncChkParamsOut, int nHeight, int64_t timestamp) {
+    bool IsSyncCheckpointUpgradeActive(CSyncChkParams &syncChkParamsOut, int nHeight, int64_t timestamp) {
         return GetSyncCheckpointActivationParams(syncChkParamsOut, nHeight, timestamp);
     }
     bool IsSyncCheckpointUpgradeActive(int nHeight, int64_t timestamp) {
-        SyncChkParams syncChkParamsOut;
+        CSyncChkParams syncChkParamsOut;
         return GetSyncCheckpointActivationParams(syncChkParamsOut, nHeight, timestamp);
     }
 
     // Try to find the private key for the master pubkey in the wallet
-    static void TryInitMasterKey(const SyncChkParams &syncChkParams)
+    static void TryInitMasterKey(const CSyncChkParams &syncChkParams)
     {
         if (!IsMasterKeySet()) {
             if (pwalletMain) {
@@ -189,7 +188,7 @@ namespace Checkpoints
 
     // Try to init checkpoint DB if upgrade activated after loading block index
     // and get master key from wallet
-    bool TryInitSyncCheckpoint(const SyncChkParams &syncChkParams) 
+    bool TryInitSyncCheckpoint(const CSyncChkParams &syncChkParams) 
     {    
         LOCK(cs_hashSyncCheckpoint);
         if (!fTryInitDone) {
@@ -203,19 +202,20 @@ namespace Checkpoints
         return true;
     }
 
-    bool OpenSyncCheckpointAtStartup(const SyncChkParams &syncChkParams) 
+    bool OpenSyncCheckpointAtStartup(const CSyncChkParams &syncChkParams) 
     {
         LOCK(cs_hashSyncCheckpoint);
         // Gulden: load hashSyncCheckpoint (must be in db already)
-        if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint)) {
-            if (!Checkpoints::WriteSyncCheckpoint(Params().GenesisBlock().GetHash())) {
+        if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::syncCheckpoint)) {
+            Checkpoints::CSyncCheckpoint genesisCheckpoint { Checkpoints::CHKPT_PRIORITY_LOWEST, Params().GenesisBlock().GetHash() };
+            if (!Checkpoints::WriteSyncCheckpoint(genesisCheckpoint)) {
                 return error("%s() : failed to init sync checkpoint file", __func__);
             }
-            if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint)) {
+            if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::syncCheckpoint)) {
                 return error("%s() : failed to read sync checkpoint file", __func__);  
             }    
         }
-        LogPrintf("%s(): using synchronized checkpoint %s\n", __func__, Checkpoints::hashSyncCheckpoint.ToString().c_str());
+        LogPrintf("%s(): using synchronized checkpoint %s\n", __func__, Checkpoints::syncCheckpoint.ToString().c_str());
 
         std::vector<std::string> strPubKeys;
         if (!Checkpoints::ReadCheckpointPubKeys(strPubKeys) || strPubKeys != syncChkParams.masterPubKeys) {

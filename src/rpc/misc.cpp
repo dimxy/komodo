@@ -1622,7 +1622,7 @@ static UniValue getcheckpoint(const UniValue& params, bool fHelp, const CPubKey&
     {
         throw std::runtime_error("getcheckpoint does not take arguments\n");
     }    
-    return Checkpoints::hashSyncCheckpoint.ToString();
+    return Checkpoints::syncCheckpoint.ToString();
 }
 
 static const CRPCCommand commands[] =
