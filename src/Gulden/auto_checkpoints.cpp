@@ -616,6 +616,7 @@ bool CSyncChkptMessage::CheckSignature(const std::vector<std::string> &sPubkeys,
 	for (const auto &pubkey : pubkeys) {
 		if (pubkey.IsValid())
 		{
+			LogPrintf("%s trying pubkey=%s i=%d\n", __func__, HexStr(pubkey.begin(), pubkey.end()).c_str(), i);
 			if (pubkey.Verify(Hash(vchMsg.begin(), vchMsg.end()), vchSig))
 			{
 				// Now unserialize the data
@@ -648,7 +649,7 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 		return false;
 	}
 
-	LogPrint("chk", "%s CheckSignature returned priority=%d\n", __func__, priority);
+	LogPrint("chk", "%s CheckSignature returned priority=%d for hash=%s\n", __func__, priority, this->hashCheckpoint.ToString());
 	LOCK(Checkpoints::cs_hashSyncCheckpoint);
 
 	if (priority < Checkpoints::syncCheckpoint.priority && !Checkpoints::IsSyncCheckpointDepthTooOld(Checkpoints::CHKPT_EXPIRATION_DEPTH)) {

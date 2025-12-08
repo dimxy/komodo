@@ -8217,8 +8217,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
             CSyncChkptMessage checkpoint;
             vRecv >> checkpoint;
-
-            LogPrint("chk", "%s: received checkpoint msg %s.\n", __func__, checkpoint.hashCheckpoint.ToString().c_str());
+            
             if (checkpoint.ProcessSyncCheckpoint(pfrom, syncChkParams.masterPubKeys))
             {
                 // Relay
