@@ -6330,11 +6330,11 @@ bool static LoadBlockIndexDB()
     int64_t timestamp = komodo_heightstamp(nHeight);
     if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, timestamp)) {
         if (!Checkpoints::OpenSyncCheckpointAtStartup(syncChkParams)) {
-            return error("%s() : failed to init sync checkpoint file", __func__);
+            return error("%s: failed to init sync checkpoint file", __func__);
         }
-        LogPrintf("%s(): sync checkpoint file initialized\n", __func__);
+        LogPrintf("%s: sync checkpoint file initialized\n", __func__);
     }
-    LogPrintf("%s(): chainName %s\n", __func__, chainName.ToString());
+    LogPrintf("%s: chainName %s\n", __func__, chainName.ToString());
 
     LogPrintf("%s: hashBestChain=%s height=%d date=%s progress=%f\n", __func__,
               chainActive.Tip()->GetBlockHash().ToString(), chainActive.Height(),

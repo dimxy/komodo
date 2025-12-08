@@ -140,17 +140,17 @@ namespace Checkpoints
                 }
             }
         } else if (!CSyncCheckpointActivation::GetAssetParams(chainName.ToString(), syncChkParams)) {
-            LogPrint("chk", "%s GetAssetParams false chainName=%s\n", __func__, chainName.ToString());
+            LogPrint("chk", "%s: GetAssetParams false chainName=%s\n", __func__, chainName.ToString().c_str());
             return false;
         }
         if (syncChkParams.activeAt < LOCKTIME_THRESHOLD) { // height or timestamp
             if (nHeight > syncChkParams.activeAt) { // same 'greater' comparison as for komodo seasons
-                LogPrint("chk", "%s nHeight %d > syncChkParams.activeAt %lld sync checkpoint is active\n", __func__, nHeight, syncChkParams.activeAt);
+                LogPrint("chk", "%s: nHeight %d > syncChkParams.activeAt %lld sync checkpoint is active\n", __func__, nHeight, syncChkParams.activeAt);
                 return true;
             }
         } else {
             if (timestamp > syncChkParams.activeAt) { // same 'greater' comparison as for komodo seasons
-                LogPrintf("chk", "%s timestamp %lld > syncChkParams.activeAt %lld sync checkpoint is active\n", __func__, timestamp, syncChkParams.activeAt);
+                LogPrint("chk", "%s: timestamp %lld > syncChkParams.activeAt %lld sync checkpoint is active\n", __func__, timestamp, syncChkParams.activeAt);
                 return true;
             }
         }
@@ -176,7 +176,7 @@ namespace Checkpoints
                     CKey privkey;
                     if (pwalletMain->GetKey(pubkey.GetID(), privkey)) {
                         if (SetCheckpointPrivKey(privkey)) {
-                            LogPrintf("Sync checkpoint master key set for pubkey %s\n", sPubkey.c_str());
+                            LogPrintf("%s: Sync checkpoint master key set for pubkey %s\n", __func__, sPubkey.c_str());
                             break; // Use first available privkey
                         }
                     }
@@ -193,9 +193,9 @@ namespace Checkpoints
         LOCK(cs_hashSyncCheckpoint);
         if (!fTryInitDone) {
             if (!Checkpoints::WriteCheckpointPubKeys(syncChkParams.masterPubKeys)) {
-                return error("%s() : failed to write new checkpoint master keys", __func__);  
+                return error("%s: failed to write new checkpoint master keys", __func__);  
             }
-            LogPrintf("%s(): sync checkpoint try init done\n", __func__);
+            LogPrintf("%s: sync checkpoint try init done\n", __func__);
             TryInitMasterKey(syncChkParams);
             fTryInitDone = true;
         }
@@ -209,32 +209,32 @@ namespace Checkpoints
         if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::syncCheckpoint)) {
             Checkpoints::CSyncCheckpoint genesisCheckpoint { Checkpoints::CHKPT_PRIORITY_LOWEST, Params().GenesisBlock().GetHash() };
             if (!Checkpoints::WriteSyncCheckpoint(genesisCheckpoint)) {
-                return error("%s() : failed to init sync checkpoint file", __func__);
+                return error("%s: failed to init sync checkpoint file", __func__);
             }
             if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::syncCheckpoint)) {
-                return error("%s() : failed to read sync checkpoint file", __func__);  
+                return error("%s: failed to read sync checkpoint file", __func__);  
             }    
         }
-        LogPrintf("%s(): using synchronized checkpoint %s\n", __func__, Checkpoints::syncCheckpoint.ToString().c_str());
+        LogPrintf("%s: using synchronized checkpoint %s\n", __func__, Checkpoints::syncCheckpoint.ToString().c_str());
 
         std::vector<std::string> strPubKeys;
         if (!Checkpoints::ReadCheckpointPubKeys(strPubKeys) || strPubKeys != syncChkParams.masterPubKeys) {
-            LogPrintf("%s(): strPubKeys:", __func__);
+            LogPrintf("%s: strPubKeys:", __func__);
             for (const auto &pk:  strPubKeys) {
                 LogPrintf(" [%s]", pk);
             }
             LogPrintf("\n");
-            LogPrintf("%s(): masterPubKeys:", __func__);
+            LogPrintf("%s: masterPubKeys:", __func__);
             for (const auto &pk:  syncChkParams.masterPubKeys) {
                 LogPrintf(" [%s]", pk);
             }
             LogPrintf("\n");
             // write new checkpoint master keys to db
             if (!Checkpoints::WriteCheckpointPubKeys(syncChkParams.masterPubKeys)) {
-                return error("%s() : failed to write new checkpoint master keys", __func__);
+                return error("%s: failed to write new checkpoint master keys", __func__);
             }
             if (!Checkpoints::ResetSyncCheckpoint()) {
-                return error("%s() : failed to reset sync-checkpoint", __func__);
+                return error("%s: failed to reset sync-checkpoint", __func__);
             }
         }
         return true;

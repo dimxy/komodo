@@ -62,7 +62,7 @@ namespace Checkpoints
 	{
 		if (!mapBlockIndex.count(checkpoint.GetHash()))
 		{
-			return error("ValidateSyncCheckpoint: block index missing for received sync-checkpoint %s", checkpoint.ToString().c_str());
+			return error("%s: block index missing for received sync-checkpoint %s",  __func__, checkpoint.ToString().c_str());
 		}
 		if (syncCheckpoint.IsNull())
 		{
@@ -70,7 +70,7 @@ namespace Checkpoints
 		}
 		if (!mapBlockIndex.count(syncCheckpoint.GetHash()))
 		{
-			return error("ValidateSyncCheckpoint: block index missing for current sync-checkpoint %s", syncCheckpoint.ToString().c_str());
+			return error("%s: block index missing for current sync-checkpoint %s",  __func__, syncCheckpoint.ToString().c_str());
 		}
 
 
@@ -86,12 +86,12 @@ namespace Checkpoints
 			while (pindex->nHeight > pindexCheckpointRecv->nHeight)
 			{
 				if (!(pindex = pindex->pprev))
-					return error("ValidateSyncCheckpoint: pprev1 null - block index structure failure");
+					return error("%s: pprev1 null - block index structure failure",  __func__);
 			}
 			if (pindex->GetBlockHash() != checkpoint.GetHash())
 			{
 				invalidCheckpoint = checkpoint;
-				return error("ValidateSyncCheckpoint: new sync-checkpoint %s is conflicting with current sync-checkpoint %s", checkpoint.ToString().c_str(), syncCheckpoint.ToString().c_str());
+				return error("%s: new sync-checkpoint %s is conflicting with current sync-checkpoint %s",  __func__, checkpoint.ToString().c_str(), syncCheckpoint.ToString().c_str());
 			}
 			LogPrintf("%s Warning: checkpoint is old: new checkpoint height=%d, existing checkpoint height=%d (possibly reorg)\n", __func__, pindexCheckpointRecv->nHeight, pindexSyncCheckpoint->nHeight);
 			return false; // ignore older checkpoint
@@ -105,13 +105,13 @@ namespace Checkpoints
 		{
 			if (!(pindex = pindex->pprev))
 			{
-				return error("ValidateSyncCheckpoint: pprev2 null - block index structure failure");
+				return error("%s: pprev2 null - block index structure failure",  __func__);
 			}
 		}
 		if (pindex->GetBlockHash() != syncCheckpoint.GetHash())
 		{
 			invalidCheckpoint = checkpoint;
-			return error("ValidateSyncCheckpoint: new sync-checkpoint %s is not a descendant of current sync-checkpoint %s", checkpoint.ToString().c_str(), syncCheckpoint.ToString().c_str());
+			return error("%s: new sync-checkpoint %s is not a descendant of current sync-checkpoint %s",  __func__, checkpoint.ToString().c_str(), syncCheckpoint.ToString().c_str());
 		}
 
 		return true;
@@ -137,24 +137,24 @@ namespace Checkpoints
 				CBlock block;
 				if (!ReadBlockFromDisk(block, pindexCheckpoint, false))
 				{
-					return error("AcceptPendingSyncCheckpoint: ReadBlockFromDisk failed for sync checkpoint %s", pendingCheckpoint.ToString().c_str());
+					return error("%s: ReadBlockFromDisk failed for sync checkpoint %s",  __func__, pendingCheckpoint.ToString().c_str());
 				}
 				CValidationState state;
 				if (!ActivateBestChain(true, state, &block))
 				{
 					invalidCheckpoint = pendingCheckpoint;
-					return error("AcceptPendingSyncCheckpoint: SetBestChain failed for sync checkpoint %s", pendingCheckpoint.ToString().c_str());
+					return error("%s: SetBestChain failed for sync checkpoint %s",  __func__, pendingCheckpoint.ToString().c_str());
 				}
 			}
 
 			if (!WriteSyncCheckpoint(pendingCheckpoint))
 			{
-				return error("AcceptPendingSyncCheckpoint(): failed to write sync checkpoint %s", pendingCheckpoint.ToString().c_str());
+				return error("%s: failed to write sync checkpoint %s",  __func__, pendingCheckpoint.ToString().c_str());
 			}
 			pendingCheckpoint = {};
 			checkpointMessage = checkpointMessagePending;
 			checkpointMessagePending.SetNull();
-			LogPrintf("AcceptPendingSyncCheckpoint : sync-checkpoint at %s\n", syncCheckpoint.ToString().c_str());
+			LogPrintf("%s: sync-checkpoint at %s\n",  __func__, syncCheckpoint.ToString().c_str());
 
 			// relay the checkpoint
 			if (!checkpointMessage.IsNull())
@@ -402,7 +402,7 @@ namespace Checkpoints
 		if (!pindexTip) {
 			return true;
 		}
-		LogPrint("chk", "%s: pindexTip->nHeight=%d pindexSync->nHeight=%d nDepth=%d\n", pindexTip->nHeight, pindexSync->nHeight, nDepth);
+		LogPrint("chk", "%s: pindexTip->nHeight=%d pindexSync->nHeight=%d nDepth=%d\n",  __func__, pindexTip->nHeight, pindexSync->nHeight, nDepth);
 		return (pindexTip->nHeight > pindexSync->nHeight + nDepth);
 	}
 
