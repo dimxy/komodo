@@ -369,7 +369,7 @@ namespace Checkpoints
 		}
 		else
 		{
-			LogPrint("chk", "%s: SUCCESS.\n", __func__);
+			LogPrint("chk", "%s: checkpoint %s SUCCESS.\n", __func__, hashCheckpoint.ToString().c_str());
 		}
 
 		// Relay checkpoint
@@ -648,7 +648,7 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 		return false;
 	}
 
-	LogPrintf("%s returned priority=%d\n", __func__, priority);
+	LogPrint("chk", "%s CheckSignature returned priority=%d\n", __func__, priority);
 	LOCK(Checkpoints::cs_hashSyncCheckpoint);
 
 	if (priority < Checkpoints::syncCheckpoint.priority && !Checkpoints::IsSyncCheckpointDepthTooOld(Checkpoints::CHKPT_EXPIRATION_DEPTH)) {
