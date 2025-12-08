@@ -648,6 +648,7 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 		return false;
 	}
 
+	LogPrintf("%s returned priority=%d\n", __func__, priority);
 	LOCK(Checkpoints::cs_hashSyncCheckpoint);
 
 	if (priority < Checkpoints::syncCheckpoint.priority && !Checkpoints::IsSyncCheckpointDepthTooOld(Checkpoints::CHKPT_EXPIRATION_DEPTH)) {
@@ -683,26 +684,26 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 		CBlock block;
 		if (!ReadBlockFromDisk(block, pindexCheckpoint, false))
 		{
-			return error("%s: ReadBlockFromDisk failed for sync checkpoint %s", __func__, checkpoint.GetHash().ToString().c_str());
+			return error("%s: ReadBlockFromDisk failed for sync checkpoint %s", __func__, checkpoint.ToString().c_str());
 		}
 
 		CValidationState state;
 		if (!ActivateBestChain(true, state, &block))
 		{
 			Checkpoints::invalidCheckpoint = checkpoint;
-			return error("%s: ActivateBestChain failed for sync checkpoint %s",  __func__, checkpoint.GetHash().ToString().c_str());
+			return error("%s: ActivateBestChain failed for sync checkpoint %s",  __func__, checkpoint.ToString().c_str());
 		}
 	}
 
 	if (!Checkpoints::WriteSyncCheckpoint(checkpoint))
 	{
-		return error("%s: failed to write sync checkpoint %s",  __func__, checkpoint.GetHash().ToString().c_str());
+		return error("%s: failed to write sync checkpoint %s",  __func__, checkpoint.ToString().c_str());
 	}
 
 	Checkpoints::checkpointMessage = *this;
 	Checkpoints::pendingCheckpoint = {};
 	Checkpoints::checkpointMessagePending.SetNull();
-	LogPrint("chk", "%s: sync-checkpoint at %s\n",  __func__, checkpoint.GetHash().ToString().c_str());
+	LogPrint("chk", "%s: sync-checkpoint at %s\n",  __func__, checkpoint.ToString().c_str());
 	return true;
 }
 
