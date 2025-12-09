@@ -644,17 +644,26 @@ std::vector<CPubKey> CSyncChkptMessage::ParseMasterPubkeys(const std::vector<std
 bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std::string> &sPubkeys)
 {
 	int32_t priority = Checkpoints::CHKPT_PRIORITY_LOWEST;
-	if (!CheckSignature(sPubkeys, priority))
-	{
+	if (!CheckSignature(sPubkeys, priority)) {
 		return false;
 	}
 
 	LogPrint("chk", "%s CheckSignature returned priority=%d for hash=%s\n", __func__, priority, this->hashCheckpoint.ToString());
 	LOCK(Checkpoints::cs_hashSyncCheckpoint);
 
-	if (priority < Checkpoints::syncCheckpoint.priority && !Checkpoints::IsSyncCheckpointDepthTooOld(Checkpoints::CHKPT_EXPIRATION_DEPTH)) {
-		LogPrint("chk", "%s: received sync-checkpoint priority too low %d vs %d\n",  __func__, priority, Checkpoints::syncCheckpoint.priority);
-		return false;
+	// komodo fix: override priority in existing checkpoint
+	if (priority > Checkpoints::syncCheckpoint.priority && Checkpoints::syncCheckpoint.GetHash() == this->hashCheckpoint) {
+		LogPrint("chk", "%s: overwrite low priority with %d in same checkpoint %s\n",  __func__, priority, this->hashCheckpoint.ToString());
+		return true;
+	}
+
+	if (priority < Checkpoints::syncCheckpoint.priority) {
+		if (!Checkpoints::IsSyncCheckpointDepthTooOld(Checkpoints::CHKPT_EXPIRATION_DEPTH)) {
+			LogPrint("chk", "%s: received sync-checkpoint %s priority low %d vs exiting %d\n",  __func__, this->hashCheckpoint.ToString(), priority, Checkpoints::syncCheckpoint.priority);
+			return false;
+		} else {
+			LogPrint("chk", "%s: received sync-checkpoint %s priority low %d but exiting outdated\n",  __func__, this->hashCheckpoint.ToString(), priority);
+		}
 	}
 	
 	if (!mapBlockIndex.count(this->hashCheckpoint))
