@@ -655,6 +655,7 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 	// komodo fix: override priority in existing checkpoint
 	if (priority > Checkpoints::syncCheckpoint.priority && Checkpoints::syncCheckpoint.GetHash() == this->hashCheckpoint) {
 		LogPrint("chk", "%s: overwrite low priority with %d in same checkpoint %s\n",  __func__, priority, this->hashCheckpoint.ToString());
+		Checkpoints::syncCheckpoint.priority = priority;
 		return true;
 	}
 
