@@ -664,7 +664,7 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 	if (priority < Checkpoints::syncCheckpoint.priority) {
 		if (!Checkpoints::IsSyncCheckpointDepthTooOld(Checkpoints::CHKPT_EXPIRATION_DEPTH)) {
 			LogPrint("chk", "%s: received sync-checkpoint %s priority low %d vs existing %d\n",  __func__, this->hashCheckpoint.ToString(), priority, Checkpoints::syncCheckpoint.priority);
-			sReasonOut = "low checkpoint priority (and ours not old enough)";
+			sReasonOut = "low new checkpoint priority (and existing not old enough)";
 			return false;
 		} else {
 			LogPrint("chk", "%s: received sync-checkpoint %s priority low %d but existing outdated\n",  __func__, this->hashCheckpoint.ToString(), priority);

@@ -1621,8 +1621,18 @@ static UniValue getcheckpoint(const UniValue& params, bool fHelp, const CPubKey&
     if (params.size() != 0)
     {
         throw std::runtime_error("getcheckpoint does not take arguments\n");
-    }    
-    return Checkpoints::syncCheckpoint.ToString();
+    }
+
+    LOCK(Checkpoints::cs_hashSyncCheckpoint);
+            
+    UniValue chkptInfo(UniValue::VOBJ);
+    chkptInfo.push_back(Pair("checkpoint", Checkpoints::syncCheckpoint.hash.GetHex()));
+    chkptInfo.push_back(Pair("priority", Checkpoints::syncCheckpoint.priority));
+    CBlockIndex *psyncCheckpoint = Checkpoints::GetLastSyncCheckpoint();
+    if (psyncCheckpoint) {
+        chkptInfo.push_back(Pair("height", psyncCheckpoint->nHeight));
+    }
+    return chkptInfo;
 }
 
 static const CRPCCommand commands[] =
