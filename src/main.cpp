@@ -8218,13 +8218,16 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             CSyncChkptMessage checkpoint;
             vRecv >> checkpoint;
             
-            if (checkpoint.ProcessSyncCheckpoint(pfrom, syncChkParams.masterPubKeys))
+            std::string sReason;
+            if (checkpoint.ProcessSyncCheckpoint(pfrom, syncChkParams.masterPubKeys, sReason))
             {
                 // Relay
                 pfrom->hashCheckpointKnown = checkpoint.hashCheckpoint;
                 LOCK(cs_vNodes);
                 BOOST_FOREACH(CNode* pnode, vNodes)
                     checkpoint.RelayTo(pnode);
+            } else {
+                LogPrintf("WARNING: %s: Failed to process received checkpoint: %s.\n", __func__, sReason);
             }
         }
     }

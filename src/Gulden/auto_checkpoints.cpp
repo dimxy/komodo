@@ -362,9 +362,10 @@ namespace Checkpoints
 			return error("%s: Unable to sign checkpoint, check private key?", __func__);
 		}
 
-		if(!checkpoint.ProcessSyncCheckpoint(NULL, syncChkParams.masterPubKeys))
+		std::string sReason;
+		if(!checkpoint.ProcessSyncCheckpoint(NULL, syncChkParams.masterPubKeys, sReason))
 		{
-			LogPrintf("WARNING: %s: Failed to process checkpoint.\n", __func__);
+			LogPrintf("WARNING: %s: Failed to process checkpoint to send: %s.\n", __func__, sReason);
 			return false;
 		}
 		else
@@ -642,10 +643,11 @@ std::vector<CPubKey> CSyncChkptMessage::ParseMasterPubkeys(const std::vector<std
 }
 
 // ppcoin: process synchronized checkpoint
-bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std::string> &sPubkeys)
+bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std::string> &sPubkeys, std::string &sReasonOut)
 {
 	int32_t priority = Checkpoints::CHKPT_PRIORITY_LOWEST;
 	if (!CheckSignature(sPubkeys, priority)) {
+		sReasonOut = "signature check";
 		return false;
 	}
 
@@ -654,7 +656,7 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 
 	// komodo fix: override priority in existing checkpoint
 	if (priority > Checkpoints::syncCheckpoint.priority && Checkpoints::syncCheckpoint.GetHash() == this->hashCheckpoint) {
-		LogPrint("chk", "%s: overwrite low priority with %d in same checkpoint %s\n",  __func__, priority, this->hashCheckpoint.ToString());
+		LogPrint("chk", "%s: overwrite low priority with high %d in existing checkpoint %s\n",  __func__, priority, this->hashCheckpoint.ToString());
 		Checkpoints::syncCheckpoint.priority = priority;
 		return true;
 	}
@@ -662,6 +664,7 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 	if (priority < Checkpoints::syncCheckpoint.priority) {
 		if (!Checkpoints::IsSyncCheckpointDepthTooOld(Checkpoints::CHKPT_EXPIRATION_DEPTH)) {
 			LogPrint("chk", "%s: received sync-checkpoint %s priority low %d vs existing %d\n",  __func__, this->hashCheckpoint.ToString(), priority, Checkpoints::syncCheckpoint.priority);
+			sReasonOut = "low checkpoint priority (and ours not old enough)";
 			return false;
 		} else {
 			LogPrint("chk", "%s: received sync-checkpoint %s priority low %d but existing outdated\n",  __func__, this->hashCheckpoint.ToString(), priority);
@@ -680,12 +683,14 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 			LogPrint("chk", "%s getheaders (%d) to peer=%d\n", __func__, (chainActive.Tip() ? chainActive.Tip()->nHeight : 0), pfrom->id);
 			pfrom->PushMessage("getheaders", chainActive.GetLocator(chainActive.Tip()), uint256());
 		}
+		sReasonOut = "checkpoint not in block index (made pending)";
 		return false;
 	}
 
 	Checkpoints::CSyncCheckpoint checkpoint { priority, this->hashCheckpoint };
 	if (!Checkpoints::ValidateSyncCheckpoint(checkpoint))
 	{
+		sReasonOut = "checkpoint not valid";
 		return false;
 	}
 
@@ -696,6 +701,7 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 		CBlock block;
 		if (!ReadBlockFromDisk(block, pindexCheckpoint, false))
 		{
+			sReasonOut = "could not read block for checkpoint";
 			return error("%s: ReadBlockFromDisk failed for sync checkpoint %s", __func__, checkpoint.ToString().c_str());
 		}
 
@@ -703,12 +709,14 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 		if (!ActivateBestChain(true, state, &block))
 		{
 			Checkpoints::invalidCheckpoint = checkpoint;
+			sReasonOut = "could not activate best chain";
 			return error("%s: ActivateBestChain failed for sync checkpoint %s",  __func__, checkpoint.ToString().c_str());
 		}
 	}
 
 	if (!Checkpoints::WriteSyncCheckpoint(checkpoint))
 	{
+		sReasonOut = "write checkpoint error";
 		return error("%s: failed to write sync checkpoint %s",  __func__, checkpoint.ToString().c_str());
 	}
 

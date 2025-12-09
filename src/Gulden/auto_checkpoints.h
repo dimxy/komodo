@@ -121,7 +121,7 @@ public:
 	uint256 GetHash() const;
 	bool RelayTo(CNode* pnode) const;
 	bool CheckSignature(const std::vector<std::string> &sPubkeys, int32_t &priorityOut);
-	bool ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std::string> &sPubkeys);
+	bool ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std::string> &sPubkeys, std::string &sReasonOut);
 	static std::vector<CPubKey> ParseMasterPubkeys(const std::vector<std::string> &sPubkeys);
 };
 
