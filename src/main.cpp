@@ -8225,7 +8225,11 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 pfrom->hashCheckpointKnown = checkpoint.hashCheckpoint;
                 LOCK(cs_vNodes);
                 BOOST_FOREACH(CNode* pnode, vNodes)
+                {
+                    if (pnode->hSocket == INVALID_SOCKET)
+                        continue;
                     checkpoint.RelayTo(pnode);
+                }
             } else {
                 LogPrintf("WARNING: %s: Failed to process received checkpoint: %s.\n", __func__, sReason);
             }

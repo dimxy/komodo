@@ -161,6 +161,8 @@ namespace Checkpoints
 			{
 				BOOST_FOREACH(CNode* pnode, vNodes)
 				{
+					if (pnode->hSocket == INVALID_SOCKET)
+                        continue;
 					checkpointMessage.RelayTo(pnode);
 				}
 			}
@@ -370,7 +372,7 @@ namespace Checkpoints
 		}
 		else
 		{
-			LogPrint("chk", "%s: checkpoint %s SUCCESS.\n", __func__, hashCheckpoint.ToString().c_str());
+			LogPrint("chk", "%s: checkpoint %s sent SUCCESS.\n", __func__, hashCheckpoint.ToString().c_str());
 		}
 
 		// Relay checkpoint
