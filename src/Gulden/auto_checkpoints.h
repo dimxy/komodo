@@ -31,7 +31,7 @@ namespace Checkpoints
 	extern bool fTryInitDone;
 
 	const int32_t CHKPT_PRIORITY_LOWEST = 0;
-	const int32_t CHKPT_EXPIRATION_DEPTH = 16;
+	const int32_t CHKPT_EXPIRATION_DEPTH = 5; // TODO: fix to 16?
 	struct CSyncCheckpoint {
         int32_t priority;
         uint256 hash;
