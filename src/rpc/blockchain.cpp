@@ -1429,14 +1429,17 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp, const CPubKey& my
 
     int nHeight = chainActive.Height();
     int64_t timestamp = komodo_heightstamp(nHeight);
-    if (Checkpoints::IsSyncCheckpointUpgradeActive(nHeight, timestamp)) {
-        CBlockIndex *psyncCheckpoint = Checkpoints::GetLastSyncCheckpoint();
-        UniValue blockinfo(UniValue::VOBJ);
-        if (psyncCheckpoint) {
-            blockinfo.push_back(Pair("height", psyncCheckpoint->nHeight));
-            blockinfo.push_back(Pair("blockHash", psyncCheckpoint->phashBlock ? (*psyncCheckpoint->phashBlock).GetHex() : uint256().GetHex()));
+    {
+        LOCK(Checkpoints::cs_hashSyncCheckpoint);
+        if (Checkpoints::IsSyncCheckpointUpgradeActive(nHeight, timestamp)) {
+            CBlockIndex *psyncCheckpoint = Checkpoints::GetLastSyncCheckpoint();
+            UniValue blockinfo(UniValue::VOBJ);
+            if (psyncCheckpoint) {
+                blockinfo.push_back(Pair("height", psyncCheckpoint->nHeight));
+                blockinfo.push_back(Pair("blockHash", psyncCheckpoint->phashBlock ? (*psyncCheckpoint->phashBlock).GetHex() : uint256().GetHex()));
+            }
+            obj.push_back(Pair("syncCheckpoint", blockinfo));
         }
-        obj.push_back(Pair("syncCheckpoint", blockinfo));
     }
 
     CBlockIndex* tip = chainActive.Tip();
