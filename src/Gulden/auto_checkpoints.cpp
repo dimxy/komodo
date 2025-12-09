@@ -402,7 +402,8 @@ namespace Checkpoints
 		if (!pindexTip) {
 			return true;
 		}
-		LogPrint("chk", "%s: pindexTip->nHeight=%d pindexSync->nHeight=%d nDepth=%d\n",  __func__, pindexTip->nHeight, pindexSync->nHeight, nDepth);
+		LogPrint("chk", "%s: pindexTip->nHeight=%d pindexSync->nHeight=%d nDepth=%d isTooOld=%d\n",
+			__func__, pindexTip->nHeight, pindexSync->nHeight, nDepth, (pindexTip->nHeight > pindexSync->nHeight + nDepth));
 		return (pindexTip->nHeight > pindexSync->nHeight + nDepth);
 	}
 
@@ -659,10 +660,10 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 
 	if (priority < Checkpoints::syncCheckpoint.priority) {
 		if (!Checkpoints::IsSyncCheckpointDepthTooOld(Checkpoints::CHKPT_EXPIRATION_DEPTH)) {
-			LogPrint("chk", "%s: received sync-checkpoint %s priority low %d vs exiting %d\n",  __func__, this->hashCheckpoint.ToString(), priority, Checkpoints::syncCheckpoint.priority);
+			LogPrint("chk", "%s: received sync-checkpoint %s priority low %d vs existing %d\n",  __func__, this->hashCheckpoint.ToString(), priority, Checkpoints::syncCheckpoint.priority);
 			return false;
 		} else {
-			LogPrint("chk", "%s: received sync-checkpoint %s priority low %d but exiting outdated\n",  __func__, this->hashCheckpoint.ToString(), priority);
+			LogPrint("chk", "%s: received sync-checkpoint %s priority low %d but existing outdated\n",  __func__, this->hashCheckpoint.ToString(), priority);
 		}
 	}
 	
