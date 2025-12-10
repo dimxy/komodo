@@ -42,31 +42,27 @@ namespace Checkpoints
     // Asset or KMD chain sync checkpoint activation params
     struct CSyncChkParams {
         int64_t activeAt;
-        std::vector<std::string> masterPubKeys;
+        std::string masterPubKey;
     };
 	extern bool fTryInitDone;
 
-	const int32_t CHKPT_PRIORITY_LOWEST = 0;
-	const int32_t CHKPT_EXPIRATION_DEPTH = 5; // TODO: fix to 16?
 	struct CSyncCheckpoint {
-        int32_t priority;
         uint256 hash;
 
 		ADD_SERIALIZE_METHODS;
 		template <typename Stream, typename Operation>
 		inline void SerializationOp(Stream& s, Operation ser_action)
 		{
-			READWRITE(priority);
 			READWRITE(hash);
 		}
 
-		CSyncCheckpoint() : priority(CHKPT_PRIORITY_LOWEST), hash(uint256()) {}
-		CSyncCheckpoint(int32_t priorityIn, uint256 hashIn) : priority(priorityIn), hash(hashIn) {}
+		CSyncCheckpoint() : hash(uint256()) {}
+		CSyncCheckpoint(uint256 hashIn) : hash(hashIn) {}
 		bool IsNull() { return hash.IsNull(); }
 		uint256 GetHash() { return hash; }
 		std::string ToString() const {
 			std::ostringstream ss;
-			ss << hash.ToString() << "/" << priority;
+			ss << hash.ToString();
 			return ss.str();
 		} 
     };
@@ -94,8 +90,8 @@ namespace Checkpoints
 	extern bool SetCheckpointPrivKey(CKey privKey);
 	extern bool SendSyncCheckpoint(uint256 hashCheckpoint, const CSyncChkParams &syncChkParamsOut);
 	extern bool IsSyncCheckpointTooOld(unsigned int nSeconds);
-	extern bool ReadCheckpointPubKeys(std::vector<std::string>& strPubKeysOut);
-	extern bool WriteCheckpointPubKeys(const std::vector<std::string>& strPubKeys);
+	extern bool ReadCheckpointPubKey(std::string& strPubKeysOut);
+	extern bool WriteCheckpointPubKey(const std::string& strPubKeys);
 }
 
 class CUnsignedSyncChkptMessage
@@ -136,9 +132,9 @@ public:
 	bool IsNull() const;
 	uint256 GetHash() const;
 	bool RelayTo(CNode* pnode) const;
-	bool CheckSignature(const std::vector<std::string> &sPubkeys, int32_t &priorityOut);
-	bool ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std::string> &sPubkeys, std::string &sReasonOut);
-	static std::vector<CPubKey> ParseMasterPubkeys(const std::vector<std::string> &sPubkeys);
+	bool CheckSignature(const std::string &sPubkey);
+	bool ProcessSyncCheckpoint(CNode* pfrom, const std::string &sPubkey, std::string &sReasonOut);
+	static CPubKey ParseMasterPubkey(const std::string &sPubkey);
 };
 
 // Komodo added

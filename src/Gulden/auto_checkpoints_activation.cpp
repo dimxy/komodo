@@ -34,72 +34,30 @@ namespace Checkpoints
         boost::optional<CSyncChkParams> mainnet_params;
         boost::optional<CSyncChkParams> testnet_params;
 
+        // TODO: fix master key
         CSyncCheckpointActivation() {
-            mainnet_params = CSyncChkParams { nSyncChkPointHeight, {
-                // TODO: fix testkeys
-                "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956", 
-                "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"
-            }};
+            mainnet_params = CSyncChkParams { nSyncChkPointHeight, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" };
             testnet_params = boost::none;
 
             asset_chains = {
-                { "CCL", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
-                { "CLC", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
-                { "GLEEC", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
-                { "ILN", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
-                { "KOIN", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
-                { "PIRATE", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
-                { "THC", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
-                { "BCZERO", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
-                { "RAPH", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
-                { "MDX", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
+                { "CCL", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "CLC", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "GLEEC", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "ILN", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "KOIN", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "PIRATE", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "THC", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "BCZERO", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "RAPH", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "MDX", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
 
 
                 // test chains:
-                { "DOC", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
-                { "MARTY", { nSyncChkPointTimestamp, {
-                    "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }},
+                { "DOC", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "MARTY", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
 
                 // test chain
-                { "GULDEN", { nSyncChkPointTimestamp, {
-                    "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad",
-                    "0207b3e0cd22f3bf128518c67b1cc6f7059f96c2f0225acb5485c1b2f4aee88d5c"}
-                }}
+                { "GULDEN", { nSyncChkPointTimestamp, "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad" }}
                 // TODO: add asset chains
             };
         }
@@ -186,14 +144,11 @@ namespace Checkpoints
         if (!IsMasterKeySet()) {
             if (pwalletMain) {
                 LOCK(pwalletMain->cs_wallet);
-                for (const auto &sPubkey : syncChkParams.masterPubKeys) {
-                    CPubKey pubkey(ParseHex(sPubkey));
-                    CKey privkey;
-                    if (pwalletMain->GetKey(pubkey.GetID(), privkey)) {
-                        if (SetCheckpointPrivKey(privkey)) {
-                            LogPrintf("%s: Sync checkpoint master key set for pubkey %s\n", __func__, sPubkey.c_str());
-                            break; // Use first available privkey
-                        }
+                CPubKey pubkey(ParseHex(syncChkParams.masterPubKey));
+                CKey privkey;
+                if (pwalletMain->GetKey(pubkey.GetID(), privkey)) {
+                    if (SetCheckpointPrivKey(privkey)) {
+                        LogPrintf("%s: Sync checkpoint master key set for pubkey %s\n", __func__, syncChkParams.masterPubKey);
                     }
                 }
             }
@@ -207,8 +162,8 @@ namespace Checkpoints
     {    
         LOCK(cs_hashSyncCheckpoint);
         if (!fTryInitDone) {
-            if (!Checkpoints::WriteCheckpointPubKeys(syncChkParams.masterPubKeys)) {
-                return error("%s: failed to write new checkpoint master keys", __func__);  
+            if (!Checkpoints::WriteCheckpointPubKey(syncChkParams.masterPubKey)) {
+                return error("%s: failed to write new checkpoint master key", __func__);  
             }
             LogPrintf("%s: sync checkpoint try init done\n", __func__);
             TryInitMasterKey(syncChkParams);
@@ -222,7 +177,7 @@ namespace Checkpoints
         LOCK(cs_hashSyncCheckpoint);
         // Gulden: load hashSyncCheckpoint (must be in db already)
         if (!Checkpoints::ReadSyncCheckpoint(Checkpoints::syncCheckpoint)) {
-            Checkpoints::CSyncCheckpoint genesisCheckpoint { Checkpoints::CHKPT_PRIORITY_LOWEST, Params().GenesisBlock().GetHash() };
+            Checkpoints::CSyncCheckpoint genesisCheckpoint { Params().GenesisBlock().GetHash() };
             if (!Checkpoints::WriteSyncCheckpoint(genesisCheckpoint)) {
                 return error("%s: failed to init sync checkpoint file", __func__);
             }
@@ -232,21 +187,13 @@ namespace Checkpoints
         }
         LogPrintf("%s: using synchronized checkpoint %s\n", __func__, Checkpoints::syncCheckpoint.ToString().c_str());
 
-        std::vector<std::string> strPubKeys;
-        if (!Checkpoints::ReadCheckpointPubKeys(strPubKeys) || strPubKeys != syncChkParams.masterPubKeys) {
-            LogPrintf("%s: strPubKeys:", __func__);
-            for (const auto &pk:  strPubKeys) {
-                LogPrintf(" [%s]", pk);
-            }
-            LogPrintf("\n");
-            LogPrintf("%s: masterPubKeys:", __func__);
-            for (const auto &pk:  syncChkParams.masterPubKeys) {
-                LogPrintf(" [%s]", pk);
-            }
-            LogPrintf("\n");
+        std::string strPubKey;
+        if (!Checkpoints::ReadCheckpointPubKey(strPubKey) || strPubKey != syncChkParams.masterPubKey) {
+            LogPrintf("%s: pubKey from file: %s", __func__, strPubKey);
+            LogPrintf("%s: masterPubKey: %s\n", __func__, syncChkParams.masterPubKey);
             // write new checkpoint master keys to db
-            if (!Checkpoints::WriteCheckpointPubKeys(syncChkParams.masterPubKeys)) {
-                return error("%s: failed to write new checkpoint master keys", __func__);
+            if (!Checkpoints::WriteCheckpointPubKey(syncChkParams.masterPubKey)) {
+                return error("%s: failed to write new checkpoint master key", __func__);
             }
             if (!Checkpoints::ResetSyncCheckpoint()) {
                 return error("%s: failed to reset sync-checkpoint", __func__);

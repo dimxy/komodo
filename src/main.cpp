@@ -8208,7 +8208,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             vRecv >> checkpoint;
             
             std::string sReason;
-            if (checkpoint.ProcessSyncCheckpoint(pfrom, syncChkParams.masterPubKeys, sReason))
+            if (checkpoint.ProcessSyncCheckpoint(pfrom, syncChkParams.masterPubKey, sReason))
             {
                 // Relay
                 pfrom->hashCheckpointKnown = checkpoint.hashCheckpoint;

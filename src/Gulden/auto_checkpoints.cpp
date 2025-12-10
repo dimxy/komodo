@@ -288,7 +288,7 @@ namespace Checkpoints
 		}
 		if(mapBlockIndex.count(hash) && chainActive.Contains(mapBlockIndex[hash]))
 		{
-			Checkpoints::CSyncCheckpoint staticCheckpoint { Checkpoints::CHKPT_PRIORITY_LOWEST, hash };
+			Checkpoints::CSyncCheckpoint staticCheckpoint { hash };
 			if (!WriteSyncCheckpoint(staticCheckpoint))
 			{
 				return error("ResetSyncCheckpoint: failed to write sync checkpoint %s", staticCheckpoint.ToString().c_str());
@@ -380,7 +380,7 @@ namespace Checkpoints
 		}
 
 		std::string sReason;
-		if(!checkpoint.ProcessSyncCheckpoint(NULL, syncChkParams.masterPubKeys, sReason))
+		if(!checkpoint.ProcessSyncCheckpoint(NULL, syncChkParams.masterPubKey, sReason))
 		{
 			LogPrintf("WARNING: %s: Failed to process checkpoint to send: %s.\n", __func__, sReason);
 			return false;
@@ -395,34 +395,12 @@ namespace Checkpoints
 			LOCK(cs_vNodes);
 			BOOST_FOREACH(CNode* pnode, vNodes)
 			{
+				if (pnode->hSocket == INVALID_SOCKET)
+                    continue;
 				checkpoint.RelayTo(pnode);
 			}
 		}
 		return true;
-	}
-
-	// Is the sync-checkpoint too old?
-	bool IsSyncCheckpointDepthTooOld(unsigned int nDepth)
-	{
-		AssertLockHeld(cs_main);
-		AssertLockHeld(cs_hashSyncCheckpoint);
-
-		if (syncCheckpoint.IsNull())
-		{
-			return true;
-		}
-		// sync-checkpoint should always be accepted block
-		const CBlockIndex* pindexSync = mapBlockIndex[syncCheckpoint.GetHash()];
-		if (!pindexSync) {
-			return true;
-		}
-		const CBlockIndex* pindexTip = chainActive.Tip();
-		if (!pindexTip) {
-			return true;
-		}
-		LogPrint("chk", "%s: pindexTip->nHeight=%d pindexSync->nHeight=%d nDepth=%d isTooOld=%d\n",
-			__func__, pindexTip->nHeight, pindexSync->nHeight, nDepth, (pindexTip->nHeight > pindexSync->nHeight + nDepth));
-		return (pindexTip->nHeight > pindexSync->nHeight + nDepth);
 	}
 
 	// Is the sync-checkpoint too old?
@@ -547,7 +525,7 @@ namespace Checkpoints
         return true;
     }
 
-	bool ReadCheckpointPubKeys(std::vector<std::string>& strPubKeysOut)
+	bool ReadCheckpointPubKey(std::string& strPubKeyOut)
     {
         if( !fs::exists(GetDataDir() / SYNC_CHKPT_DIR) )
             return false;
@@ -567,20 +545,14 @@ namespace Checkpoints
 			pubkeyFile.read((char *)&vchData[0], fileSize);
 			pubkeyFile.fclose();
 
-			CDataStream ssPubkeys(vchData, SER_DISK, CLIENT_VERSION);
+			CDataStream ssPubkey(vchData, SER_DISK, CLIENT_VERSION);
 
 			// verify magic matches
 			unsigned char magic[4];
-			ssPubkeys >> FLATDATA(magic);
+			ssPubkey >> FLATDATA(magic);
 			if (memcmp(magic, Params().MessageStart(), sizeof(magic)))
 				return error("%s: Invalid network magic number in %s", __func__, SYNC_CHKPT_CURR_PKS.c_str());
-
-			strPubKeysOut.clear();
-			while(!ssPubkeys.eof()) {
-				std::string pubkey;
-				ssPubkeys >> pubkey;
-				strPubKeysOut.push_back(pubkey);
-			}
+			ssPubkey >> strPubKeyOut;
         }
 		catch (const std::exception& e) {
 			return error("%s: Serialize or I/O error - %s", __func__, e.what());
@@ -589,7 +561,7 @@ namespace Checkpoints
         return true;
     }
 
-    bool WriteCheckpointPubKeys(const std::vector<std::string>& strPubKeys)
+    bool WriteCheckpointPubKey(const std::string& strPubKey)
     {
 		//First write to a new file, then overwrite the checkpoint file with a move operation
 		//This ensures that the operation happens in an atomic-like fashion and cannot leave us with a corrupted checkpoint file (on most sane filesystems at least)
@@ -609,12 +581,10 @@ namespace Checkpoints
 			if (pubkeyFile.IsNull())
 				return error("%s: Failed to open file %s", __func__, SYNC_CHKPT_NEW_PKS.c_str());
 
-			CDataStream ssPubkeys(SER_DISK, CLIENT_VERSION);
-			ssPubkeys << FLATDATA(Params().MessageStart());
-			for (auto const &pubkey : strPubKeys) {
-				ssPubkeys << pubkey;
-			}
-			pubkeyFile << ssPubkeys;
+			CDataStream ssPubkey(SER_DISK, CLIENT_VERSION);
+			ssPubkey << FLATDATA(Params().MessageStart());
+			ssPubkey << strPubKey;
+			pubkeyFile << ssPubkey;
 			pubkeyFile.fclose();
 			fs::rename( pubkeyFilePath, GetDataDir() / SYNC_CHKPT_DIR / SYNC_CHKPT_CURR_PKS );
 		}
@@ -628,70 +598,39 @@ namespace Checkpoints
 CKey CSyncChkptMessage::masterKey;
 
 // ppcoin: verify signature of sync-checkpoint message
-bool CSyncChkptMessage::CheckSignature(const std::vector<std::string> &sPubkeys, int32_t &priorityOut)
+bool CSyncChkptMessage::CheckSignature(const std::string &sPubkey)
 {
-	std::vector<CPubKey> pubkeys = CSyncChkptMessage::ParseMasterPubkeys(sPubkeys);
-	int32_t i = 0;
-	for (const auto &pubkey : pubkeys) {
-		if (pubkey.IsValid())
+	CPubKey pubkey = CSyncChkptMessage::ParseMasterPubkey(sPubkey);
+	if (pubkey.IsValid())
+	{
+		if (pubkey.Verify(Hash(vchMsg.begin(), vchMsg.end()), vchSig))
 		{
-			LogPrintf("%s trying pubkey=%s i=%d\n", __func__, HexStr(pubkey.begin(), pubkey.end()).c_str(), i);
-			if (pubkey.Verify(Hash(vchMsg.begin(), vchMsg.end()), vchSig))
-			{
-				// Now unserialize the data
-				CDataStream sMsg(vchMsg, SER_NETWORK, PROTOCOL_VERSION);
-				sMsg >> *(CUnsignedSyncChkptMessage*)this;
-				priorityOut = pubkeys.size() - i;
-				return true;
-			}
+			// Now unserialize the data
+			CDataStream sMsg(vchMsg, SER_NETWORK, PROTOCOL_VERSION);
+			sMsg >> *(CUnsignedSyncChkptMessage*)this;
+			return true;
 		}
-		i ++;
 	}
  	return error("CSyncCheckpoint::CheckSignature() : verify signature failed");
 }
 
-std::vector<CPubKey> CSyncChkptMessage::ParseMasterPubkeys(const std::vector<std::string> &sPubkeys) {
-	std::vector<CPubKey> pubkeys;
-	for (const auto &sPubkey : sPubkeys) {
-		CPubKey pubkey(ParseHex(sPubkey));
-		pubkeys.push_back(pubkey);
-	}
-	return pubkeys;
+CPubKey CSyncChkptMessage::ParseMasterPubkey(const std::string &sPubkey) {
+	return CPubKey(ParseHex(sPubkey));
 }
 
 // ppcoin: process synchronized checkpoint
-bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<std::string> &sPubkeys, std::string &sReasonOut)
+bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::string &sPubkey, std::string &sReasonOut)
 {
-	int32_t priority = Checkpoints::CHKPT_PRIORITY_LOWEST;
-	if (!CheckSignature(sPubkeys, priority)) {
+	if (!CheckSignature(sPubkey)) {
 		sReasonOut = "signature check";
 		return false;
 	}
 
-	LogPrint("chk", "%s CheckSignature returned priority=%d for hash=%s\n", __func__, priority, this->hashCheckpoint.ToString());
-	LOCK(Checkpoints::cs_hashSyncCheckpoint);
-
-	// komodo fix: override priority in existing checkpoint
-	if (priority > Checkpoints::syncCheckpoint.priority && Checkpoints::syncCheckpoint.GetHash() == this->hashCheckpoint) {
-		LogPrint("chk", "%s: overwrite low priority with high %d in existing checkpoint %s\n",  __func__, priority, this->hashCheckpoint.ToString());
-		Checkpoints::syncCheckpoint.priority = priority;
-		return true;
-	}
-
-	if (priority < Checkpoints::syncCheckpoint.priority) {
-		if (!Checkpoints::IsSyncCheckpointDepthTooOld(Checkpoints::CHKPT_EXPIRATION_DEPTH)) {
-			LogPrint("chk", "%s: new sync-checkpoint %s low priority %d vs existing %d\n",  __func__, this->hashCheckpoint.ToString(), priority, Checkpoints::syncCheckpoint.priority);
-			sReasonOut = "low new checkpoint priority (and existing not old enough)";
-			return false;
-		} else {
-			LogPrint("chk", "%s: new sync-checkpoint %s low priority %d but existing outdated\n",  __func__, this->hashCheckpoint.ToString(), priority);
-		}
-	}
-	
+	LOCK(Checkpoints::cs_hashSyncCheckpoint);	
 	if (!mapBlockIndex.count(this->hashCheckpoint))
 	{
 		// We haven't received the checkpoint chain, keep the checkpoint as pending
-		Checkpoints::pendingCheckpoint = { priority, this->hashCheckpoint };
+		Checkpoints::pendingCheckpoint = { this->hashCheckpoint };
 		Checkpoints::checkpointMessagePending = *this;
 		LogPrint("chk", "%s: pending for sync-checkpoint %s\n",  __func__, this->hashCheckpoint.ToString().c_str());
 		// Ask this guy to fill in what we're missing
@@ -704,7 +643,7 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::vector<st
 		return false;
 	}
 
-	Checkpoints::CSyncCheckpoint checkpoint { priority, this->hashCheckpoint };
+	Checkpoints::CSyncCheckpoint checkpoint { this->hashCheckpoint };
 	if (!Checkpoints::ValidateSyncCheckpoint(checkpoint))
 	{
 		sReasonOut = "checkpoint not valid";

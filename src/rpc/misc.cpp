@@ -1627,7 +1627,6 @@ static UniValue getcheckpoint(const UniValue& params, bool fHelp, const CPubKey&
             
     UniValue chkptInfo(UniValue::VOBJ);
     chkptInfo.push_back(Pair("checkpoint", Checkpoints::syncCheckpoint.hash.GetHex()));
-    chkptInfo.push_back(Pair("priority", Checkpoints::syncCheckpoint.priority));
     CBlockIndex *psyncCheckpoint = Checkpoints::GetLastSyncCheckpoint();
     if (psyncCheckpoint) {
         chkptInfo.push_back(Pair("height", psyncCheckpoint->nHeight));
