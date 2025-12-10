@@ -185,6 +185,10 @@ namespace Checkpoints
                 return error("%s: failed to read sync checkpoint file", __func__);  
             }    
         }
+
+        if (mapBlockIndex.count(syncCheckpoint.GetHash()) == 0) {
+            return error("%s: sync checkpoint file corrupted. Remove sync checkpoint dir and restart", __func__);  
+        }
         LogPrintf("%s: using synchronized checkpoint %s\n", __func__, Checkpoints::syncCheckpoint.ToString().c_str());
 
         std::string strPubKey;
