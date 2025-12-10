@@ -8456,7 +8456,6 @@ bool SendMessages(CNode* pto, bool fSendTrickle)
         if (pto->nVersion == 0)
             return true;
 
-        //LogPrintf("SendMessages for node %d.. enterred\n", pto->id); //TODO test
         //
         // Message: ping
         //
