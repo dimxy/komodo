@@ -113,7 +113,7 @@ namespace Checkpoints
                 }
             }
         } else if (!CSyncCheckpointActivation::GetAssetParams(chainName.ToString(), syncChkParams)) {
-            LogPrint("chk", "%s: GetAssetParams false chainName=%s\n", __func__, chainName.ToString().c_str());
+            LogPrint("chk", "%s: GetAssetParams false chainName=%s\n", __func__, chainName.ToString());
             return false;
         }
         if (syncChkParams.activeAt < LOCKTIME_THRESHOLD) { // height or timestamp
@@ -189,7 +189,7 @@ namespace Checkpoints
         if (mapBlockIndex.count(syncCheckpoint.GetHash()) == 0) {
             return error("%s: sync checkpoint file corrupted. Remove sync checkpoint dir and restart", __func__);  
         }
-        LogPrintf("%s: using synchronized checkpoint %s\n", __func__, Checkpoints::syncCheckpoint.ToString().c_str());
+        LogPrintf("%s: using synchronized checkpoint %s\n", __func__, Checkpoints::syncCheckpoint.ToString());
 
         std::string strPubKey;
         if (!Checkpoints::ReadCheckpointPubKey(strPubKey) || strPubKey != syncChkParams.masterPubKey) {

@@ -1028,13 +1028,13 @@ bool komodo_checkpoint(int32_t *notarized_heightp, int32_t nHeight, uint256 hash
     *notarized_heightp = notarized_height;
 
     // TODO: test debug
-    LogPrintf("komodo_checkpoint notarized_height=%d notarized_hash=%s pindex->nHeight=%d nHeight=%d\n", notarized_height, notarized_hash.ToString().c_str(), pindex->nHeight, nHeight);
+    LogPrint("dpow", "komodo_checkpoint notarized_height=%d notarized_hash=%s pindex->nHeight=%d nHeight=%d\n", notarized_height, notarized_hash.ToString().c_str(), pindex->nHeight, nHeight);
     BlockMap::const_iterator it;
     CBlockIndex *notary;
     if ( notarized_height >= 0 && notarized_height <= pindex->nHeight 
             && (it = mapBlockIndex.find(notarized_hash)) != mapBlockIndex.end() && (notary = it->second) != nullptr )
     {
-        LogPrintf("komodo_checkpoint notary->nHeight=%d\n", notary->nHeight);
+        LogPrint("dpow", "komodo_checkpoint notary->nHeight=%d\n", notary->nHeight);
         //verify that the block info returned from komodo_notarizeddata matches the actual block
         if ( notary->nHeight == notarized_height ) // if notarized_hash not in chain, reorg
         {

@@ -164,11 +164,10 @@ int32_t komodo_notaries(uint8_t pubkeys[64][33],int32_t height,uint32_t timestam
                     for (int32_t i = 0; i<NUM_KMD_NOTARIES; i++) {
                         pubkey2addr((char *)NOTARY_ADDRESSES[kmd_season-1][i],(uint8_t *)kmd_pubkeys[kmd_season-1][i]);
                     }
-                    // TODO: test log
-                    LogPrintf("komodo_notaries ASSETCHAINS_PRIVATE kmd_season=%d NOTARY_ADDRESSES set (addr0=%s)\n", kmd_season, NOTARY_ADDRESSES[kmd_season-1][0]);
+                    LogPrint("dpow", "komodo_notaries ASSETCHAINS_PRIVATE kmd_season=%d NOTARY_ADDRESSES set (addr0=%s)\n", kmd_season, NOTARY_ADDRESSES[kmd_season-1][0]);
                 }
                 didinit_NOTARIES[kmd_season-1] = true;
-                LogPrintf("komodo_notaries didinit_NOTARIES kmd_season=%d set to true chainName=%s timestamp=%lld height=%d\n", kmd_season, chainName.symbol().c_str(), timestamp, height);
+                LogPrint("dpow", "komodo_notaries didinit_NOTARIES kmd_season=%d set to true chainName=%s timestamp=%lld height=%d\n", kmd_season, chainName.symbol().c_str(), timestamp, height);
             }
             memcpy(pubkeys,kmd_pubkeys[kmd_season-1],NUM_KMD_NOTARIES * 33);
             return(NUM_KMD_NOTARIES);
