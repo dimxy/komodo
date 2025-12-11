@@ -143,6 +143,7 @@ namespace Checkpoints
 	extern bool TryInitSyncCheckpoint(const CSyncChkParams &syncChkParams);
 	extern bool OpenSyncCheckpointAtStartup(const CSyncChkParams &syncChkParams);
 	extern bool IsMasterKeySet();
+	extern void TryInitMasterKey();
 	extern bool IsSyncCheckpointUpgradeActive(CSyncChkParams &syncChkParamsOut, int nHeight, int64_t timestamp);
 	extern bool IsSyncCheckpointUpgradeActive(int nHeight, int64_t timestamp);
 }
