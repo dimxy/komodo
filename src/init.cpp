@@ -436,7 +436,6 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-maxsendbuffer=<n>", strprintf(_("Maximum per-connection send buffer, <n>*1000 bytes (default: %u)"), 1000));
     strUsage += HelpMessageOpt("-onion=<ip:port>", strprintf(_("Use separate SOCKS5 proxy to reach peers via Tor hidden services (default: %s)"), "-proxy"));
     strUsage += HelpMessageOpt("-onlynet=<net>", _("Only connect to nodes in network <net> (ipv4, ipv6 or onion)"));
-    strUsage += HelpMessageOpt("-genkeypair", strprintf(_("Generate a key pair and exit")));
     strUsage += HelpMessageOpt("-permitbaremultisig", strprintf(_("Relay non-P2SH multisig (default: %u)"), 1));
     strUsage += HelpMessageOpt("-peerbloomfilters", strprintf(_("Support filtering of blocks and transaction with Bloom filters (default: %u)"), 1));
     strUsage += HelpMessageOpt("-nspv_msg", strprintf(_("Enable NSPV messages processing (default: %u)"), DEFAULT_NSPV_PROCESSING));
@@ -1274,7 +1273,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         fPruneMode = true;
     }
 
-    ECC_Start();
     RegisterAllCoreRPCCommands(tableRPC);
 #ifdef ENABLE_WALLET
     bool fDisableWallet = GetBoolArg("-disablewallet", false);
@@ -1347,23 +1345,6 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     expiryDelta = GetArg("-txexpirydelta", DEFAULT_TX_EXPIRY_DELTA);
     bSpendZeroConfChange = GetBoolArg("-spendzeroconfchange", true);
     fSendFreeTransactions = GetBoolArg("-sendfreetransactions", false);
-
-    //Gulden - generate private/public key pair for alert of checkpoint system
-    if (mapArgs.count("-genkeypair"))
-    {
-        if (!ECC_initialized()) {
-            return InitError(_("ECC not initialized\n"));
-        }
-        CKey key;
-        key.MakeNewKey(false);
-
-        CPrivKey vchPrivKey = key.GetPrivKey();
-        printf("PrivateKey %s\n", HexStr<CPrivKey::iterator>(vchPrivKey.begin(), vchPrivKey.end()).c_str());
-        CPubKey vchPubKey = key.GetPubKey();
-        vchPubKey.Decompress();
-        printf("PublicKey %s\n", HexStr(vchPubKey.begin(), vchPubKey.end()).c_str());
-        return false;
-    }
 
     std::string strWalletFile = GetArg("-wallet", "wallet.dat");
 #endif // ENABLE_WALLET
@@ -1450,6 +1431,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Initialize elliptic curve code
     std::string sha256_algo = SHA256AutoDetect();
     LogPrintf("Using the '%s' SHA256 implementation\n", sha256_algo);
+    ECC_Start();
     globalVerifyHandle.reset(new ECCVerifyHandle());
 
     // Sanity check
