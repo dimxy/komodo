@@ -208,7 +208,7 @@ namespace Checkpoints
 
         std::string strPubKey;
         if (!Checkpoints::ReadCheckpointPubKey(strPubKey) || strPubKey != syncChkParams.masterPubKey) {
-            LogPrintf("%s: pubKey from file: %s", __func__, strPubKey);
+            LogPrintf("%s: pubKey from file: %s\n", __func__, strPubKey);
             LogPrintf("%s: masterPubKey: %s\n", __func__, syncChkParams.masterPubKey);
             // write new checkpoint master keys to db
             if (!Checkpoints::WriteCheckpointPubKey(syncChkParams.masterPubKey)) {
