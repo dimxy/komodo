@@ -4603,47 +4603,52 @@ static bool ActivateBestChainStep(bool fSkipdpow, CValidationState &state, CBloc
     const CBlockIndex *pindexOldTip = chainActive.Tip();
     const CBlockIndex *pindexFork = chainActive.FindFork(pindexMostWork);
 
-    // stop trying to reorg if the reorged chain is before last notarized height. 
-    // stay on the same chain tip! 
-    int32_t notarizedht,prevMoMheight; uint256 notarizedhash,txid;
-    notarizedht = komodo_notarized_height(&prevMoMheight,&notarizedhash,&txid);
     int nHeightTip = chainActive.Height();
     int64_t timestamp = komodo_heightstamp(nHeightTip);
     bool isDpowActive = !IsSunsettingActive(nHeightTip, timestamp);
-    LogPrint("dpow", "%s isDpowActive=%d height=%d timestamp=%lld\n", __func__, isDpowActive, nHeightTip, timestamp);
-    if ( isDpowActive && !fSkipdpow && pindexFork != 0 && pindexOldTip->GetHeight() > notarizedht && pindexFork->GetHeight() < notarizedht )
+    LogPrint("dpow", "%s isDpowActive=%d nHeightTip=%d timestamp=%lld\n", __func__, isDpowActive, nHeightTip, timestamp);
+
+    if (isDpowActive) 
     {
-        LogPrintf("pindexOldTip->GetHeight().%d > notarizedht %d && pindexFork->GetHeight().%d is < notarizedht %d, so ignore it\n",(int32_t)pindexOldTip->GetHeight(),notarizedht,(int32_t)pindexFork->GetHeight(),notarizedht);
-        // *** DEBUG ***
-        if (1)
+        // stop trying to reorg if the reorged chain is before last notarized height. 
+        // stay on the same chain tip! 
+        int32_t notarizedht = 0, prevMoMheight = 0; uint256 notarizedhash,txid;
+        notarizedht = komodo_notarized_height(&prevMoMheight,&notarizedhash,&txid);
+
+        if ( !fSkipdpow && pindexFork != 0 && pindexOldTip->GetHeight() > notarizedht && pindexFork->GetHeight() < notarizedht )
         {
-            const CBlockIndex *pindexLastNotarized = mapBlockIndex[notarizedhash];
-            auto msg = "- " + strprintf(_("Current tip : %s, height %d, work %s"),
-                                pindexOldTip->phashBlock->GetHex(), pindexOldTip->GetHeight(), pindexOldTip->chainPower.chainWork.GetHex()) + "\n" +
-                "- " + strprintf(_("New tip     : %s, height %d, work %s"),
-                                pindexMostWork->phashBlock->GetHex(), pindexMostWork->GetHeight(), pindexMostWork->chainPower.chainWork.GetHex()) + "\n" +
-                "- " + strprintf(_("Fork point  : %s, height %d"),
-                                pindexFork->phashBlock->GetHex(), pindexFork->GetHeight()) + "\n" +
-                "- " + strprintf(_("Last ntrzd  : %s, height %d"),
-                                pindexLastNotarized->phashBlock->GetHex(), pindexLastNotarized->GetHeight());
-            LogPrintf("[ Debug ]\n%s\n",msg);
+            LogPrintf("pindexOldTip->nHeight.%d > notarizedht %d && pindexFork->nHeight.%d is < notarizedht %d, so ignore it\n",(int32_t)pindexOldTip->GetHeight(),notarizedht,(int32_t)pindexFork->GetHeight(),notarizedht);
+            // *** DEBUG ***
+            if (1)
+            {
+                const CBlockIndex *pindexLastNotarized = mapBlockIndex[notarizedhash];
+                auto msg = "- " + strprintf(_("Current tip : %s, height %d, work %s"),
+                                    pindexOldTip->phashBlock->GetHex(), pindexOldTip->GetHeight(), pindexOldTip->nChainWork.GetHex()) + "\n" +
+                    "- " + strprintf(_("New tip     : %s, height %d, work %s"),
+                                    pindexMostWork->phashBlock->GetHex(), pindexMostWork->GetHeight(), pindexMostWork->nChainWork.GetHex()) + "\n" +
+                    "- " + strprintf(_("Fork point  : %s, height %d"),
+                                    pindexFork->phashBlock->GetHex(), pindexFork->GetHeight()) + "\n" +
+                    "- " + strprintf(_("Last ntrzd  : %s, height %d"),
+                                    pindexLastNotarized->phashBlock->GetHex(), pindexLastNotarized->GetHeight());
+                LogPrintf("[ Debug ]\n%s\n",msg);
 
-            int nHeight = pindexFork ? pindexFork->GetHeight() : -1;
-            int nTargetHeight = std::min(nHeight + 32, pindexMostWork->GetHeight());
-            
-            LogPrintf("[ Debug ] nHeight = %d, nTargetHeight = %d\n", nHeight, nTargetHeight);
+                int nHeight = pindexFork ? pindexFork->GetHeight() : -1;
+                int nTargetHeight = std::min(nHeight + 32, pindexMostWork->GetHeight());
+                
+                LogPrintf("[ Debug ] nHeight = %d, nTargetHeight = %d\n", nHeight, nTargetHeight);
 
-            CBlockIndex *pindexIter = pindexMostWork->GetAncestor(nTargetHeight);
-            while (pindexIter && pindexIter->GetHeight() != nHeight) {
-                LogPrintf("[ Debug -> New blocks list ] %s, height %d\n", pindexIter->phashBlock->GetHex(), pindexIter->GetHeight());
-                pindexIter = pindexIter->pprev;
+                CBlockIndex *pindexIter = pindexMostWork->GetAncestor(nTargetHeight);
+                while (pindexIter && pindexIter->GetHeight() != nHeight) {
+                    LogPrintf("[ Debug -> New blocks list ] %s, height %d\n", pindexIter->phashBlock->GetHex(), pindexIter->GetHeight());
+                    pindexIter = pindexIter->pprev;
+                }
             }
-        }
 
-        CValidationState tmpstate;
-        InvalidateBlock(tmpstate,pindexMostWork); // trying to invalidate longest chain, which tried to reorg notarized chain (in case of fork point below last notarized block)
-        return state.DoS(100, error("ActivateBestChainStep(): pindexOldTip->GetHeight().%d > notarizedht %d && pindexFork->GetHeight().%d is < notarizedht %d, so ignore it",(int32_t)pindexOldTip->GetHeight(),notarizedht,(int32_t)pindexFork->GetHeight(),notarizedht),
-                REJECT_INVALID, "past-notarized-height");
+            CValidationState tmpstate;
+            InvalidateBlock(tmpstate,pindexMostWork); // trying to invalidate longest chain, which tried to reorg notarized chain (in case of fork point below last notarized block)
+            return state.DoS(100, error("ActivateBestChainStep(): pindexOldTip->nHeight.%d > notarizedht %d && pindexFork->nHeight.%d is < notarizedht %d, so ignore it",(int32_t)pindexOldTip->GetHeight(),notarizedht,(int32_t)pindexFork->GetHeight(),notarizedht),
+                    REJECT_INVALID, "past-notarized-height");
+        }
     }
     // - On ChainDB initialization, pindexOldTip will be null, so there are no removable blocks.
     // - If pindexMostWork is in a chain that doesn't have the same genesis block as our chain,
