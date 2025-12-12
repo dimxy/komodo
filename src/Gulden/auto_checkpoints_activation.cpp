@@ -36,28 +36,29 @@ namespace Checkpoints
 
         // TODO: fix master key
         CSyncCheckpointActivation() {
-            mainnet_params = CSyncChkParams { nSyncChkPointHeight, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" };
+            mainnet_params = CSyncChkParams { nSyncChkPointHeight, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" };
             testnet_params = boost::none;
 
             asset_chains = {
-                { "CCL", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
-                { "CLC", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
-                { "GLEEC", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
-                { "ILN", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
-                { "KOIN", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
-                { "PIRATE", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
-                { "THC", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
-                { "BCZERO", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
-                { "RAPH", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
-                { "MDX", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "CCL", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
+                { "CLC", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
+                { "GLEEC", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
+                { "ILN", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
+                { "KOIN", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
+                { "PIRATE", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
+                { "THC", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
+                { "BCZERO", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
+                { "RAPH", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
+                { "MDX", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
 
 
                 // test chains:
-                { "DOC", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
-                { "MARTY", { nSyncChkPointTimestamp, "039a01cd626d5efbe7fd05a59d8e5fced53bacac589192278f9b00ad31654b6956" }},
+                { "DOC", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
+                { "MARTY", { nSyncChkPointTimestamp, "03fdc6ca526c0cfaed2211d03dc2ea9c083aea127c7769d97dc92fed2085803ce3" }},
 
                 // test chain
-                { "GULDEN", { nSyncChkPointTimestamp, "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad" }}
+                // auto checkpoint active since Dec, 01 2025
+                { "GULDEN", { 1764606619, "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad" }}
                 // TODO: add asset chains
             };
         }
