@@ -4607,7 +4607,11 @@ static bool ActivateBestChainStep(bool fSkipdpow, CValidationState &state, CBloc
     // stay on the same chain tip! 
     int32_t notarizedht,prevMoMheight; uint256 notarizedhash,txid;
     notarizedht = komodo_notarized_height(&prevMoMheight,&notarizedhash,&txid);
-    if ( !fSkipdpow && pindexFork != 0 && pindexOldTip->GetHeight() > notarizedht && pindexFork->GetHeight() < notarizedht )
+    int nHeightTip = chainActive.Height();
+    int64_t timestamp = komodo_heightstamp(nHeightTip);
+    bool isDpowActive = !IsSunsettingActive(nHeightTip, timestamp);
+    LogPrint("dpow", "%s isDpowActive=%d height=%d timestamp=%lld\n", __func__, isDpowActive, nHeightTip, timestamp);
+    if ( isDpowActive && !fSkipdpow && pindexFork != 0 && pindexOldTip->GetHeight() > notarizedht && pindexFork->GetHeight() < notarizedht )
     {
         LogPrintf("pindexOldTip->GetHeight().%d > notarizedht %d && pindexFork->GetHeight().%d is < notarizedht %d, so ignore it\n",(int32_t)pindexOldTip->GetHeight(),notarizedht,(int32_t)pindexFork->GetHeight(),notarizedht);
         // *** DEBUG ***
@@ -5508,7 +5512,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     {
         if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast() )
         {
-            fprintf(stderr,"ht.%d too early %u vs %u\n",(int32_t)nHeight,(uint32_t)block.GetBlockTime(),(uint32_t)pindexPrev->GetMedianTimePast());
+            LogPrint("dpow", "ht.%d too early %u vs %u\n",(int32_t)nHeight,(uint32_t)block.GetBlockTime(),(uint32_t)pindexPrev->GetMedianTimePast());
             return state.Invalid(error("%s: block's timestamp is too early", __func__),
                                  REJECT_INVALID, "time-too-old");
         }
@@ -5517,7 +5521,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
     {
         if ( block.GetBlockTime() <= pindexPrev->nTime )
         {
-            fprintf(stderr,"ht.%d too early2 %u vs %u\n",(int32_t)nHeight,(uint32_t)block.GetBlockTime(),(uint32_t)pindexPrev->nTime);
+            LogPrint("dpow", "ht.%d too early2 %u vs %u\n",(int32_t)nHeight,(uint32_t)block.GetBlockTime(),(uint32_t)pindexPrev->nTime);
             return state.Invalid(error("%s: block's timestamp is too early2", __func__),
                                  REJECT_INVALID, "time-too-old");
         }
@@ -5555,23 +5559,36 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
         }
         if ( nHeight != 0 )
         {
+            // Static checkpoints
             if ( pcheckpoint != 0 && nHeight < pcheckpoint->GetHeight() )
                 return state.DoS(1, error("%s: forked chain older than last checkpoint (height %d) vs %d", __func__, nHeight,pcheckpoint->GetHeight()));
-            if ( komodo_checkpoint(&notarized_height,nHeight,hash) < 0 )
-            {
-                CBlockIndex *heightblock = chainActive[nHeight];
-                if ( heightblock != 0 && heightblock->GetBlockHash() == hash )
+            
+            // sync checkpoint
+            Checkpoints::CSyncChkParams syncChkParams;
+            if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, block.GetBlockTime())) {
+                if (!TryInitSyncCheckpoint(syncChkParams))
+                    return error("%s() : failed to initialize sync checkpoint", __func__);  
+                // Gulden: check that the block satisfies synchronized checkpoint
+                if (!Checkpoints::CheckSync(hash, pindexPrev))
+                    return state.DoS(100, error("%s: rejected by sync checkpoint lock-in at %d", __func__, nHeight), REJECT_CHECKPOINT, "sync checkpoint mismatch");
+            }
+
+            if (!IsSunsettingActive(nHeight, block.GetBlockTime())) {
+                LogPrint("dpow", "%s dpow is active, height=%d timestamp=%lld\n", __func__, nHeight, block.GetBlockTime());
+                if ( !komodo_checkpoint(&notarized_height,nHeight,hash) )
                 {
-                    //fprintf(stderr,"got a pre notarization block that matches height.%d\n",(int32_t)nHeight);
-                    return true;
-                } else return state.DoS(1, error("%s: forked chain %d older than last notarized (height %d) vs %d", __func__,nHeight, notarized_height));
+                    CBlockIndex *heightblock = chainActive[nHeight];
+                    if ( heightblock != 0 && heightblock->GetBlockHash() == hash )
+                        return true;
+                    else 
+                        return state.DoS(1, error("%s: forked chain %d older than last notarized (height %d) vs %d", __func__,
+                                nHeight, notarized_height));
+                }
+            } else {
+                LogPrint("dpow", "%s dpow is sunsetting, height=%d timestamp=%lld\n", __func__, nHeight, block.GetBlockTime());
             }
         }
     }
-
-    // Gulden: check that the block satisfies synchronized checkpoint
-    if (!Checkpoints::CheckSync(hash, pindexPrev))
-        return state.DoS(100, error("%s: rejected by sync checkpoint lock-in at %d", __func__, nHeight), REJECT_CHECKPOINT, "sync checkpoint mismatch");
 
     // Reject block.nVersion < 4 blocks
     if (block.nVersion < 4)
@@ -5988,15 +6005,22 @@ bool ProcessNewBlock(bool from_miner,int32_t height,CValidationState &state, CNo
         return error("%s: ActivateBestChain failed", __func__);
     //fprintf(stderr,"finished ProcessBlock %d\n",(int32_t)chainActive.LastTip()->GetHeight());
 
-    if (!IsInitialBlockDownload())
-    {
-        // Gulden: if responsible for sync-checkpoint send it
-        if (!CSyncCheckpoint::strMasterPrivKey.empty())
-            Checkpoints::SendSyncCheckpoint(Checkpoints::AutoSelectSyncCheckpoint());
+    Checkpoints::CSyncChkParams syncChkParams;
+    int nHeightActiv = height != 0 ? height : komodo_block2height(pblock);
+    if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeightActiv, pblock->GetBlockTime())) {
+        if (!TryInitSyncCheckpoint(syncChkParams))
+            return error("%s() : failed to initialize sync checkpoint", __func__);  
+        if (!IsInitialBlockDownload())
+        {
+            // Gulden: if responsible for sync-checkpoint send it
+            if (Checkpoints::IsMasterKeySet())
+                Checkpoints::SendSyncCheckpoint(Checkpoints::AutoSelectSyncCheckpoint(), syncChkParams);
+        }
+
+        LOCK2(cs_main, Checkpoints::cs_hashSyncCheckpoint);
+        // Gulden: check pending sync-checkpoint
+        Checkpoints::AcceptPendingSyncCheckpoint();
     }
-    
-    // Gulden: check pending sync-checkpoint
-    Checkpoints::AcceptPendingSyncCheckpoint();
 
     return true;
 }
@@ -6433,10 +6457,16 @@ bool static LoadBlockIndexDB()
         progress = (longestchain > 0 ) ? (double) chainActive.Height() / longestchain : 0.5;
     }
 
-    // Gulden: load hashSyncCheckpoint
-    CCheckpointsDB CheckpointsDB;
-    CheckpointsDB.ReadSyncCheckpoint(Checkpoints::hashSyncCheckpoint);
-    LogPrintf("LoadBlockIndexDB(): using synchronized checkpoint %s\n", Checkpoints::hashSyncCheckpoint.ToString().c_str());
+    Checkpoints::CSyncChkParams syncChkParams;
+    int nHeight = chainActive.Height();
+    int64_t timestamp = komodo_heightstamp(nHeight);
+    if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, timestamp)) {
+        if (!Checkpoints::OpenSyncCheckpointAtStartup(syncChkParams)) {
+            return error("%s: failed to init sync checkpoint file", __func__);
+        }
+        LogPrintf("%s: sync checkpoint file initialized\n", __func__);
+    }
+    LogPrintf("%s: chainName %s\n", __func__, chainName.ToString());
 
     LogPrintf("%s: hashBestChain=%s height=%d date=%s progress=%f\n", __func__,
               chainActive.LastTip()->GetBlockHash().ToString(), chainActive.Height(),
@@ -6789,21 +6819,6 @@ bool InitBlockIndex() {
                 return error("LoadBlockIndex(): genesis block not accepted");
             if (!ActivateBestChain(true, state, &block))
                 return error("LoadBlockIndex(): genesis block cannot be activated");
-
-            // Gulden: initialize synchronized checkpoint
-            CCheckpointsDB CheckpointsDB;
-            if (!CheckpointsDB.WriteSyncCheckpoint(Params().GenesisBlock().GetHash()))
-                return error("LoadBlockIndex() : failed to init sync checkpoint");
-            std::string strPubKey;
-            std::string strPubKeyComp = GetBoolArg("-testnet", false) ? CSyncCheckpoint::strMasterPubKeyTestnet : CSyncCheckpoint::strMasterPubKey;
-            if (!CheckpointsDB.ReadCheckpointPubKey(strPubKey) || strPubKey != strPubKeyComp)
-            {
-                // write checkpoint master key to db
-                if (!CheckpointsDB.WriteCheckpointPubKey(strPubKeyComp))
-                    return error("LoadBlockIndex() : failed to write new checkpoint master key to db");
-                if (!Checkpoints::ResetSyncCheckpoint())
-                    return error("LoadBlockIndex() : failed to reset sync-checkpoint");
-            }
 
             // Force a chainstate write so that when we VerifyDB in a moment, it doesn't check stale data
             if ( KOMODO_NSPV_FULLNODE )
@@ -7273,7 +7288,7 @@ void static ProcessGetData(CNode* pfrom)
                             //hash = block.GetHash();
                             //for (z=31; z>=0; z--)
                             //    fprintf(stderr,"%02x",((uint8_t *)&hash)[z]);
-                            //fprintf(stderr," send block %d\n",komodo_block2height(&block));
+                            LogPrint("net1", "sending block %s to %d in resp to getdata\n", block.GetHash().ToString(), pfrom->id);
                             pfrom->PushMessage("block", block);
                         }
                         else // MSG_FILTERED_BLOCK)
@@ -7298,7 +7313,7 @@ void static ProcessGetData(CNode* pfrom)
                             // no response
                         }
                     }
-                    // Trigger the peer node to send a getblocks request for the next batch of inventory
+                    // Trigger the peer node to send a getblocks (correction: getheaders) request for the next batch of inventory
                     if (inv.hash == pfrom->hashContinue)
                     {
                         // Bypass PushInventory, this must send even if redundant,
@@ -7913,7 +7928,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
         if (chainActive.LastTip() != 0 && chainActive.LastTip()->GetHeight() > 100000 && IsInitialBlockDownload())
         {
-            //fprintf(stderr,"dont process getheaders during initial download\n");
+            LogPrint("net1", "Don't process getheaders during initial download, IBT=%d\n", IsInitialBlockDownload());
             return true;
         }
         CBlockIndex* pindex = NULL;
@@ -8115,6 +8130,12 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             ReadCompactSize(vRecv); // ignore tx count; assume it is 0.
         }
 
+        LogPrint("net1", "%s received headers: [", __func__);
+        for (auto hdr : headers) {
+            LogPrint("net1", "%s ", hdr.GetHash().ToString().c_str());
+        }
+        LogPrint("net1", "]\n");
+
         LOCK(cs_main);
 
         if (nCount == 0) {
@@ -8248,16 +8269,32 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 
     else if (strCommand == "checkpoint")
     {
-        CSyncCheckpoint checkpoint;
-        vRecv >> checkpoint;
+        LOCK(cs_main);
+        Checkpoints::CSyncChkParams syncChkParams;
+        int nHeight = chainActive.Height();
+        int64_t timestamp = komodo_heightstamp(nHeight);
+        if (Checkpoints::IsSyncCheckpointUpgradeActive(syncChkParams, nHeight, timestamp)) {
+            if (!TryInitSyncCheckpoint(syncChkParams))
+                return error("%s() : failed to initialize sync checkpoint", __func__);  
 
-        if (checkpoint.ProcessSyncCheckpoint(pfrom))
-        {
-            // Relay
-            pfrom->hashCheckpointKnown = checkpoint.hashCheckpoint;
-            LOCK(cs_vNodes);
-            BOOST_FOREACH(CNode* pnode, vNodes)
-                checkpoint.RelayTo(pnode);
+            CSyncChkptMessage checkpoint;
+            vRecv >> checkpoint;
+            
+            std::string sReason;
+            if (checkpoint.ProcessSyncCheckpoint(pfrom, syncChkParams.masterPubKey, sReason))
+            {
+                // Relay
+                pfrom->hashCheckpointKnown = checkpoint.hashCheckpoint;
+                LOCK(cs_vNodes);
+                BOOST_FOREACH(CNode* pnode, vNodes)
+                {
+                    if (pnode->hSocket == INVALID_SOCKET)
+                        continue;
+                    checkpoint.RelayTo(pnode);
+                }
+            } else {
+                LogPrintf("WARNING: %s: Failed to process received checkpoint: %s.\n", __func__, sReason);
+            }
         }
     }
 
@@ -8826,4 +8863,14 @@ CMutableTransaction CreateNewContextualCMutableTransaction(const Consensus::Para
         }
     }
     return mtx;
+}
+
+bool IsSunsettingActive(int nHeight, int64_t timestamp) {
+    AssertLockHeld(cs_main);
+
+    if (chainName.isKMD()) {
+        return nHeight > nSunsettingHeight;
+    } else {
+        return timestamp > nSunsettingTimestamp;
+    }
 }
