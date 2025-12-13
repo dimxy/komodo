@@ -32,7 +32,6 @@
 #include "cc/eval.h"
 #include "cc/CCinclude.h"
 #include "Gulden/auto_checkpoints.h"
-#include "hex.h"
 #include "komodo_bitcoind.h"
 #include "komodo_notary.h"
 #include "komodo_utils.h"
