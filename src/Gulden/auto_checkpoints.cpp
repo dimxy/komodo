@@ -32,6 +32,7 @@
 
 #include <stdint.h>
 #include <boost/foreach.hpp>
+namespace fs = boost::filesystem;
 
 // Automatic checkpoint system.
 // Based on the checkpoint system developed initially by peercoin, however modified to work for Gulden.
@@ -92,13 +93,13 @@ namespace Checkpoints
 		CBlockIndex* pindexSyncCheckpoint = mapBlockIndex[syncCheckpoint.GetHash()];
 		CBlockIndex* pindexCheckpointRecv = mapBlockIndex[checkpoint.GetHash()];
 
-		if (pindexCheckpointRecv->nHeight <= pindexSyncCheckpoint->nHeight)
+		if (pindexCheckpointRecv->GetHeight() <= pindexSyncCheckpoint->GetHeight())
 		{
 			// Received an older checkpoint, trace back from current checkpoint
 			// to the same height of the received checkpoint to verify
 			// that current checkpoint should be a descendant block
 			CBlockIndex* pindex = pindexSyncCheckpoint;
-			while (pindex->nHeight > pindexCheckpointRecv->nHeight)
+			while (pindex->GetHeight() > pindexCheckpointRecv->GetHeight())
 			{
 				if (!(pindex = pindex->pprev))
 					return error("%s: pprev1 null - block index structure failure",  __func__);
@@ -110,7 +111,7 @@ namespace Checkpoints
 					__func__, checkpoint.ToString(), syncCheckpoint.ToString());
 			}
 			LogPrintf("%s Warning: checkpoint is old: new checkpoint height=%d, existing checkpoint height=%d (possibly reorg)\n",
-				__func__, pindexCheckpointRecv->nHeight, pindexSyncCheckpoint->nHeight);
+				__func__, pindexCheckpointRecv->GetHeight(), pindexSyncCheckpoint->GetHeight());
 			return false; // ignore older checkpoint
 		}
 
@@ -118,7 +119,7 @@ namespace Checkpoints
 		// checkpoint. Trace back to the same height of current checkpoint
 		// to verify.
 		CBlockIndex* pindex = pindexCheckpointRecv;
-		while (pindex->nHeight > pindexSyncCheckpoint->nHeight)
+		while (pindex->GetHeight() > pindexSyncCheckpoint->GetHeight())
 		{
 			if (!(pindex = pindex->pprev))
 			{
@@ -192,7 +193,7 @@ namespace Checkpoints
 	// Check against synchronized checkpoint
 	bool CheckSync(const uint256& hashBlock, const CBlockIndex* pindexPrev)
 	{
-		int nHeight = pindexPrev->nHeight + 1;
+		int nHeight = pindexPrev->GetHeight() + 1;
 		LOCK(cs_hashSyncCheckpoint);
 		if (syncCheckpoint.IsNull())
 		{
@@ -204,31 +205,31 @@ namespace Checkpoints
 		assert(mapBlockIndex.count(syncCheckpoint.GetHash()));
 		const CBlockIndex* pindexSync = mapBlockIndex[syncCheckpoint.GetHash()];
 
-		LogPrint("chk", "%s: nHeight %d hashBlock %s vs pindexSync->nHeight %d syncCheckpoint=%s\n",
-			__func__, nHeight, hashBlock.ToString(), pindexSync->nHeight, syncCheckpoint.ToString());
-		if (nHeight > pindexSync->nHeight)
+		LogPrint("chk", "%s: nHeight %d hashBlock %s vs pindexSync->GetHeight() %d syncCheckpoint=%s\n",
+			__func__, nHeight, hashBlock.ToString(), pindexSync->GetHeight(), syncCheckpoint.ToString());
+		if (nHeight > pindexSync->GetHeight())
 		{
 			// trace back to same height as sync-checkpoint
 			const CBlockIndex* pindex = pindexPrev;
-			while (pindex->nHeight > pindexSync->nHeight)
+			while (pindex->GetHeight() > pindexSync->GetHeight())
 			{
 				if (!(pindex = pindex->pprev))
 				{
 					return error("CheckSync: pprev null - block index structure failure");
 				}
 			}
-			if (pindex->nHeight < pindexSync->nHeight || pindex->GetBlockHash() != syncCheckpoint.GetHash())
+			if (pindex->GetHeight() < pindexSync->GetHeight() || pindex->GetBlockHash() != syncCheckpoint.GetHash())
 			{
 				LogPrint("chk", "%s: returning false (not a sync-checkpoint descendant)\n", __func__);
 				return false; // only descendant of sync-checkpoint can pass check
 			}
 		}
-		if (nHeight == pindexSync->nHeight && hashBlock != syncCheckpoint.GetHash())
+		if (nHeight == pindexSync->GetHeight() && hashBlock != syncCheckpoint.GetHash())
 		{
 			LogPrint("chk", "%s: returning false (same height with sync-checkpoint)\n", __func__);
 			return false; // same height with sync-checkpoint
 		}
-		if (nHeight < pindexSync->nHeight && !mapBlockIndex.count(hashBlock))
+		if (nHeight < pindexSync->GetHeight() && !mapBlockIndex.count(hashBlock))
 		{
 			LogPrint("chk", "%s: returning false (lower height than sync-checkpoint)\n", __func__);
 			return false; // lower height than sync-checkpoint
@@ -244,7 +245,7 @@ namespace Checkpoints
 		const CBlockIndex* pindexSync = mapBlockIndex[syncCheckpoint.GetHash()];
 		const CBlockIndex* pindex = mapBlockIndex[hashBlock];
 
-		if(!pindexSync || !pindex || pindex->nHeight >= pindexSync->nHeight)
+		if(!pindexSync || !pindex || pindex->GetHeight() >= pindexSync->GetHeight())
 			return false;
 
 		return true;
@@ -319,7 +320,7 @@ namespace Checkpoints
 
 		// Select the last proof-of-work block
 		CBlockIndex *pindex = chainActive.Tip();
-		if (pindex->nHeight < AUTO_CHECKPOINT_DEPTH+1)
+		if (pindex->GetHeight() < AUTO_CHECKPOINT_DEPTH+1)
 		{
 			return pindex->GetBlockHash();
 		}
@@ -637,7 +638,7 @@ bool CSyncChkptMessage::ProcessSyncCheckpoint(CNode* pfrom, const std::string &s
 		// Ask this guy to fill in what we're missing
 		if (pfrom)
 		{
-			LogPrint("chk", "%s getheaders (%d) to peer=%d\n", __func__, (chainActive.Tip() ? chainActive.Tip()->nHeight : 0), pfrom->id);
+			LogPrint("chk", "%s getheaders (%d) to peer=%d\n", __func__, (chainActive.Tip() ? chainActive.Tip()->GetHeight() : 0), pfrom->id);
 			pfrom->PushMessage("getheaders", chainActive.GetLocator(chainActive.Tip()), uint256());
 		}
 		sReasonOut = "checkpoint not in block index (made pending)";
