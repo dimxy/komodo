@@ -4623,9 +4623,9 @@ static bool ActivateBestChainStep(bool fSkipdpow, CValidationState &state, CBloc
             {
                 const CBlockIndex *pindexLastNotarized = mapBlockIndex[notarizedhash];
                 auto msg = "- " + strprintf(_("Current tip : %s, height %d, work %s"),
-                                    pindexOldTip->phashBlock->GetHex(), pindexOldTip->GetHeight(), pindexOldTip->nChainWork.GetHex()) + "\n" +
+                                    pindexOldTip->phashBlock->GetHex(), pindexOldTip->GetHeight(), pindexOldTip->chainPower.chainWork().GetHex()) + "\n" +
                     "- " + strprintf(_("New tip     : %s, height %d, work %s"),
-                                    pindexMostWork->phashBlock->GetHex(), pindexMostWork->GetHeight(), pindexMostWork->nChainWork.GetHex()) + "\n" +
+                                    pindexMostWork->phashBlock->GetHex(), pindexMostWork->GetHeight(), pindexMostWork->chainPower.chainWork().GetHex()) + "\n" +
                     "- " + strprintf(_("Fork point  : %s, height %d"),
                                     pindexFork->phashBlock->GetHex(), pindexFork->GetHeight()) + "\n" +
                     "- " + strprintf(_("Last ntrzd  : %s, height %d"),
@@ -6471,7 +6471,7 @@ bool static LoadBlockIndexDB()
         }
         LogPrintf("%s: sync checkpoint file initialized\n", __func__);
     }
-    LogPrintf("%s: chainName %s\n", __func__, chainName.ToString());
+    LogPrintf("%s: ASSETCHAINS_SYMBOL %s\n", __func__, ASSETCHAINS_SYMBOL);
 
     LogPrintf("%s: hashBestChain=%s height=%d date=%s progress=%f\n", __func__,
               chainActive.LastTip()->GetBlockHash().ToString(), chainActive.Height(),
@@ -8873,7 +8873,7 @@ CMutableTransaction CreateNewContextualCMutableTransaction(const Consensus::Para
 bool IsSunsettingActive(int nHeight, int64_t timestamp) {
     AssertLockHeld(cs_main);
 
-    if (chainName.isKMD()) {
+    if (ASSETCHAINS_SYMBOL[0] == '\0' ) {
         return nHeight > nSunsettingHeight;
     } else {
         return timestamp > nSunsettingTimestamp;

@@ -98,11 +98,7 @@ namespace Checkpoints
 
     bool CSyncCheckpointActivation::GetChainParams(CSyncChkParams &syncChkParamsOut)
     {
-        if (chainName.ToString().empty()) {
-            LogPrintf("CSyncCheckpointActivation::GetChainParams: chainName not initialised yet\n");
-            return false;
-        }
-        if (chainName.isKMD()) {
+        if (ASSETCHAINS_SYMBOL[0] == 0) {
             if (GetBoolArg("-testnet", false)) {
                 if (!CSyncCheckpointActivation::GetTestnetParams(syncChkParamsOut)) {
                     return false;
@@ -112,8 +108,8 @@ namespace Checkpoints
                     return false;
                 }
             }
-        } else if (!CSyncCheckpointActivation::GetAssetParams(chainName.ToString(), syncChkParamsOut)) {
-            LogPrint("chk", "CSyncCheckpointActivation::GetChainParams: GetAssetParams returned false, chainName=%s\n", chainName.ToString());
+        } else if (!CSyncCheckpointActivation::GetAssetParams(string(ASSETCHAINS_SYMBOL), syncChkParamsOut)) {
+            LogPrint("chk", "CSyncCheckpointActivation::GetChainParams: GetAssetParams returned false, ASSETCHAINS_SYMBOL=%s\n", ASSETCHAINS_SYMBOL);
             return false;
         }
         return true;

@@ -29,7 +29,6 @@
 #include "net.h"
 #include "util.h"
 #include "txdb.h"
-#include "fs.h"
 #include "streams.h"
 
 class uint256;
