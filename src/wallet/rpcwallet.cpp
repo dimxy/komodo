@@ -61,7 +61,6 @@
 
 #include "main.h"
 #include "Gulden/auto_checkpoints.h"
-#include "rpc/rawtransaction.h"
 #include "komodo_defs.h"
 #include <string.h>
 
