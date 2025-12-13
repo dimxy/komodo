@@ -5580,7 +5580,7 @@ bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& sta
 
             if (!IsSunsettingActive(nHeight, block.GetBlockTime())) {
                 LogPrint("dpow", "%s dpow is active, height=%d timestamp=%lld\n", __func__, nHeight, block.GetBlockTime());
-                if ( !komodo_checkpoint(&notarized_height,nHeight,hash) )
+                if ( komodo_checkpoint(&notarized_height,nHeight,hash) < 0 )
                 {
                     CBlockIndex *heightblock = chainActive[nHeight];
                     if ( heightblock != 0 && heightblock->GetBlockHash() == hash )
