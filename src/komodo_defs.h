@@ -95,11 +95,15 @@ static const int32_t KMD_SEASON_HEIGHTS[NUM_KMD_SEASONS] = {
     nS8HardforkHeight,
     8113400};
 
-const int32_t nSunsettingHeight = 5247009; // TODO fix (now approx Dec 01 2026)
-const uint32_t nSunsettingTimestamp = 1796103821; // TODO fix, now Dec 01 2026
+// KMD mainnet height sample
+const int32_t nSunsettingHeight = 4722174;
+// Asset chain timestamp
+const uint32_t nSunsettingTimestamp = 1764606619; // TODO fix, (now 1 Dec 2025)
 
-const int32_t nSyncChkPointHeight = nSunsettingHeight; // TODO fix
-const uint32_t nSyncChkPointTimestamp = nSunsettingTimestamp; // TODO fix
+// KMD mainnet height
+const int32_t nSyncChkPointHeight = nSunsettingHeight; // TODO fix if used
+// Asset chain timestamp
+const uint32_t nSyncChkPointTimestamp = nSunsettingTimestamp; // TODO fix if used
 
 // Era array of pubkeys. Add extra seasons to bottom as requried, after adding appropriate info above. 
 static const char *notaries_elected[NUM_KMD_SEASONS][NUM_KMD_NOTARIES][2] =
