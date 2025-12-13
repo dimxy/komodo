@@ -37,6 +37,7 @@
 #endif // ENABLE_RUST
 uint32_t komodo_chainactive_timestamp();
 
+#include "main.h"
 #include "komodo_defs.h"
 
 unsigned int lwmaGetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params);
