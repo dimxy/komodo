@@ -32,10 +32,6 @@
 #include "cc/eval.h"
 #include "cc/CCinclude.h"
 #include "Gulden/auto_checkpoints.h"
-#include "komodo_bitcoind.h"
-#include "komodo_notary.h"
-#include "komodo_utils.h"
-#include "komodo_globals.h"
 #ifdef ENABLE_WALLET
 #include "wallet/wallet.h"
 #include "wallet/walletdb.h"
