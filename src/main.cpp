@@ -4623,9 +4623,9 @@ static bool ActivateBestChainStep(bool fSkipdpow, CValidationState &state, CBloc
             {
                 const CBlockIndex *pindexLastNotarized = mapBlockIndex[notarizedhash];
                 auto msg = "- " + strprintf(_("Current tip : %s, height %d, work %s"),
-                                    pindexOldTip->phashBlock->GetHex(), pindexOldTip->GetHeight(), pindexOldTip->chainPower.chainWork().GetHex()) + "\n" +
+                                    pindexOldTip->phashBlock->GetHex(), pindexOldTip->GetHeight(), pindexOldTip->chainPower.chainWork.GetHex()) + "\n" +
                     "- " + strprintf(_("New tip     : %s, height %d, work %s"),
-                                    pindexMostWork->phashBlock->GetHex(), pindexMostWork->GetHeight(), pindexMostWork->chainPower.chainWork().GetHex()) + "\n" +
+                                    pindexMostWork->phashBlock->GetHex(), pindexMostWork->GetHeight(), pindexMostWork->chainPower.chainWork.GetHex()) + "\n" +
                     "- " + strprintf(_("Fork point  : %s, height %d"),
                                     pindexFork->phashBlock->GetHex(), pindexFork->GetHeight()) + "\n" +
                     "- " + strprintf(_("Last ntrzd  : %s, height %d"),
