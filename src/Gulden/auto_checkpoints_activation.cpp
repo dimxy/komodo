@@ -22,8 +22,7 @@
 #include "key_io.h"
 #include "main.h"
 #include "auto_checkpoints.h"
-#include "komodo_hardfork.h"
-#include "komodo_bitcoind.h" 
+#include "komodo_defs.h" 
 
 using namespace std;
 
