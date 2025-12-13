@@ -21,7 +21,7 @@
 #include "key.h"
 #include "key_io.h"
 #include "main.h"
-#include "wallet.h"
+#include "wallet/wallet.h"
 #include "init.h"
 #include "auto_checkpoints.h"
 #include "komodo_defs.h" 
