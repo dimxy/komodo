@@ -32,6 +32,8 @@
 
 #include <stdint.h>
 #include <boost/foreach.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
 namespace fs = boost::filesystem;
 
 // Automatic checkpoint system.
