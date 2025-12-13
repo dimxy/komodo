@@ -1448,7 +1448,7 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp, const CPubKey& my
             CBlockIndex *psyncCheckpoint = Checkpoints::GetLastSyncCheckpoint();
             UniValue blockinfo(UniValue::VOBJ);
             if (psyncCheckpoint) {
-                blockinfo.push_back(Pair("height", psyncCheckpoint->nHeight));
+                blockinfo.push_back(Pair("height", psyncCheckpoint->GetHeight()));
                 blockinfo.push_back(Pair("blockHash", psyncCheckpoint->phashBlock ? (*psyncCheckpoint->phashBlock).GetHex() : uint256().GetHex()));
             }
             obj.push_back(Pair("syncCheckpoint", blockinfo));
