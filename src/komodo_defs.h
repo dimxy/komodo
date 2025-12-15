@@ -85,9 +85,9 @@ static const uint32_t KMD_SEASON_TIMESTAMPS[NUM_KMD_SEASONS] = {1525132800, 1563
 static const int32_t KMD_SEASON_HEIGHTS[NUM_KMD_SEASONS] = {814000, 1444000, nDecemberHardforkHeight, nS4HardforkHeight, nS5HardforkHeight, nS6HardforkHeight, nS7HardforkHeight, nS8HardforkHeight, 7113400};
 
 // TOKEL height HF sample
-const int32_t nSunsettingHeight = 3112766; // Fix: Approx 12 Jan 2026, not used actually
+const int32_t nSunsettingHeight = 2081563; // not used
 // Asset chain timestamp
-const uint32_t nSunsettingTimestamp = 1767528000; // 12 Jan 2026 12:00 UTC
+const uint32_t nSunsettingTimestamp = 1767528000; // 04 Jan 2026 12:00 UTC
 
 // KMD mainnet height
 const int32_t nSyncChkPointHeight = nSunsettingHeight; // TODO fix if used
