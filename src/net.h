@@ -346,6 +346,7 @@ public:
     bool fGetAddr;
     std::set<uint256> setKnown;
     int64_t nLastWsAddrTime;
+    uint256 hashCheckpointKnown;
 
     // inventory based relay
     mruset<CInv> setInventoryKnown;
