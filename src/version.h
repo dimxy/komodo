@@ -27,7 +27,7 @@
  * 170011 = Tokel HF 2023 | 170011 + 1 = 170012 = Tokel HF 2024
  */
 static const int BASE_PROTOCOL_VERSION = 170011;
-static const int PROTOCOL_VERSION = BASE_PROTOCOL_VERSION + 1;
+static const int PROTOCOL_VERSION = 170013; // increased for auto-checkpoints 
 
 //! initial proto version, to be increased after version/verack negotiation
 static const int INIT_PROTO_VERSION = 209;
