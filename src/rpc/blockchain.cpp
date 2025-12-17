@@ -1418,7 +1418,7 @@ UniValue getblockchaininfo(const UniValue& params, bool fHelp, const CPubKey& my
             "     \"chaintip\": \"xxxxxxxx\",   (string) branch ID used to validate the current chain tip\n"
             "     \"nextblock\": \"xxxxxxxx\"   (string) branch ID that the next block will be validated under\n"
             "  },\n"
-            "  \"syncCheckpointUpgrade\": {                      (object) sync checkpoint and dPoW status\n"
+            "  \"syncCheckpointUpgrade\": {               (object) sync checkpoint and dPoW status\n"
             "     \"dpow_active\": xx,                    (boolean) whether dPoW (delayed Proof of Work) is active\n"
             "     \"sync_checkpoint_active\": xx,         (boolean) whether sync checkpoint upgrade is active\n"
             "     \"sync_checkpoint_expected\": xx,       (boolean) whether sync checkpoint upgrade is expected\n"
