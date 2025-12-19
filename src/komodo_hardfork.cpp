@@ -24,8 +24,8 @@ const int32_t nKIP0003Activation = nS8HardforkHeight;
 
 // KMD DPoW sunsetting height
 const int32_t nSunsettingHeight = 4771595; // Approx Jan 05 2026
-// asset chains DPoW sunsetting time
-const uint32_t nSunsettingTimestamp = 1767528000; // Jan 04 2026 12:00 UTC
+// asset chains DPoW sunsetting time (for tests)
+const uint32_t nSunsettingTimestamp = 1766167200; // Dec 19 2025 18:00 UTC
 
 // KMD checkpoint auto activation ht
 const int32_t nSyncChkPointHeight = nSunsettingHeight;

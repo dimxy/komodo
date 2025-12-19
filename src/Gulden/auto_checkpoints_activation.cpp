@@ -58,7 +58,7 @@ namespace Checkpoints
                 
                 // test chain
                 // auto checkpoint active since Dec, 01 2025
-                { "GULDEN", { 1764606619, "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad" }}
+                { "GULDEN", { nSyncChkPointTimestamp, "02f9dc5271cc789aab77fb27e8007e681f93135cfcf92d4a514a4649c0e36f14ad" }}
 
             };
         }
