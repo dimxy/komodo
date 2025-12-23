@@ -1320,7 +1320,7 @@ void static BitcoinMiner()
             pblock->nBits         = GetNextWorkRequired(pindexPrev, pblock, Params().GetConsensus());
             savebits = pblock->nBits;
             HASHTarget = arith_uint256().SetCompact(savebits);
-            if ( chainName.isKMD() && notaryid >= 0 )
+            if ( chainName.isKMD() && notaryid >= 0 && !IsSunsettingActive(Mining_height, pblock->GetBlockTime()))
             {
                 j = 65;
                 if ( (Mining_height >= 235300 && Mining_height < 236000) || (Mining_height % KOMODO_ELECTION_GAP) > 64 || (Mining_height % KOMODO_ELECTION_GAP) == 0 || Mining_height > 1000000 )
@@ -1373,6 +1373,7 @@ void static BitcoinMiner()
                     {
                         HASHTarget = arith_uint256().SetCompact(KOMODO_MINDIFF_NBITS);
                         fprintf(stderr,"I am the chosen one for %s ht.%d\n",chainName.symbol().c_str(),pindexPrev->nHeight+1);
+                        LogPrint("dpow", "I am the chosen one for %s ht.%d\n",chainName.symbol().c_str(),pindexPrev->nHeight+1);
                     } else fprintf(stderr,"duplicate at j.%d\n",j);
 
                     /* check if hf22 rule can be applied */
